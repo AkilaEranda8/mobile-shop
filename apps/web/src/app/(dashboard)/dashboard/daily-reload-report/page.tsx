@@ -9,10 +9,9 @@ import {
   PhoneCall, DollarSign, TrendingUp, CheckCircle, Download, Calendar,
   Search, Wallet, CreditCard,
 } from 'lucide-react'
-import { useActiveBranchId, useDailyReloadReport, useFeatureFlag } from '@/lib/hooks'
+import { useActiveBranchId, useDailyReloadReport, useTenantFeatures } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
-import { notFound } from 'next/navigation'
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'var(--bg-card)',
@@ -106,7 +105,8 @@ const renderPieLabel = ({ name, percent }: any) =>
   percent > 0.04 ? `${String(name).slice(0, 12)}${String(name).length > 12 ? '…' : ''} ${(percent * 100).toFixed(0)}%` : ''
 
 export default function DailyReloadReportPage() {
-  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
+  const { hasFeature, loading: featuresLoading } = useTenantFeatures()
+  const hasDailyReload = hasFeature('DAILY_RELOAD')
 
   const [period, setPeriod] = useState('30')
   const branchId = useActiveBranchId() ?? ''
@@ -131,8 +131,6 @@ export default function DailyReloadReportPage() {
   if (branchId) apiParams.branchId = branchId
 
   const { data: rawData, loading, error, refetch } = useDailyReloadReport(apiParams)
-
-  if (!hasDailyReload) notFound()
 
   const d = rawData as any
 
@@ -178,6 +176,29 @@ export default function DailyReloadReportPage() {
   const dayExport = days.map(r => [
     r.date, r.count, r.totalAmount.toFixed(2), r.commission.toFixed(2), r.successCount, r.count - r.successCount,
   ])
+
+  if (featuresLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh] text-sm" style={{ color: 'var(--text-muted)' }}>
+        Loading report…
+      </div>
+    )
+  }
+
+  if (!hasDailyReload) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
+          <PhoneCall size={26} style={{ color: 'var(--brand-light)' }} />
+        </div>
+        <div className="text-center">
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Daily Reload Report</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>This feature is not enabled for your account.</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Contact your administrator to enable Daily Reload.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

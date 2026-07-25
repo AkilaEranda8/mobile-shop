@@ -2,7 +2,7 @@
 
 import { notFound, useParams } from 'next/navigation'
 import { ReportSectionPage, type ReportSectionId } from '@/components/reports/ReportTabs'
-import { useFeatureFlag } from '@/lib/hooks'
+import { useTenantFeatures } from '@/lib/hooks'
 
 const SECTION_MAP: Record<string, ReportSectionId> = {
   overview: 'overview',
@@ -19,10 +19,16 @@ export default function DashboardReportSectionPage() {
   const params = useParams()
   const sectionKey = typeof params.section === 'string' ? params.section : ''
   const sectionId = SECTION_MAP[sectionKey]
-  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
+  const { hasFeature, loading } = useTenantFeatures()
+  const hasDailyReload = hasFeature('DAILY_RELOAD')
 
   if (!sectionId) notFound()
-  if (sectionId === 'dailyreload' && !hasDailyReload) notFound()
+  if (loading && sectionId === 'dailyreload') {
+    return <p className="text-sm p-6" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  }
+  if (sectionId === 'dailyreload' && !hasDailyReload) {
+    return <p className="text-sm p-6" style={{ color: 'var(--text-muted)' }}>Daily Reload is not enabled for your account.</p>
+  }
 
   return <ReportSectionPage section={sectionId} />
 }

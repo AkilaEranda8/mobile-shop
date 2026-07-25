@@ -54,6 +54,8 @@ function readCache(): FeaturesCache | null {
 export function useTenantFeatures() {
   const [features, setFeatures] = useState<Record<string, boolean>>(() => readCache()?.features ?? {})
   const [featurePrices, setFeaturePrices] = useState<Record<string, number | null>>(() => readCache()?.prices ?? {})
+  // Avoid false "disabled" flashes / notFound() before /tenants/my-features returns
+  const [loading, setLoading] = useState(() => readCache() == null)
 
   const loadFeatures = useCallback(() => {
     return tenantApi.myFeatures().then((res: any) => {
@@ -71,7 +73,7 @@ export function useTenantFeatures() {
         } catch { /* noop */ }
       }
       return feat
-    })
+    }).finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -96,10 +98,11 @@ export function useTenantFeatures() {
 
   const refetchFeatures = useCallback(() => {
     clearFeaturesCache()
+    setLoading(true)
     return loadFeatures().catch(() => {})
   }, [loadFeatures])
 
-  return { features, featurePrices, hasFeature, refetchFeatures }
+  return { features, featurePrices, hasFeature, refetchFeatures, loading }
 }
 
 export function useFeatureFlag(feature: string): boolean {

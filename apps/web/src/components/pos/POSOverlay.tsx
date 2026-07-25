@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -1601,8 +1602,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }
 
   const handleHoldSales = () => {
-    if (cart.length > 0) holdCart()
-    else { setShowHeldCarts(true); toast('Showing held carts', { icon: '📦' }) }
+    if (cart.length > 0) {
+      if (holdCart()) setShowHeldCarts(true)
+      return
+    }
+    setShowHeldCarts(true)
+    toast(heldCarts.length ? `Showing ${heldCarts.length} held cart(s)` : 'No held carts yet — add items then Hold', { icon: '📦' })
+  }
+
+  const openDocPreview = (kind: 'QUOTE' | 'DRAFT') => {
+    if (cart.length === 0) {
+      toast.error('Cart is empty — add items first')
+      return
+    }
+    setShowDocPreview(kind)
   }
 
   const openDrawer = () => {
@@ -2925,14 +2938,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
       if (e.ctrlKey && !e.shiftKey && e.key === 'F7') {
         e.preventDefault()
-        if (cart.length > 0) setShowDocPreview('QUOTE')
-        else toast.error('Cart is empty')
+        openDocPreview('QUOTE')
         return
       }
       if (e.ctrlKey && !e.shiftKey && e.key === 'F8') {
         e.preventDefault()
-        if (cart.length > 0) setShowDocPreview('DRAFT')
-        else toast.error('Cart is empty')
+        openDocPreview('DRAFT')
         return
       }
       if (e.shiftKey && e.key === 'F6') {
@@ -3950,12 +3961,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
                       <Archive size={12} />Hold
                     </button>
-                    <button type="button" onClick={() => setShowDocPreview('QUOTE')}
+                    <button type="button" onClick={() => openDocPreview('QUOTE')}
                       className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors hover:bg-white/5"
                       style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
                       <FileText size={12} />Quote
                     </button>
-                    <button type="button" onClick={() => setShowDocPreview('DRAFT')}
+                    <button type="button" onClick={() => openDocPreview('DRAFT')}
                       className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors hover:bg-white/5"
                       style={{ borderColor: POS_THEME.border, color: POS_THEME.muted }}>
                       <FilePlus2 size={12} />Draft
@@ -4713,8 +4724,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 { label: `Held Carts (${heldCarts.length})`, icon: Archive, onClick: () => { setShowMoreMenu(false); setShowHeldCarts(true) } },
                 { label: 'Calculator (F12)', icon: Calculator, onClick: () => { setShowMoreMenu(false); setShowCalc(true) } },
                 { label: 'Open Cash Drawer', icon: Banknote, onClick: () => { setShowMoreMenu(false); openDrawer() } },
-                { label: 'Quote (Ctrl+F7)', icon: FileText, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('QUOTE') : toast.error('Cart is empty') } },
-                { label: 'Draft invoice (Ctrl+F8)', icon: FilePlus2, onClick: () => { setShowMoreMenu(false); cart.length > 0 ? setShowDocPreview('DRAFT') : toast.error('Cart is empty') } },
+                { label: 'Quote (Ctrl+F7)', icon: FileText, onClick: () => { setShowMoreMenu(false); openDocPreview('QUOTE') } },
+                { label: 'Draft invoice (Ctrl+F8)', icon: FilePlus2, onClick: () => { setShowMoreMenu(false); openDocPreview('DRAFT') } },
                 { label: 'WhatsApp Share', icon: MessageCircle, onClick: () => { setShowMoreMenu(false); shareWhatsApp() } },
               ].map(({ label, icon: Icon, onClick }) => (
                 <button key={label} type="button" onClick={onClick}
@@ -4776,85 +4787,82 @@ function POSContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* ── Quote / Draft Invoice Preview ── */}
-      {showDocPreview && (() => {
+      {/* ── Quote / Draft Invoice Preview (portaled outside POS dark shell) ── */}
+      {showDocPreview && typeof document !== 'undefined' && createPortal((() => {
         const docNum = genDocNumber(showDocPreview === 'QUOTE' ? 'QT' : 'DFT')
         const label  = showDocPreview === 'QUOTE' ? 'QUOTE' : 'DRAFT INVOICE'
         const color  = showDocPreview === 'QUOTE' ? '#2563eb' : 'var(--brand-primary)'
         return (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true" aria-label={label}>
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-black/80 border-b border-white/10 backdrop-blur">
               <div className="flex items-center gap-2">
                 {showDocPreview === 'QUOTE' ? <FileText size={15} className="text-blue-400" /> : <FilePlus2 size={15} className="text-violet-400" />}
                 <span className="text-sm font-bold text-white">{label}</span>
-                <span className="text-xs text-slate-500 font-mono">{docNum}</span>
+                <span className="text-xs font-mono" style={{ color: '#94a3b8' }}>{docNum}</span>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors" style={{ background: color, color: '#fff' }}>
+                <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors" style={{ background: color, color: '#fff' }}>
                   <Printer size={12} /> Print
                 </button>
-                <button onClick={() => setShowDocPreview(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded-lg border border-white/10 transition-colors">
+                <button type="button" onClick={() => setShowDocPreview(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-white/10 transition-colors" style={{ color: '#94a3b8' }}>
                   <X size={13} /> Close
                 </button>
               </div>
             </div>
             <div className="flex justify-center py-6 px-4">
-              <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden print:shadow-none">
-                {/* Doc header */}
+              {/* Inline colors — avoid dark-mode / [data-pos=dark] remapping white text onto white paper */}
+              <div className="w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden print:shadow-none" style={{ background: '#ffffff', color: '#1f2937' }}>
                 <div className="px-10 py-8 flex items-start justify-between" style={{ background: color }}>
                   <div>
-                    <p className="text-white/70 text-xs font-semibold tracking-widest uppercase">{label}</p>
-                    <p className="text-white text-2xl font-extrabold mt-1">{docNum}</p>
-                    <p className="text-white/60 text-xs mt-1">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                    <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.7)' }}>{label}</p>
+                    <p className="text-2xl font-extrabold mt-1" style={{ color: '#fff' }}>{docNum}</p>
+                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-white font-bold text-sm">{invoiceSettings.shopName || 'Our Shop'}</p>
-                    {invoiceSettings.phone && <p className="text-white/70 text-xs">{invoiceSettings.phone}</p>}
-                    {invoiceSettings.address && <p className="text-white/70 text-xs">{invoiceSettings.address}</p>}
+                    <p className="font-bold text-sm" style={{ color: '#fff' }}>{invoiceSettings.shopName || 'Our Shop'}</p>
+                    {invoiceSettings.phone && <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{invoiceSettings.phone}</p>}
+                    {invoiceSettings.address && <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{invoiceSettings.address}</p>}
                   </div>
                 </div>
-                {/* Customer */}
-                <div className="px-10 py-5 border-b border-gray-100">
-                  <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-1">Customer</p>
-                  <p className="font-bold text-gray-800">{selectedCustomer?.name ?? 'Walk-in Customer'}</p>
-                  {selectedCustomer?.phone && <p className="text-sm text-gray-500">{selectedCustomer.phone}</p>}
+                <div className="px-10 py-5" style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <p className="text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: '#9ca3af' }}>Customer</p>
+                  <p className="font-bold" style={{ color: '#1f2937' }}>{selectedCustomer?.name ?? 'Walk-in Customer'}</p>
+                  {selectedCustomer?.phone && <p className="text-sm" style={{ color: '#6b7280' }}>{selectedCustomer.phone}</p>}
                 </div>
-                {/* Items */}
                 <div className="px-10 py-4">
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b border-gray-200">
-                      <th className="text-left py-2 text-xs text-gray-400 uppercase font-semibold">Item</th>
-                      <th className="text-center py-2 text-xs text-gray-400 uppercase font-semibold">Qty</th>
-                      <th className="text-right py-2 text-xs text-gray-400 uppercase font-semibold">Price</th>
-                      <th className="text-right py-2 text-xs text-gray-400 uppercase font-semibold">Total</th>
+                    <thead><tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <th className="text-left py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Item</th>
+                      <th className="text-center py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Qty</th>
+                      <th className="text-right py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Price</th>
+                      <th className="text-right py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Total</th>
                     </tr></thead>
                     <tbody>{cart.map(item => (
-                      <tr key={item.cartId} className="border-b border-gray-50">
+                      <tr key={item.cartId} style={{ borderBottom: '1px solid #f9fafb' }}>
                         <td className="py-2.5">
-                          <p className="font-semibold text-gray-800">{item.name}</p>
-                          <p className="text-xs text-gray-400">{item.sku}{item.imei ? ` · IMEI: ${item.imei}` : ''}</p>
+                          <p className="font-semibold" style={{ color: '#1f2937' }}>{item.name}</p>
+                          <p className="text-xs" style={{ color: '#9ca3af' }}>{item.sku}{item.imei ? ` · IMEI: ${item.imei}` : ''}</p>
                         </td>
-                        <td className="py-2.5 text-center text-gray-600">{item.quantity}</td>
-                        <td className="py-2.5 text-right text-gray-600">{formatCurrency(item.price)}</td>
-                        <td className="py-2.5 text-right font-semibold text-gray-800">{formatCurrency(item.price * item.quantity)}</td>
+                        <td className="py-2.5 text-center" style={{ color: '#4b5563' }}>{item.quantity}</td>
+                        <td className="py-2.5 text-right" style={{ color: '#4b5563' }}>{formatCurrency(item.price)}</td>
+                        <td className="py-2.5 text-right font-semibold" style={{ color: '#1f2937' }}>{formatCurrency(item.price * item.quantity)}</td>
                       </tr>
                     ))}</tbody>
                   </table>
                 </div>
-                {/* Totals */}
-                <div className="px-10 py-5 bg-gray-50 border-t border-gray-100">
-                  <div className="flex justify-between text-sm text-gray-500 mb-1"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                  {discountAmount > 0 && <div className="flex justify-between text-sm text-green-600 mb-1"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
-                  <div className="flex justify-between text-base font-extrabold mt-2 pt-2 border-t border-gray-200" style={{ color }}><span>Total</span><span>{formatCurrency(saleTotal)}</span></div>
+                <div className="px-10 py-5" style={{ background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
+                  <div className="flex justify-between text-sm mb-1" style={{ color: '#6b7280' }}><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                  {discountAmount > 0 && <div className="flex justify-between text-sm mb-1" style={{ color: '#16a34a' }}><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
+                  <div className="flex justify-between text-base font-extrabold mt-2 pt-2" style={{ color, borderTop: '1px solid #e5e7eb' }}><span>Total</span><span>{formatCurrency(saleTotal)}</span></div>
                 </div>
                 <div className="px-10 py-4 text-center">
-                  <p className="text-xs text-gray-400 italic">{invoiceSettings.footerNote || 'Thank you for your business!'}</p>
+                  <p className="text-xs italic" style={{ color: '#9ca3af' }}>{invoiceSettings.footerNote || 'Thank you for your business!'}</p>
                 </div>
               </div>
             </div>
           </div>
         )
-      })()}
+      })(), document.body)}
 
       {/* ── Recent Invoices Slide-over ── */}
       {showRecentInvoices && (
