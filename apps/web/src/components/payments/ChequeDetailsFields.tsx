@@ -106,12 +106,7 @@ export function ChequeDetailsFields({
         <input
           type="date"
           value={chequeDate}
-          max={todayChequeDate()}
-          onChange={e => {
-            const next = e.target.value
-            const max = todayChequeDate()
-            onDateChange(next && next > max ? max : next)
-          }}
+          onChange={e => onDateChange(e.target.value)}
           required={required}
           className={inputCls}
           style={defaultInput}

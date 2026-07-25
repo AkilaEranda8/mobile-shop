@@ -1718,98 +1718,102 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-4xl shadow-2xl max-h-[92vh] overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+      <div
+        className="rounded-2xl w-full max-w-4xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+      >
+        <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <h3 className="text-base font-semibold text-[var(--text-primary)]">New Purchase Order</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]"><X size={16} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-5">
-          {/* Supplier + delivery */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-xs text-[var(--text-muted)] mb-1.5">Supplier *</label>
-              {suppliers.length === 0
-                ? <p className="text-xs text-red-400">No suppliers yet â€” add one first</p>
-                : <select className="input-field" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-              }
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          {/* Fixed: supplier + search */}
+          <div className="p-5 pb-3 space-y-4 shrink-0 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-xs text-[var(--text-muted)] mb-1.5">Supplier *</label>
+                {suppliers.length === 0
+                  ? <p className="text-xs text-red-400">No suppliers yet — add one first</p>
+                  : <select className="input-field" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                }
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-muted)] mb-1.5">Expected Delivery</label>
+                <input type="date" className="input-field" value={expectedDelivery} onChange={e => setExpDel(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-muted)] mb-1.5">Notes</label>
+                <input className="input-field" placeholder="Optional notes" value={notes} onChange={e => setNotes(e.target.value)} />
+              </div>
             </div>
+
             <div>
-              <label className="block text-xs text-[var(--text-muted)] mb-1.5">Expected Delivery</label>
-              <input type="date" className="input-field" value={expectedDelivery} onChange={e => setExpDel(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs text-[var(--text-muted)] mb-1.5">Notes</label>
-              <input className="input-field" placeholder="Optional notes" value={notes} onChange={e => setNotes(e.target.value)} />
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Items *</label>
+              </div>
+              <div className="relative mb-1">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+                <input
+                  ref={quickSearchRef}
+                  className="input-field pl-8 text-sm w-full"
+                  placeholder="Search & add product…"
+                  value={quickSearch}
+                  onChange={e => { setQuickSearch(e.target.value); setQuickOpen(true) }}
+                  onFocus={() => setQuickOpen(true)}
+                  onBlur={() => setTimeout(() => setQuickOpen(false), 150)}
+                  onKeyDown={e => {
+                    const list = quickFiltered
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault()
+                      setQuickOpen(true)
+                      setQuickHighlight(h => Math.min(h + 1, Math.max(list.length - 1, 0)))
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault()
+                      setQuickHighlight(h => Math.max(h - 1, 0))
+                    } else if (e.key === 'Enter' && list.length > 0) {
+                      e.preventDefault()
+                      quickAddProduct(list[quickHighlight] ?? list[0])
+                    } else if (e.key === 'Escape') {
+                      setQuickOpen(false)
+                    }
+                  }}
+                />
+                {quickOpen && quickFiltered.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                    {quickFiltered.map((p: any, hi: number) => (
+                      <button key={p.id} type="button"
+                        onMouseDown={() => quickAddProduct(p)}
+                        className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === quickHighlight ? 'bg-violet-500/20' : 'hover:bg-violet-500/15'}`}
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-800 dark:text-slate-200 truncate font-medium">{p.name}</p>
+                          <p className="text-[10px] text-gray-500 dark:text-slate-500">{p.sku} · {p.brandName}{p.trackImei ? ' · IMEI' : ''}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 flex items-center gap-2">
+                          <div>
+                            <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
+                            <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
+                          </div>
+                          <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
+                            <Plus size={12} className="text-violet-400" />
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                ↑↓ select product · Enter add · Enter on qty → buying price → next item
+              </p>
             </div>
           </div>
 
-          {/* Items */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Items *</label>
-            </div>
-
-            {/* Quick product search */}
-            <div className="relative mb-1">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-              <input
-                ref={quickSearchRef}
-                className="input-field pl-8 text-sm w-full"
-                placeholder="Search & add product…"
-                value={quickSearch}
-                onChange={e => { setQuickSearch(e.target.value); setQuickOpen(true) }}
-                onFocus={() => setQuickOpen(true)}
-                onBlur={() => setTimeout(() => setQuickOpen(false), 150)}
-                onKeyDown={e => {
-                  const list = quickFiltered
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault()
-                    setQuickOpen(true)
-                    setQuickHighlight(h => Math.min(h + 1, Math.max(list.length - 1, 0)))
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault()
-                    setQuickHighlight(h => Math.max(h - 1, 0))
-                  } else if (e.key === 'Enter' && list.length > 0) {
-                    e.preventDefault()
-                    quickAddProduct(list[quickHighlight] ?? list[0])
-                  } else if (e.key === 'Escape') {
-                    setQuickOpen(false)
-                  }
-                }}
-              />
-              {quickOpen && quickFiltered.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-                  {quickFiltered.map((p: any, hi: number) => (
-                    <button key={p.id} type="button"
-                      onMouseDown={() => quickAddProduct(p)}
-                      className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === quickHighlight ? 'bg-violet-500/20' : 'hover:bg-violet-500/15'}`}
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div className="min-w-0">
-                        <p className="text-sm text-gray-800 dark:text-slate-200 truncate font-medium">{p.name}</p>
-                        <p className="text-[10px] text-gray-500 dark:text-slate-500">{p.sku} · {p.brandName}{p.trackImei ? ' · IMEI' : ''}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0 flex items-center gap-2">
-                        <div>
-                          <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
-                          <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
-                        </div>
-                        <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
-                          <Plus size={12} className="text-violet-400" />
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <p className="text-[10px] text-[var(--text-muted)] mb-3">
-              ↑↓ select product · Enter add · Enter on qty → buying price → next item
-            </p>
-
-            {/* Column headers */}
-            <div className="grid grid-cols-12 gap-3 mb-1 px-2">
+          {/* Scrollable: added items only */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3">
+            <div className="grid grid-cols-12 gap-3 mb-1 px-2 sticky top-0 z-10 py-1" style={{ background: 'var(--bg-card)' }}>
               <span className="col-span-5 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Product</span>
               <span className="col-span-2 text-[10px] text-[var(--text-muted)] uppercase tracking-wide text-center">Qty</span>
               <span className="col-span-3 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Buying Price</span>
@@ -1820,7 +1824,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
               {items.map((item, i) => (
                 <div key={i} className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
 
-                  {/* â”€â”€ Main row â”€â”€ */}
+                  {/* Main row */}
                   <div className="grid grid-cols-12 gap-3 items-start p-2">
 
                     {/* Product search */}
@@ -1870,7 +1874,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                               >
                                 <div className="min-w-0">
                                   <p className="text-xs text-[var(--text-primary)] truncate font-medium">{p.name}</p>
-                                  <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` Â· ${p.brandName}` : ''}{p.trackImei ? ' Â· IMEI' : ''}</p>
+                                  <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` · ${p.brandName}` : ''}{p.trackImei ? ' · IMEI' : ''}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
                                   <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
@@ -1941,7 +1945,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                     </div>
                   </div>
 
-                  {/* â”€â”€ Variation selectors (only when product has variants) â”€â”€ */}
+                  {/* Variation selectors (only when product has variants) */}
                   {(normalizeStorageVariations(item._variations).length ?? 0) > 0 && (() => {
                     const vars = normalizeStorageVariations(item._variations)
                     const storageOpts = [...new Set(vars.filter((v: any) => v.storage).map((v: any) => v.storage as string))]
@@ -2035,17 +2039,19 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
                 </div>
               ))}
             </div>
-
-            <div className="flex justify-end mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-              <span className="text-sm font-bold text-gray-900 dark:text-white">Total: {formatCurrency(subtotal)}</span>
-            </div>
           </div>
 
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading || suppliers.length === 0} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}Create PO
-            </button>
+          {/* Fixed footer */}
+          <div className="shrink-0 border-t px-5 py-4 space-y-3" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
+            <div className="flex justify-end">
+              <span className="text-sm font-bold text-gray-900 dark:text-white">Total: {formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+              <button type="submit" disabled={loading || suppliers.length === 0} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}Create PO
+              </button>
+            </div>
           </div>
         </form>
       </div>
