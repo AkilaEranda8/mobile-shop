@@ -20,6 +20,35 @@ import {
 
 const router = Router()
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+
+/** Linked POS sale must show down-payment vs financed balance — never full PAID while HP is open. */
+function salePaymentState(cashPrice: number, downPayment: number) {
+  const total = round2(Math.max(0, cashPrice))
+  const paid = round2(Math.min(Math.max(0, downPayment), total))
+  const due = round2(Math.max(0, total - paid))
+  const status = due <= 0.001 ? 'PAID' as const : paid > 0.001 ? 'PARTIAL' as const : 'DUE' as const
+  return { total, paid, due, status }
+}
+
+async function syncLinkedSaleOnHpComplete(
+  tx: Prisma.TransactionClient,
+  saleId: string | null | undefined,
+  occurredAt: Date = new Date(),
+) {
+  if (!saleId) return
+  const sale = await tx.sale.findUnique({ where: { id: saleId }, include: { payments: true } })
+  if (!sale || sale.status === 'RETURNED') return
+  const creditRows = sale.payments.filter(p => p.method === 'CREDIT')
+  for (const row of creditRows) {
+    await tx.salePayment.delete({ where: { id: row.id } })
+  }
+  await tx.sale.update({
+    where: { id: sale.id },
+    data: { paidAmount: sale.total, dueAmount: 0, status: 'PAID' },
+  })
+  // Note: installment collections are recorded on HirePurchasePayment — sale stays a device invoice marker.
+  void occurredAt
+}
 const ACTIVE_STATUSES = ['PENDING', 'ACTIVE', 'DEFAULTED'] as const
 const PAYMENT_METHODS = new Set(['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'])
 const HP_ACTIONS = ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'APPROVE', 'RECEIVE_PAYMENT', 'CANCEL', 'EXPORT_REPORTS', 'EDIT_SETTINGS'] as const
@@ -325,14 +354,31 @@ router.post('/from-pos', requireModuleAccess('HIRE_PURCHASE', 'edit'), requireHp
     const result = await prisma.$transaction(async tx => {
       const locked = await tx.imeiRecord.updateMany({ where: { id: imeiRecord.id, status: 'IN_STOCK' }, data: { status: 'UNDER_HIRE_PURCHASE', customerId } })
       if (locked.count !== 1) throw new AppError('IMEI was reserved by another transaction', 409)
+      const salePay = salePaymentState(calc.cashPrice, calc.downPayment)
+      const paymentCreates: { method: PaymentMethod; amount: number; reference: string; paidAt?: Date }[] = []
+      if (salePay.paid > 0.001) {
+        paymentCreates.push({
+          method: downMethod as PaymentMethod,
+          amount: salePay.paid,
+          reference: `HP down payment ${number}`,
+          paidAt: new Date(),
+        })
+      }
+      if (salePay.due > 0.001) {
+        paymentCreates.push({
+          method: 'CREDIT',
+          amount: salePay.due,
+          reference: `HP financed balance ${number}`,
+        })
+      }
       const sale = await tx.sale.create({
         data: {
           tenantId, branchId, invoiceNumber, customerId, customerName: customer.name, customerPhone: customer.phone,
-          subtotal: calc.cashPrice, total: calc.cashPrice, paidAmount: calc.downPayment, dueAmount: 0, status: 'PAID',
+          subtotal: salePay.total, total: salePay.total, paidAmount: salePay.paid, dueAmount: salePay.due, status: salePay.status,
           cashierId: req.user?.userId, cashierName: req.user?.email ?? 'Staff', source: 'HIRE_PURCHASE',
-          notes: `Hire Purchase ${number}; down payment ${calc.downPayment.toFixed(2)}`,
-          items: { create: [{ productId: imeiRecord.productId, productName: imeiRecord.product.name, sku: imeiRecord.product.sku, imei, quantity: 1, unitPrice: calc.cashPrice, unitCost: imeiRecord.product.buyingPrice, total: calc.cashPrice }] },
-          payments: calc.downPayment > 0 ? { create: [{ method: downMethod as PaymentMethod, amount: calc.downPayment, reference: `HP down payment ${number}`, paidAt: new Date() }] } : undefined,
+          notes: `Hire Purchase ${number}; down payment ${salePay.paid.toFixed(2)}; financed ${salePay.due.toFixed(2)}`,
+          items: { create: [{ productId: imeiRecord.productId, productName: imeiRecord.product.name, sku: imeiRecord.product.sku, imei, quantity: 1, unitPrice: salePay.total, unitCost: imeiRecord.product.buyingPrice, total: salePay.total }] },
+          payments: paymentCreates.length ? { create: paymentCreates } : undefined,
         },
       })
       await tx.imeiRecord.update({ where: { id: imeiRecord.id }, data: { saleId: sale.id } })
@@ -414,6 +460,9 @@ router.patch('/agreements/:id/status', requireModuleAccess('HIRE_PURCHASE', 'edi
           where: { id: agreement.imeiRecordId },
           data: { status: status === 'CANCELLED' && !agreement.saleId ? 'IN_STOCK' : 'SOLD' },
         })
+      }
+      if (status === 'COMPLETED') {
+        await syncLinkedSaleOnHpComplete(tx, agreement.saleId)
       }
       await writeLog(tx, req, agreement.branchId, `AGREEMENT_${status}`, agreement.id, agreement, row, { reason: req.body.reason })
       return row
@@ -626,6 +675,9 @@ router.post('/agreements/:id/payments', requireModuleAccess('HIRE_PURCHASE', 'ed
       }
       if (nextOutstanding <= 0.001 && agreement.imeiRecordId) {
         await tx.imeiRecord.update({ where: { id: agreement.imeiRecordId }, data: { status: 'SOLD' } })
+      }
+      if (nextOutstanding <= 0.001) {
+        await syncLinkedSaleOnHpComplete(tx, agreement.saleId, occurredAt)
       }
       await writeLog(tx, req, agreement.branchId, 'PAYMENT_RECEIVED', agreement.id, agreement, updated, { paymentId: payment.id, amount, allocations, penaltyAllocations })
       return { payment, agreement: updated, allocations, penaltyAllocations, transactionIds }

@@ -1130,6 +1130,12 @@ export default function SalesPage() {
                 <Truck size={9} /> Delivery
               </span>
             )}
+            {s.source === 'HIRE_PURCHASE' && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold"
+                style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
+                Hire Purchase
+              </span>
+            )}
             {s.source === 'CREDIT_COLLECTION' && (
               <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold"
                 style={{ background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>
