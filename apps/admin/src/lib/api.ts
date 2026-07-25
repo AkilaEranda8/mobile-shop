@@ -72,6 +72,14 @@ function responseErrorMessage(
   text: string,
   fallback = 'Request failed',
 ): string {
+  const errors = json.errors
+  if (Array.isArray(errors) && errors.length > 0) {
+    const detail = errors.filter((e): e is string => typeof e === 'string').join('; ')
+    if (detail) {
+      const msg = typeof json.message === 'string' ? json.message : fallback
+      return msg === 'Validation error' ? detail : `${msg}: ${detail}`
+    }
+  }
   if (typeof json.message === 'string' && json.message) return json.message
   if (text) return text
   return fallback

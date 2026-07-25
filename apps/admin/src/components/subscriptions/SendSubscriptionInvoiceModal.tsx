@@ -69,8 +69,10 @@ export default function SendSubscriptionInvoiceModal({
         throw new Error('Could not generate invoice PDF. Try again.')
       }
 
+      // Strip spaces/dashes so "+94 75 75 16 772" is accepted by the API
+      const phoneDigits = phone.trim().replace(/[^\d+]/g, '')
       await sendSubscriptionInvoice(sub.id, {
-        phone: phone.trim(),
+        phone: phoneDigits,
         orderId: inv.invoiceNo,
         customerName: sub.ownerName,
         amount: inv.total,
