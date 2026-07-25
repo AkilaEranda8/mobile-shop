@@ -20,6 +20,7 @@ import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { usePos } from '@/lib/use-pos'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
+import { datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-date'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
@@ -43,6 +44,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
   const [paymentMethodId, setPaymentMethodId] = useState('CASH')
   const [chequeNumber, setChequeNumber] = useState('')
   const [chequeDate, setChequeDate] = useState(todayChequeDate)
+  const [paymentAt, setPaymentAt] = useState('')
   const payMethods = usePaymentMethods()
   const paymentMethod: PaymentMethodKey = payMethods.find(m => m.id === paymentMethodId)?.key
     ?? payMethods.find(m => m.key === paymentMethodId)?.key
@@ -93,6 +95,7 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
         reference: chequeRef || undefined,
         branchId,
         performedBy: authStorage.getUser()?.name || 'Staff',
+        ...(paymentAt.trim() ? { paymentAt: paymentAt.trim() } : {}),
       })
       const data = res?.data ?? res
       const refs = [
@@ -201,6 +204,31 @@ function CreditPaymentModal({ customerId, customerName, outstanding, onClose, on
               onDateChange={setChequeDate}
             />
           )}
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+              Date &amp; time <span style={{ opacity: 0.7 }}>(optional · past only)</span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                value={paymentAt}
+                max={datetimeLocalMaxNow()}
+                onChange={e => setPaymentAt(clampDatetimeLocalToNow(e.target.value))}
+                className="flex-1 min-w-[200px] px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors"
+                style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+              {paymentAt && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentAt('')}
+                  className="text-[10px] underline"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Use now
+                </button>
+              )}
+            </div>
+          </div>
           {error && <p className="text-[11px] text-red-500">{error}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg text-xs font-medium transition-colors" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>Cancel</button>
@@ -429,7 +457,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                           <tr key={sale.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
                             <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
                             <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(sale.invoiceNumber)}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(sale.createdAt))}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{safeText(formatDate(sale.createdAt, 'long'))}</td>
                             <td className="px-3 py-2">
                               <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                                 {sale.items?.length ?? 0} item{(sale.items?.length ?? 0) !== 1 ? 's' : ''}

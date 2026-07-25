@@ -6,6 +6,8 @@ import { generateInvoiceNumber } from '../../utils/counters'
 import { Request } from 'express'
 import { emitOpeningCustomerArAccounting } from '../accounting/integration/accounting-events.service'
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { parseOptionalPaymentAt, assertPaymentAtNotFuture } from '../../utils/date-range'
+import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -339,6 +341,10 @@ export const customersService = {
     notes?: string
     /** Cheque / bank ref stored on SalePayment + finance reference. */
     reference?: string
+    /** Optional backdated payment timestamp (datetime-local / ISO / YYYY-MM-DD). */
+    paymentAt?: string
+    paymentDate?: string
+    occurredAt?: string
     /** Skip these sales when allocating (e.g. new POS invoice created in the same checkout). */
     excludeSaleIds?: string[]
   }, req?: Request) {
@@ -370,6 +376,16 @@ export const customersService = {
     if (req) {
       await resolveMutationBranchId(req, { preferred: branchId })
     }
+
+    let occurredAt: Date | undefined
+    try {
+      occurredAt = parseOptionalPaymentAt(body.paymentAt ?? body.paymentDate ?? body.occurredAt)
+      assertPaymentAtNotFuture(occurredAt)
+    } catch (err) {
+      throw new AppError(err instanceof Error ? err.message : 'Invalid payment date/time', 400)
+    }
+
+    await assertBusinessDayOpenIfEnabled(tenantId, branchId, occurredAt ?? new Date())
 
     if (cashAmount < 0 || discountAmount < 0) {
       throw new AppError('Amount and discount cannot be negative', 400)
@@ -516,6 +532,7 @@ export const customersService = {
             status: 'PAID',
             cashierName: performedBy,
             source: 'CREDIT_COLLECTION',
+            ...(occurredAt ? { createdAt: occurredAt } : {}),
             notes: [
               'Outstanding balance settlement',
               leftoverDiscount > 0 ? `Discount ${leftoverDiscount.toFixed(2)}` : null,
@@ -576,6 +593,7 @@ export const customersService = {
             description: descParts.join(' — '),
             paymentMethod: method,
             reference: txReference,
+            occurredAt: occurredAt ?? undefined,
             performedBy,
           },
         })
@@ -597,6 +615,7 @@ export const customersService = {
             ].filter(Boolean).join(' — '),
             paymentMethod: method,
             reference: invoiceRefs.join(', ') || undefined,
+            occurredAt: occurredAt ?? undefined,
             performedBy,
           },
         })
