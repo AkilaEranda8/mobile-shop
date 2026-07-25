@@ -12,7 +12,7 @@ import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } 
 import { emitPurchaseAccounting, emitOpeningSupplierApAccounting } from '../accounting/integration/accounting-events.service'
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 import { applyPurchaseOrderReceiveEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
-import { businessDayRange, normalizeBusinessDate, resolveQueryDateRange } from '../../utils/date-range'
+import { businessDayRange, normalizeBusinessDate, resolveQueryDateRange, parseOptionalPaymentAt } from '../../utils/date-range'
 import { recordSupplierPayment } from './supplier-payment.service'
 import { OPENING_BALANCE_SUPPLIER_PO_NOTES } from '../../constants/business-rules.constants'
 import { assertPurchaseOrderTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
@@ -876,7 +876,7 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER', 
 router.post('/:id/payments', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const { amount, method, reference, notes, poIds, bankAccountId, paymentDate } = req.body
+    const { amount, method, reference, notes, poIds, bankAccountId, paymentDate, paymentAt } = req.body
     const selectedPoIds = Array.isArray(poIds)
       ? [...new Set(poIds.map((id: unknown) => String(id).trim()).filter(Boolean))]
       : []
@@ -896,11 +896,10 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIA
     if (!branchId) throw new AppError('No branch assigned to this user', 400)
 
     let occurredAt: Date | undefined
-    if (paymentDate) {
-      const rawDate = String(paymentDate)
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) throw new AppError('Invalid payment date', 400)
-      const key = normalizeBusinessDate(rawDate)
-      occurredAt = businessDayRange(key).start
+    try {
+      occurredAt = parseOptionalPaymentAt(paymentAt ?? paymentDate)
+    } catch {
+      throw new AppError('Invalid payment date/time', 400)
     }
 
     const result = await recordSupplierPayment({

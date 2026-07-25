@@ -79,6 +79,7 @@ export default function ArApPage() {
   const [payAmount, setPayAmount] = useState('')
   const [payMethodId, setPayMethodId] = useState('CASH')
   const [payRef, setPayRef] = useState('')
+  const [payAt, setPayAt] = useState('')
   const [chequeNumber, setChequeNumber] = useState('')
   const [chequeDate, setChequeDate] = useState(todayChequeDate)
   const [payLoading, setPayLoading] = useState(false)
@@ -208,6 +209,7 @@ export default function ArApPage() {
         reference: chequeRef || payRef || undefined,
         ...(branchId ? { branchId } : {}),
         ...(needsBankAccount && bankAccountId ? { bankAccountId } : {}),
+        ...(payAt.trim() ? { paymentAt: payAt.trim() } : {}),
       }
       if (tab === 'ar') {
         await accountingApi.recordArPayment({
@@ -225,6 +227,7 @@ export default function ArApPage() {
       toast.success('Payment posted to GL')
       setPayAmount('')
       setPayRef('')
+      setPayAt('')
       setChequeNumber('')
       setChequeDate(todayChequeDate())
       await loadSummary()
@@ -352,6 +355,27 @@ export default function ArApPage() {
                         className="btn-primary px-3 py-1.5 text-xs disabled:opacity-50">
                         {payLoading ? <Loader2 size={14} className="animate-spin" /> : 'Post'}
                       </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                        Date &amp; time <span style={{ opacity: 0.7 }}>(optional)</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={payAt}
+                        onChange={e => setPayAt(e.target.value)}
+                        className="input-field text-sm min-w-[200px]"
+                      />
+                      {payAt && (
+                        <button
+                          type="button"
+                          onClick={() => setPayAt('')}
+                          className="text-[10px] underline"
+                          style={{ color: 'var(--text-muted)' }}
+                        >
+                          Use now
+                        </button>
+                      )}
                     </div>
                     {payMethod === 'CHEQUE' && (
                       <ChequeDetailsFields

@@ -17,6 +17,30 @@ export function businessDateFromInstant(at: Date = new Date()): string {
   return at.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
 }
 
+/**
+ * Optional payment timestamp from API body.
+ * Accepts YYYY-MM-DD (Colombo day start), datetime-local (YYYY-MM-DDTHH:mm), or ISO.
+ * Empty / missing → undefined (caller uses "now").
+ */
+export function parseOptionalPaymentAt(raw: unknown): Date | undefined {
+  if (raw == null) return undefined
+  const s = String(raw).trim()
+  if (!s) return undefined
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return businessDayRange(s).start
+  }
+  const local = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/)
+  if (local) {
+    const sec = local[4] ?? '00'
+    return new Date(`${local[1]}T${local[2]}:${local[3]}:${sec}+05:30`)
+  }
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('Invalid payment date/time')
+  }
+  return d
+}
+
 /** Accept YYYY-MM-DD or fall back to today's Colombo business date */
 export function normalizeBusinessDate(dateStr?: string | null): string {
   if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr

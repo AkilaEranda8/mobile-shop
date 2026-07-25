@@ -496,6 +496,8 @@ export const accountingApi = {
     paymentMethod: string
     reference?: string
     notes?: string
+    bankAccountId?: string
+    paymentAt?: string
     allocations?: Array<{ saleId: string; amount: number }>
   }) => api.post('/accounting/ar/payments', body),
   recordApPayment: (body: {
@@ -505,6 +507,8 @@ export const accountingApi = {
     paymentMethod: string
     reference?: string
     notes?: string
+    bankAccountId?: string
+    paymentAt?: string
     allocations?: Array<{ purchaseOrderId: string; amount: number }>
   }) => api.post('/accounting/ap/payments', body),
   journals: (params?: Record<string, string>) =>

@@ -375,10 +375,12 @@ export async function recordArPayment(
     notes?: string
     bankAccountId?: string
     allocations?: Array<{ saleId: string; amount: number }>
+    occurredAt?: Date
   },
   actorEmail?: string,
 ) {
   const paymentId = `arp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const at = body.occurredAt ?? new Date()
   const je = await postArPaymentJournal(tenantId, body.customerId, {
     tenantId,
     branchId: body.branchId,
@@ -390,6 +392,7 @@ export async function recordArPayment(
     sourceRefId: paymentId,
     sourceEvent: 'AR_PAYMENT_RECEIVED',
     actorEmail,
+    entryDate: businessDateDb(businessDateFromInstant(at)),
     bankAccountId: body.bankAccountId,
     allocations: body.allocations,
   })
@@ -404,6 +407,8 @@ export async function recordArPayment(
     body.reference,
     body.allocations,
     je.id,
+    body.bankAccountId,
+    body.occurredAt,
   )
 
   return { journalEntry: je, paymentId }
@@ -419,6 +424,8 @@ async function syncArOperationalPayment(
   reference?: string,
   allocations?: Array<{ saleId: string; amount: number }>,
   journalEntryId?: string,
+  bankAccountId?: string,
+  occurredAt?: Date,
 ) {
   const c = await prisma.customer.findFirst({ where: { id: customerId, tenantId } })
   if (!c) return
@@ -492,6 +499,8 @@ async function syncArOperationalPayment(
         description: `Credit payment from ${c.name} (${c.phone}) — via Accounting`,
         paymentMethod,
         reference,
+        bankAccountId: bankAccountId || undefined,
+        occurredAt: occurredAt ?? undefined,
         performedBy,
       },
     })

@@ -444,7 +444,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   const [reference, setReference] = useState('')
   const [chequeNumber, setChequeNumber] = useState('')
   const [chequeDate, setChequeDate] = useState(todayChequeDate)
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }))
+  const [paymentDate, setPaymentDate] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -525,7 +525,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
         amount: Number(amount),
         method,
         reference: chequeRef || reference || undefined,
-        paymentDate: paymentDate || undefined,
+        paymentAt: paymentDate || undefined,
         poIds: [...selectedPOs],
       })
       toast.success('Payment recorded successfully')
@@ -767,15 +767,17 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
 
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Payment Date
+                Payment Date &amp; Time <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
               </label>
               <input
-                required
-                type="date"
+                type="datetime-local"
                 className="input-field"
                 value={paymentDate}
                 onChange={e => setPaymentDate(e.target.value)}
               />
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                Leave blank to use current date &amp; time
+              </p>
             </div>
 
             {method !== 'CHEQUE' && (

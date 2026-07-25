@@ -6,7 +6,7 @@ import { requireAccountingFeature } from './accounting.middleware'
 import { getAccountingStatus, listGlAccounts } from './accounting.service'
 import { initializeAccounting } from './accounting-init.service'
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
-import { resolveQueryDateRange, businessDayRange, normalizeBusinessDate } from '../../utils/date-range'
+import { resolveQueryDateRange, businessDateDb, businessDateFromInstant, parseOptionalPaymentAt } from '../../utils/date-range'
 import { getPagination } from '../../utils/pagination'
 import { syncOutboxForTenant } from './integration/accounting-outbox.service'
 import { processAccountingOutbox } from './integration/accounting-processor.service'
@@ -575,6 +575,14 @@ router.post('/ar/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
   try {
     const branchId = await resolveMutationBranchId(req, { preferred: req.body.branchId as string | undefined })
     if (!branchId) throw new AppError('branchId is required', 400)
+
+    let occurredAt: Date | undefined
+    try {
+      occurredAt = parseOptionalPaymentAt(req.body.paymentAt ?? req.body.paymentDate ?? req.body.occurredAt)
+    } catch {
+      throw new AppError('Invalid payment date/time', 400)
+    }
+
     sendSuccess(
       res,
       await recordArPayment(req.tenantId!, {
@@ -586,6 +594,7 @@ router.post('/ar/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
         notes: req.body.notes,
         allocations: req.body.allocations,
         bankAccountId: req.body.bankAccountId ? String(req.body.bankAccountId) : undefined,
+        occurredAt,
       }, req.user?.email),
       'AR payment recorded',
       201,
@@ -599,11 +608,10 @@ router.post('/ap/payments', authorize('OWNER', 'MANAGER'), async (req: Request, 
     if (!branchId) throw new AppError('branchId is required', 400)
 
     let occurredAt: Date | undefined
-    const paymentDate = req.body.paymentDate ?? req.body.occurredAt
-    if (paymentDate) {
-      const rawDate = String(paymentDate)
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) throw new AppError('Invalid payment date', 400)
-      occurredAt = businessDayRange(normalizeBusinessDate(rawDate)).start
+    try {
+      occurredAt = parseOptionalPaymentAt(req.body.paymentAt ?? req.body.paymentDate ?? req.body.occurredAt)
+    } catch {
+      throw new AppError('Invalid payment date/time', 400)
     }
 
     const result = await recordSupplierPayment({
