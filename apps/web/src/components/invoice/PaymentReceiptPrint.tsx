@@ -26,6 +26,8 @@ export interface PaymentReceiptData {
   advance: number
   balanceDue: number
   currency?: string
+  /** Sheet title — defaults to Payment Receipt (e.g. Quotation, Draft Invoice) */
+  documentTitle?: string
 }
 
 const MIN_ROWS = 13
@@ -84,6 +86,7 @@ export function buildPaymentReceiptData(
     advance,
     balanceDue,
     currency: settings.currency || 'LKR',
+    documentTitle: sale.documentTitle || undefined,
   }
 }
 
@@ -194,14 +197,17 @@ const PaymentReceiptPrint = forwardRef<
     const pdfW = pdf.internal.pageSize.getWidth()
     const pdfH = (canvas.height * pdfW) / canvas.width
     pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH)
-    pdf.save(`receipt-${data.receiptNumber}.pdf`)
+    const prefix = /quot/i.test(data.documentTitle || '') ? 'quotation'
+      : /draft/i.test(data.documentTitle || '') ? 'draft'
+      : 'receipt'
+    pdf.save(`${prefix}-${data.receiptNumber}.pdf`)
   }
 
   const handlePrint = () => {
     if (!invoiceRef.current) return
     const w = window.open('', '_blank', 'width=820,height=1160')
     if (!w) return
-    w.document.write(`<!DOCTYPE html><html><head><title>Receipt ${data.receiptNumber}</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${data.documentTitle || 'Receipt'} ${data.receiptNumber}</title>
       <style>@page{size:A4;margin:12mm}body{margin:0;font-family:Arial,Helvetica,sans-serif}</style></head>
       <body>${invoiceRef.current.outerHTML}</body></html>`)
     w.document.close()
@@ -220,6 +226,10 @@ const PaymentReceiptPrint = forwardRef<
 
   const subLessDisc = data.subtotal - data.discount
   const year = new Date().getFullYear()
+  const isQuote = /quot/i.test(data.documentTitle || '')
+  const isDraft = /draft/i.test(data.documentTitle || '')
+  const dateLabel = isQuote ? 'Quote Date' : isDraft ? 'Draft Date' : 'Receipt Date'
+  const noLabel = isQuote ? 'Quote No' : isDraft ? 'Draft No' : 'Receipt No'
 
   const body = (
     <div
@@ -254,7 +264,7 @@ const PaymentReceiptPrint = forwardRef<
 
       {/* Title */}
       <h1 style={{ margin: '22px 0 16px', textAlign: 'center', fontSize: 22, fontWeight: 900, letterSpacing: 1.5, textTransform: 'uppercase', color: C.text }}>
-        Payment Receipt
+        {data.documentTitle || 'Payment Receipt'}
       </h1>
 
       {/* Client + meta */}
@@ -263,8 +273,8 @@ const PaymentReceiptPrint = forwardRef<
           <span style={{ fontWeight: 800, color: C.text }}>Client :</span> {data.clientName}
         </p>
         <div style={{ width: 260, flexShrink: 0 }}>
-          <MetaCell label="Receipt Date" value={data.receiptDate} />
-          <MetaCell label="Receipt No" value={data.receiptNumber} />
+          <MetaCell label={dateLabel} value={data.receiptDate} />
+          <MetaCell label={noLabel} value={data.receiptNumber} />
         </div>
       </div>
 
