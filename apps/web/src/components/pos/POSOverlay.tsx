@@ -4813,7 +4813,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {cart.length > 0 && (
-                  <button onClick={holdCart} className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors">
+                  <button onClick={() => holdCart()} className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20 transition-colors">
                     <Archive size={12} /><span className="hidden sm:inline">Hold Current</span><span className="sm:hidden">Hold</span>
                   </button>
                 )}
