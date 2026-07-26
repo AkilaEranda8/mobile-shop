@@ -1280,7 +1280,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                               ...(isEdit ? ['Stock'] : []),
                               'Retail (LKR)',
                               ...(hasWholesalePricing ? ['Wholesale (LKR)'] : []),
-                              ...(hasCreditPricing ? ['Credit (LKR)'] : []),
+                              ...(hasCreditPricing ? ['Cash (LKR)'] : []),
                               ...(canSeeProductCost ? ['Cost Price (LKR)'] : []),
                               'Action',
                             ] as string[]).map((h, i) => (
@@ -1425,7 +1425,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                       <PreviewRow label="Wholesale Price" value={pricing.wholesaleEx ? `LKR ${pricing.wholesaleEx}` : undefined} />
                     )}
                     {hasCreditPricing && (
-                      <PreviewRow label="Credit Price" value={pricing.creditEx ? `LKR ${pricing.creditEx}` : undefined} />
+                      <PreviewRow label="Cash Price" value={pricing.creditEx ? `LKR ${pricing.creditEx}` : undefined} />
                     )}
                     <PreviewRow label="IMEI Type" value={trackImei ? 'Phone / Tablet' : 'No IMEI'} />
                     <PreviewRow label="Warranty" value={warrantyTrack ? extra.warranty : 'None'} />
@@ -1497,7 +1497,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                   )}
                   {hasCreditPricing && (
                   <div>
-                      <Lbl>Credit Price (LKR)</Lbl>
+                      <Lbl>Cash Price (LKR)</Lbl>
                     <input type="number" min={0} style={inputStyle} placeholder="Optional"
                         value={pricing.creditEx} onChange={e => setPricing(p => ({ ...p, creditEx: e.target.value }))} />
                   </div>

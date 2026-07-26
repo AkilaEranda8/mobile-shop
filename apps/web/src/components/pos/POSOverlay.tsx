@@ -444,7 +444,7 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
   )
 }
 
-/* ── Retail / Wholesale / Credit (for price popups only) ─────────────────── */
+/* ── Retail / Wholesale / Cash (for price popups only) ─────────────────── */
 function PriceModeToggle({
   mode,
   onChange,
@@ -477,7 +477,7 @@ function PriceModeToggle({
     >
       {btn('retail', 'Retail', 'Retail catalog price')}
       {showWholesale && btn('wholesale', 'Wholesale', 'Wholesale catalog price (falls back to retail if unset)')}
-      {showCredit && btn('credit', 'Credit', 'Credit catalog price (falls back to retail if unset)')}
+      {showCredit && btn('credit', 'Cash', 'Cash catalog price (falls back to retail if unset)')}
     </div>
   )
 }

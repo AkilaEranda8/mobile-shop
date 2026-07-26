@@ -1251,7 +1251,7 @@ export default function SettingsPage() {
                         >
                           <option value="retail">Retail</option>
                           <option value="wholesale">Wholesale</option>
-                          <option value="credit">Credit</option>
+                          <option value="credit">Cash</option>
                         </select>
                       </div>
                     </div>
