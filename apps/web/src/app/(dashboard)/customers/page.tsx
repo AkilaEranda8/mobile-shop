@@ -235,7 +235,17 @@ function CreditPaymentModal({ customerId, customerName, customerPhone, outstandi
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={e => {
+            // Don't submit on Enter from inputs — user must click Record Payment
+            if (e.key !== 'Enter') return
+            const tag = (e.target as HTMLElement)?.tagName
+            if (tag === 'TEXTAREA' || tag === 'BUTTON') return
+            e.preventDefault()
+          }}
+          className="p-4 sm:p-5 space-y-4"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div className="lg:col-span-2 space-y-1.5 text-[12px]">
               <div className="flex items-center gap-1.5">
