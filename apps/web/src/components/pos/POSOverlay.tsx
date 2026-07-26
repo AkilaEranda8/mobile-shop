@@ -1591,16 +1591,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return true
   }
 
-  const holdCart = () => {
+  const holdCart = (label?: string) => {
     if (cart.length === 0) {
       toast.error('Cart is empty — add items first')
       return false
     }
     const id = `HC-${Date.now()}`
-    const entry = { id, label: `Cart #${heldCarts.length + 1}`, time: new Date().toISOString(), items: cart, customer: selectedCustomer, discountPct, discountFlat, discountMode }
+    const entry = { id, label: label ?? `Cart #${heldCarts.length + 1}`, time: new Date().toISOString(), items: cart, customer: selectedCustomer, discountPct, discountFlat, discountMode }
     saveHeldCarts([entry, ...heldCarts])
     setCart([]); setSelectedCustomer(null); setDiscountPct(0); setDiscountFlat(0)
-    toast.success(`Cart held — ${entry.label}`, { icon: '📦' })
+    toast.success(label ? `Saved — ${entry.label}` : `Cart held — ${entry.label}`, { icon: '📦' })
     return true
   }
 
@@ -1620,6 +1620,24 @@ function POSContent({ onClose }: { onClose: () => void }) {
     }
     setDocNum(genDocNumber(kind === 'QUOTE' ? 'QT' : 'DFT'))
     setShowDocPreview(kind)
+  }
+
+  // Save the current cart as a reopenable draft (stored with held carts).
+  const saveDraftForLater = () => {
+    if (cart.length === 0) { toast.error('Cart is empty — add items first'); return }
+    if (holdCart(`Draft ${docNum}`)) {
+      setShowDocPreview(null)
+      setShowHeldCarts(true)
+    }
+  }
+
+  // Close the preview and jump straight to checkout with the current cart intact.
+  const checkoutFromDoc = () => {
+    if (cart.length === 0) { toast.error('Cart is empty — add items first'); return }
+    setShowDocPreview(null)
+    setMobileView('cart')
+    setCartView('checkout')
+    setTimeout(() => payNowRef.current?.focus(), 80)
   }
 
   const downloadDocPdf = async () => {
@@ -4869,7 +4887,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <p className="text-[10px] font-mono leading-tight" style={{ color: '#94a3b8' }}>{docNum}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
                   <button type="button" onClick={downloadDocPdf} disabled={docDownloading}
                     className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all disabled:opacity-60"
                     style={{ background: accent, color: '#fff', boxShadow: `0 4px 14px ${accent}55` }}>
@@ -4880,6 +4898,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors"
                     style={{ color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)' }}>
                     <Printer size={13} /> Print
+                  </button>
+                  {!isQuote && (
+                    <button type="button" onClick={saveDraftForLater}
+                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors"
+                      style={{ color: '#fcd34d', borderColor: 'rgba(252,211,77,0.35)', background: 'rgba(252,211,77,0.10)' }}>
+                      <Archive size={13} /> Save Draft
+                    </button>
+                  )}
+                  <button type="button" onClick={checkoutFromDoc}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all"
+                    style={{ background: '#16a34a', color: '#fff', boxShadow: '0 4px 14px rgba(22,163,74,0.4)' }}>
+                    <ChevronRight size={13} /> Checkout
                   </button>
                   <button type="button" onClick={() => setShowDocPreview(null)}
                     className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border transition-colors"
