@@ -2,12 +2,13 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet, Pencil, Banknote, ClipboardList, CheckCircle } from 'lucide-react'
+import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet, Pencil, Banknote, ClipboardList, CheckCircle, ArrowUpDown, RotateCcw } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
+import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useCustomers, useFeatureFlag } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
@@ -1068,6 +1069,33 @@ const SEGMENTS = [
   }},
 ]
 
+const SORT_OPTIONS: { value: string; label: string; compare: (a: Customer, b: Customer) => number }[] = [
+  { value: 'recent',    label: 'Newest first',      compare: (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() },
+  { value: 'oldest',    label: 'Oldest first',      compare: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() },
+  { value: 'name',      label: 'Name (A–Z)',        compare: (a, b) => (a.name ?? '').localeCompare(b.name ?? '') },
+  { value: 'due',       label: 'Highest due',       compare: (a, b) => b.totalDue - a.totalDue },
+  { value: 'purchases', label: 'Most purchases',    compare: (a, b) => b.totalPurchases - a.totalPurchases },
+  { value: 'points',    label: 'Most loyalty pts',  compare: (a, b) => b.loyaltyPoints - a.loyaltyPoints },
+]
+
+const DUE_OPTIONS = [
+  { id: 'all',  label: 'Any balance' },
+  { id: 'due',  label: 'Has due' },
+  { id: 'paid', label: 'Settled' },
+] as const
+
+type DueFilter = (typeof DUE_OPTIONS)[number]['id']
+
+const DUE_MIN_OPTIONS = [
+  { value: 'all',    label: 'Any due amount' },
+  { value: '1000',   label: 'Due ≥ Rs. 1,000' },
+  { value: '5000',   label: 'Due ≥ Rs. 5,000' },
+  { value: '10000',  label: 'Due ≥ Rs. 10,000' },
+  { value: '25000',  label: 'Due ≥ Rs. 25,000' },
+  { value: '50000',  label: 'Due ≥ Rs. 50,000' },
+  { value: '100000', label: 'Due ≥ Rs. 100,000' },
+]
+
 /* ── Add / Edit Customer Modal ───────────────────────────────────────── */
 function CustomerFormModal({ customer, onClose, onSaved }: {
   customer?: Customer
@@ -1232,6 +1260,10 @@ export default function CustomersPage() {
   const [payCustomerId, setPayCustomerId] = useState<string | null>(null)
   const [segment, setSegment] = useState('all')
   const [textSearch, setTextSearch] = useState('')
+  const [cityFilter, setCityFilter] = useState('all')
+  const [dueFilter, setDueFilter] = useState<DueFilter>('all')
+  const [dueMin, setDueMin] = useState('all')
+  const [sortBy, setSortBy] = useState('recent')
   const [showSegment, setShowSegment] = useState(false)
   const segmentRef = useRef<HTMLDivElement>(null)
 
@@ -1304,17 +1336,62 @@ export default function CustomersPage() {
   }, [canEdit, refetch])
 
   const activeSeg = SEGMENTS.find(s => s.key === segment) ?? SEGMENTS[0]
+
+  const cityOptions = useMemo(() => {
+    const cities = new Map<string, string>()
+    for (const c of customers) {
+      const city = (c.city ?? '').trim()
+      if (city) cities.set(city.toLowerCase(), city)
+    }
+    return [
+      { value: 'all', label: 'All cities' },
+      ...[...cities.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([value, label]) => ({ value, label })),
+    ]
+  }, [customers])
+
   const segmentFiltered = useMemo(() => {
     let rows = customers.filter(activeSeg.filter)
+
+    if (cityFilter !== 'all') {
+      rows = rows.filter(c => (c.city ?? '').trim().toLowerCase() === cityFilter)
+    }
+
+    if (hasCustomerCredit && dueFilter !== 'all') {
+      rows = rows.filter(c => (dueFilter === 'due' ? c.totalDue > 0 : c.totalDue <= 0))
+    }
+
+    if (hasCustomerCredit && dueMin !== 'all') {
+      const min = Number(dueMin)
+      rows = rows.filter(c => c.totalDue >= min)
+    }
+
     const q = textSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(c =>
-      c.name?.toLowerCase().includes(q) ||
-      c.phone?.toLowerCase().includes(q) ||
-      (c.email ?? '').toLowerCase().includes(q) ||
-      (c.city ?? '').toLowerCase().includes(q)
-    )
-  }, [customers, activeSeg, textSearch])
+    if (q) {
+      rows = rows.filter(c =>
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q) ||
+        (c.email ?? '').toLowerCase().includes(q) ||
+        (c.city ?? '').toLowerCase().includes(q)
+      )
+    }
+
+    const sorter = SORT_OPTIONS.find(s => s.value === sortBy)
+    return sorter ? [...rows].sort(sorter.compare) : rows
+  }, [customers, activeSeg, cityFilter, dueFilter, dueMin, hasCustomerCredit, textSearch, sortBy])
+
+  const hasActiveFilters =
+    segment !== 'all' || cityFilter !== 'all' || dueFilter !== 'all' || dueMin !== 'all' || sortBy !== 'recent' || textSearch.trim().length > 0
+
+  const clearFilters = () => {
+    setSegment('all')
+    setCityFilter('all')
+    setDueFilter('all')
+    setDueMin('all')
+    setSortBy('recent')
+    setTextSearch('')
+  }
 
   const totalDue       = customers.filter(c => c.isActive !== false).reduce((s, c) => s + c.totalDue, 0)
   const totalPurchases = customers.filter(c => c.isActive !== false).reduce((s, c) => s + c.totalPurchases, 0)
@@ -1486,7 +1563,11 @@ export default function CustomersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title">Customers</h1>
-          <p className="page-subtitle">{activeCount} active · {customers.length} total · <span className="text-violet-400">{activeSeg.label}</span></p>
+          <p className="page-subtitle">
+            {hasActiveFilters
+              ? <>{segmentFiltered.length} of {customers.length} shown · <span className="text-violet-400">{activeSeg.label}</span></>
+              : <>{activeCount} active · {customers.length} total · <span className="text-violet-400">{activeSeg.label}</span></>}
+          </p>
         </div>
         <div className="flex gap-2 sm:ml-auto items-center relative" ref={segmentRef}>
           <OpenPosButton label="POS Terminal" variant="secondary" />
@@ -1566,6 +1647,70 @@ export default function CustomersPage() {
             </button>
           ))}
         </div>
+
+        <FilterDropdown
+          value={cityFilter}
+          onChange={setCityFilter}
+          options={cityOptions}
+          icon={MapPin}
+          placeholder="All cities"
+          active={cityFilter !== 'all'}
+          onClear={() => setCityFilter('all')}
+        />
+
+        <FilterDropdown
+          value={sortBy}
+          onChange={setSortBy}
+          options={SORT_OPTIONS.map(({ value, label }) => ({ value, label }))}
+          icon={ArrowUpDown}
+          placeholder="Sort by"
+          active={sortBy !== 'recent'}
+          onClear={() => setSortBy('recent')}
+        />
+
+        {hasCustomerCredit && (
+          <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+            {DUE_OPTIONS.map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setDueFilter(opt.id)}
+                className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
+                style={dueFilter === opt.id
+                  ? { background: 'var(--brand-primary-light)', color: '#fff' }
+                  : { color: 'var(--text-muted)' }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {hasCustomerCredit && (
+          <FilterDropdown
+            value={dueMin}
+            onChange={setDueMin}
+            options={DUE_MIN_OPTIONS}
+            icon={CreditCard}
+            placeholder="Any due amount"
+            active={dueMin !== 'all'}
+            onClear={() => setDueMin('all')}
+          />
+        )}
+
+        {hasActiveFilters && (
+          <>
+            <span className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
+              {segmentFiltered.length} of {customers.length}
+            </span>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] rounded-lg font-medium transition-colors hover:text-red-400"
+              style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+              <RotateCcw size={11} />Reset
+            </button>
+          </>
+        )}
       </div>
 
       {/* Table */}
