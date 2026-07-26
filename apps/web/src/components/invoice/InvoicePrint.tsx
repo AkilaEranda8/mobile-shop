@@ -48,6 +48,8 @@ export interface InvoiceData {
   /** When set (e.g. repair invoices with parts listed at cost), overrides item-sum subtotal */
   subtotalOverride?: number
   totalOverride?: number
+  /** Big sheet title — defaults to INVOICE (e.g. QUOTATION, DRAFT INVOICE) */
+  documentTitle?: string
 }
 
 // ── Sample data ───────────────────────────────────────────────────────────────
@@ -143,7 +145,7 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
     const w = window.open('', '_blank', 'width=900,height=1200')
     if (!w) return
     w.document.write(`
-      <html><head><title>Invoice ${data.invoiceNumber}</title>
+      <html><head><title>${data.documentTitle || 'Invoice'} ${data.invoiceNumber}</title>
       <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3/dist/tailwind.min.css" rel="stylesheet">
       <style>
         body { margin: 0; background: white; font-family: 'Segoe UI', sans-serif; }
@@ -236,9 +238,9 @@ function InvoicePrint({ data = SAMPLE_INVOICE, hideControls = false }, outerRef)
           </div>
         </div>
 
-        {/* 2. INVOICE title */}
+        {/* 2. Document title */}
         <div style={{ borderTop: '1.5px solid #ccc', borderBottom: '1.5px solid #ccc', padding: '14px 0', marginBottom: 24, textAlign: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: 38, fontWeight: 900, letterSpacing: 8, color: '#2E2E2E' }}>INVOICE</h1>
+          <h1 style={{ margin: 0, fontSize: 38, fontWeight: 900, letterSpacing: 8, color: '#2E2E2E' }}>{data.documentTitle || 'INVOICE'}</h1>
         </div>
 
         {/* 3. Invoice info row */}

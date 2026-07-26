@@ -39,6 +39,8 @@ export interface KasthuriInvoiceData {
   balance: number
   currency?: string
   notes?: string
+  /** Big sheet title — defaults to INVOICE (e.g. QUOTATION, DRAFT INVOICE) */
+  documentTitle?: string
 }
 
 export function buildKasthuriInvoiceData(
@@ -98,6 +100,7 @@ export function buildKasthuriInvoiceData(
     balance,
     currency: settings.currency || 'LKR',
     notes: extractInvoiceNotesFromSale(sale),
+    documentTitle: sale.documentTitle || undefined,
   }
 }
 
@@ -250,7 +253,7 @@ const KasthuriInvoicePrint = forwardRef<
       {/* Header */}
       <div style={{ marginBottom: 0, paddingBottom: 12, borderBottom: `1.5px solid ${C.lineDark}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <h1 style={{ margin: 0, fontSize: 38, fontWeight: 800, letterSpacing: 0.5, color: C.text }}>INVOICE</h1>
+          <h1 style={{ margin: 0, fontSize: 38, fontWeight: 800, letterSpacing: 0.5, color: C.text }}>{data.documentTitle || 'INVOICE'}</h1>
           <img
             src={logo}
             alt={settings.shopName || 'Logo'}

@@ -1322,6 +1322,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
     try { return JSON.parse(localStorage.getItem('pos_held_carts') ?? '[]') } catch { return [] }
   })
   const [showDocPreview, setShowDocPreview]       = useState<'QUOTE'|'DRAFT'|null>(null)
+  const [docNum, setDocNum]                       = useState('')
+  const [docDownloading, setDocDownloading]       = useState(false)
+  const docPreviewRef                             = useRef<HTMLDivElement>(null)
   const [showCalc, setShowCalc]                   = useState(false)
   const [showOpeningCash, setShowOpeningCash]     = useState(false)
   const [openingCashAmount, setOpeningCashAmount] = useState('')
@@ -1615,7 +1618,45 @@ function POSContent({ onClose }: { onClose: () => void }) {
       toast.error('Cart is empty — add items first')
       return
     }
+    setDocNum(genDocNumber(kind === 'QUOTE' ? 'QT' : 'DFT'))
     setShowDocPreview(kind)
+  }
+
+  const downloadDocPdf = async () => {
+    if (!docPreviewRef.current || docDownloading) return
+    setDocDownloading(true)
+    try {
+      const { base64, filename } = await captureElementAsPdfBase64(docPreviewRef.current, `${docNum}.pdf`)
+      const a = document.createElement('a')
+      a.href = `data:application/pdf;base64,${base64}`
+      a.download = filename
+      a.click()
+      toast.success('PDF downloaded')
+    } catch {
+      toast.error('PDF generation failed — try again')
+    } finally {
+      setDocDownloading(false)
+    }
+  }
+
+  const printDocPreview = () => {
+    const contents = docPreviewRef.current?.innerHTML ?? ''
+    if (!contents) return
+    const w = window.open('', '_blank', 'width=900,height=1200')
+    if (!w) { toast.error('Popup blocked — allow popups to print'); return }
+    w.document.write(`
+      <html><head><title>${showDocPreview === 'QUOTE' ? 'Quotation' : 'Draft Invoice'} ${docNum}</title>
+      <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3/dist/tailwind.min.css" rel="stylesheet">
+      <style>
+        body { margin: 0; background: white; font-family: 'Segoe UI', sans-serif; }
+        @page { size: A4; margin: 15mm; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      </style>
+      </head><body>${contents}</body></html>
+    `)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { w.print(); w.close() }, 400)
   }
 
   const openDrawer = () => {
@@ -4787,77 +4828,80 @@ function POSContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* ── Quote / Draft Invoice Preview (portaled outside POS dark shell) ── */}
+      {/* ── Quote / Draft Invoice Preview — real invoice template + PDF download ── */}
       {showDocPreview && typeof document !== 'undefined' && createPortal((() => {
-        const docNum = genDocNumber(showDocPreview === 'QUOTE' ? 'QT' : 'DFT')
-        const label  = showDocPreview === 'QUOTE' ? 'QUOTE' : 'DRAFT INVOICE'
-        const color  = showDocPreview === 'QUOTE' ? '#2563eb' : 'var(--brand-primary)'
+        const isQuote = showDocPreview === 'QUOTE'
+        const label   = isQuote ? 'QUOTATION' : 'DRAFT INVOICE'
+        const accent  = isQuote ? '#2563eb' : '#7C3AED'
+        const docSale = {
+          invoiceNumber: docNum,
+          createdAt: new Date().toISOString(),
+          customerName: selectedCustomer?.name ?? 'Walk-in Customer',
+          customerPhone: selectedCustomer?.phone ?? '',
+          subtotal,
+          discount: discountAmount,
+          tax: 0,
+          total: saleTotal,
+          paidAmount: 0,
+          dueAmount: saleTotal,
+          documentTitle: label,
+          items: cart.map(i => ({
+            productName: i.name,
+            sku: i.sku,
+            imei: i.imei,
+            quantity: i.quantity,
+            unitPrice: i.price,
+            total: i.price * i.quantity,
+            warrantyMonths: i.warrantyMonths,
+          })),
+        }
         return (
-          <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true" aria-label={label}>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-black/80 border-b border-white/10 backdrop-blur">
-              <div className="flex items-center gap-2">
-                {showDocPreview === 'QUOTE' ? <FileText size={15} className="text-blue-400" /> : <FilePlus2 size={15} className="text-violet-400" />}
-                <span className="text-sm font-bold text-white">{label}</span>
-                <span className="text-xs font-mono" style={{ color: '#94a3b8' }}>{docNum}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors" style={{ background: color, color: '#fff' }}>
-                  <Printer size={12} /> Print
-                </button>
-                <button type="button" onClick={() => setShowDocPreview(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-white/10 transition-colors" style={{ color: '#94a3b8' }}>
-                  <X size={13} /> Close
-                </button>
+          <div className="fixed inset-0 z-[300] overflow-y-auto" role="dialog" aria-modal="true" aria-label={label} style={{ background: 'rgba(2,6,17,0.88)', backdropFilter: 'blur(6px)' }}>
+            {/* Toolbar */}
+            <div className="sticky top-0 z-10 border-b" style={{ background: 'rgba(6,10,20,0.92)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)' }}>
+              <div className="max-w-[900px] mx-auto flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${accent}26`, border: `1px solid ${accent}44` }}>
+                    {isQuote ? <FileText size={14} style={{ color: '#60a5fa' }} /> : <FilePlus2 size={14} style={{ color: '#a78bfa' }} />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold leading-tight" style={{ color: '#fff' }}>{isQuote ? 'Quotation' : 'Draft Invoice'}</p>
+                    <p className="text-[10px] font-mono leading-tight" style={{ color: '#94a3b8' }}>{docNum}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={downloadDocPdf} disabled={docDownloading}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all disabled:opacity-60"
+                    style={{ background: accent, color: '#fff', boxShadow: `0 4px 14px ${accent}55` }}>
+                    {docDownloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                    {docDownloading ? 'Generating…' : 'Download PDF'}
+                  </button>
+                  <button type="button" onClick={printDocPreview}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors"
+                    style={{ color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)' }}>
+                    <Printer size={13} /> Print
+                  </button>
+                  <button type="button" onClick={() => setShowDocPreview(null)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border transition-colors"
+                    style={{ color: '#94a3b8', borderColor: 'rgba(255,255,255,0.12)' }}>
+                    <X size={13} /> Close
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="flex justify-center py-6 px-4">
-              {/* Inline colors — avoid dark-mode / [data-pos=dark] remapping white text onto white paper */}
-              <div className="w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden print:shadow-none" style={{ background: '#ffffff', color: '#1f2937' }}>
-                <div className="px-10 py-8 flex items-start justify-between" style={{ background: color }}>
-                  <div>
-                    <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.7)' }}>{label}</p>
-                    <p className="text-2xl font-extrabold mt-1" style={{ color: '#fff' }}>{docNum}</p>
-                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-sm" style={{ color: '#fff' }}>{invoiceSettings.shopName || 'Our Shop'}</p>
-                    {invoiceSettings.phone && <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{invoiceSettings.phone}</p>}
-                    {invoiceSettings.address && <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{invoiceSettings.address}</p>}
-                  </div>
-                </div>
-                <div className="px-10 py-5" style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <p className="text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: '#9ca3af' }}>Customer</p>
-                  <p className="font-bold" style={{ color: '#1f2937' }}>{selectedCustomer?.name ?? 'Walk-in Customer'}</p>
-                  {selectedCustomer?.phone && <p className="text-sm" style={{ color: '#6b7280' }}>{selectedCustomer.phone}</p>}
-                </div>
-                <div className="px-10 py-4">
-                  <table className="w-full text-sm">
-                    <thead><tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                      <th className="text-left py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Item</th>
-                      <th className="text-center py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Qty</th>
-                      <th className="text-right py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Price</th>
-                      <th className="text-right py-2 text-xs uppercase font-semibold" style={{ color: '#9ca3af' }}>Total</th>
-                    </tr></thead>
-                    <tbody>{cart.map(item => (
-                      <tr key={item.cartId} style={{ borderBottom: '1px solid #f9fafb' }}>
-                        <td className="py-2.5">
-                          <p className="font-semibold" style={{ color: '#1f2937' }}>{item.name}</p>
-                          <p className="text-xs" style={{ color: '#9ca3af' }}>{item.sku}{item.imei ? ` · IMEI: ${item.imei}` : ''}</p>
-                        </td>
-                        <td className="py-2.5 text-center" style={{ color: '#4b5563' }}>{item.quantity}</td>
-                        <td className="py-2.5 text-right" style={{ color: '#4b5563' }}>{formatCurrency(item.price)}</td>
-                        <td className="py-2.5 text-right font-semibold" style={{ color: '#1f2937' }}>{formatCurrency(item.price * item.quantity)}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-                <div className="px-10 py-5" style={{ background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
-                  <div className="flex justify-between text-sm mb-1" style={{ color: '#6b7280' }}><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                  {discountAmount > 0 && <div className="flex justify-between text-sm mb-1" style={{ color: '#16a34a' }}><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>}
-                  <div className="flex justify-between text-base font-extrabold mt-2 pt-2" style={{ color, borderTop: '1px solid #e5e7eb' }}><span>Total</span><span>{formatCurrency(saleTotal)}</span></div>
-                </div>
-                <div className="px-10 py-4 text-center">
-                  <p className="text-xs italic" style={{ color: '#9ca3af' }}>{invoiceSettings.footerNote || 'Thank you for your business!'}</p>
-                </div>
+            {/* A4 sheet — same template as the shop's invoice PDFs */}
+            <div className="py-6 px-3 sm:px-6">
+              <div className="max-w-[820px] mx-auto rounded-xl overflow-hidden shadow-2xl" style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
+                <InvoiceA4View
+                  ref={docPreviewRef}
+                  sale={docSale}
+                  settings={invoiceSettings}
+                  tenantSlug={tenantSlug}
+                  shopName={shopName}
+                  template={activeInvoiceTemplate}
+                  extras={{ subtotal, discountAmount }}
+                  hideControls
+                />
               </div>
             </div>
           </div>

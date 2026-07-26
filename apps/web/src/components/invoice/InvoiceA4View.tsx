@@ -73,6 +73,7 @@ export function buildDefaultInvoiceData(
     signatoryTitle: settings.signatoryTitle || 'Authorized Signatory',
     subtotalOverride: isRepair ? subtotal : undefined,
     totalOverride: isRepair ? (sale.total ?? subtotal - discountAmount) : undefined,
+    documentTitle: sale.documentTitle || undefined,
   }
 }
 
