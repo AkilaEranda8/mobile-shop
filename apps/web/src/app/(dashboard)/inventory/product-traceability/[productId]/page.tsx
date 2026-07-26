@@ -10,7 +10,7 @@ import {
   Tag, Layers, ArrowLeft, X, Calendar, Smartphone, ArrowLeftRight,
 } from 'lucide-react'
 import { productTraceabilityApi, productsApi } from '@/lib/api'
-import { useBranches } from '@/lib/hooks'
+import { useBranches, useCanSeeProductCost } from '@/lib/hooks'
 import { PERMISSIONS, useHasPermission } from '@/lib/permissions'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
@@ -153,6 +153,8 @@ export default function ProductTraceabilityPage() {
   const router = useRouter()
   const productId = String(params.productId ?? '')
   const canView = useHasPermission(PERMISSIONS.PRODUCT_TRACEABILITY_VIEW)
+  // Purchases reveal supplier + unit cost — gate behind Product Cost permission
+  const canSeeCost = useCanSeeProductCost()
   const { data: branchesRes } = useBranches()
   const branches: Array<{ id: string; name: string }> = (branchesRes as any)?.data ?? branchesRes ?? []
 
@@ -205,6 +207,7 @@ export default function ProductTraceabilityPage() {
 
   const loadSection = useCallback(async () => {
     if (!productId || activeSection === 'analytics') return
+    if (activeSection === 'purchases' && !canSeeCost) return
     setSectionLoading(true)
     try {
       const apiMap = {
@@ -225,11 +228,20 @@ export default function ProductTraceabilityPage() {
     } finally {
       setSectionLoading(false)
     }
-  }, [productId, activeSection, filterParams])
+  }, [productId, activeSection, filterParams, canSeeCost])
 
   useEffect(() => { loadSummary() }, [loadSummary])
   useEffect(() => { loadSection() }, [loadSection])
   useEffect(() => { setPage(1) }, [search, from, to, branchId, activeSection])
+
+  const visibleSections = useMemo(
+    () => (canSeeCost ? SECTIONS : SECTIONS.filter(s => s.id !== 'purchases')),
+    [canSeeCost],
+  )
+
+  useEffect(() => {
+    if (!canSeeCost && activeSection === 'purchases') setActiveSection('sales')
+  }, [canSeeCost, activeSection])
 
   const handleExport = async (mode: 'excel' | 'pdf' | 'print') => {
     const product = summary?.product
@@ -245,18 +257,24 @@ export default function ProductTraceabilityPage() {
         page: '1',
       }
       const [purchases, sales, transfers, movements, serials, timeline] = await Promise.all([
-        productTraceabilityApi.purchases(productId, base),
+        canSeeCost ? productTraceabilityApi.purchases(productId, base) : Promise.resolve({ data: [] }),
         productTraceabilityApi.sales(productId, base),
         productTraceabilityApi.transfers(productId, base),
         productTraceabilityApi.movements(productId, base),
         productTraceabilityApi.serials(productId, base),
         productTraceabilityApi.timeline(productId, base),
       ])
+      const analytics = { ...(summary.analytics ?? {}) }
+      if (!canSeeCost) {
+        delete analytics.totalPurchaseValue
+        delete analytics.grossProfit
+        delete analytics.totalPurchaseOrders
+      }
       const payload = {
         productName: product.name,
         sku: product.sku,
         generatedAt: new Date().toLocaleString('en-LK'),
-        analytics: summary.analytics ?? {},
+        analytics,
         purchases: (purchases as any).data ?? [],
         sales: (sales as any).data ?? [],
         transfers: (transfers as any).data ?? [],
@@ -393,9 +411,9 @@ export default function ProductTraceabilityPage() {
   const serialColumns = [
     { key: 'serialImei', label: 'Serial / IMEI', render: (r: Record<string, unknown>) => <span className="font-mono text-[11px]">{safeText(r.serialImei)}</span> },
     { key: 'currentStatus', label: 'Status' },
-    { key: 'purchaseInvoiceNo', label: 'Purchase Inv.', render: (r: Record<string, unknown>) => (
-      r.purchaseInvoiceId ? <Link href={`/purchase-invoice?id=${r.purchaseInvoiceId}`} className={linkClass}>{safeText(r.purchaseInvoiceNo)}</Link> : '—'
-    ) },
+    ...(canSeeCost ? [{ key: 'purchaseInvoiceNo', label: 'Purchase Inv.', render: (r: Record<string, unknown>) => (
+      r.purchaseInvoiceId ? <Link href={`/purchase-invoice?id=${r.purchaseInvoiceId}`} className={linkClass}>{safeText(r.purchaseInvoiceNo)}</Link> : <>—</>
+    ) }] : []),
     { key: 'salesInvoiceNo', label: 'Sales Inv.', render: (r: Record<string, unknown>) => (
       r.salesInvoiceId ? <Link href={`/sales?id=${r.salesInvoiceId}`} className={linkClass}>{safeText(r.salesInvoiceNo)}</Link> : '—'
     ) },
@@ -557,10 +575,12 @@ export default function ProductTraceabilityPage() {
                     <span style={{ color: 'var(--text-muted)' }}>Available</span>
                     <span className="font-medium text-emerald-600 dark:text-emerald-400">{product?.availableStock ?? currentStock}</span>
                   </div>
-                  <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <span className="font-semibold">Gross profit</span>
-                    <span className="font-semibold">{formatCurrency(analytics?.grossProfit ?? 0)}</span>
-                  </div>
+                  {canSeeCost && (
+                    <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <span className="font-semibold">Gross profit</span>
+                      <span className="font-semibold">{formatCurrency(analytics?.grossProfit ?? 0)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -595,7 +615,7 @@ export default function ProductTraceabilityPage() {
 
           {/* Section tabs */}
           <div className="flex flex-wrap gap-1.5">
-            {SECTIONS.map(s => (
+            {visibleSections.map(s => (
               <button
                 key={s.id}
                 type="button"
@@ -622,11 +642,11 @@ export default function ProductTraceabilityPage() {
                       { label: 'Total Sold Qty', value: analytics?.totalSoldQty },
                       { label: 'Total Returned Qty', value: analytics?.totalReturnedQty },
                       { label: 'Current Stock', value: analytics?.currentStock },
-                      { label: 'Total Purchase Value', value: formatCurrency(analytics?.totalPurchaseValue ?? 0), text: true },
+                      ...(canSeeCost ? [{ label: 'Total Purchase Value', value: formatCurrency(analytics?.totalPurchaseValue ?? 0), text: true }] : []),
                       { label: 'Total Sales Value', value: formatCurrency(analytics?.totalSalesValue ?? 0), text: true },
-                      { label: 'Gross Profit', value: formatCurrency(analytics?.grossProfit ?? 0), text: true },
+                      ...(canSeeCost ? [{ label: 'Gross Profit', value: formatCurrency(analytics?.grossProfit ?? 0), text: true }] : []),
                       { label: 'Customers Purchased', value: analytics?.totalCustomersPurchased },
-                      { label: 'Purchase Orders', value: analytics?.totalPurchaseOrders },
+                      ...(canSeeCost ? [{ label: 'Purchase Orders', value: analytics?.totalPurchaseOrders }] : []),
                       { label: 'Sales Invoices', value: analytics?.totalSalesInvoices },
                     ].map(item => (
                       <div key={item.label} className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -743,24 +763,30 @@ export default function ProductTraceabilityPage() {
                   <span className="font-medium">{analytics?.totalCustomersPurchased ?? 0}</span>
                 </div>
                 <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">Purchase value:</span>
-                    <span className="font-semibold">{formatCurrency(analytics?.totalPurchaseValue ?? 0)}</span>
-                  </div>
+                  {canSeeCost && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Purchase value:</span>
+                      <span className="font-semibold">{formatCurrency(analytics?.totalPurchaseValue ?? 0)}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">Sales value:</span>
                     <span className="font-semibold">{formatCurrency(analytics?.totalSalesValue ?? 0)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Gross profit:</span>
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(analytics?.grossProfit ?? 0)}</span>
-                  </div>
+                  {canSeeCost && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Gross profit:</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(analytics?.grossProfit ?? 0)}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="pt-2 border-t space-y-1.5" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span style={{ color: 'var(--text-muted)' }}><Receipt size={11} className="inline mr-1" />Purchase orders</span>
-                    <span className="font-medium">{analytics?.totalPurchaseOrders ?? 0}</span>
-                  </div>
+                  {canSeeCost && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span style={{ color: 'var(--text-muted)' }}><Receipt size={11} className="inline mr-1" />Purchase orders</span>
+                      <span className="font-medium">{analytics?.totalPurchaseOrders ?? 0}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-[11px]">
                     <span style={{ color: 'var(--text-muted)' }}><Users size={11} className="inline mr-1" />Sales invoices</span>
                     <span className="font-medium">{analytics?.totalSalesInvoices ?? 0}</span>
