@@ -8,13 +8,23 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
+import { cn } from '@/lib/utils'
 import {
   featureSuggestionsApi,
+  notificationsApi,
   type FeatureSuggestion,
   type FeatureSuggestionCategory,
   type FeatureSuggestionPriority,
   type FeatureSuggestionStatus,
 } from '@/lib/api'
+
+const FEATURE_SUGGESTION_NOTIFS_EVENT = 'feature-suggestion-notifications-updated'
+
+function notifyFeatureSuggestionRead() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(FEATURE_SUGGESTION_NOTIFS_EVENT))
+  }
+}
 
 const CATEGORIES: FeatureSuggestionCategory[] = [
   'POS', 'Inventory', 'Sales', 'Purchasing', 'Repairs', 'Customers', 'Suppliers',
@@ -214,7 +224,14 @@ function DetailModal({
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Suggestion detail</p>
-              <h2 className="text-sm font-bold mt-0.5 truncate">{suggestion?.title ?? 'Loading…'}</h2>
+              <h2 className="text-sm font-bold mt-0.5 truncate flex items-center gap-2">
+                <span className="truncate">{suggestion?.title ?? 'Loading…'}</span>
+                {suggestion?.hasUnreadUpdate && (
+                  <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                    NEW
+                  </span>
+                )}
+              </h2>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg transition-colors flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
@@ -376,6 +393,16 @@ function FeatureSuggestionsContent() {
     try {
       const res = await featureSuggestionsApi.getById(id)
       setDetail(res.data)
+      if (res.data?.hasUnreadUpdate) {
+        try {
+          await notificationsApi.markRelatedRead(id)
+          setDetail((prev) => (prev ? { ...prev, hasUnreadUpdate: false } : prev))
+          setItems((prev) => prev.map((row) => (row.id === id ? { ...row, hasUnreadUpdate: false } : row)))
+          notifyFeatureSuggestionRead()
+        } catch {
+          /* non-blocking */
+        }
+      }
       const params = new URLSearchParams(searchParams.toString())
       params.set('id', id)
       router.replace(`?${params.toString()}`, { scroll: false })
@@ -418,6 +445,7 @@ function FeatureSuggestionsContent() {
   const inProgressCount = items.filter((s) => ['UNDER_REVIEW', 'PLANNED', 'IN_PROGRESS'].includes(s.status)).length
   const releasedCount = items.filter((s) => s.status === 'RELEASED').length
   const newCount = items.filter((s) => s.status === 'NEW').length
+  const unreadUpdateCount = items.filter((s) => s.hasUnreadUpdate).length
 
   const skeletonRows = useMemo(() => Array.from({ length: 4 }, (_, i) => i), [])
 
@@ -429,7 +457,14 @@ function FeatureSuggestionsContent() {
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
-          <h1 className="page-title">Feature Suggestions</h1>
+          <h1 className="page-title flex items-center gap-2">
+            Feature Suggestions
+            {unreadUpdateCount > 0 && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                {unreadUpdateCount} new
+              </span>
+            )}
+          </h1>
           <p className="page-subtitle">Share ideas to improve Hexalyte · track status and admin responses</p>
         </div>
         <button
@@ -569,12 +604,24 @@ function FeatureSuggestionsContent() {
                     <td className="px-4 py-3 max-w-[280px]">
                       <div className="flex items-center gap-2 min-w-0">
                         <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 relative"
                           style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}
                         >
                           <Lightbulb size={14} style={{ color: 'var(--text-muted)' }} />
+                          {row.hasUnreadUpdate && (
+                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-violet-500 ring-2 ring-[var(--bg-card)]" />
+                          )}
                         </div>
-                        <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{row.title}</span>
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span className={cn('font-medium truncate', row.hasUnreadUpdate && 'font-bold')} style={{ color: 'var(--text-primary)' }}>
+                            {row.title}
+                          </span>
+                          {row.hasUnreadUpdate && (
+                            <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                              NEW
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{row.category}</td>

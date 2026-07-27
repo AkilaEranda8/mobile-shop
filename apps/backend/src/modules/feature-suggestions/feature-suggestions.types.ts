@@ -79,6 +79,8 @@ export type UserSuggestionDto = {
   publicResponse: string | null
   createdAt: Date
   updatedAt: Date
+  /** True when admin replied / changed status and user has not opened it yet. */
+  hasUnreadUpdate?: boolean
   history?: SuggestionHistoryDto[]
 }
 

@@ -11,7 +11,7 @@ import {
 import { useState, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
-import { authApi, tenantApi } from '@/lib/api'
+import { authApi, tenantApi, notificationsApi } from '@/lib/api'
 import { fetchInvoiceSettings, getInvoiceSettings } from '@/lib/invoiceSettings'
 import { useTenantFeatures, useRolePermissions } from '@/lib/hooks'
 import { usePos } from '@/lib/use-pos'
@@ -273,6 +273,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [shopName, setShopName] = useState('')
   const [plan, setPlan]         = useState('')
   const [logo, setLogo]         = useState('')
+  const [suggestionUnreadCount, setSuggestionUnreadCount] = useState(0)
   const { hasFeature }          = useTenantFeatures()
   const { canView, canEdit }    = useRolePermissions()
   const { openPos, posOpen }    = usePos()
@@ -329,6 +330,28 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       setExpandedMenus(prev => ({ ...prev, 'reports-&-analytics': true }))
     }
   }, [pathname])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadUnread = async () => {
+      try {
+        const res = await notificationsApi.unreadFeatureSuggestionCount()
+        if (cancelled) return
+        setSuggestionUnreadCount(Number(res?.data?.count ?? 0) || 0)
+      } catch {
+        if (!cancelled) setSuggestionUnreadCount(0)
+      }
+    }
+    void loadUnread()
+    const onUpdate = () => { void loadUnread() }
+    window.addEventListener('feature-suggestion-notifications-updated', onUpdate)
+    const timer = window.setInterval(onUpdate, 60_000)
+    return () => {
+      cancelled = true
+      window.removeEventListener('feature-suggestion-notifications-updated', onUpdate)
+      window.clearInterval(timer)
+    }
+  }, [])
 
   const toggleMenu = (key: string) => {
     setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }))
@@ -620,6 +643,11 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     {!collapsed && (
                       <>
                         <span className="text-sm font-semibold flex-1 truncate">{item.label}</span>
+                        {item.href === '/dashboard/feature-suggestions' && suggestionUnreadCount > 0 && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                            {suggestionUnreadCount > 9 ? '9+' : suggestionUnreadCount} NEW
+                          </span>
+                        )}
                         {'badge' in item && shouldShowBadge(item.badge) && (
                           <span className={cn(
                             'text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0',

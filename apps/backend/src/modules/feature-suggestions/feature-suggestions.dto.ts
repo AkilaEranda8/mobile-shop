@@ -35,6 +35,7 @@ export function toHistoryDto(row: FeatureSuggestionHistory): SuggestionHistoryDt
 export function toUserSuggestionDto(
   row: FeatureSuggestion,
   history?: FeatureSuggestionHistory[],
+  opts?: { hasUnreadUpdate?: boolean },
 ): UserSuggestionDto {
   return {
     id: row.id,
@@ -46,6 +47,7 @@ export function toUserSuggestionDto(
     publicResponse: row.publicResponse,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    hasUnreadUpdate: opts?.hasUnreadUpdate === true,
     ...(history ? { history: history.map(toHistoryDto) } : {}),
   }
 }

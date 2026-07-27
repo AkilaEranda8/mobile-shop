@@ -935,6 +935,8 @@ export type FeatureSuggestion = {
   publicResponse: string | null
   createdAt: string
   updatedAt: string
+  /** Admin replied or changed status — not opened yet */
+  hasUnreadUpdate?: boolean
   history?: FeatureSuggestionHistory[]
 }
 
@@ -1006,6 +1008,10 @@ export const notificationsApi = {
   },
   markRead: (id: string) =>
     api.patch<{ data: UserNotification }>(`/notifications/${id}/read`, {}),
+  markRelatedRead: (relatedId: string) =>
+    api.patch<{ data: { updated: number } }>(`/notifications/related/${relatedId}/read`, {}),
+  unreadFeatureSuggestionCount: () =>
+    api.get<{ data: { count: number } }>('/notifications/unread-count'),
   markAllRead: () =>
     api.patch<{ data: { updated: number } }>('/notifications/read-all', {}),
 }

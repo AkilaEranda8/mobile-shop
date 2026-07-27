@@ -82,8 +82,9 @@ export const featureSuggestionsService = {
     const take = clampLimit(limit)
     const skip = (Math.max(1, page) - 1) * take
     const { rows, total } = await repo.listOwn(tenantId, userId, { skip, take })
+    const unreadIds = await repo.unreadRelatedIds(tenantId, userId, rows.map((r) => r.id))
     return {
-      data: rows.map((r) => toUserSuggestionDto(r)),
+      data: rows.map((r) => toUserSuggestionDto(r, undefined, { hasUnreadUpdate: unreadIds.has(r.id) })),
       total,
       page: Math.max(1, page),
       limit: take,
@@ -94,7 +95,8 @@ export const featureSuggestionsService = {
     const row = await repo.findOwnById(tenantId, userId, id)
     if (!row) throw new AppError('Suggestion not found', 404)
     const { history, ...suggestion } = row
-    return toUserSuggestionDto(suggestion, history)
+    const unreadIds = await repo.unreadRelatedIds(tenantId, userId, [id])
+    return toUserSuggestionDto(suggestion, history, { hasUnreadUpdate: unreadIds.has(id) })
   },
 
   async adminSummary() {
@@ -279,6 +281,20 @@ export const featureSuggestionsService = {
   async markAllNotificationsRead(tenantId: string, userId: string) {
     const count = await repo.markAllNotificationsRead(tenantId, userId)
     return { updated: count }
+  },
+
+  async markNotificationsReadByRelated(tenantId: string, userId: string, relatedId: string) {
+    const count = await repo.markNotificationsReadByRelated(
+      tenantId,
+      userId,
+      relatedId,
+      'FEATURE_SUGGESTION',
+    )
+    return { updated: count }
+  },
+
+  async countUnreadFeatureSuggestionUpdates(tenantId: string, userId: string) {
+    return repo.countUnreadByType(tenantId, userId, 'FEATURE_SUGGESTION')
   },
 }
 

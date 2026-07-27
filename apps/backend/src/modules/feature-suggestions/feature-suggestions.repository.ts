@@ -324,6 +324,51 @@ export const featureSuggestionsRepository = {
     return result.count
   },
 
+  async markNotificationsReadByRelated(
+    tenantId: string,
+    userId: string,
+    relatedId: string,
+    type?: string,
+  ) {
+    const result = await prisma.userNotification.updateMany({
+      where: {
+        tenantId,
+        userId,
+        relatedId,
+        isRead: false,
+        ...(type ? { type: type as any } : {}),
+      },
+      data: { isRead: true, readAt: new Date() },
+    })
+    return result.count
+  },
+
+  async unreadRelatedIds(
+    tenantId: string,
+    userId: string,
+    relatedIds: string[],
+    type = 'FEATURE_SUGGESTION',
+  ) {
+    if (!relatedIds.length) return new Set<string>()
+    const rows = await prisma.userNotification.findMany({
+      where: {
+        tenantId,
+        userId,
+        isRead: false,
+        type: type as any,
+        relatedId: { in: relatedIds },
+      },
+      select: { relatedId: true },
+    })
+    return new Set(rows.map((r) => r.relatedId).filter((id): id is string => !!id))
+  },
+
+  async countUnreadByType(tenantId: string, userId: string, type: string) {
+    return prisma.userNotification.count({
+      where: { tenantId, userId, isRead: false, type: type as any },
+    })
+  },
+
   async findRecentNewSuggestions(since: Date, take = 30) {
     return prisma.featureSuggestion.findMany({
       where: { status: 'NEW', createdAt: { gte: since } },

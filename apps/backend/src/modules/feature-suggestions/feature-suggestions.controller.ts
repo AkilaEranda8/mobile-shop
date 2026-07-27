@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { sendSuccess, sendPaginated } from '../../utils/response'
+import { AppError } from '../../middleware/error.middleware'
 import { featureSuggestionsService } from './feature-suggestions.service'
 import type {
   AdminUpdateSuggestionInput,
@@ -143,6 +144,29 @@ export const featureSuggestionsController = {
         req.user!.userId,
       )
       sendSuccess(res, data, 'All notifications marked as read')
+    } catch (e) { next(e) }
+  },
+
+  async markNotificationsReadByRelated(req: Request, res: Response, next: NextFunction) {
+    try {
+      const relatedId = String(req.params.relatedId || '').trim()
+      if (!relatedId) throw new AppError('relatedId required', 400)
+      const data = await featureSuggestionsService.markNotificationsReadByRelated(
+        req.tenantId!,
+        req.user!.userId,
+        relatedId,
+      )
+      sendSuccess(res, data, 'Suggestion updates marked as read')
+    } catch (e) { next(e) }
+  },
+
+  async unreadFeatureSuggestionCount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const count = await featureSuggestionsService.countUnreadFeatureSuggestionUpdates(
+        req.tenantId!,
+        req.user!.userId,
+      )
+      sendSuccess(res, { count })
     } catch (e) { next(e) }
   },
 }

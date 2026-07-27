@@ -7,7 +7,9 @@ router.use(authenticate)
 
 router.get('/', ctrl.listNotifications)
 router.get('/unread', ctrl.listUnreadNotifications)
+router.get('/unread-count', ctrl.unreadFeatureSuggestionCount)
 router.patch('/read-all', ctrl.markAllNotificationsRead)
+router.patch('/related/:relatedId/read', ctrl.markNotificationsReadByRelated)
 router.patch('/:id/read', ctrl.markNotificationRead)
 
 export default router
