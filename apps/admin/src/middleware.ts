@@ -9,16 +9,28 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  const token =
-    req.cookies.get('admin_token')?.value ||
-    req.cookies.get('hx_fashion_token')?.value ||
-    req.cookies.get('hx_salon_token')?.value ||
-    req.headers.get('authorization')?.replace('Bearer ', '')
+  const adminToken = req.cookies.get('admin_token')?.value
+  const fashionToken = req.cookies.get('hx_fashion_token')?.value
+  const salonToken = req.cookies.get('hx_salon_token')?.value
+  const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
 
-  if (!token) {
+  let ok = false
+  if (pathname.startsWith('/fashion')) {
+    ok = !!(fashionToken || bearer)
+  } else if (pathname.startsWith('/salon')) {
+    ok = !!(salonToken || bearer)
+  } else {
+    // Enterprise admin pages — require Enterprise token specifically
+    ok = !!(adminToken || bearer)
+  }
+
+  if (!ok) {
     const loginUrl = req.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.searchParams.set('from', pathname)
+    if (pathname.startsWith('/fashion')) loginUrl.searchParams.set('product', 'fashion')
+    else if (pathname.startsWith('/salon')) loginUrl.searchParams.set('product', 'salon')
+    else loginUrl.searchParams.set('product', 'enterprise')
     return NextResponse.redirect(loginUrl)
   }
 

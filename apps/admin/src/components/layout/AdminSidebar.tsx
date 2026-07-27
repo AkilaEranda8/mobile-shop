@@ -101,7 +101,9 @@ function fmtBadgeCount(n: number) {
 export default function AdminSidebar({ onClose, onLogout }: Props) {
   const path = usePathname()
   const [user, setUser] = useState<HubUserInfo | null>(null)
-  const [product, setProduct] = useState<HubProduct>('enterprise')
+  const [product, setProduct] = useState<HubProduct>(() =>
+    typeof window !== 'undefined' ? hubSession.getProduct() : 'enterprise',
+  )
   const [badges, setBadges] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
@@ -111,7 +113,10 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
   }, [path])
 
   useEffect(() => {
-    if (product !== 'enterprise') {
+    // Only Enterprise sidebar badges hit Enterprise admin APIs.
+    // Guard against mount race (product defaults before hub session is read)
+    // and Fashion/Salon sessions that must never call /admin/v1 without a token.
+    if (product !== 'enterprise' || !hubSession.hasSession('enterprise')) {
       setBadges({})
       return
     }

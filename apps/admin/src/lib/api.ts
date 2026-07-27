@@ -100,9 +100,13 @@ async function req<T>(
   const res = await fetch(`${base}${path}`, { ...options, headers })
 
   if (res.status === 401) {
-    adminAuth.clear()
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
+    // Only wipe Enterprise session / redirect when this call had a bearer token
+    // (avoids Fashion/Salon sidebar races kicking users to login).
+    if (token) {
+      adminAuth.clear()
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?product=enterprise'
+      }
     }
     throw new Error('Session expired. Please log in again.')
   }
