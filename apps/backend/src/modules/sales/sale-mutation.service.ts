@@ -301,6 +301,9 @@ export async function voidSaleInvoice(opts: {
   if (sale.source === 'OPENING_BALANCE') {
     throw new AppError('Opening balance invoices cannot be voided from Sales. Adjust via customer credit.', 400)
   }
+  if (sale.source === 'REPAIR') {
+    throw new AppError('Repair payments are managed on the Repair ticket — they cannot be voided from Sales History.', 400)
+  }
 
   const priorBySaleItem: Record<string, number> = {}
   for (const ret of sale.returns) {

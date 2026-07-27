@@ -150,7 +150,7 @@ async function createWarrantyRows(
   opts: {
     tenantId: string
     branchId?: string | null
-    saleId: string
+    saleId?: string | null
     invoiceNumber: string
     customerId: string
     customerName: string
@@ -184,7 +184,7 @@ async function createWarrantyRows(
         tenantId: opts.tenantId,
         branchId: opts.branchId ?? undefined,
         warrantyCode,
-        saleId: opts.saleId,
+        saleId: opts.saleId || undefined,
         invoiceNumber: opts.invoiceNumber,
         customerId: opts.customerId,
         customerName: opts.customerName,
@@ -213,7 +213,7 @@ export async function createWarrantiesFromRepair(
   opts: {
     tenantId: string
     branchId?: string | null
-    saleId: string
+    saleId?: string | null
     invoiceNumber: string
     ticketNumber: string
     customerId?: string | null
@@ -272,7 +272,7 @@ export async function createWarrantiesFromRepair(
   return createWarrantyRows(tx, {
     tenantId: opts.tenantId,
     branchId: opts.branchId,
-    saleId: opts.saleId,
+    saleId: opts.saleId || null,
     invoiceNumber: opts.invoiceNumber,
     customerId: opts.customerId,
     customerName: opts.customerName,

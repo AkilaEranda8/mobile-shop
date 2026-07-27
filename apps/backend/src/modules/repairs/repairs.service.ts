@@ -7,7 +7,6 @@ import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
-import { formatRepairServiceItemName } from '../../utils/repair-item-label'
 import { applyRepairSparePartsStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { assertRepairTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
 
@@ -309,33 +308,28 @@ export const repairsService = {
     await assertRepairTransitionIfEnabled(tenantId, r.status, 'DELIVERED', { via: 'collect_payment' })
     await assertBusinessDayOpenIfEnabled(tenantId, r.branchId)
 
-    const serviceFee  = Number(r.estimatedCost) || 0
-    const subtotal    = serviceFee
-    const discount    = Number(body.discount) || 0
-    const total       = Math.max(0, subtotal - discount)
-    const paidAmount  = body.paidAmount != null
+    const serviceFee = Number(r.estimatedCost) || 0
+    const subtotal = Math.max(0, serviceFee)
+    const rawDiscount = Number(body.discount) || 0
+    if (rawDiscount < 0) throw new AppError('Discount cannot be negative', 400)
+    const discount = Math.min(rawDiscount, subtotal)
+    const total = Math.max(0, Math.round((subtotal - discount) * 100) / 100)
+    const paidAmount = body.paidAmount != null
       ? Math.min(Math.max(0, Number(body.paidAmount)), total)
       : total
-    const dueAmount   = Math.max(0, total - paidAmount)
+    const dueAmount = Math.max(0, Math.round((total - paidAmount) * 100) / 100)
     if (dueAmount > 0 && !r.customerId) {
       throw new AppError('Customer is required when recording credit / partial payment', 400)
     }
-    const saleStatus  = dueAmount > 0 ? (paidAmount > 0 ? 'PARTIAL' : 'DUE') : 'PAID'
+    if (paidAmount > 0 && !body.paymentMethod) {
+      throw new AppError('Payment method is required', 400)
+    }
     const cashierName = body.cashierName || 'System'
     const invoiceNumber = r.ticketNumber
 
     const repairWarrantyMonths = r.warrantyMonths != null && r.warrantyMonths >= 0
       ? Math.max(0, Math.min(120, Number(r.warrantyMonths)))
       : 0
-
-    const partsSummary = r.spareParts.length
-      ? ` | Parts: ${r.spareParts.map((p) => `${p.productName} x${p.quantity}`).join(', ')}`
-      : ''
-    const ticketNotes = (r.notes ?? [])
-      .map((n: { text?: string }) => n.text?.trim())
-      .filter(Boolean)
-      .join('; ')
-    const notesSummary = ticketNotes ? ` | Notes: ${ticketNotes}` : ''
 
     await prisma.$transaction(async (tx: any) => {
       await tx.repairTicket.update({
@@ -353,43 +347,21 @@ export const repairsService = {
           repairId: id,
           status: 'DELIVERED',
           changedBy: cashierName,
-          note: dueAmount > 0 ? `Payment collected — LKR ${dueAmount} on customer credit` : 'Payment collected',
+          note: dueAmount > 0
+            ? `Payment collected — LKR ${dueAmount} on customer credit${discount > 0 ? ` (discount LKR ${discount})` : ''}`
+            : discount > 0
+              ? `Payment collected (discount LKR ${discount})`
+              : 'Payment collected',
         },
       })
-      const saleItems: any[] = []
-      if (serviceFee > 0) {
-        saleItems.push({
-          productName: formatRepairServiceItemName(r.deviceBrand, r.deviceModel),
-          sku: r.ticketNumber,
-          quantity: 1,
-          unitPrice: serviceFee,
-          discount: 0,
-          total: serviceFee,
-          warrantyMonths: repairWarrantyMonths,
-        })
-      }
-      const sale = await tx.sale.create({
-        data: {
-          tenantId, branchId: r.branchId, invoiceNumber,
-          customerId: r.customerId, customerName: r.customerName, customerPhone: r.customerPhone,
-          subtotal, discount, tax: 0, total,
-          paidAmount, dueAmount,
-          status: saleStatus, cashierName, source: 'REPAIR',
-          notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}${notesSummary}${partsSummary}`,
-          items:    { create: saleItems },
-          payments: paidAmount > 0
-            ? { create: [{
-                method: body.paymentMethod as any,
-                amount: paidAmount,
-                reference: body.reference?.trim() || null,
-              }] }
-            : undefined,
-        },
-      })
+
+      // Warranties are registered against the repair ticket number — no Sale row.
+      // Repair income is recorded via Finance transaction + REPAIR_* journals only,
+      // so Collect Payment never appears in Sales History.
       await createWarrantiesFromRepair(tx, {
         tenantId,
         branchId: r.branchId,
-        saleId: sale.id,
+        saleId: null,
         invoiceNumber,
         ticketNumber: r.ticketNumber,
         customerId: r.customerId,
@@ -407,6 +379,7 @@ export const repairsService = {
           warrantyNote: (p as { warrantyNote?: string | null }).warrantyNote,
         })),
       })
+
       if (r.customerId && dueAmount > 0) {
         await tx.customer.update({
           where: { id: r.customerId },
@@ -418,6 +391,7 @@ export const repairsService = {
           data: { totalPurchases: { increment: 1 } },
         }).catch(() => {})
       }
+
       const stockHandledByEngine = await applyRepairSparePartsStockEffectsIfEnabled({
         tx,
         tenantId,
@@ -431,7 +405,6 @@ export const repairsService = {
           if (p.productId) {
             const prod = await tx.product.findUnique({ where: { id: p.productId }, select: { stock: true, name: true } })
             if (prod) {
-              // Atomic conditional decrement prevents overselling under concurrent writes.
               const dec = await tx.product.updateMany({
                 where: { id: p.productId, stock: { gte: p.quantity } },
                 data:  { stock: { decrement: p.quantity } },
@@ -455,7 +428,7 @@ export const repairsService = {
         }
       }
     })
-    // ── Auto-create Finance INCOME transaction for repair payment ──
+
     try {
       if (paidAmount > 0) {
         await prisma.transaction.create({
@@ -465,7 +438,7 @@ export const repairsService = {
             type:        'INCOME',
             category:    'Repairs',
             amount:      paidAmount,
-            description: `Repair - ${r.ticketNumber} (${r.deviceBrand} ${r.deviceModel})${r.customerName ? ' — ' + r.customerName : ''}${dueAmount > 0 ? ` (Credit: LKR ${dueAmount})` : ''}`,
+            description: `Repair - ${r.ticketNumber} (${r.deviceBrand} ${r.deviceModel})${r.customerName ? ' — ' + r.customerName : ''}${discount > 0 ? ` · Discount LKR ${discount}` : ''}${dueAmount > 0 ? ` (Credit: LKR ${dueAmount})` : ''}`,
             paymentMethod: body.paymentMethod as any,
             reference:   [r.ticketNumber, body.reference?.trim()].filter(Boolean).join(' | ') || r.ticketNumber,
             performedBy: cashierName,
@@ -473,6 +446,7 @@ export const repairsService = {
         })
       }
     } catch (e) { console.error('Finance repair transaction error:', e) }
+
     if (r.imei) {
       await prisma.imeiRecord.updateMany({ where: { imei: r.imei }, data: { status: 'IN_STOCK' } }).catch(() => {})
     }
@@ -480,6 +454,7 @@ export const repairsService = {
       where: { repairTicketId: id },
       data: { status: 'RESOLVED', resolution: `Repair completed — ${r.ticketNumber}` },
     }).catch(() => {})
+
     const ticket = await prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
     void emitRepairAccounting(tenantId, id, r.branchId, body.cashierName)
     return serializeRepair(ticket!)

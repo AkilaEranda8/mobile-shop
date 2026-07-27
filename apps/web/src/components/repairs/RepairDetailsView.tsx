@@ -933,14 +933,29 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       </div>
                       <div>
                         <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-muted)' }}>Discount Amount</label>
-                        <input type="number" min={0} max={subtotal} value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" className="input-field" />
+                        <input
+                          type="number"
+                          min={0}
+                          max={subtotal}
+                          value={discount}
+                          onChange={e => {
+                            const v = e.target.value
+                            if (v === '') { setDiscount(''); return }
+                            const n = Number(v)
+                            if (!Number.isFinite(n)) return
+                            setDiscount(String(Math.min(Math.max(0, n), subtotal)))
+                          }}
+                          placeholder="0"
+                          className="input-field"
+                        />
+                        <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                          Discount reduces what the customer pays. Repair stays on the ticket — not added to Sales History.
+                        </p>
                       </div>
-                      {discountAmt > 0 && (
-                        <div className="flex justify-between items-center px-3 py-2.5 rounded-xl border border-green-500/20" style={{ background: 'rgba(34,197,94,0.05)' }}>
-                          <span className="text-sm font-bold text-green-600">Amount Due</span>
-                          <span className="text-lg font-black text-green-600">{formatCurrency(finalAmount)}</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between items-center px-3 py-2.5 rounded-xl border border-green-500/20" style={{ background: 'rgba(34,197,94,0.05)' }}>
+                        <span className="text-sm font-bold text-green-600">Amount Due</span>
+                        <span className="text-lg font-black text-green-600">{formatCurrency(finalAmount)}</span>
+                      </div>
                       {hasCustomerCredit && repair.customerId && finalAmount > 0 && (
                         <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: creditAmount > 0 ? 'rgba(245,158,11,0.35)' : 'var(--border-subtle)', background: creditAmount > 0 ? 'rgba(245,158,11,0.06)' : 'var(--bg-subtle)' }}>
                           <div className="flex items-center justify-between">
