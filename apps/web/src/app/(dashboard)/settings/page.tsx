@@ -1003,7 +1003,29 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* ── 4d. Repair Intake / Custody Terms ── */}
+              {/* ── 4d. Repair Invoice options ── */}
+              <div className="card p-5 space-y-3">
+                <div>
+                  <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Repair Invoice</p>
+                  <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">
+                    Controls what customers see on printed / PDF repair invoices. Parts stay recorded on the ticket for stock and reports either way.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl border border-white/10 bg-white/[0.03]">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white">Show Added Parts on Invoice</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      When off, the invoice shows only the repair description and total — spare parts (Display, Battery, etc.) are hidden from print / PDF.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={invoiceForm.showRepairPartsOnInvoice !== false}
+                    onChange={v => setInv({ showRepairPartsOnInvoice: v })}
+                  />
+                </div>
+              </div>
+
+              {/* ── 4e. Repair Intake / Custody Terms ── */}
               <div className="card p-5 space-y-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>

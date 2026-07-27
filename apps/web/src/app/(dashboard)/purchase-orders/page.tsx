@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X, Printer, Calendar, Hash, Eye, CreditCard, ClipboardCheck, Upload } from 'lucide-react'
+import { Truck, Loader2, CheckCircle, Smartphone, FileText, Package, AlertCircle, X, Printer, Calendar, Hash, Eye, CreditCard, ClipboardCheck, Upload, Pencil, Trash2 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -25,10 +25,12 @@ import {
 } from '@/lib/invoiceSettings'
 import {
   ConfirmReceiveModal,
+  ConfirmDeletePOModal,
   IMEIRegisterModal,
   NewPOModal,
   getExpectedImeiCount,
   poCanRegisterImei,
+  poCanEditOrDelete,
   poHasImeiProducts,
   poStatusColors,
   type PoProduct as SharedPoProduct,
@@ -44,6 +46,8 @@ function PODetailsModal({
   onReceive,
   onRegisterImei,
   onPrintBarcodes,
+  onEdit,
+  onDelete,
   receiving,
   printingBarcodes,
 }: {
@@ -54,6 +58,8 @@ function PODetailsModal({
   onReceive?: () => void
   onRegisterImei?: () => void
   onPrintBarcodes?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
   receiving?: boolean
   printingBarcodes?: boolean
 }) {
@@ -379,6 +385,16 @@ function PODetailsModal({
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2 flex-wrap">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+              >
+                <Pencil size={14} />
+                Edit
+              </button>
+            )}
             {canReceive && onReceive && (
               <button
                 type="button"
@@ -420,6 +436,16 @@ function PODetailsModal({
               <Eye size={14} />
               View invoice
             </button>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-rose-500/30 bg-rose-500/15 text-rose-700 dark:text-rose-300 font-semibold"
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -440,6 +466,9 @@ export default function PurchaseOrdersPage() {
   const searchParams = useSearchParams()
   const { canEdit } = useModuleAccess()
   const [showNewPO, setShowNewPO] = useState(false)
+  const [editPO, setEditPO] = useState<PurchaseOrder | null>(null)
+  const [deletePO, setDeletePO] = useState<PurchaseOrder | null>(null)
+  const [deletingPO, setDeletingPO] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [markReceiving, setMarkReceiving] = useState<string | null>(null)
   const [confirmPO, setConfirmPO] = useState<PurchaseOrder | null>(null)
@@ -570,7 +599,7 @@ export default function PurchaseOrdersPage() {
 
     const action = searchParams.get('action')
     if (action === 'new-po' || action === 'add-po' || searchParams.get('new') === '1') {
-      if (canEdit) setShowNewPO(true)
+      if (canEdit) { setEditPO(null); setShowNewPO(true) }
       else viewOnlyToast('suppliers')
     }
 
@@ -618,6 +647,52 @@ export default function PurchaseOrdersPage() {
       return
     }
     setConfirmPO(po)
+  }
+
+  const openEditPO = useCallback((po: PurchaseOrder) => {
+    if (!canEdit) {
+      viewOnlyToast('suppliers')
+      return
+    }
+    if (!poCanEditOrDelete(po)) {
+      toast.error('Only unreceived DRAFT/SENT POs without payments can be edited')
+      return
+    }
+    setDetailPO(null)
+    setEditPO(po)
+  }, [canEdit])
+
+  const openDeletePO = useCallback((po: PurchaseOrder) => {
+    if (!canEdit) {
+      viewOnlyToast('suppliers')
+      return
+    }
+    if (!poCanEditOrDelete(po)) {
+      toast.error('Only unreceived DRAFT/SENT POs without payments can be deleted')
+      return
+    }
+    setDetailPO(null)
+    setDeletePO(po)
+  }, [canEdit])
+
+  const doDeletePO = async () => {
+    if (!canEdit) {
+      viewOnlyToast('suppliers')
+      return
+    }
+    if (!deletePO) return
+    setDeletingPO(true)
+    try {
+      await suppliersApi.deletePO(deletePO.id)
+      toast.success(`${deletePO.poNumber} deleted`)
+      setDeletePO(null)
+      refetchOrders()
+      refetchSuppliers()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to delete PO')
+    } finally {
+      setDeletingPO(false)
+    }
   }
 
   const doReceive = async () => {
@@ -733,12 +808,20 @@ export default function PurchaseOrdersPage() {
       cell: ({ row }) => {
         const po = row.original
         const canReceive = ['DRAFT', 'SENT', 'PARTIAL'].includes(po.status)
+        const canMutate = canEdit && poCanEditOrDelete(po)
         const canPrint = po.status === 'RECEIVED' || po.status === 'CLOSED'
         const canRegisterImei = poCanRegisterImei(po, allProducts)
         const menu = [
           { text: 'View details', function: () => openPoDetail(po), icon: <Eye size={13} /> },
           { text: 'View Invoice', function: () => openPoInvoice(po.id), icon: <FileText size={13} /> },
         ]
+        if (canMutate) {
+          menu.push({
+            text: 'Edit',
+            function: () => openEditPO(po),
+            icon: <Pencil size={13} />,
+          })
+        }
         if (canEdit && canReceive) {
           menu.push({
             text: markReceiving === po.id ? 'Receiving…' : 'Receive stock',
@@ -760,6 +843,13 @@ export default function PurchaseOrdersPage() {
             icon: <Printer size={13} />,
           })
         }
+        if (canMutate) {
+          menu.push({
+            text: 'Delete',
+            function: () => openDeletePO(po),
+            icon: <Trash2 size={13} />,
+          })
+        }
         return (
           <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
             <button
@@ -777,7 +867,7 @@ export default function PurchaseOrdersPage() {
         )
       },
     },
-  ], [canEdit, openPoInvoice, openPoDetail, markReceiving, allProducts, handlePrintPoLabels])
+  ], [canEdit, openPoInvoice, openPoDetail, openEditPO, openDeletePO, markReceiving, allProducts, handlePrintPoLabels])
 
   return (
     <div className="space-y-6">
@@ -800,6 +890,12 @@ export default function PurchaseOrdersPage() {
           onPrintBarcodes={(detailPO.status === 'RECEIVED' || detailPO.status === 'CLOSED')
             ? () => handlePrintPoLabels(detailPO)
             : undefined}
+          onEdit={canEdit && poCanEditOrDelete(detailPO)
+            ? () => openEditPO(detailPO)
+            : undefined}
+          onDelete={canEdit && poCanEditOrDelete(detailPO)
+            ? () => openDeletePO(detailPO)
+            : undefined}
           receiving={markReceiving === detailPO.id}
           printingBarcodes={printingBarcodes || barcodePreviewLoading}
         />
@@ -815,10 +911,11 @@ export default function PurchaseOrdersPage() {
         onClose={closeBarcodePreview}
         onPrint={confirmPrintFromPreview}
       />
-      {showNewPO && (
+      {(showNewPO || editPO) && (
         <NewPOModal
           suppliers={suppliers}
-          onClose={() => setShowNewPO(false)}
+          editPo={editPO}
+          onClose={() => { setShowNewPO(false); setEditPO(null) }}
           onSaved={() => { refetchOrders(); refetchSuppliers() }}
         />
       )}
@@ -836,6 +933,14 @@ export default function PurchaseOrdersPage() {
           onConfirm={doReceive}
           onCancel={() => setConfirmPO(null)}
           loading={!!markReceiving}
+        />
+      )}
+      {deletePO && (
+        <ConfirmDeletePOModal
+          po={deletePO}
+          onConfirm={doDeletePO}
+          onCancel={() => setDeletePO(null)}
+          loading={deletingPO}
         />
       )}
       {registerImeiPO && (
@@ -869,7 +974,7 @@ export default function PurchaseOrdersPage() {
               >
                 <Upload size={14} />Bulk Import
               </button>
-              <button onClick={() => setShowNewPO(true)} className="btn-primary text-sm flex items-center gap-2">
+              <button onClick={() => { setEditPO(null); setShowNewPO(true) }} className="btn-primary text-sm flex items-center gap-2">
                 <Package size={14} />New PO
               </button>
             </>

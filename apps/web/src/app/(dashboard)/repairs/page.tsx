@@ -51,7 +51,8 @@ function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings) {
   const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
   const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
   const { serviceFee, subtotal } = calcRepairTotals(repair)
-  const partsRows = (repair.spareParts ?? []).length > 0
+  const showParts = settings.showRepairPartsOnInvoice !== false
+  const partsRows = showParts && (repair.spareParts ?? []).length > 0
     ? `<div class="line"></div><div class="bold med">PARTS USED</div>${(repair.spareParts ?? []).map((p: any) => `<div class="row"><span>${p.productName}</span><span>x${p.quantity}</span></div>`).join('')}`
     : ''
   const warrantyMonths = resolveRepairWarrantyMonths(repair, settings)

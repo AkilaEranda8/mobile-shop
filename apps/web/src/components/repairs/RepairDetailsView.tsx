@@ -22,6 +22,7 @@ import { printRepairIntakeReceipt } from '@/lib/repair-print.util'
 import { formatWarrantyPeriodLabel } from '@/components/pos/cart-rules'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import RepairPartsProfitPanel from '@/components/repairs/RepairPartsProfitPanel'
+import { Switch } from '@/components/ui/Switch'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import type { RepairTicket } from '@/types'
 import toast from 'react-hot-toast'
@@ -55,12 +56,17 @@ const priorityBadge = (p: string) => {
   return map[p] || 'bg-slate-500/10 border-slate-500/20 [color:var(--text-muted)]'
 }
 
-function printRepairReceipt(repair: RepairTicket, settings: InvoiceSettings): boolean {
+function printRepairReceipt(
+  repair: RepairTicket,
+  settings: InvoiceSettings,
+  opts?: { showParts?: boolean },
+): boolean {
   const paperWidth = settings.thermalWidthRepair || '80mm'
   const bodyWidth  = paperWidth === '58mm' ? '216px' : '302px'
   const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK', { minimumFractionDigits: 2 })}`
   const { serviceFee, subtotal } = calcRepairTotals(repair)
-  const partsRows = (repair.spareParts ?? []).length > 0
+  const showParts = opts?.showParts ?? settings.showRepairPartsOnInvoice !== false
+  const partsRows = showParts && (repair.spareParts ?? []).length > 0
     ? `<div class="line"></div><div class="bold med">PARTS USED</div>${(repair.spareParts ?? []).map((p: any) => `<div class="row"><span>${p.productName}</span><span>x${p.quantity}</span></div>`).join('')}`
     : ''
   const warrantyMonths = resolveRepairWarrantyMonths(repair, settings)
@@ -164,6 +170,9 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const [waSending,     setWaSending]     = useState<'quote' | 'invoice' | null>(null)
   const [waSendPdf,     setWaSendPdf]     = useState(false)
   const [invSettings, setInvSettings]   = useState<InvoiceSettings>(() => getInvoiceSettings())
+  const [showPartsOnInvoice, setShowPartsOnInvoice] = useState(
+    () => getInvoiceSettings().showRepairPartsOnInvoice !== false,
+  )
   const [tenantSlug, setTenantSlug]     = useState<string | undefined>()
   const [photos,        setPhotos]        = useState<string[]>(repair.photos ?? [])
   const [uploading,     setUploading]     = useState(false)
@@ -177,7 +186,10 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
     const user = authStorage.getUser()
     if (!user?.tenantId) return
     const load = () => {
-      fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then(setInvSettings).catch(() => {})
+      fetchInvoiceSettings(user.tenantId, getActiveBranchId()).then((s) => {
+        setInvSettings(s)
+        setShowPartsOnInvoice(s.showRepairPartsOnInvoice !== false)
+      }).catch(() => {})
     }
     load()
     window.addEventListener('invoice-settings-updated', load)
@@ -233,7 +245,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
     const { serviceFee, estimatedCost } = calcRepairTotals(repair)
     const fmt = (n: number) => `LKR ${n.toLocaleString('en-LK')}`
-    const partsLines = (repair.spareParts ?? []).length > 0
+    const partsLines = showPartsOnInvoice && (repair.spareParts ?? []).length > 0
       ? `\n\n*Parts used (inventory):*\n` + repair.spareParts!.map((p: any) => `  - ${p.productName} x${p.quantity}`).join('\n')
       : ''
     const msg = [
@@ -296,7 +308,9 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       resolveRepairWarrantyMonths(repair, invSettings) > 0
         ? `    Warranty: ${formatWarrantyPeriodLabel(resolveRepairWarrantyMonths(repair, invSettings))} on repair service`
         : null,
-      ...(repair.spareParts ?? []).map((p: any) => `  - ${p.productName} x${p.quantity} (inventory)`),
+      ...(showPartsOnInvoice
+        ? (repair.spareParts ?? []).map((p: any) => `  - ${p.productName} x${p.quantity} (inventory)`)
+        : []),
     ].filter(Boolean).join('\n')
 
     const bankSection = invSettings.bankName
@@ -446,7 +460,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   }
 
   const handlePrintTicket = () => {
-    const ok = printRepairReceipt(repair, invSettings)
+    const ok = printRepairReceipt(repair, invSettings, { showParts: showPartsOnInvoice })
     if (!ok) toast.error('Popup blocked — allow popups to print')
     else toast.success('Opening job receipt…')
   }
@@ -617,7 +631,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const payment = repairPaymentSummary(repair)
   const { quote, billTotal, paid, due, discount: paidDiscount, isPaid, isPartial, isFull } = payment
   const activeTemplate = resolveInvoiceTemplate(invSettings, tenantSlug)
-  const repairSale = buildRepairInvoiceSale(repair, invSettings, { isPaid })
+  const repairSale = buildRepairInvoiceSale(repair, invSettings, { isPaid, showParts: showPartsOnInvoice })
   const discountAmt  = Number(discount) || 0
   const finalAmount  = Math.max(0, subtotal - discountAmt)
   const payNow = (() => {
@@ -1276,6 +1290,20 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
                   <Zap size={12} className="text-violet-500" /> Quick Actions
                 </p>
+              </div>
+              <div className="px-3 pt-3">
+                <div
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border"
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Show Added Parts on Invoice</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      Applies to PDF, print ticket, and WhatsApp invoice from this page. Parts stay on the ticket either way.
+                    </p>
+                  </div>
+                  <Switch checked={showPartsOnInvoice} onChange={setShowPartsOnInvoice} />
+                </div>
               </div>
               <div className="p-3 grid grid-cols-3 gap-2">
                 {[

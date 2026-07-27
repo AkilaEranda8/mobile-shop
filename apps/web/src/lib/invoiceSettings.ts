@@ -67,6 +67,11 @@ export interface InvoiceSettings {
    * Each shop can edit these (EN/SI or any language).
    */
   repairIntakeTerms?: string[]
+  /**
+   * When true (default), spare / added parts appear on printed repair invoices
+   * (A4, PDF, thermal job receipt). Parts stay recorded on the ticket regardless.
+   */
+  showRepairPartsOnInvoice?: boolean
   /** When true, POS prints the bill automatically after each completed sale */
   posAutoPrintBill:     boolean
   /** Shelf barcode sticker layout (PO print) */
@@ -248,6 +253,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalLogoSize:      'md',
   repairWarrantyMonths: 3,
   repairIntakeTerms:    [...DEFAULT_REPAIR_INTAKE_TERMS],
+  showRepairPartsOnInvoice: true,
   posAutoPrintBill:     true,
   barcodeLabel:         { ...DEFAULT_BARCODE_LABEL_SETTINGS },
 }
@@ -330,6 +336,11 @@ export function resolveRepairIntakeTerms(settings?: InvoiceSettings | null): str
     .map(t => String(t ?? '').trim())
     .filter(Boolean)
   return terms.length > 0 ? terms : [...DEFAULT_REPAIR_INTAKE_TERMS]
+}
+
+/** Whether spare parts should appear on printed repair invoices (default: show). */
+export function resolveShowRepairPartsOnInvoice(settings?: InvoiceSettings | null): boolean {
+  return settings?.showRepairPartsOnInvoice !== false
 }
 
 export function resolveBarcodeLabelSettings(

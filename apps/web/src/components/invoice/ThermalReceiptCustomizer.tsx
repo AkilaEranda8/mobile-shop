@@ -144,6 +144,19 @@ export default function ThermalReceiptCustomizer({ settings, onChange, showPrevi
 
         <ThermalLogoSizePicker settings={settings} onChange={onChange} />
 
+        <div className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl border border-white/10 bg-white/[0.03]">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white">Show Added Parts on Invoice</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Include spare parts on printed repair job receipts and A4 / PDF invoices. Does not remove parts from the ticket or stock.
+            </p>
+          </div>
+          <Switch
+            checked={settings.showRepairPartsOnInvoice !== false}
+            onChange={v => onChange({ showRepairPartsOnInvoice: v })}
+          />
+        </div>
+
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
           <p className="text-sm font-medium text-white">Repair intake terms</p>
           <p className="text-[11px] text-slate-500">

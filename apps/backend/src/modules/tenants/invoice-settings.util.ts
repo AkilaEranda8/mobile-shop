@@ -81,6 +81,8 @@ export interface InvoiceSettings {
   thermalLogoSize: 'sm' | 'md' | 'lg' | 'xl'
   repairWarrantyMonths: number
   repairIntakeTerms: string[]
+  /** Show spare / added parts on printed repair invoices (default true). */
+  showRepairPartsOnInvoice: boolean
   posAutoPrintBill: boolean
   barcodeLabel: BarcodeLabelSettings
 }
@@ -208,6 +210,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   thermalLogoSize: 'md',
   repairWarrantyMonths: 3,
   repairIntakeTerms: [...DEFAULT_REPAIR_INTAKE_TERMS],
+  showRepairPartsOnInvoice: true,
   posAutoPrintBill: true,
   barcodeLabel: { ...DEFAULT_BARCODE_LABEL_SETTINGS },
 }
@@ -340,6 +343,7 @@ export function normalizeInvoiceSettings(raw: unknown, tenantSlug?: string | nul
     thermalLogoSize: thermalLogoSize === 'sm' || thermalLogoSize === 'lg' || thermalLogoSize === 'xl' ? thermalLogoSize : 'md',
     repairWarrantyMonths: Math.max(0, Math.min(120, num(src.repairWarrantyMonths, base.repairWarrantyMonths))),
     repairIntakeTerms: strArray(src.repairIntakeTerms, base.repairIntakeTerms),
+    showRepairPartsOnInvoice: bool(src.showRepairPartsOnInvoice, base.showRepairPartsOnInvoice),
     posAutoPrintBill: bool(src.posAutoPrintBill, base.posAutoPrintBill),
     barcodeLabel: normalizeBarcodeLabelSettings(src.barcodeLabel ?? base.barcodeLabel),
   }

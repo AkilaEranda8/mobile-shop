@@ -1,4 +1,5 @@
 import type { InvoiceSettings } from '@/lib/invoiceSettings'
+import { resolveShowRepairPartsOnInvoice } from '@/lib/invoiceSettings'
 import type { RepairTicket } from '@/types'
 import { formatRepairServiceItemName } from '@/lib/repair.util'
 
@@ -33,13 +34,15 @@ export function repairTechnicianNotesText(
 /** Persistable sale.notes string — Fault stopped before Notes for parsers. */
 export function buildRepairSaleNotesField(
   repair: Pick<RepairTicket, 'ticketNumber' | 'reportedIssue' | 'notes' | 'spareParts'>,
+  opts?: { includeParts?: boolean },
 ): string {
   const parts: string[] = [`Repair ticket: ${repair.ticketNumber}`]
   if (repair.reportedIssue?.trim()) parts.push(`Fault: ${repair.reportedIssue.trim()}`)
   const techNotes = repairTechnicianNotesText(repair)
   if (techNotes) parts.push(`Notes: ${techNotes.replace(/\n+/g, '; ')}`)
+  const includeParts = opts?.includeParts !== false
   const spareParts = repair.spareParts ?? []
-  if (spareParts.length) {
+  if (includeParts && spareParts.length) {
     parts.push(`Parts: ${spareParts.map(p => `${p.productName} x${p.quantity}`).join(', ')}`)
   }
   return parts.join(' | ')
@@ -49,7 +52,7 @@ export function buildRepairSaleNotesField(
 export function buildRepairInvoiceSale(
   repair: RepairTicket,
   settings: InvoiceSettings,
-  opts?: { isPaid?: boolean },
+  opts?: { isPaid?: boolean; showParts?: boolean },
 ) {
   const serviceFee = Number(repair.estimatedCost ?? 0) || 0
   const subtotal = serviceFee
@@ -63,6 +66,7 @@ export function buildRepairInvoiceSale(
   const paidAmount = isPaid ? (Number(repair.paidAmount) ?? total) : 0
   const dueAmount = isPaid ? (Number(repair.dueAmount) ?? Math.max(0, total - paidAmount)) : total
   const invoiceNotes = repairTechnicianNotesText(repair)
+  const showParts = opts?.showParts ?? resolveShowRepairPartsOnInvoice(settings)
 
   const items: Array<{
     productName: string
@@ -90,20 +94,22 @@ export function buildRepairInvoiceSale(
     })
   }
 
-  for (const p of repair.spareParts ?? []) {
-    const qty = Number(p.quantity) || 1
-    const partWarranty = Math.max(0, Number(p.warrantyMonths) || 0)
-    const partWarrantyNote = p.warrantyNote?.trim() || undefined
-    items.push({
-      productName: p.productName,
-      quantity: qty,
-      unitPrice: 0,
-      total: 0,
-      warrantyMonths: partWarranty,
-      warrantyNote: partWarrantyNote,
-      description: partWarrantyNote,
-      isRepairPart: true,
-    })
+  if (showParts) {
+    for (const p of repair.spareParts ?? []) {
+      const qty = Number(p.quantity) || 1
+      const partWarranty = Math.max(0, Number(p.warrantyMonths) || 0)
+      const partWarrantyNote = p.warrantyNote?.trim() || undefined
+      items.push({
+        productName: p.productName,
+        quantity: qty,
+        unitPrice: 0,
+        total: 0,
+        warrantyMonths: partWarranty,
+        warrantyNote: partWarrantyNote,
+        description: partWarrantyNote,
+        isRepairPart: true,
+      })
+    }
   }
 
   return {
@@ -112,7 +118,7 @@ export function buildRepairInvoiceSale(
     customerName: repair.customerName,
     customerPhone: repair.customerPhone,
     source: 'REPAIR' as const,
-    notes: buildRepairSaleNotesField(repair),
+    notes: buildRepairSaleNotesField(repair, { includeParts: showParts }),
     /** Clean technician notes for invoice templates (PDF / A4). */
     invoiceNotes,
     items,

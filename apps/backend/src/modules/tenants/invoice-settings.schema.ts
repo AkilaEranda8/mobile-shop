@@ -48,6 +48,7 @@ export const updateInvoiceSettingsSchema = z.object({
   thermalLogoSize: z.enum(['sm', 'md', 'lg', 'xl']).optional(),
   repairWarrantyMonths: z.number().min(0).max(120).optional(),
   repairIntakeTerms: z.array(z.string().max(800)).max(30).optional(),
+  showRepairPartsOnInvoice: z.boolean().optional(),
   posAutoPrintBill: z.boolean().optional(),
   barcodeLabel: z.object({
     widthMm: z.number().min(20).max(100).optional(),

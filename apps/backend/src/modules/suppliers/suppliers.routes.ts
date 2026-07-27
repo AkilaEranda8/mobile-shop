@@ -21,6 +21,41 @@ const router = Router()
 router.use(authenticate)
 router.use(enforceModuleAccess('SUPPLIERS'))
 
+type PoWithItems = {
+  id: string
+  status: string
+  receivedAt: Date | null
+  paidAmount: number
+  items: Array<{ receivedQuantity: number }>
+}
+
+/** Unreceived DRAFT/SENT POs with no payments — safe to edit or hard-delete. */
+function assertPoEditable(po: PoWithItems, action: 'edit' | 'delete' = 'edit') {
+  if (!['DRAFT', 'SENT'].includes(po.status)) {
+    throw new AppError(`Only DRAFT or SENT purchase orders can be ${action === 'delete' ? 'deleted' : 'edited'}`, 400)
+  }
+  if (po.receivedAt || po.items.some(i => Number(i.receivedQuantity) > 0)) {
+    throw new AppError(`Cannot ${action} a purchase order that has received stock`, 400)
+  }
+  if (Number(po.paidAmount) > 0) {
+    throw new AppError(`Cannot ${action} a purchase order with recorded payments`, 400)
+  }
+}
+
+async function assertPoDeletable(po: PoWithItems & { id: string }, tenantId: string) {
+  assertPoEditable(po, 'delete')
+  const [allocations, imeis] = await Promise.all([
+    prisma.supplierPaymentAllocation.count({ where: { purchaseOrderId: po.id, tenantId } }),
+    prisma.imeiRecord.count({ where: { purchaseOrderId: po.id } }),
+  ])
+  if (allocations > 0) {
+    throw new AppError('Cannot delete a purchase order with payment allocations', 400)
+  }
+  if (imeis > 0) {
+    throw new AppError('Cannot delete a purchase order with registered IMEIs', 400)
+  }
+}
+
 async function resolvePoItemProduct(
   tx: Prisma.TransactionClient,
   tenantId: string,
@@ -734,6 +769,128 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TEC
       return sendSuccess(res, { ...updated, labelsToPrint })
     }
 
+    const wantsContentEdit =
+      Array.isArray(req.body.items) ||
+      req.body.supplierId !== undefined ||
+      req.body.supplierName !== undefined ||
+      req.body.notes !== undefined ||
+      req.body.expectedDelivery !== undefined ||
+      req.body.subtotal !== undefined ||
+      req.body.tax !== undefined ||
+      req.body.total !== undefined
+
+    if (wantsContentEdit) {
+      assertPoEditable(po, 'edit')
+      if (newStatus === 'RECEIVED') {
+        throw new AppError('Cannot receive stock while editing PO contents — save edits first, then receive', 400)
+      }
+
+      const {
+        supplierId,
+        supplierName,
+        subtotal,
+        tax,
+        total,
+        expectedDelivery,
+        notes,
+        items,
+        status: bodyStatus,
+      } = req.body
+
+      if (Array.isArray(items) && items.length === 0) {
+        throw new AppError('Add at least one item', 400)
+      }
+
+      let nextSupplierId = supplierId !== undefined ? String(supplierId) : po.supplierId
+      let nextSupplierName = supplierName !== undefined ? String(supplierName) : po.supplierName
+
+      if (supplierId !== undefined && supplierId !== po.supplierId) {
+        const supplier = await prisma.supplier.findFirst({
+          where: { id: String(supplierId), tenantId: req.tenantId!, isActive: true },
+          select: { id: true, name: true, branchId: true },
+        })
+        if (!supplier) throw new AppError('Supplier not found', 404)
+        assertSupplierBranchAccess(req, supplier.branchId)
+        if (supplier.branchId && po.branchId && supplier.branchId !== po.branchId) {
+          throw new AppError('Supplier belongs to a different branch', 400)
+        }
+        nextSupplierId = supplier.id
+        nextSupplierName = supplierName !== undefined ? String(supplierName) : supplier.name
+      }
+
+      const nextTotal = total !== undefined ? Number(total) || 0 : Number(po.total)
+      const nextSubtotal = subtotal !== undefined ? Number(subtotal) || 0 : Number(po.subtotal)
+      const nextTax = tax !== undefined ? Number(tax) || 0 : Number(po.tax)
+      const nextStatus = (bodyStatus && bodyStatus !== 'RECEIVED' ? bodyStatus : po.status) as typeof po.status
+
+      if (nextStatus !== po.status) {
+        await assertPurchaseOrderTransitionIfEnabled(req.tenantId!, po.status, nextStatus)
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        if (Array.isArray(items)) {
+          await tx.pOItem.deleteMany({ where: { purchaseOrderId: po.id } })
+        }
+
+        return tx.purchaseOrder.update({
+          where: { id: po.id },
+          data: {
+            supplierId: nextSupplierId,
+            supplierName: nextSupplierName,
+            subtotal: nextSubtotal,
+            tax: nextTax,
+            total: nextTotal,
+            dueAmount: Math.max(0, nextTotal - Number(po.paidAmount || 0)),
+            expectedDelivery: expectedDelivery === null || expectedDelivery === ''
+              ? null
+              : expectedDelivery
+                ? new Date(expectedDelivery)
+                : po.expectedDelivery,
+            notes: notes !== undefined ? (notes || null) : po.notes,
+            status: nextStatus,
+            ...(Array.isArray(items)
+              ? {
+                  items: {
+                    create: await Promise.all(items.map(async (item: any) => {
+                      let productId = item.productId || undefined
+                      if (!productId && item.productName) {
+                        const p = await tx.product.findFirst({
+                          where: {
+                            tenantId: req.tenantId!,
+                            branchId: po.branchId,
+                            name: { equals: item.productName, mode: 'insensitive' },
+                            isActive: true,
+                          },
+                        })
+                        if (p) productId = p.id
+                      }
+                      return {
+                        productId,
+                        productName: item.productName,
+                        quantity: Number(item.quantity) || 1,
+                        unitCost: Number(item.unitCost) || 0,
+                        total: Number(item.total) || 0,
+                        receivedQuantity: 0,
+                        storage: item.storage || undefined,
+                        colorName: item.colorName || undefined,
+                        sku: item.sku || undefined,
+                      }
+                    })),
+                  },
+                }
+              : {}),
+          },
+          include: { items: true },
+        })
+      })
+
+      if (nextSupplierId !== po.supplierId) {
+        await recalcSupplierStats(po.supplierId, req.tenantId!)
+      }
+      await recalcSupplierStats(nextSupplierId, req.tenantId!)
+      return sendSuccess(res, updated, 'Purchase order updated')
+    }
+
     const updated = await prisma.purchaseOrder.update({
       where: { id: req.params.id },
       data: {
@@ -745,6 +902,22 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TEC
 
     await recalcSupplierStats(po.supplierId, req.tenantId!)
     sendSuccess(res, updated)
+  } catch (e) { next(e) }
+})
+
+router.delete('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId! },
+      include: { items: true },
+    })
+    if (!po) throw new AppError('Purchase order not found', 404)
+    assertBranchRecordAccess(req, po.branchId)
+    await assertPoDeletable(po, req.tenantId!)
+
+    await prisma.purchaseOrder.delete({ where: { id: po.id } })
+    await recalcSupplierStats(po.supplierId, req.tenantId!)
+    sendSuccess(res, { id: po.id, poNumber: po.poNumber }, 'Purchase order deleted')
   } catch (e) { next(e) }
 })
 

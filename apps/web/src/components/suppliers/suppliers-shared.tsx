@@ -868,6 +868,67 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
 }
 
 /* â”€â”€ Confirm Receive Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+export function poCanEditOrDelete(po: PurchaseOrder): boolean {
+  if (!['DRAFT', 'SENT'].includes(po.status)) return false
+  if (po.receivedAt) return false
+  if (Number(po.paidAmount ?? 0) > 0) return false
+  if ((po.items ?? []).some(i => Number(i.receivedQuantity ?? 0) > 0)) return false
+  return true
+}
+
+export function ConfirmDeletePOModal({ po, onConfirm, onCancel, loading }: {
+  po: PurchaseOrder
+  onConfirm: () => void
+  onCancel: () => void
+  loading: boolean
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <div className="h-1 w-full bg-rose-500" />
+        <div className="p-6">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-rose-500/15 border border-rose-500/20">
+            <Trash2 size={22} className="text-rose-400" />
+          </div>
+          <h3 className="text-base font-bold text-white text-center mb-1">Delete Purchase Order?</h3>
+          <p className="text-xs text-gray-500 dark:text-slate-500 text-center mb-5">
+            This permanently removes the PO and its line items. Only unreceived DRAFT/SENT orders without payments can be deleted.
+          </p>
+          <div className="bg-white/3 border border-white/5 rounded-xl p-3.5 mb-5 space-y-1.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">PO Number</span>
+              <span className="font-mono text-violet-300 font-semibold">{po.poNumber}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Supplier</span>
+              <span className="text-slate-200">{po.supplierName}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Items</span>
+              <span className="text-slate-200">{po.items?.length ?? 0} item{(po.items?.length ?? 0) !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Total Value</span>
+              <span className="text-white font-bold">{formatCurrency(po.total)}</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onCancel} disabled={loading}
+              className="flex-1 py-2.5 text-sm font-semibold rounded-xl border border-white/10 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="button" onClick={onConfirm} disabled={loading}
+              className="flex-1 py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60 bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              {loading ? 'Deleting…' : 'Yes, Delete'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
   po: PurchaseOrder
   onConfirm: () => void
@@ -1531,10 +1592,26 @@ export function AddSupplierModal({ onClose, onSaved }: { onClose: () => void; on
 }
 
 /* ── New PO Modal ────────────────────────────────────────────────────── */
-export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplier[]; onClose: () => void; onSaved: () => void }) {
-  const [supplierId, setSupplierId]   = useState(suppliers[0]?.id ?? '')
-  const [expectedDelivery, setExpDel] = useState('')
-  const [notes, setNotes]             = useState('')
+export function NewPOModal({
+  suppliers,
+  onClose,
+  onSaved,
+  editPo,
+}: {
+  suppliers: Supplier[]
+  onClose: () => void
+  onSaved: () => void
+  editPo?: PurchaseOrder | null
+}) {
+  const isEdit = !!editPo
+  const [supplierId, setSupplierId]   = useState(editPo?.supplierId ?? suppliers[0]?.id ?? '')
+  const [expectedDelivery, setExpDel] = useState(() => {
+    if (!editPo?.expectedDelivery) return ''
+    const d = new Date(editPo.expectedDelivery)
+    if (Number.isNaN(d.getTime())) return ''
+    return d.toISOString().slice(0, 10)
+  })
+  const [notes, setNotes]             = useState(editPo?.notes ?? '')
   const [items, setItems] = useState<{
     productId: string
     productName: string
@@ -1544,9 +1621,18 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
     colorName?: string
     sku?: string
     _variations?: any[]
-  }[]>([])
+  }[]>(() => (editPo?.items ?? []).map(i => ({
+    productId: i.productId ?? '',
+    productName: i.productName,
+    quantity: i.quantity,
+    unitCost: i.unitCost,
+    storage: i.storage || undefined,
+    colorName: i.colorName || undefined,
+    sku: i.sku || undefined,
+    _variations: [],
+  })))
   const [loading, setLoading]         = useState(false)
-  const [searches, setSearches]       = useState<string[]>([])
+  const [searches, setSearches]       = useState<string[]>(() => (editPo?.items ?? []).map(i => i.productName))
   const [openIdx, setOpenIdx]         = useState<number | null>(null)
   const [quickSearch, setQuickSearch] = useState('')
   const [quickOpen, setQuickOpen]     = useState(false)
@@ -1586,6 +1672,16 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
 
   const { data: productsData } = useProducts({ limit: '2000' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
+
+  useEffect(() => {
+    if (!editPo || !allProducts.length) return
+    setItems(prev => prev.map(row => {
+      if (!row.productId) return row
+      const product = allProducts.find(p => p.id === row.productId)
+      if (!product) return row
+      return { ...row, _variations: normalizeStorageVariations(product.storageVariations) }
+    }))
+  }, [editPo?.id, allProducts.length])
 
   const getFiltered = (i: number) => {
     const q = (searches[i] ?? '').toLowerCase()
@@ -1686,7 +1782,7 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
     setLoading(true)
     try {
       const selectedSupplier = suppliers.find(s => s.id === supplierId)
-      await suppliersApi.createPO({
+      const payload = {
         supplierId,
         supplierName: selectedSupplier?.name ?? '',
         items: items.map(r => ({
@@ -1708,11 +1804,17 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
         dueAmount: subtotal,
         expectedDelivery: expectedDelivery || undefined,
         notes,
-        status: 'DRAFT',
-      })
-      toast.success('Purchase Order created')
+        status: isEdit ? (editPo?.status || 'DRAFT') : 'DRAFT',
+      }
+      if (isEdit && editPo) {
+        await suppliersApi.updatePO(editPo.id, payload)
+        toast.success('Purchase Order updated')
+      } else {
+        await suppliersApi.createPO(payload)
+        toast.success('Purchase Order created')
+      }
       onSaved(); onClose()
-    } catch (err: any) { toast.error(err?.message ?? 'Failed to create PO') }
+    } catch (err: any) { toast.error(err?.message ?? (isEdit ? 'Failed to update PO' : 'Failed to create PO')) }
     finally { setLoading(false) }
   }
 
@@ -1723,7 +1825,9 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
       >
         <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">New Purchase Order</h3>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">
+            {isEdit ? `Edit Purchase Order${editPo?.poNumber ? ` · ${editPo.poNumber}` : ''}` : 'New Purchase Order'}
+          </h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
@@ -2049,7 +2153,8 @@ export function NewPOModal({ suppliers, onClose, onSaved }: { suppliers: Supplie
             <div className="flex gap-3">
               <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
               <button type="submit" disabled={loading || suppliers.length === 0} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}Create PO
+                {loading ? <Loader2 size={14} className="animate-spin" /> : isEdit ? <Save size={14} /> : <Package size={14} />}
+                {isEdit ? 'Save Changes' : 'Create PO'}
               </button>
             </div>
           </div>

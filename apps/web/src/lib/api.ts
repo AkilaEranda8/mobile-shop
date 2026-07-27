@@ -479,6 +479,7 @@ export const suppliersApi = {
     api.get(`/suppliers/purchase-orders${params ? '?' + new URLSearchParams(params) : ''}`),
   createPO: (body: unknown) => api.post('/suppliers/purchase-orders', body),
   updatePO: (id: string, body: unknown) => api.put(`/suppliers/purchase-orders/${id}`, body),
+  deletePO: (id: string) => api.delete(`/suppliers/purchase-orders/${id}`),
   getPoLabels: (id: string) => api.get(`/suppliers/purchase-orders/${id}/labels`),
   registerPoImei: (poId: string, items: {
     productId?: string
