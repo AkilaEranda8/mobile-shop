@@ -54,9 +54,6 @@ export function PaymentDueBanner() {
 
   const amount = tenant.paymentDueAmount != null ? formatCurrency(tenant.paymentDueAmount) : null
   const invoiceNo = tenant.paymentDueInvoiceNo
-  const periodEnd = tenant.paymentDuePeriodEnd
-    ? new Date(tenant.paymentDuePeriodEnd).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })
-    : null
 
   const dismiss = () => {
     setDismissed(true)
@@ -77,8 +74,11 @@ export function PaymentDueBanner() {
       role="alert"
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-amber-500 text-white flex-shrink-0">
-          <CreditCard size={11} /> Payment Due
+        <span
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md flex-shrink-0"
+          style={{ background: '#f59e0b', color: '#ffffff' }}
+        >
+          <CreditCard size={11} color="#ffffff" /> Payment Due
         </span>
         <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 hidden sm:block" />
         <p className="text-[12px] sm:text-[13px] min-w-0">
@@ -87,7 +87,6 @@ export function PaymentDueBanner() {
           <span style={{ color: 'var(--text-muted)' }}>
             {amount ? `Amount: ${amount}. ` : ''}
             {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
-            {periodEnd ? `Renewal period until ${periodEnd}. ` : ''}
             Please settle with Hexalyte to keep your account active.
           </span>
         </p>
