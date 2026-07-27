@@ -8,9 +8,9 @@ import { authApi } from '@/lib/api'
 import { tenantShopUrl } from '@/lib/tenant-url'
 
 const plans = [
-  { id: 'starter', apiPlan: 'STARTER' as const, name: 'Starter', price: 'Rs. 2,999/mo', desc: '1 branch, 3 users' },
-  { id: 'pro', apiPlan: 'PRO' as const, name: 'Pro', price: 'Rs. 4,999/mo', desc: '5 branches, 15 users', popular: true },
-  { id: 'enterprise', apiPlan: 'ENTERPRISE' as const, name: 'Enterprise', price: 'Custom', desc: 'Unlimited everything' },
+  { id: 'starter', apiPlan: 'STARTER' as const, name: 'Starter', price: 'Rs. 2,999/mo', desc: '1 branch, 5 users — POS, inventory, repairs' },
+  { id: 'pro', apiPlan: 'PRO' as const, name: 'Pro', price: 'Rs. 4,999/mo', desc: '5 branches, 15 users — suppliers, delivery, P&L', popular: true },
+  { id: 'enterprise', apiPlan: 'ENTERPRISE' as const, name: 'Enterprise', price: 'Custom', desc: 'Accounting, hire purchase, API, white-label' },
 ]
 
 const PLAN_FROM_QUERY: Record<string, string> = {

@@ -27,9 +27,40 @@ const PLAN_BADGE: Record<string, string> = {
 }
 const DEFAULT_MRR: Record<string, number> = { STARTER: 2999, PRO: 4999, ENTERPRISE: 14399 }
 const DEFAULT_FEATURES: Record<string, string[]> = {
-  STARTER:    ['3 users', '1 branch', 'POS & Repairs', 'Basic reports'],
-  PRO:        ['10 users', '3 branches', 'Analytics', 'Warranty', 'Delivery'],
-  ENTERPRISE: ['Unlimited users', 'Unlimited branches', 'API access', 'White-label', 'Priority support'],
+  STARTER: [
+    '1 branch',
+    'Up to 5 users',
+    'POS & billing',
+    'Inventory + IMEI',
+    'Customers & credit',
+    'Repairs & warranty',
+    'Daily closing',
+    'Basic reports',
+    'WhatsApp receipts',
+  ],
+  PRO: [
+    'Up to 5 branches',
+    'Up to 15 users',
+    'Everything in Starter',
+    'Stock transfer',
+    'Suppliers & purchase orders',
+    'Delivery & exchanges',
+    'P&L / cash-flow reports',
+    'Daily reload',
+    'Profit allocation',
+    'Priority support',
+  ],
+  ENTERPRISE: [
+    'Unlimited branches & users',
+    'Everything in Pro',
+    'Full accounting (GL / AR / AP)',
+    'Hire purchase',
+    'Product traceability',
+    'API access',
+    'White-label',
+    'Dedicated support',
+    'Custom integrations',
+  ],
 }
 
 function fmtDate(s: string) {
