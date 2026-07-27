@@ -6,11 +6,11 @@ import { ChevronDown } from 'lucide-react'
 import { PRODUCTS, type HubProduct, getProduct } from '@/lib/products'
 import { hubSession } from '@/lib/hub-session'
 
-function productFromPath(path: string | null): HubProduct | null {
-  if (!path) return null
+function productFromPath(path: string | null): HubProduct {
+  if (!path) return 'enterprise'
   if (path.startsWith('/fashion')) return 'fashion'
   if (path.startsWith('/salon')) return 'salon'
-  return null
+  return 'enterprise'
 }
 
 export default function ProductSwitcher() {
@@ -20,7 +20,7 @@ export default function ProductSwitcher() {
   const [active, setActive] = useState<HubProduct>('enterprise')
 
   useEffect(() => {
-    setActive(productFromPath(path) ?? hubSession.getProduct())
+    setActive(productFromPath(path))
   }, [path])
 
   const current = getProduct(active)

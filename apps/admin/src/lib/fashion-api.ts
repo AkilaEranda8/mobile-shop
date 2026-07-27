@@ -22,6 +22,17 @@ function unwrap<T>(json: Record<string, unknown>): T {
   return json as T
 }
 
+function fashionErr(json: Record<string, unknown>, text: string, fallback: string) {
+  const msg = json.message
+  if (typeof msg === 'string' && msg) return msg
+  if (Array.isArray(msg) && msg.length) return msg.map(String).join('; ')
+  const nested = json.data
+  if (nested && typeof nested === 'object' && typeof (nested as { message?: unknown }).message === 'string') {
+    return (nested as { message: string }).message
+  }
+  return text || fallback
+}
+
 export async function fashionReq<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = hubSession.getToken('fashion')
   const headers: Record<string, string> = {
@@ -41,10 +52,7 @@ export async function fashionReq<T>(path: string, options: RequestInit = {}): Pr
   }
 
   if (!res.ok) {
-    const msg =
-      (typeof json.message === 'string' && json.message) ||
-      text ||
-      'Fashion API request failed'
+    const msg = fashionErr(json, text, 'Fashion API request failed')
     throw new Error(msg)
   }
 
@@ -88,11 +96,13 @@ export async function fashionLogin(email: string, password: string) {
   })
   const { json, text } = await parseBody(res)
   if (!res.ok) {
-    throw new Error((typeof json.message === 'string' && json.message) || text || 'Login failed')
+    throw new Error(fashionErr(json, text, 'Login failed'))
   }
   const data = unwrap<{
-    accessToken: string
-    user: {
+    accessToken?: string
+    access_token?: string
+    requiresTwoFactor?: boolean
+    user?: {
       id?: string
       email?: string
       firstName?: string
@@ -101,25 +111,32 @@ export async function fashionLogin(email: string, password: string) {
     }
   }>(json)
 
-  if (!data.accessToken) throw new Error('No token received from Fashion ERP')
+  if (data.requiresTwoFactor) {
+    throw new Error(
+      'This Fashion account has 2FA enabled. Use an account without 2FA for the hub, or disable 2FA temporarily.',
+    )
+  }
+
+  const accessToken = data.accessToken || data.access_token
+  if (!accessToken) throw new Error('No token received from Fashion ERP')
   const roles = data.user?.roles ?? []
   if (!roles.includes('SUPER_ADMIN')) {
     throw new Error('This account does not have Fashion company admin access (SUPER_ADMIN).')
   }
 
   const name =
-    [data.user.firstName, data.user.lastName].filter(Boolean).join(' ') ||
-    data.user.email ||
+    [data.user?.firstName, data.user?.lastName].filter(Boolean).join(' ') ||
+    data.user?.email ||
     email
 
-  hubSession.setFashionSession(data.accessToken, {
-    id: data.user.id,
+  hubSession.setFashionSession(accessToken, {
+    id: data.user?.id,
     name,
-    email: data.user.email || email,
+    email: data.user?.email || email,
     role: 'SUPER_ADMIN',
   })
 
-  return data
+  return { ...data, accessToken }
 }
 
 export async function fetchFashionOverview() {
@@ -141,12 +158,117 @@ export async function updateFashionTenant(id: string, data: Record<string, unkno
   return fashionReq(`/tenants/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 }
 
+export async function getFashionTenant(id: string) {
+  return fashionReq<FashionTenantRow & Record<string, unknown>>(`/tenants/${id}`)
+}
+
+export async function provisionFashionSsl(id: string) {
+  return fashionReq(`/tenants/${id}/provision-ssl`, { method: 'POST' })
+}
+
+export type FashionOnboardInput = {
+  companyName: string
+  subdomain: string
+  adminEmail: string
+  adminPassword: string
+  adminFirstName: string
+  adminLastName: string
+  phone?: string
+  plan?: string
+  shopType?: string
+  currency?: string
+  timezone?: string
+  country?: string
+}
+
+export type FashionOnboardResult = {
+  tenant: { id: string; name: string; subdomain: string; email?: string; plan?: string; status?: string }
+  branch?: { id: string; name: string }
+  adminUser: { id: string; email: string; firstName?: string; lastName?: string }
+  initialPassword: string
+}
+
+/** Public SaaS register endpoint — used by hub SUPER_ADMIN to onboard shops. */
+export async function createFashionTenant(input: FashionOnboardInput) {
+  return fashionReq<FashionOnboardResult>('/tenants/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      companyName: input.companyName,
+      subdomain: input.subdomain,
+      adminEmail: input.adminEmail,
+      adminPassword: input.adminPassword,
+      adminFirstName: input.adminFirstName,
+      adminLastName: input.adminLastName,
+      phone: input.phone || undefined,
+      plan: input.plan || 'STARTER',
+      shopType: input.shopType || 'CLOTHING',
+      currency: input.currency || 'LKR',
+      timezone: input.timezone || 'Asia/Colombo',
+      country: input.country || 'LK',
+    }),
+  })
+}
+
 export async function fetchFashionBillingSummary() {
-  return fashionReq<Record<string, unknown>>('/tenants/billing-summary')
+  return fashionReq<{
+    mrr: number
+    arr: number
+    totalTenants: number
+    activeTenants: number
+    trialTenants: number
+    trialExpiringSoon?: number
+    byPlan?: Record<string, { count: number; active: number; mrr: number }>
+    recentInvoices?: {
+      tenantId: string
+      tenantName: string
+      plan: string
+      amount: number
+      status: string
+      dueDate: string | null
+    }[]
+  }>('/tenants/billing-summary')
+}
+
+export type FashionPlanRow = {
+  key: string
+  id?: string
+  name?: string
+  price?: number
+  currency?: string
+  interval?: string
+  description?: string
+  features?: string[]
+  maxUsers?: number
+  maxBranches?: number
+  maxProducts?: number
+  tenantCount?: number
 }
 
 export async function fetchFashionPlans() {
-  return fashionReq<unknown[]>('/tenants/subscription-plans')
+  return fashionReq<FashionPlanRow[]>('/tenants/subscription-plans')
+}
+
+export async function updateFashionPlan(planKey: string, body: Record<string, unknown>) {
+  return fashionReq<FashionPlanRow>(`/tenants/subscription-plans/${planKey}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function previewFashionInvoice(tenantId: string, months = 1) {
+  return fashionReq<Record<string, unknown>>(
+    `/tenants/${tenantId}/subscription-invoice?months=${months}`,
+  )
+}
+
+export async function sendFashionInvoice(
+  tenantId: string,
+  body?: { months?: number; email?: string },
+) {
+  return fashionReq(`/tenants/${tenantId}/subscription-invoice/send`, {
+    method: 'POST',
+    body: JSON.stringify(body || { months: 1 }),
+  })
 }
 
 export async function fetchFashionPlatformConfig() {

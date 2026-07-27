@@ -15,7 +15,8 @@ export const adminAuth = {
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null),
   setToken: (t: string) => {
     localStorage.setItem(TOKEN_KEY, t)
-    document.cookie = `admin_token=${t}; path=/; max-age=${60 * 60 * 8}; SameSite=Strict`
+    // Gate cookie only — JWT stays in localStorage (avoids 4KB cookie limit)
+    document.cookie = `admin_token=1; path=/; max-age=${60 * 60 * 8}; SameSite=Strict`
   },
   getUser: (): AdminUserInfo | null => {
     if (typeof window === 'undefined') return null

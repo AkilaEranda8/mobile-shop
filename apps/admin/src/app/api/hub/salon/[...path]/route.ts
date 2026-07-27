@@ -7,6 +7,39 @@ const SALON_API =
 
 const PLATFORM_SECRET = process.env.SALON_PLATFORM_SECRET || ''
 
+/** Salon legacy login puts JWT in httpOnly Set-Cookie — extract for hub clients. */
+function extractTokenFromSetCookie(upstream: Response): string | null {
+  const headers = upstream.headers as Headers & { getSetCookie?: () => string[] }
+  const cookies =
+    typeof headers.getSetCookie === 'function'
+      ? headers.getSetCookie()
+      : [upstream.headers.get('set-cookie')].filter((c): c is string => !!c)
+
+  for (const raw of cookies) {
+    // May be comma-joined when getSetCookie unavailable
+    for (const part of raw.split(/,(?=\s*[^;=]+=)/)) {
+      const m = /^\s*token=([^;]+)/i.exec(part)
+      if (m?.[1]) {
+        try {
+          return decodeURIComponent(m[1].trim())
+        } catch {
+          return m[1].trim()
+        }
+      }
+    }
+  }
+  return null
+}
+
+function isAuthLoginPath(path: string) {
+  return (
+    path === 'auth/login' ||
+    path === 'auth/2fa/verify-login' ||
+    path.endsWith('/auth/login') ||
+    path.endsWith('/auth/2fa/verify-login')
+  )
+}
+
 async function proxy(req: NextRequest, pathParts: string[]) {
   const path = pathParts.join('/')
   const url = new URL(req.url)
@@ -31,10 +64,34 @@ async function proxy(req: NextRequest, pathParts: string[]) {
 
   try {
     const upstream = await fetch(target, init)
+    const contentTypeOut = upstream.headers.get('content-type') || ''
+    const isJson = contentTypeOut.includes('application/json')
+
+    // Legacy Salon login: cookie-only token → inject into JSON for hub localStorage
+    if (isAuthLoginPath(path) && isJson && upstream.ok) {
+      const text = await upstream.text()
+      let json: Record<string, unknown> = {}
+      try {
+        json = text ? (JSON.parse(text) as Record<string, unknown>) : {}
+      } catch {
+        return new NextResponse(text, {
+          status: upstream.status,
+          headers: { 'content-type': contentTypeOut },
+        })
+      }
+
+      const cookieToken = extractTokenFromSetCookie(upstream)
+      if (cookieToken && !json.token && !json.access_token) {
+        json.token = cookieToken
+        json.access_token = cookieToken
+      }
+
+      return NextResponse.json(json, { status: upstream.status })
+    }
+
     const body = await upstream.arrayBuffer()
     const outHeaders = new Headers()
-    const upstreamType = upstream.headers.get('content-type')
-    if (upstreamType) outHeaders.set('content-type', upstreamType)
+    if (contentTypeOut) outHeaders.set('content-type', contentTypeOut)
     return new NextResponse(body, { status: upstream.status, headers: outHeaders })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Salon proxy failed'

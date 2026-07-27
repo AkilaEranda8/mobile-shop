@@ -28,8 +28,19 @@ function LoginForm() {
   const def = getProduct(product)
 
   function redirectAfterLogin(p: HubProduct) {
-    const dest = params?.get('from') || getProduct(p).homePath
-    window.location.href = dest
+    const from = params?.get('from') || ''
+    const home = getProduct(p).homePath
+    // Only honor `from` when it belongs to the product just logged into
+    const okFrom =
+      from.startsWith('/') &&
+      !from.startsWith('//') &&
+      ((p === 'fashion' && from.startsWith('/fashion')) ||
+        (p === 'salon' && from.startsWith('/salon')) ||
+        (p === 'enterprise' &&
+          !from.startsWith('/fashion') &&
+          !from.startsWith('/salon') &&
+          !from.startsWith('/login')))
+    window.location.href = okFrom ? from : home
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -11,12 +11,16 @@ const FASHION_USER = 'hx_fashion_user'
 const FASHION_TENANT = 'hx_fashion_tenant'
 const SALON_TOKEN = 'hx_salon_token'
 const SALON_USER = 'hx_salon_user'
+/** Short gate cookies for middleware — JWTs stay in localStorage (cookie size limit). */
+const FASHION_GATE = 'hx_fashion_token'
+const SALON_GATE = 'hx_salon_token'
+const GATE_VALUE = '1'
 const COOKIE_MAX = 60 * 60 * 8
 
 export type HubUserInfo = { id?: string; name: string; email: string; role: string }
 
-function setCookie(name: string, value: string) {
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${COOKIE_MAX}; SameSite=Strict`
+function setGateCookie(name: string) {
+  document.cookie = `${name}=${GATE_VALUE}; path=/; max-age=${COOKIE_MAX}; SameSite=Strict`
 }
 
 function clearCookie(name: string) {
@@ -33,7 +37,7 @@ export const hubSession = {
 
   setProduct(product: HubProduct) {
     localStorage.setItem(PRODUCT_STORAGE_KEY, product)
-    setCookie(HUB_SESSION_COOKIE, product)
+    document.cookie = `${HUB_SESSION_COOKIE}=${encodeURIComponent(product)}; path=/; max-age=${COOKIE_MAX}; SameSite=Strict`
   },
 
   getUser(product?: HubProduct): HubUserInfo | null {
@@ -70,7 +74,7 @@ export const hubSession = {
     localStorage.setItem(FASHION_TOKEN, token)
     localStorage.setItem(FASHION_USER, JSON.stringify(user))
     localStorage.setItem(FASHION_TENANT, tenantSlug)
-    setCookie(FASHION_TOKEN, token)
+    setGateCookie(FASHION_GATE)
     hubSession.setProduct('fashion')
   },
 
@@ -82,7 +86,7 @@ export const hubSession = {
   setSalonSession(token: string, user: HubUserInfo) {
     localStorage.setItem(SALON_TOKEN, token)
     localStorage.setItem(SALON_USER, JSON.stringify(user))
-    setCookie(SALON_TOKEN, token)
+    setGateCookie(SALON_GATE)
     hubSession.setProduct('salon')
   },
 
@@ -93,11 +97,11 @@ export const hubSession = {
       localStorage.removeItem(FASHION_TOKEN)
       localStorage.removeItem(FASHION_USER)
       localStorage.removeItem(FASHION_TENANT)
-      clearCookie(FASHION_TOKEN)
+      clearCookie(FASHION_GATE)
     } else {
       localStorage.removeItem(SALON_TOKEN)
       localStorage.removeItem(SALON_USER)
-      clearCookie(SALON_TOKEN)
+      clearCookie(SALON_GATE)
     }
   },
 
