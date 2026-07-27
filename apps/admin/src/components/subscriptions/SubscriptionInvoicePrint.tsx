@@ -47,8 +47,8 @@ export default function SubscriptionInvoicePrint({
               <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{inv.issueDate}</div>
             </div>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Valid Until</div>
-              <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{inv.dueDate}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>Period End</div>
+              <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{inv.periodEnd}</div>
             </div>
           </div>
         </div>
@@ -66,6 +66,7 @@ export default function SubscriptionInvoicePrint({
               <td style={{ padding: '14px', borderBottom: '1px solid #f3f4f6' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Hexalyte {inv.planLabel} Plan</div>
                 <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{inv.periodLabel} subscription · Rs. {inv.mrr.toLocaleString()} / month</div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Period: {inv.periodStart} → {inv.periodEnd}</div>
               </td>
               <td style={{ textAlign: 'center', padding: '14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6' }}>{inv.months}</td>
               <td style={{ textAlign: 'right', padding: '14px', fontSize: 13, fontWeight: 700, color: '#111', borderBottom: '1px solid #f3f4f6' }}>Rs. {inv.total.toLocaleString()}</td>

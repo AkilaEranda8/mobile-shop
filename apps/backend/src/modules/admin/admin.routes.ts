@@ -478,8 +478,12 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
     const { status } = req.query as Record<string, string>
     const where: Record<string, unknown> = {}
     if (status === 'OVERDUE') {
-      where.status = 'ACTIVE'
-      where.subscriptionEndsAt = { lt: new Date() }
+      where.OR = [
+        { status: 'ACTIVE', subscriptionEndsAt: { lt: new Date() } },
+        { paymentDue: true },
+      ]
+    } else if (status === 'PAYMENT_DUE') {
+      where.paymentDue = true
     } else if (status && status !== 'ALL') {
       where.status = status
     }
@@ -489,6 +493,9 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
         id: true, name: true, plan: true, status: true,
         mrr: true, subscriptionEndsAt: true, trialEndsAt: true,
         ownerEmail: true, ownerName: true,
+        paymentDue: true, paymentDueAmount: true, paymentDueInvoiceNo: true,
+        paymentDueMonths: true, paymentDuePeriodStart: true, paymentDuePeriodEnd: true,
+        paymentDueAt: true,
         invoiceSettings: true,
         branches: {
           select: { phone: true, isHeadquarters: true },
@@ -508,9 +515,154 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
       ownerEmail: t.ownerEmail,
       ownerName: t.ownerName,
       ownerPhone: resolveTenantOwnerPhoneSync(t.branches, t.invoiceSettings),
+      paymentDue: t.paymentDue,
+      paymentDueAmount: t.paymentDueAmount,
+      paymentDueInvoiceNo: t.paymentDueInvoiceNo,
+      paymentDueMonths: t.paymentDueMonths,
+      paymentDuePeriodStart: t.paymentDuePeriodStart,
+      paymentDuePeriodEnd: t.paymentDuePeriodEnd,
+      paymentDueAt: t.paymentDueAt,
     }))
     const mrrTotal = data.reduce((s: number, t: { mrr: number | null }) => s + (t.mrr ?? 0), 0)
     sendSuccess(res, { data, mrrTotal })
+  } catch (e) { next(e) }
+})
+
+/** Mark next-period invoice as payment due — does NOT extend subscriptionEndsAt */
+router.post('/subscriptions/:tenantId/mark-payment-due', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+
+    const months = Math.max(1, Math.min(24, Number(req.body?.months) || 1))
+    const amount = Number(req.body?.amount)
+    if (!Number.isFinite(amount) || amount < 0) throw new AppError('Invalid amount', 400)
+
+    const invoiceNo = typeof req.body?.invoiceNo === 'string' && req.body.invoiceNo.trim()
+      ? req.body.invoiceNo.trim()
+      : `HX-${new Date().getFullYear()}-${String(tenant.id).slice(-5).toUpperCase()}`
+
+    const periodStart = req.body?.periodStart ? new Date(req.body.periodStart) : (
+      tenant.subscriptionEndsAt && tenant.subscriptionEndsAt > new Date()
+        ? new Date(tenant.subscriptionEndsAt)
+        : new Date()
+    )
+    const periodEnd = req.body?.periodEnd
+      ? new Date(req.body.periodEnd)
+      : (() => { const d = new Date(periodStart); d.setMonth(d.getMonth() + months); return d })()
+
+    if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
+      throw new AppError('Invalid period dates', 400)
+    }
+
+    const updated = await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: {
+        paymentDue: true,
+        paymentDueAmount: amount,
+        paymentDueInvoiceNo: invoiceNo,
+        paymentDueMonths: months,
+        paymentDuePeriodStart: periodStart,
+        paymentDuePeriodEnd: periodEnd,
+        paymentDueAt: new Date(),
+      },
+      select: {
+        id: true, name: true, plan: true, status: true, mrr: true,
+        subscriptionEndsAt: true, trialEndsAt: true, ownerEmail: true, ownerName: true,
+        paymentDue: true, paymentDueAmount: true, paymentDueInvoiceNo: true,
+        paymentDueMonths: true, paymentDuePeriodStart: true, paymentDuePeriodEnd: true,
+        paymentDueAt: true,
+      },
+    })
+
+    await logPlatformActivity({
+      eventType: 'SUBSCRIPTION_PAYMENT_DUE',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actor: (req as any).user?.email ?? 'admin',
+      target: tenant.name,
+      details: `Payment due marked · ${invoiceNo} · Rs.${amount.toLocaleString()} · ${months} mo (not extended)`,
+      ip: getClientIp(req),
+      tenantId: tenant.id,
+      userId: (req as any).user?.userId,
+    }).catch(() => {})
+
+    sendSuccess(res, updated, 'Payment marked as due (subscription not extended)')
+  } catch (e) { next(e) }
+})
+
+/** Clear payment-due flag without extending */
+router.post('/subscriptions/:tenantId/clear-payment-due', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+
+    const updated = await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: {
+        paymentDue: false,
+        paymentDueAmount: null,
+        paymentDueInvoiceNo: null,
+        paymentDueMonths: null,
+        paymentDuePeriodStart: null,
+        paymentDuePeriodEnd: null,
+        paymentDueAt: null,
+      },
+      select: {
+        id: true, name: true, paymentDue: true, subscriptionEndsAt: true,
+      },
+    })
+    sendSuccess(res, updated, 'Payment due cleared')
+  } catch (e) { next(e) }
+})
+
+/** Confirm payment received → clear due AND extend subscriptionEndsAt */
+router.post('/subscriptions/:tenantId/confirm-payment', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+    if (!tenant.paymentDue) throw new AppError('No payment due marked for this tenant', 400)
+
+    const months = Math.max(1, Math.min(24, Number(req.body?.months) || tenant.paymentDueMonths || 1))
+    const base = tenant.subscriptionEndsAt && tenant.subscriptionEndsAt > new Date()
+      ? new Date(tenant.subscriptionEndsAt)
+      : new Date()
+    const newEnd = tenant.paymentDuePeriodEnd
+      ? new Date(tenant.paymentDuePeriodEnd)
+      : (() => { const d = new Date(base); d.setMonth(d.getMonth() + months); return d })()
+
+    const updated = await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: {
+        status: 'ACTIVE',
+        subscriptionEndsAt: newEnd,
+        paymentDue: false,
+        paymentDueAmount: null,
+        paymentDueInvoiceNo: null,
+        paymentDueMonths: null,
+        paymentDuePeriodStart: null,
+        paymentDuePeriodEnd: null,
+        paymentDueAt: null,
+      },
+      select: {
+        id: true, name: true, plan: true, status: true, mrr: true,
+        subscriptionEndsAt: true, paymentDue: true,
+      },
+    })
+
+    await logPlatformActivity({
+      eventType: 'SUBSCRIPTION_PAYMENT_CONFIRMED',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actor: (req as any).user?.email ?? 'admin',
+      target: tenant.name,
+      details: `Payment confirmed · ${tenant.paymentDueInvoiceNo ?? 'invoice'} · extended to ${newEnd.toISOString().slice(0, 10)}`,
+      ip: getClientIp(req),
+      tenantId: tenant.id,
+      userId: (req as any).user?.userId,
+    }).catch(() => {})
+
+    sendSuccess(res, updated, 'Payment confirmed — subscription extended')
   } catch (e) { next(e) }
 })
 

@@ -134,6 +134,13 @@ export interface TenantRow {
 export interface SubscriptionRow {
   id: string; name: string; ownerEmail: string; ownerName?: string; ownerPhone?: string | null
   plan: string; status: string; mrr: number | null; subscriptionEndsAt: string | null; trialEndsAt: string | null
+  paymentDue?: boolean
+  paymentDueAmount?: number | null
+  paymentDueInvoiceNo?: string | null
+  paymentDueMonths?: number | null
+  paymentDuePeriodStart?: string | null
+  paymentDuePeriodEnd?: string | null
+  paymentDueAt?: string | null
 }
 
 export interface GmvMonth      { month: string; gmv: number; invoices: number }
@@ -361,6 +368,33 @@ export async function fetchSubscriptions(status?: string) {
 export async function updateSubscription(id: string, data: { plan?: string; status?: string; mrr?: number; subscriptionEndsAt?: string }) {
   return req<SubscriptionRow>(ADMIN_BASE, `/tenants/${id}`, {
     method: 'PATCH', body: JSON.stringify(data),
+  })
+}
+
+export async function markSubscriptionPaymentDue(
+  tenantId: string,
+  body: {
+    months: number
+    amount: number
+    invoiceNo: string
+    periodStart: string
+    periodEnd: string
+  },
+) {
+  return req<SubscriptionRow>(ADMIN_BASE, `/subscriptions/${tenantId}/mark-payment-due`, {
+    method: 'POST', body: JSON.stringify(body),
+  })
+}
+
+export async function clearSubscriptionPaymentDue(tenantId: string) {
+  return req<{ id: string; paymentDue: boolean }>(ADMIN_BASE, `/subscriptions/${tenantId}/clear-payment-due`, {
+    method: 'POST', body: JSON.stringify({}),
+  })
+}
+
+export async function confirmSubscriptionPayment(tenantId: string, body?: { months?: number }) {
+  return req<SubscriptionRow>(ADMIN_BASE, `/subscriptions/${tenantId}/confirm-payment`, {
+    method: 'POST', body: JSON.stringify(body ?? {}),
   })
 }
 

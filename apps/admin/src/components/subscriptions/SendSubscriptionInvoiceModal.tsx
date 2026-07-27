@@ -24,7 +24,10 @@ export default function SendSubscriptionInvoiceModal({
   onSent?: () => void
 }) {
   const printRef = useRef<HTMLDivElement>(null)
-  const inv = useMemo(() => buildSubscriptionInvoice(sub), [sub])
+  const inv = useMemo(
+    () => buildSubscriptionInvoice(sub, { months: sub.paymentDueMonths ?? 1 }),
+    [sub],
+  )
   const defaultMessage = useMemo(() => buildSubscriptionInvoiceMessage(sub, inv), [sub, inv])
   const [phone, setPhone] = useState(sub.ownerPhone ?? '')
   const [phoneSource, setPhoneSource] = useState<string | null>(null)

@@ -186,6 +186,16 @@ model Tenant {
   status                 TenantStatus     @default(TRIAL)
   trialEndsAt            DateTime?
   subscriptionEndsAt     DateTime?
+  /// Platform billing: invoice raised for next period, awaiting payment (does NOT extend access yet)
+  paymentDue             Boolean          @default(false)
+  paymentDueAmount       Float?
+  paymentDueInvoiceNo    String?
+  paymentDueMonths       Int?
+  paymentDuePeriodStart  DateTime?
+  paymentDuePeriodEnd    DateTime?
+  paymentDueAt           DateTime?
+  /// Last auto WhatsApp renewal reminder (day-before expiry @ 08:00 Asia/Colombo)
+  paymentDueReminderSentAt DateTime?
   ownerEmail             String
   ownerName              String
   mrr                    Float            @default(0)
