@@ -134,10 +134,10 @@ function planRank(key: string) {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  ACTIVE: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  TRIAL: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  SUSPENDED: 'bg-red-500/15 text-red-400 border-red-500/30',
-  CANCELLED: 'bg-slate-500/15 text-slate-400 border-slate-500/30',
+  ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30',
+  TRIAL: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30',
+  SUSPENDED: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/30',
+  CANCELLED: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/30',
 }
 
 const SUPPORT_PHONE = '+94703130100'
@@ -175,24 +175,22 @@ function UsageMeter({
   const over = !unlimited && used > limit
   return (
     <div
-      className="rounded-2xl p-4 border"
-      style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}
+      className="rounded-2xl p-4 border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--bg-subtle)] dark:shadow-none"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-50 border border-gray-200 dark:bg-[var(--bg-card)] dark:border-white/10"
           >
-            <Icon size={16} style={{ color: 'var(--text-secondary)' }} />
+            <Icon size={16} className="text-gray-600 dark:text-slate-300" />
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-slate-400">
               {label}
             </p>
-            <p className="text-lg font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
+            <p className="text-lg font-bold leading-tight text-gray-900 dark:text-white">
               {used}
-              <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-sm font-medium ml-1 text-gray-400 dark:text-slate-500">
                 / {unlimited ? '∞' : limit}
               </span>
             </p>
@@ -201,21 +199,23 @@ function UsageMeter({
         <span
           className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
             over
-              ? 'bg-red-500/15 text-red-400 border-red-500/30'
-              : 'bg-white/5 text-slate-400 border-white/10'
+              ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/30'
+              : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10'
           }`}
         >
           {unlimited ? 'Unlimited' : over ? 'Over limit' : `${pct}%`}
         </span>
       </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+      <div
+        className="h-1.5 rounded-full overflow-hidden bg-gray-200 dark:bg-white/[0.08]"
+      >
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
             width: `${unlimited ? 18 : pct}%`,
             background: over
-              ? '#f87171'
-              : 'linear-gradient(90deg, #6366f1, #a78bfa)',
+              ? '#ef4444'
+              : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
           }}
         />
       </div>
@@ -271,69 +271,71 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
     <div className="space-y-5">
       {/* Hero */}
       <section
-        className="relative overflow-hidden rounded-2xl border"
+        className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[var(--bg-card)] shadow-sm"
         style={{
-          borderColor: 'var(--border-subtle)',
-          background:
-            'radial-gradient(1200px 280px at 10% -20%, rgba(139,92,246,0.22), transparent 55%), radial-gradient(900px 240px at 90% 0%, rgba(59,130,246,0.12), transparent 50%), var(--bg-card)',
+          backgroundImage:
+            'radial-gradient(1000px 260px at 8% -30%, rgba(139,92,246,0.12), transparent 55%), radial-gradient(800px 220px at 95% 0%, rgba(59,130,246,0.08), transparent 50%)',
         }}
       >
-        <div className="absolute inset-0 pointer-events-none opacity-[0.035]" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,.9) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.9) 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
-        }} />
+        <div
+          className="absolute inset-0 pointer-events-none opacity-[0.45] dark:opacity-[0.04]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(15,23,42,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.06) 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+          }}
+        />
 
         <div className="relative p-5 sm:p-6 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2 py-1 rounded-md bg-violet-500/15 text-violet-300 border border-violet-500/25">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2 py-1 rounded-md bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25">
                   <CreditCard size={11} /> Billing & Subscription
                 </span>
                 <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md border ${STATUS_STYLE[tenant.status] ?? STATUS_STYLE.ACTIVE}`}>
                   {tenant.status}
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
                 {currentPlan?.label ?? tenant.plan}
-                <span className="text-base font-semibold ml-2" style={{ color: 'var(--text-muted)' }}>
+                <span className="text-base font-semibold ml-2 text-gray-500 dark:text-slate-400">
                   plan
                 </span>
               </h2>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-sm mt-1 text-gray-500 dark:text-slate-400">
                 {tenant.name}
                 {tenant.ownerEmail ? ` · ${tenant.ownerEmail}` : ''}
               </p>
             </div>
 
             <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-500 dark:text-slate-400">
                 Monthly rate
               </p>
-              <p className="text-2xl font-black" style={{ color: currentPlan?.color ?? 'var(--text-primary)' }}>
-                {tenant.mrr
-                  ? formatCurrency(tenant.mrr)
-                  : currentPlan?.price ?? '—'}
+              <p className="text-2xl font-black" style={{ color: currentPlan?.color ?? undefined }}>
+                <span className={!currentPlan?.color ? 'text-gray-900 dark:text-white' : undefined}>
+                  {tenant.mrr
+                    ? formatCurrency(tenant.mrr)
+                    : currentPlan?.price ?? '—'}
+                </span>
               </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs text-gray-500 dark:text-slate-400">
                 {currentPlan?.period === 'contact us' ? 'Custom billing' : 'Billed monthly'}
               </p>
             </div>
           </div>
 
           {/* Renewal timeline */}
-          <div
-            className="rounded-xl border p-4"
-            style={{ background: 'rgba(0,0,0,0.18)', borderColor: 'var(--border-subtle)' }}
-          >
+          <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50/90 dark:bg-black/25 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                <Calendar size={14} className="text-violet-300" />
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                <Calendar size={14} className="text-violet-600 dark:text-violet-300" />
                 {tenant.subscriptionEndsAt
                   ? `Renews ${fmtDate(tenant.subscriptionEndsAt)}`
                   : 'No renewal date set'}
               </div>
-              <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-xs font-medium text-gray-500 dark:text-slate-400">
                 {renewIn != null
                   ? renewIn < 0
                     ? `${Math.abs(renewIn)} days overdue`
@@ -345,7 +347,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                     : '—'}
               </div>
             </div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-2 rounded-full overflow-hidden bg-gray-200 dark:bg-white/[0.08]">
               <div
                 className="h-full rounded-full"
                 style={{
@@ -353,24 +355,24 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                   background:
                     renewIn != null && renewIn <= 7
                       ? 'linear-gradient(90deg,#f59e0b,#ef4444)'
-                      : 'linear-gradient(90deg,#6366f1,#a78bfa,#22d3ee)',
+                      : 'linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4)',
                 }}
               />
             </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-slate-400">
               <span>Member since {fmtDate(tenant.createdAt)}</span>
               {tenant.trialEndsAt && <span>Trial {fmtDate(tenant.trialEndsAt)}{trialIn != null && trialIn > 0 ? ` (${trialIn}d left)` : ''}</span>}
             </div>
           </div>
 
           {tenant.paymentDue && (
-            <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 flex flex-wrap items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle size={16} className="text-amber-400" />
+            <div className="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-500/35 dark:bg-amber-500/10 p-4 flex flex-wrap items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-amber-300">Payment due</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Payment due</p>
+                <p className="text-xs mt-0.5 text-amber-700/80 dark:text-slate-400">
                   {tenant.paymentDueAmount != null
                     ? `Amount ${formatCurrency(tenant.paymentDueAmount)}`
                     : 'Outstanding subscription payment'}
@@ -379,7 +381,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
               </div>
               <a
                 href={`tel:${SUPPORT_PHONE}`}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-500/40 dark:text-amber-200 dark:hover:bg-amber-500/10"
               >
                 <Phone size={12} /> Settle now
               </a>
@@ -393,46 +395,42 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
         <UsageMeter label="Branches" used={branchCount} limit={limits.branches} icon={Building2} />
         <UsageMeter label="Team members" used={teamCount} limit={limits.users} icon={Users} />
         <div
-          className="rounded-2xl p-4 border"
-          style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}
+          className="rounded-2xl p-4 border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--bg-subtle)] dark:shadow-none"
         >
           <div className="flex items-center gap-2.5 mb-2">
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-50 border border-gray-200 dark:bg-[var(--bg-card)] dark:border-white/10"
             >
-              <Zap size={16} className="text-violet-300" />
+              <Zap size={16} className="text-violet-600 dark:text-violet-300" />
             </div>
-            <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-slate-400">
               Plan power
             </p>
           </div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">
             {(currentPlan?.features?.length ?? 0)} included features
           </p>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[11px] mt-1 text-gray-500 dark:text-slate-400">
             Compare plans below to unlock more modules
           </p>
         </div>
         <div
-          className="rounded-2xl p-4 border"
-          style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}
+          className="rounded-2xl p-4 border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--bg-subtle)] dark:shadow-none"
         >
           <div className="flex items-center gap-2.5 mb-2">
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-50 border border-gray-200 dark:bg-[var(--bg-card)] dark:border-white/10"
             >
-              <Shield size={16} className="text-emerald-300" />
+              <Shield size={16} className="text-emerald-600 dark:text-emerald-300" />
             </div>
-            <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-slate-400">
               Support
             </p>
           </div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">
             Hexalyte billing desk
           </p>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[11px] mt-1 text-gray-500 dark:text-slate-400">
             WhatsApp / phone · {SUPPORT_PHONE.replace('+94', '+94 ')}
           </p>
         </div>
@@ -442,11 +440,11 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       <section className="card p-5 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-violet-300">Plans</p>
-            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-300">Plans</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               Choose what fits your shop
             </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-xs mt-0.5 text-gray-500 dark:text-slate-400">
               Upgrade anytime — we activate after payment confirmation
             </p>
           </div>
@@ -485,12 +483,20 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
               return (
                 <div
                   key={plan.key}
-                  className="relative rounded-2xl p-4 flex flex-col gap-3 transition-all hover:-translate-y-0.5"
-                  style={{
-                    background: isCurrent ? plan.bg : 'var(--bg-subtle)',
-                    border: `1px solid ${isCurrent ? plan.border : 'var(--border-subtle)'}`,
-                    boxShadow: isCurrent ? `0 0 0 1px ${plan.border}, 0 18px 40px -28px ${plan.color}` : undefined,
-                  }}
+                  className={`relative rounded-2xl p-4 flex flex-col gap-3 transition-all hover:-translate-y-0.5 border shadow-sm dark:shadow-none ${
+                    isCurrent
+                      ? ''
+                      : 'bg-white border-gray-200 dark:bg-[var(--bg-subtle)] dark:border-white/10'
+                  }`}
+                  style={
+                    isCurrent
+                      ? {
+                          background: plan.bg,
+                          borderColor: plan.border,
+                          boxShadow: `0 0 0 1px ${plan.border}, 0 14px 28px -20px ${plan.color}`,
+                        }
+                      : undefined
+                  }
                 >
                   {plan.popular && !isCurrent && (
                     <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-violet-600 text-white tracking-wide inline-flex items-center gap-1">
@@ -510,23 +516,23 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: plan.color }}>
                       {plan.label}
                     </p>
-                    <p className="text-2xl font-black mt-1" style={{ color: 'var(--text-primary)' }}>
+                    <p className="text-2xl font-black mt-1 text-gray-900 dark:text-white">
                       {plan.price}
                     </p>
-                    <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-400">
                       {plan.period}
                     </p>
                   </div>
 
                   <ul className="space-y-1.5 flex-1">
                     {plan.features.slice(0, 7).map((f) => (
-                      <li key={f} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <li key={f} className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-slate-300">
                         <Check size={12} className="mt-0.5 flex-shrink-0" style={{ color: plan.color }} />
                         <span>{f}</span>
                       </li>
                     ))}
                     {plan.features.length > 7 && (
-                      <li className="text-[11px] pl-4" style={{ color: 'var(--text-muted)' }}>
+                      <li className="text-[11px] pl-4 text-gray-400 dark:text-slate-500">
                         +{plan.features.length - 7} more
                       </li>
                     )}
@@ -543,8 +549,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                     <button
                       type="button"
                       onClick={() => setUpgradePlan(plan)}
-                      className="inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl border transition hover:bg-white/5"
-                      style={{ color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+                      className="inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl border border-gray-200 text-gray-800 hover:bg-gray-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5 transition"
                     >
                       {plan.key === 'ENTERPRISE'
                         ? 'Contact sales'
@@ -587,12 +592,10 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 {allFeatures.map((feature, idx) => (
                   <tr
                     key={feature}
-                    style={{
-                      background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
-                      borderTop: '1px solid var(--border-subtle)',
-                    }}
+                    className={idx % 2 === 0 ? 'bg-transparent' : 'bg-gray-50/80 dark:bg-white/[0.02]'}
+                    style={{ borderTop: '1px solid var(--border-subtle)' }}
                   >
-                    <td className="p-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="p-3 text-xs text-gray-700 dark:text-slate-300">
                       {feature}
                     </td>
                     {catalog.map((p) => {
@@ -602,7 +605,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                           {has ? (
                             <Check size={14} className="inline" style={{ color: p.color }} />
                           ) : (
-                            <span className="text-slate-600">—</span>
+                            <span className="text-gray-300 dark:text-slate-600">—</span>
                           )}
                         </td>
                       )
@@ -621,8 +624,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                         <button
                           type="button"
                           onClick={() => setUpgradePlan(p)}
-                          className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border hover:bg-white/5"
-                          style={{ borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                          className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-800 hover:bg-gray-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
                         >
                           {p.key === 'ENTERPRISE' ? 'Contact' : 'Upgrade'}
                         </button>
@@ -637,15 +639,12 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       </section>
 
       {/* Help */}
-      <section
-        className="rounded-2xl border p-5 flex flex-wrap items-center justify-between gap-4"
-        style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
-      >
+      <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[var(--bg-card)] p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
         <div>
-          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-sm font-bold text-gray-900 dark:text-white">
             Need help with billing?
           </p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-0.5 text-gray-500 dark:text-slate-400">
             Invoices, renewals, and plan changes are handled by Hexalyte support.
           </p>
         </div>
@@ -660,15 +659,13 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
           </a>
           <a
             href={`tel:${SUPPORT_PHONE}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border"
-            style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
           >
             <Phone size={13} /> Call
           </a>
           <a
             href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Billing · ${tenant.name}`)}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border"
-            style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
           >
             <Mail size={13} /> Email
           </a>
@@ -708,8 +705,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
               <button
                 type="button"
                 onClick={() => setUpgradePlan(null)}
-                className="p-1.5 rounded-lg hover:bg-white/5"
-                style={{ color: 'var(--text-muted)' }}
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 dark:text-slate-400"
               >
                 <X size={16} />
               </button>
@@ -717,15 +713,15 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
             <div className="p-5 space-y-4">
               <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {upgradePlan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <li key={f} className="flex items-start gap-2 text-sm text-gray-700 dark:text-slate-300">
                     <Check size={14} className="mt-0.5 flex-shrink-0" style={{ color: upgradePlan.color }} />
                     {f}
                   </li>
                 ))}
               </ul>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs text-gray-500 dark:text-slate-400">
                 Send a request and Hexalyte will confirm payment, then activate{' '}
-                <strong style={{ color: 'var(--text-primary)' }}>{upgradePlan.label}</strong> on your account.
+                <strong className="text-gray-900 dark:text-white">{upgradePlan.label}</strong> on your account.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <a
@@ -738,8 +734,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 </a>
                 <a
                   href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
-                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl border"
-                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-default)' }}
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
                 >
                   <Mail size={14} /> Email
                 </a>
