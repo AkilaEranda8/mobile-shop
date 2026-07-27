@@ -1,10 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Bell, Menu, ChevronDown, LogOut, Settings } from 'lucide-react'
 import Link from 'next/link'
 import AdminGlobalSearch from '@/components/layout/AdminGlobalSearch'
-import { adminAuth, fetchNotifications, type AdminUserInfo } from '@/lib/api'
+import { fetchNotifications } from '@/lib/api'
+import { hubSession, type HubUserInfo } from '@/lib/hub-session'
+import { type HubProduct, getProduct } from '@/lib/products'
 
 interface Props {
   title: string
@@ -20,19 +23,36 @@ function initials(name: string) {
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
+function productFromPath(path: string | null): HubProduct {
+  if (path?.startsWith('/fashion')) return 'fashion'
+  if (path?.startsWith('/salon')) return 'salon'
+  return hubSession.getProduct()
+}
+
 export default function AdminHeader({ title, breadcrumbs, onMenuClick, onLogout }: Props) {
+  const path = usePathname()
   const [showProfile, setShowProfile] = useState(false)
-  const [user, setUser] = useState<AdminUserInfo | null>(null)
+  const [user, setUser] = useState<HubUserInfo | null>(null)
+  const [product, setProduct] = useState<HubProduct>('enterprise')
   const [unread, setUnread] = useState(0)
   const profileRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setUser(adminAuth.getUser())
-  }, [])
+    const p = productFromPath(path)
+    setProduct(p)
+    setUser(hubSession.getUser(p))
+  }, [path])
 
   useEffect(() => {
+    // Enterprise notifications bell only — Fashion/Salon use their own hub APIs on feature pages
+    if (product !== 'enterprise' || !hubSession.hasSession('enterprise')) {
+      setUnread(0)
+      return
+    }
+
     let cancelled = false
     const load = () => {
+      if (!hubSession.hasSession('enterprise')) return
       fetchNotifications()
         .then((res) => {
           if (cancelled) return
@@ -50,7 +70,7 @@ export default function AdminHeader({ title, breadcrumbs, onMenuClick, onLogout 
       cancelled = true
       clearInterval(t)
     }
-  }, [])
+  }, [product])
 
   useEffect(() => {
     if (!showProfile) return
@@ -65,6 +85,19 @@ export default function AdminHeader({ title, breadcrumbs, onMenuClick, onLogout 
 
   const displayName = user?.name || 'Admin'
   const displayEmail = user?.email || ''
+  const def = getProduct(product)
+  const notificationsHref =
+    product === 'fashion'
+      ? '/fashion/notifications'
+      : product === 'salon'
+        ? '/salon/notifications'
+        : '/notifications'
+  const settingsHref =
+    product === 'fashion'
+      ? '/fashion/settings'
+      : product === 'salon'
+        ? '/salon/settings'
+        : '/settings'
 
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-4 flex-shrink-0">
@@ -91,9 +124,9 @@ export default function AdminHeader({ title, breadcrumbs, onMenuClick, onLogout 
         )}
       </div>
 
-      <AdminGlobalSearch />
+      {product === 'enterprise' && <AdminGlobalSearch />}
 
-      <Link href="/notifications" className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+      <Link href={notificationsHref} className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
         <Bell size={18} />
         {unread > 0 && (
           <span className="absolute top-1 right-1 min-w-4 h-4 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
@@ -119,9 +152,9 @@ export default function AdminHeader({ title, breadcrumbs, onMenuClick, onLogout 
           <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
             <div className="px-3 py-2 border-b border-gray-100">
               <p className="text-xs font-semibold text-gray-800 truncate">{displayName}</p>
-              <p className="text-[11px] text-gray-500 truncate">{displayEmail || 'Platform admin'}</p>
+              <p className="text-[11px] text-gray-500 truncate">{displayEmail || `${def.shortLabel} admin`}</p>
             </div>
-            <Link href="/settings" onClick={() => setShowProfile(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+            <Link href={settingsHref} onClick={() => setShowProfile(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
               <Settings size={14} />Settings
             </Link>
             <button

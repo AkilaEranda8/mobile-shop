@@ -91,6 +91,10 @@ async function req<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const token = adminAuth.getToken()
+  // Never hit Enterprise admin APIs without a bearer — avoids noisy 401s from hub races
+  if (base === ADMIN_BASE && !token && !(options.headers as Record<string, string> | undefined)?.Authorization) {
+    throw new Error('Not authenticated')
+  }
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),

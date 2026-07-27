@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Building2, Loader2, X, ArrowRight } from 'lucide-react'
 import { fetchTenants, type TenantRow } from '@/lib/api'
+import { hubSession } from '@/lib/hub-session'
 
 export default function AdminGlobalSearch() {
   const [query, setQuery] = useState('')
@@ -16,6 +17,10 @@ export default function AdminGlobalSearch() {
   const search = useCallback(async (q: string) => {
     const trimmed = q.trim()
     if (trimmed.length < 2) {
+      setResults([])
+      return
+    }
+    if (!hubSession.hasSession('enterprise')) {
       setResults([])
       return
     }
