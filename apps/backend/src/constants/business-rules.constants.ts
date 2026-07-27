@@ -28,12 +28,11 @@ export const SALE_SOURCES_SKIP_AUTO_JOURNAL = [
 /**
  * Sale.source values that are AR/ledger documents only — not shop sales revenue.
  * Prior customer credit (opening balance) must not inflate Sales History, POS totals, or day closing.
- * REPAIR payments are recorded on the ticket + Finance "Repairs" income — not Sales History.
+ * Repair collect-payment sales (source=REPAIR) remain visible in Sales History.
  */
 export const SALE_SOURCES_EXCLUDED_FROM_REVENUE = [
   BUSINESS_RULE_KEYS.OPENING_BALANCE,
   BUSINESS_RULE_KEYS.CREDIT_COLLECTION,
-  BUSINESS_RULE_KEYS.REPAIR,
 ] as const
 
 export type SaleSourceSkipAutoJournal =

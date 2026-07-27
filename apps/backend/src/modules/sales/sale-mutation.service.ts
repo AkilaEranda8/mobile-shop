@@ -232,14 +232,18 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
 
     const refundFromPaid = Math.min(refundAmount, sale.paidAmount)
     const refundFromDue = Math.max(0, refundAmount - refundFromPaid)
+    // Never drive totals below zero (e.g. void of a fully discounted repair sale).
+    const nextTotal = Math.max(0, round2(Number(sale.total) - refundAmount))
+    const nextPaid = Math.max(0, round2(Number(sale.paidAmount) - refundFromPaid))
+    const nextDue = Math.max(0, round2(Number(sale.dueAmount) - refundFromDue))
 
     await tx.sale.update({
       where: { id: sale.id },
       data: {
         status: newSaleStatus,
-        total: { decrement: refundAmount },
-        paidAmount: { decrement: refundFromPaid },
-        ...(refundFromDue > 0 && { dueAmount: { decrement: refundFromDue } }),
+        total: nextTotal,
+        paidAmount: nextPaid,
+        ...(refundFromDue > 0 && { dueAmount: nextDue }),
       },
     })
 

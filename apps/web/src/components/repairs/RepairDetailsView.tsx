@@ -949,7 +949,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                           className="input-field"
                         />
                         <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-                          Discount reduces what the customer pays. Repair stays on the ticket — not added to Sales History.
+                          Discount reduces what the customer pays. A repair sale is also created in Sales History.
                         </p>
                       </div>
                       <div className="flex justify-between items-center px-3 py-2.5 rounded-xl border border-green-500/20" style={{ background: 'rgba(34,197,94,0.05)' }}>

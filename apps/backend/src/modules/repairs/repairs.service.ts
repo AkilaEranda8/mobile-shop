@@ -7,6 +7,7 @@ import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
+import { formatRepairServiceItemName } from '../../utils/repair-item-label'
 import { applyRepairSparePartsStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { assertRepairTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
 
@@ -324,12 +325,22 @@ export const repairsService = {
     if (paidAmount > 0 && !body.paymentMethod) {
       throw new AppError('Payment method is required', 400)
     }
+    const saleStatus = dueAmount > 0 ? (paidAmount > 0 ? 'PARTIAL' : 'DUE') : 'PAID'
     const cashierName = body.cashierName || 'System'
     const invoiceNumber = r.ticketNumber
 
     const repairWarrantyMonths = r.warrantyMonths != null && r.warrantyMonths >= 0
       ? Math.max(0, Math.min(120, Number(r.warrantyMonths)))
       : 0
+
+    const partsSummary = r.spareParts.length
+      ? ` | Parts: ${r.spareParts.map((p) => `${p.productName} x${p.quantity}`).join(', ')}`
+      : ''
+    const ticketNotes = (r.notes ?? [])
+      .map((n: { text?: string }) => n.text?.trim())
+      .filter(Boolean)
+      .join('; ')
+    const notesSummary = ticketNotes ? ` | Notes: ${ticketNotes}` : ''
 
     await prisma.$transaction(async (tx: any) => {
       await tx.repairTicket.update({
@@ -355,13 +366,55 @@ export const repairsService = {
         },
       })
 
-      // Warranties are registered against the repair ticket number — no Sale row.
-      // Repair income is recorded via Finance transaction + REPAIR_* journals only,
-      // so Collect Payment never appears in Sales History.
+      const saleItems: any[] = []
+      if (serviceFee > 0 || total > 0 || discount > 0) {
+        // Line `total` is net after header discount so void/return refunds the
+        // amount actually charged (not the pre-discount quote).
+        saleItems.push({
+          productName: formatRepairServiceItemName(r.deviceBrand, r.deviceModel),
+          sku: r.ticketNumber,
+          quantity: 1,
+          unitPrice: serviceFee,
+          discount,
+          total,
+          warrantyMonths: repairWarrantyMonths,
+        })
+      }
+      const sale = await tx.sale.create({
+        data: {
+          tenantId,
+          branchId: r.branchId,
+          invoiceNumber,
+          customerId: r.customerId,
+          customerName: r.customerName,
+          customerPhone: r.customerPhone,
+          subtotal,
+          discount,
+          tax: 0,
+          total,
+          paidAmount,
+          dueAmount,
+          status: saleStatus,
+          cashierName,
+          source: 'REPAIR',
+          notes: `Repair ticket: ${r.ticketNumber}${r.reportedIssue?.trim() ? ` | Fault: ${r.reportedIssue.trim()}` : ''}${notesSummary}${partsSummary}`,
+          items: { create: saleItems },
+          payments: paidAmount > 0
+            ? {
+                create: [{
+                  method: body.paymentMethod as any,
+                  amount: paidAmount,
+                  reference: body.reference?.trim() || null,
+                }],
+              }
+            : undefined,
+        },
+      })
+
       await createWarrantiesFromRepair(tx, {
         tenantId,
         branchId: r.branchId,
-        saleId: null,
+        saleId: sale.id,
         invoiceNumber,
         ticketNumber: r.ticketNumber,
         customerId: r.customerId,
