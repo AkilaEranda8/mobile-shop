@@ -9,16 +9,19 @@ import {
   Shield, LogOut, X, Sparkles, MessageCircle, Smartphone, Lightbulb,
 } from 'lucide-react'
 import {
-  adminAuth,
   featureSuggestionsAdminApi,
   fetchStats,
   fetchSubscriptions,
   fetchHealth,
   fetchNotifications,
-  type AdminUserInfo,
 } from '@/lib/api'
+import { hubSession, type HubUserInfo } from '@/lib/hub-session'
+import { type HubProduct, getProduct } from '@/lib/products'
+import ProductSwitcher from './ProductSwitcher'
 
-const NAV = [
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard }
+
+const ENTERPRISE_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/tenants', label: 'Tenants', icon: Building2 },
   { href: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
@@ -35,6 +38,48 @@ const NAV = [
   { href: '/support-tools', label: 'Support Tools', icon: Wrench },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
+
+const FASHION_NAV: NavItem[] = [
+  { href: '/fashion/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/fashion/tenants', label: 'Tenants', icon: Building2 },
+  { href: '/fashion/subscriptions', label: 'Subscriptions', icon: CreditCard },
+  { href: '/fashion/whatsapp', label: 'WhatsApp', icon: MessageCircle },
+  { href: '/fashion/auth-iam', label: 'Auth / IAM', icon: KeyRound },
+  { href: '/fashion/system-health', label: 'System Health', icon: Activity },
+  { href: '/fashion/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/fashion/activity-logs', label: 'Activity Logs', icon: ScrollText },
+  { href: '/fashion/notifications', label: 'Notifications', icon: Bell },
+  { href: '/fashion/feature-suggestions', label: 'Feature Suggestions', icon: Lightbulb },
+  { href: '/fashion/announcements', label: 'Announcements', icon: Megaphone },
+  { href: '/fashion/release-notes', label: 'Release Notes', icon: Sparkles },
+  { href: '/fashion/master-catalog', label: 'Master Catalog', icon: Smartphone },
+  { href: '/fashion/support-tools', label: 'Support Tools', icon: Wrench },
+  { href: '/fashion/settings', label: 'Settings', icon: Settings },
+]
+
+const SALON_NAV: NavItem[] = [
+  { href: '/salon/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/salon/tenants', label: 'Tenants', icon: Building2 },
+  { href: '/salon/subscriptions', label: 'Subscriptions', icon: CreditCard },
+  { href: '/salon/whatsapp', label: 'WhatsApp', icon: MessageCircle },
+  { href: '/salon/auth-iam', label: 'Auth / IAM', icon: KeyRound },
+  { href: '/salon/system-health', label: 'System Health', icon: Activity },
+  { href: '/salon/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/salon/activity-logs', label: 'Activity Logs', icon: ScrollText },
+  { href: '/salon/notifications', label: 'Notifications', icon: Bell },
+  { href: '/salon/feature-suggestions', label: 'Feature Suggestions', icon: Lightbulb },
+  { href: '/salon/announcements', label: 'Announcements', icon: Megaphone },
+  { href: '/salon/release-notes', label: 'Release Notes', icon: Sparkles },
+  { href: '/salon/master-catalog', label: 'Master Catalog', icon: Smartphone },
+  { href: '/salon/support-tools', label: 'Support Tools', icon: Wrench },
+  { href: '/salon/settings', label: 'Settings', icon: Settings },
+]
+
+function navFor(product: HubProduct): NavItem[] {
+  if (product === 'fashion') return FASHION_NAV
+  if (product === 'salon') return SALON_NAV
+  return ENTERPRISE_NAV
+}
 
 interface Props {
   onClose?: () => void
@@ -55,14 +100,22 @@ function fmtBadgeCount(n: number) {
 
 export default function AdminSidebar({ onClose, onLogout }: Props) {
   const path = usePathname()
-  const [user, setUser] = useState<AdminUserInfo | null>(null)
+  const [user, setUser] = useState<HubUserInfo | null>(null)
+  const [product, setProduct] = useState<HubProduct>('enterprise')
   const [badges, setBadges] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
-    setUser(adminAuth.getUser())
-  }, [])
+    const p = hubSession.getProduct()
+    setProduct(p)
+    setUser(hubSession.getUser(p))
+  }, [path])
 
   useEffect(() => {
+    if (product !== 'enterprise') {
+      setBadges({})
+      return
+    }
+
     let cancelled = false
 
     const load = async () => {
@@ -114,10 +167,12 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
       cancelled = true
       clearInterval(t)
     }
-  }, [])
+  }, [product])
 
   const displayName = user?.name || 'Admin'
   const displayEmail = user?.email || ''
+  const nav = navFor(product)
+  const productLabel = getProduct(product).shortLabel
 
   return (
     <aside className="flex flex-col h-full bg-white border-r border-gray-200 w-[220px] flex-shrink-0">
@@ -128,7 +183,7 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
           </div>
           <div>
             <p className="text-[13px] font-bold text-gray-900 leading-tight">Hexalyte</p>
-            <p className="text-[10px] text-gray-400 leading-tight">Platform Admin</p>
+            <p className="text-[10px] text-gray-400 leading-tight">{productLabel} Admin</p>
           </div>
         </div>
         {onClose && (
@@ -138,9 +193,13 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
         )}
       </div>
 
+      <div className="pt-3 border-b border-gray-100">
+        <ProductSwitcher />
+      </div>
+
       <nav className="flex-1 overflow-y-auto py-3 px-2">
         <div className="space-y-0.5">
-          {NAV.map(item => {
+          {nav.map((item) => {
             const active = path === item.href || !!path?.startsWith(item.href + '/')
             const Icon = item.icon
             const badge = badges[item.href] ?? null

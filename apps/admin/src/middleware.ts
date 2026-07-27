@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/login']
+const PUBLIC_PREFIXES = ['/login', '/api/hub']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Allow public paths through
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 
-  // Check for admin token in cookies or Authorization header
   const token =
     req.cookies.get('admin_token')?.value ||
+    req.cookies.get('hx_fashion_token')?.value ||
+    req.cookies.get('hx_salon_token')?.value ||
     req.headers.get('authorization')?.replace('Bearer ', '')
 
   if (!token) {
@@ -26,7 +26,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|login).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
