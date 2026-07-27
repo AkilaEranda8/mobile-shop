@@ -14,6 +14,7 @@ import { AnnouncementBanners } from '@/components/layout/AnnouncementBanners'
 import { ReleaseNotesPopup } from '@/components/layout/ReleaseNotesPopup'
 import { SessionBranchBootstrap } from '@/components/layout/SessionBranchBootstrap'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
+import { PaymentDueBanner } from '@/components/layout/PaymentDueBanner'
 import { RoleAccessGuard } from '@/components/layout/RoleAccessGuard'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -66,6 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           maintenance={maintenance}
         />
         <OfflineBanner />
+        <PaymentDueBanner />
         <SessionBranchBootstrap />
         <AnnouncementBanners />
         <ReleaseNotesPopup />

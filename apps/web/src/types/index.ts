@@ -50,6 +50,13 @@ export interface Tenant {
   status: TenantStatus
   trialEndsAt?: string
   subscriptionEndsAt?: string
+  /** Platform billing: renewal invoice awaiting payment */
+  paymentDue?: boolean
+  paymentDueAmount?: number | null
+  paymentDueInvoiceNo?: string | null
+  paymentDueMonths?: number | null
+  paymentDuePeriodEnd?: string | null
+  paymentDueAt?: string | null
   ownerEmail: string
   ownerName: string
   branches: Branch[]

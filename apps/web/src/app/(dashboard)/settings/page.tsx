@@ -1691,9 +1691,22 @@ export default function SettingsPage() {
                           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{tenant.name}</p>
                         </div>
                         <div className="text-right space-y-1.5">
-                          <span className={`text-xs px-2 py-1 rounded-full border ${planColors[tenant.plan] ?? 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
-                            {tenant.status}
-                          </span>
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            <span className={`text-xs px-2 py-1 rounded-full border ${planColors[tenant.plan] ?? 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
+                              {tenant.status}
+                            </span>
+                            {tenant.paymentDue && (
+                              <span className="text-xs px-2 py-1 rounded-full border bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300 font-semibold">
+                                Payment Due
+                              </span>
+                            )}
+                          </div>
+                          {tenant.paymentDue && tenant.paymentDueAmount != null && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                              Due Rs.{Number(tenant.paymentDueAmount).toLocaleString('en-LK')}
+                              {tenant.paymentDueInvoiceNo ? ` · ${tenant.paymentDueInvoiceNo}` : ''}
+                            </p>
+                          )}
                           {tenant.trialEndsAt && (
                             <p className="text-xs text-gray-500 dark:text-slate-500">Trial ends {new Date(tenant.trialEndsAt).toLocaleDateString()}</p>
                           )}
