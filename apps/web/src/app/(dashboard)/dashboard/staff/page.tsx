@@ -78,7 +78,13 @@ function StaffFormModal({
         return
       }
       if (isEdit) {
-        const body: any = { name: form.name, role: form.role, isActive: form.isActive, branchIds }
+        const body: any = {
+          name: form.name,
+          email: form.email.trim().toLowerCase(),
+          role: form.role,
+          isActive: form.isActive,
+          branchIds,
+        }
         if (form.password) body.password = form.password
         await usersApi.update(staff.id, body)
         toast.success('Staff member updated')
@@ -117,7 +123,7 @@ function StaffFormModal({
             </div>
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Email *</label>
-              <input required type="email" className="input-field" placeholder="staff@shop.com" value={form.email} onChange={f('email')} disabled={isEdit} />
+              <input required type="email" className="input-field" placeholder="staff@shop.com" value={form.email} onChange={f('email')} />
             </div>
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>Role</label>
