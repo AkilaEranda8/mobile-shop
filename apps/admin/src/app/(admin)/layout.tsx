@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/whatsapp': 'WhatsApp',
   '/auth-iam': 'Auth / IAM',
   '/system-health': 'System Health',
+  '/security-scan': 'Security Scan',
   '/analytics': 'Analytics',
   '/activity-logs': 'Activity Logs',
   '/notifications': 'Notifications',

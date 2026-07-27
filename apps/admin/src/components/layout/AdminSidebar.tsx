@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Building2, CreditCard, KeyRound, Activity,
   BarChart3, ScrollText, Bell, Megaphone, Wrench, Settings,
-  Shield, LogOut, X, Sparkles, MessageCircle, Smartphone, Lightbulb,
+  Shield, LogOut, X, Sparkles, MessageCircle, Smartphone, Lightbulb, ShieldCheck,
 } from 'lucide-react'
 import {
   featureSuggestionsAdminApi,
@@ -28,6 +28,7 @@ const ENTERPRISE_NAV: NavItem[] = [
   { href: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { href: '/auth-iam', label: 'Auth / IAM', icon: KeyRound },
   { href: '/system-health', label: 'System Health', icon: Activity },
+  { href: '/security-scan', label: 'Security Scan', icon: ShieldCheck },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/activity-logs', label: 'Activity Logs', icon: ScrollText },
   { href: '/notifications', label: 'Notifications', icon: Bell },

@@ -489,6 +489,30 @@ export async function fetchServerStats(): Promise<ServerStats> {
   return req<ServerStats>(ADMIN_BASE, '/server-stats')
 }
 
+// ─── Security Scan ────────────────────────────────────────────────────────────
+export type SecurityScanCheck = {
+  id: string
+  category: string
+  title: string
+  status: 'pass' | 'warn' | 'fail' | 'info'
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
+  detail: string
+  recommendation?: string
+}
+
+export type SecurityScanResult = {
+  scannedAt: string
+  durationMs: number
+  score: number
+  grade: 'SECURE' | 'NEEDS_ATTENTION' | 'AT_RISK'
+  summary: { pass: number; warn: number; fail: number; info: number; total: number }
+  checks: SecurityScanCheck[]
+}
+
+export async function fetchSecurityScan(): Promise<SecurityScanResult> {
+  return req<SecurityScanResult>(ADMIN_BASE, '/security-scan')
+}
+
 // ─── Support Tools ────────────────────────────────────────────────────────────
 export interface SupportNote {
   id: string; tenantId: string; note: string

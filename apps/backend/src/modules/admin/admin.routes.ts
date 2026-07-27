@@ -840,6 +840,293 @@ router.get('/health', async (_req: Request, res: Response, next: NextFunction) =
   } catch (e) { next(e) }
 })
 
+// ── Security Scan (platform posture checks) ───────────────────────────────────
+type ScanSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
+type ScanStatus = 'pass' | 'warn' | 'fail' | 'info'
+
+router.get('/security-scan', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const started = Date.now()
+    const checks: {
+      id: string
+      category: string
+      title: string
+      status: ScanStatus
+      severity: ScanSeverity
+      detail: string
+      recommendation?: string
+    }[] = []
+
+    const push = (
+      id: string,
+      category: string,
+      title: string,
+      status: ScanStatus,
+      severity: ScanSeverity,
+      detail: string,
+      recommendation?: string,
+    ) => {
+      checks.push({ id, category, title, status, severity, detail, recommendation })
+    }
+
+    // Environment / secrets
+    const jwtSecret = process.env.JWT_SECRET || ''
+    const nodeEnv = process.env.NODE_ENV || 'development'
+    const frontendUrl = process.env.FRONTEND_URL || ''
+    const backendUrl = process.env.BACKEND_URL || process.env.API_URL || ''
+    const redisUrl = process.env.REDIS_URL || ''
+    const databaseUrl = process.env.DATABASE_URL || ''
+
+    push(
+      'env-node',
+      'Environment',
+      'Production mode',
+      nodeEnv === 'production' ? 'pass' : 'warn',
+      nodeEnv === 'production' ? 'info' : 'medium',
+      `NODE_ENV=${nodeEnv}`,
+      nodeEnv === 'production' ? undefined : 'Run the API with NODE_ENV=production in live environments.',
+    )
+
+    push(
+      'env-jwt',
+      'Secrets',
+      'JWT secret strength',
+      jwtSecret.length >= 32 ? 'pass' : jwtSecret.length >= 16 ? 'warn' : 'fail',
+      jwtSecret.length >= 32 ? 'info' : jwtSecret.length >= 16 ? 'high' : 'critical',
+      jwtSecret
+        ? `JWT_SECRET is set (${jwtSecret.length} chars)`
+        : 'JWT_SECRET is missing',
+      jwtSecret.length >= 32
+        ? undefined
+        : 'Use a random secret of at least 32 characters.',
+    )
+
+    push(
+      'env-db',
+      'Secrets',
+      'Database URL configured',
+      databaseUrl ? 'pass' : 'fail',
+      databaseUrl ? 'info' : 'critical',
+      databaseUrl ? 'DATABASE_URL is set' : 'DATABASE_URL missing',
+    )
+
+    push(
+      'env-redis',
+      'Secrets',
+      'Redis URL configured',
+      redisUrl ? 'pass' : 'warn',
+      redisUrl ? 'info' : 'high',
+      redisUrl ? 'REDIS_URL is set' : 'REDIS_URL missing — refresh tokens / cache may fail',
+      redisUrl ? undefined : 'Set REDIS_URL for session store and rate-limit backing.',
+    )
+
+    const httpsOk = [frontendUrl, backendUrl].every((u) => !u || u.startsWith('https://'))
+    push(
+      'env-https',
+      'Transport',
+      'HTTPS public URLs',
+      httpsOk ? 'pass' : 'warn',
+      httpsOk ? 'info' : 'high',
+      `FRONTEND_URL=${frontendUrl || '(empty)'} · BACKEND_URL=${backendUrl || '(empty)'}`,
+      httpsOk ? undefined : 'Public URLs should use https:// in production.',
+    )
+
+    // DB connectivity
+    const dbStart = Date.now()
+    let dbOk = false
+    let dbMs = 0
+    try {
+      await prisma.$queryRaw`SELECT 1`
+      dbMs = Date.now() - dbStart
+      dbOk = true
+    } catch {
+      dbMs = Date.now() - dbStart
+    }
+    push(
+      'db-ping',
+      'Database',
+      'Database reachable',
+      dbOk ? (dbMs < 200 ? 'pass' : 'warn') : 'fail',
+      dbOk ? (dbMs < 200 ? 'info' : 'medium') : 'critical',
+      dbOk ? `SELECT 1 ok in ${dbMs}ms` : 'Database ping failed',
+    )
+
+    // Platform config security knobs
+    const cfgRows = await prisma.platformConfig.findMany({
+      where: {
+        key: {
+          in: [
+            'security.enforce2FA',
+            'security.maxLoginAttempts',
+            'security.sessionTimeoutMin',
+            'security.rateLimit.authMax',
+            'security.rateLimit.globalMax',
+            'maintenance.enabled',
+          ],
+        },
+      },
+    })
+    const cfg: Record<string, string> = {
+      'security.enforce2FA': 'true',
+      'security.maxLoginAttempts': '5',
+      'security.sessionTimeoutMin': '120',
+      'security.rateLimit.authMax': '30',
+      'security.rateLimit.globalMax': '700',
+      'maintenance.enabled': 'false',
+    }
+    for (const r of cfgRows) cfg[r.key] = r.value
+
+    const enforce2fa = cfg['security.enforce2FA'] === 'true'
+    push(
+      'cfg-2fa',
+      'Access control',
+      '2FA enforcement flag',
+      enforce2fa ? 'pass' : 'warn',
+      enforce2fa ? 'info' : 'medium',
+      `security.enforce2FA=${cfg['security.enforce2FA']}`,
+      enforce2fa ? undefined : 'Enable 2FA enforcement for platform admins when ready.',
+    )
+
+    const maxAttempts = parseInt(cfg['security.maxLoginAttempts'] || '5', 10)
+    push(
+      'cfg-login-attempts',
+      'Access control',
+      'Max login attempts',
+      maxAttempts > 0 && maxAttempts <= 10 ? 'pass' : 'warn',
+      maxAttempts > 0 && maxAttempts <= 10 ? 'info' : 'medium',
+      `maxLoginAttempts=${maxAttempts}`,
+      maxAttempts > 10 ? 'Lower brute-force threshold (recommended ≤ 10).' : undefined,
+    )
+
+    const authMax = parseInt(cfg['security.rateLimit.authMax'] || '30', 10)
+    push(
+      'cfg-auth-rate',
+      'Rate limiting',
+      'Auth rate limit',
+      authMax > 0 && authMax <= 60 ? 'pass' : 'warn',
+      authMax > 0 && authMax <= 60 ? 'info' : 'medium',
+      `authMax=${authMax} / window`,
+      authMax > 60 ? 'Tighten auth rate limit to reduce credential stuffing risk.' : undefined,
+    )
+
+    push(
+      'cfg-maintenance',
+      'Operations',
+      'Maintenance mode',
+      cfg['maintenance.enabled'] === 'true' ? 'info' : 'pass',
+      'info',
+      cfg['maintenance.enabled'] === 'true'
+        ? 'Maintenance mode is ON — logins may be restricted'
+        : 'Maintenance mode is off',
+    )
+
+    // Tenant / user posture
+    const [
+      platformAdmins,
+      suspendedTenants,
+      paymentDueTenants,
+      inactiveUsers,
+      refreshTokens,
+      totalTenants,
+      totalUsers,
+    ] = await Promise.all([
+      prisma.user.count({ where: { role: 'PLATFORM_ADMIN', isActive: true } }),
+      prisma.tenant.count({ where: { status: 'SUSPENDED' } }),
+      prisma.tenant.count({ where: { paymentDue: true } }),
+      prisma.user.count({ where: { isActive: false } }),
+      prisma.refreshToken.count(),
+      prisma.tenant.count(),
+      prisma.user.count(),
+    ])
+
+    push(
+      'admins',
+      'Access control',
+      'Active platform admins',
+      platformAdmins >= 1 ? (platformAdmins <= 5 ? 'pass' : 'warn') : 'fail',
+      platformAdmins >= 1 ? (platformAdmins <= 5 ? 'info' : 'medium') : 'critical',
+      `${platformAdmins} active PLATFORM_ADMIN user(s)`,
+      platformAdmins === 0
+        ? 'Create at least one platform admin.'
+        : platformAdmins > 5
+          ? 'Review whether all platform admin accounts are still needed.'
+          : undefined,
+    )
+
+    push(
+      'tenants-suspended',
+      'Tenants',
+      'Suspended tenants',
+      suspendedTenants === 0 ? 'pass' : 'info',
+      'info',
+      `${suspendedTenants} suspended / ${totalTenants} total tenants`,
+    )
+
+    push(
+      'tenants-payment-due',
+      'Billing',
+      'Payment due flags',
+      paymentDueTenants === 0 ? 'pass' : 'warn',
+      paymentDueTenants === 0 ? 'info' : 'medium',
+      `${paymentDueTenants} tenant(s) marked Payment Due`,
+      paymentDueTenants > 0 ? 'Follow up on outstanding subscription payments.' : undefined,
+    )
+
+    push(
+      'users-inactive',
+      'Access control',
+      'Inactive user accounts',
+      'info',
+      'low',
+      `${inactiveUsers} inactive / ${totalUsers} total users`,
+    )
+
+    push(
+      'sessions-refresh',
+      'Sessions',
+      'Stored refresh tokens',
+      refreshTokens < 5000 ? 'pass' : 'warn',
+      refreshTokens < 5000 ? 'info' : 'medium',
+      `${refreshTokens.toLocaleString()} refresh token row(s)`,
+      refreshTokens >= 5000
+        ? 'Consider pruning stale refresh tokens / revoked sessions.'
+        : undefined,
+    )
+
+    const summary = {
+      pass: checks.filter((c) => c.status === 'pass').length,
+      warn: checks.filter((c) => c.status === 'warn').length,
+      fail: checks.filter((c) => c.status === 'fail').length,
+      info: checks.filter((c) => c.status === 'info').length,
+      total: checks.length,
+    }
+
+    const score = Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          ((summary.pass + summary.info * 0.85) / Math.max(summary.total, 1)) * 100 -
+            summary.warn * 4 -
+            summary.fail * 12,
+        ),
+      ),
+    )
+
+    const grade =
+      summary.fail > 0 ? 'AT_RISK' : summary.warn > 0 ? 'NEEDS_ATTENTION' : 'SECURE'
+
+    sendSuccess(res, {
+      scannedAt: new Date().toISOString(),
+      durationMs: Date.now() - started,
+      score,
+      grade,
+      summary,
+      checks,
+    })
+  } catch (e) { next(e) }
+})
+
 // ── Tenant Users ──────────────────────────────────────────────────────────────
 router.get('/tenants/:id/users', async (req: Request, res: Response, next: NextFunction) => {
   try {
