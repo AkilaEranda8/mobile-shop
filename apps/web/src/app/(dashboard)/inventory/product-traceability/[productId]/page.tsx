@@ -534,6 +534,11 @@ export default function ProductTraceabilityPage() {
                 <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{product?.trackImei ? 'Enabled' : 'Not tracked'}</span>
               </div>
               <div className="flex items-center gap-1.5">
+                <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ color: 'var(--text-muted)' }}>Opening stock:</span>
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{product?.openingStock ?? analytics?.openingStock ?? 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
                 <Truck size={13} style={{ color: 'var(--text-muted)' }} />
                 <span style={{ color: 'var(--text-muted)' }}>Total purchased:</span>
                 <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{analytics?.totalPurchasedQty ?? '—'}</span>
@@ -562,6 +567,10 @@ export default function ProductTraceabilityPage() {
                   <div className="flex items-center justify-between border-b pb-1.5 mb-1" style={{ borderColor: 'var(--border-subtle)' }}>
                     <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Stock summary</span>
                     <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Qty</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Opening</span>
+                    <span className="font-medium">{product?.openingStock ?? analytics?.openingStock ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color: 'var(--text-muted)' }}>Current</span>
@@ -638,6 +647,7 @@ export default function ProductTraceabilityPage() {
                 <DetailPanel title="Analytics summary" icon={BarChart3}>
                   <div className="p-3 grid grid-cols-2 gap-3">
                     {[
+                      { label: 'Opening Stock', value: analytics?.openingStock },
                       { label: 'Total Purchased Qty', value: analytics?.totalPurchasedQty },
                       { label: 'Total Sold Qty', value: analytics?.totalSoldQty },
                       { label: 'Total Returned Qty', value: analytics?.totalReturnedQty },
@@ -734,6 +744,10 @@ export default function ProductTraceabilityPage() {
                 <BarChart3 size={14} className="text-emerald-500" />
               </div>
               <div className="p-3 text-[12px] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--text-muted)' }}>Opening stock:</span>
+                  <span className="font-medium">{product?.openingStock ?? analytics?.openingStock ?? 0}</span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span style={{ color: 'var(--text-muted)' }}>Current stock:</span>
                   <span className={`font-medium ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : ''}`}>{currentStock}</span>

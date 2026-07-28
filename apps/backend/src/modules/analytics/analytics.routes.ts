@@ -82,7 +82,7 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
 
     const todayFin = await getPeriodFinancials(tenantId, todayKey, todayKey, branchId)
 
-    const [activeRepairs, totalCustomers, productStockRows, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount] = await Promise.all([
+    const [activeRepairs, totalCustomers, productStockRows, posRevenue, otherRevenue, expiringWarranties, readyForPickup, totalSalesCount, customerDueAgg] = await Promise.all([
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } } }),
       prisma.customer.count({
         where: {
@@ -111,6 +111,11 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
       prisma.warranty.count({ where: { tenantId, endDate: { lte: in30End }, status: 'ACTIVE' } }),
       prisma.repairTicket.count({ where: { tenantId, ...branchFilter, status: 'READY' } }),
       prisma.sale.count({ where: { tenantId, ...branchFilter, status: { not: 'RETURNED' }, ...saleWhereExcludeNonRevenue() } }),
+      prisma.customer.aggregate({
+        where: { tenantId, isActive: true, ...branchFilter, totalDue: { gt: 0 } },
+        _sum: { totalDue: true },
+        _count: { id: true },
+      }),
     ])
 
     const lowStockAll = productStockRows
@@ -125,6 +130,8 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
     const lowStockProducts = lowStockAll.slice(0, 5)
 
     const totalRevenue = (posRevenue._sum.total ?? 0) + (otherRevenue._sum.amount ?? 0)
+    const customerDues = Math.round((customerDueAgg._sum.totalDue ?? 0) * 100) / 100
+    const customersWithDues = customerDueAgg._count.id
     sendSuccess(res, {
       todayRevenue:    todayFin.grossSales + todayFin.reloadCommission,
       todaySalesCount: todayFin.salesCount,
@@ -136,6 +143,8 @@ router.get('/dashboard', requireModuleAccess('DASHBOARD', 'view'), async (req: R
       totalRevenue,
       expiringWarranties,
       readyForPickup,
+      customerDues,
+      customersWithDues,
     })
   } catch (e) { next(e) }
 })

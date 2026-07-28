@@ -2,9 +2,9 @@
 
 import { useMemo, useEffect } from 'react'
 import {
-  ShoppingCart, TrendingUp, Package, Wrench, AlertTriangle,
+  ShoppingCart, TrendingUp, Package, Wrench,
   Users, ArrowUpRight, ArrowRight, Receipt, Activity,
-  BarChart2, DollarSign, ChevronRight, TrendingDown, Star, Lock, PackageCheck
+  BarChart2, DollarSign, ChevronRight, TrendingDown, Star, Lock, Wallet
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePos } from '@/lib/use-pos'
@@ -201,6 +201,16 @@ export default function DashboardPage() {
 
   const attentionItems = useMemo(() => {
     const items: { label: string; detail: string; href: string; tone: 'warn' | 'ok' | 'info' }[] = []
+    const dues = Number(s?.customerDues ?? 0)
+    const duesCount = Number(s?.customersWithDues ?? 0)
+    if (dues > 0) {
+      items.push({
+        label: 'Customer dues',
+        detail: `${formatCurrency(dues)} from ${duesCount} customer${duesCount === 1 ? '' : 's'}`,
+        href: '/dashboard/customers',
+        tone: 'warn',
+      })
+    }
     const ready = s?.readyForPickup ?? repairStats.ready
     if (ready > 0) {
       items.push({ label: 'Ready for pickup', detail: `${ready} repair${ready === 1 ? '' : 's'} waiting`, href: '/dashboard/repairs', tone: 'info' })
@@ -294,9 +304,21 @@ export default function DashboardPage() {
           },
           { label: 'Total Orders',           value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`, icon: Receipt, iconBg: '#dbeafe', iconColor: '#2563eb', spark: [], sparkColor: '#3b82f6', subPositive: true, show: true },
           { label: 'Active Repairs',         value: String(repairStats.active),               sub: `${repairStats.inProg} currently in repair`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [], sparkColor: '#f97316', subPositive: true, show: true },
-          { label: 'Low Stock Items',        value: String(s?.lowStockCount ?? 0),            sub: (s?.lowStockCount ?? 0) === 0 ? 'All stocked ✓' : 'Needs restocking', icon: AlertTriangle, iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [], sparkColor: '#f43f5e', subPositive: (s?.lowStockCount ?? 0) === 0, show: true },
           { label: 'Total Customers',        value: String(s?.totalCustomers ?? 0),           sub: `${s?.expiringWarranties ?? 0} warranties expiring`, icon: Users, iconBg: '#cffafe', iconColor: '#0891b2', spark: [], sparkColor: '#06b6d4', subPositive: true, show: true },
-          { label: 'Ready for Pickup',       value: String(s?.readyForPickup ?? repairStats.ready), sub: repairStats.ready > 0 ? 'Awaiting customer' : 'None waiting', icon: PackageCheck, iconBg: '#d1fae5', iconColor: '#059669', spark: [], sparkColor: '#10b981', subPositive: true, show: true },
+          {
+            label: 'Customer Dues',
+            value: formatCurrency(Number(s?.customerDues ?? 0)),
+            sub: (Number(s?.customersWithDues ?? 0) > 0)
+              ? `${s.customersWithDues} customer${Number(s.customersWithDues) === 1 ? '' : 's'} to collect`
+              : 'No outstanding dues',
+            icon: Wallet,
+            iconBg: Number(s?.customerDues ?? 0) > 0 ? '#ffedd5' : '#d1fae5',
+            iconColor: Number(s?.customerDues ?? 0) > 0 ? '#c2410c' : '#059669',
+            spark: [],
+            sparkColor: Number(s?.customerDues ?? 0) > 0 ? '#f97316' : '#10b981',
+            subPositive: Number(s?.customerDues ?? 0) === 0,
+            show: canView('CUSTOMERS'),
+          },
         ] as const).filter(k => k.show).map(k => (
           <div key={k.label} className={`${CARD} p-4 flex flex-col`}>
             <div className="flex items-start gap-2.5 mb-2">

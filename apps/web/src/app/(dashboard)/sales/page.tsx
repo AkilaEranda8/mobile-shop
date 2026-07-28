@@ -23,6 +23,7 @@ import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type 
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useModuleAccess, EditOnly } from '@/lib/module-access'
+import { useFeatureFlag } from '@/lib/hooks'
 import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
 
 const statusColors: Record<string, string> = {
@@ -1048,6 +1049,7 @@ function SaleDetailsModal({
 /* ── Main Sales Page ─────────────────────────────────────────────────────── */
 export default function SalesPage() {
   const { canEdit } = useModuleAccess()
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const searchParams = useSearchParams()
   const [sales, setSales]           = useState<any[]>([])
   const [meta, setMeta]             = useState<any>(null)
@@ -1055,7 +1057,7 @@ export default function SalesPage() {
   const [detailSale,  setDetailSale]  = useState<any>(null)
   const [density, setDensity]       = useState<TableDensity>('comfortable')
   const [textSearch, setTextSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'RETURNED' | 'REFUNDED'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'RETURNED' | 'REFUNDED' | 'DUE'>('all')
 
   const openDetail = useCallback((sale: any) => setDetailSale(sale), [])
   const canManage = ['OWNER', 'MANAGER', 'PLATFORM_ADMIN'].includes(authStorage.getUser()?.role ?? '')
@@ -1093,12 +1095,25 @@ export default function SalesPage() {
 
   const totalRevenue  = sales.reduce((s, r) => s + (r.total ?? 0), 0)
   const paidCount     = sales.filter(r => r.status === 'PAID').length
-  const partialCount  = sales.filter(r => r.status === 'PARTIAL').length
   const returnedCount = sales.filter(r => r.status === 'RETURNED' || (r._count?.returns ?? 0) > 0).length
+  const customerDueTotal = sales.reduce((s, r) => {
+    if (r.status === 'RETURNED' || r.status === 'REFUNDED') return s
+    const due = Number(r.dueAmount ?? 0)
+    return due > 0 ? s + due : s
+  }, 0)
+  const customerDueCount = sales.filter(r =>
+    r.status !== 'RETURNED' && r.status !== 'REFUNDED' && Number(r.dueAmount ?? 0) > 0
+  ).length
 
   const filteredSales = useMemo(() => {
     let rows = sales
-    if (statusFilter !== 'all') rows = rows.filter(r => r.status === statusFilter)
+    if (statusFilter === 'DUE') {
+      rows = rows.filter(r =>
+        r.status !== 'RETURNED' && r.status !== 'REFUNDED' && Number(r.dueAmount ?? 0) > 0
+      )
+    } else if (statusFilter !== 'all') {
+      rows = rows.filter(r => r.status === statusFilter)
+    }
     const q = textSearch.trim().toLowerCase()
     if (!q) return rows
     return rows.filter(r =>
@@ -1225,13 +1240,23 @@ export default function SalesPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={`grid grid-cols-2 gap-3 ${hasCustomerCredit ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
         {[
-          { label: 'Total Sales', value: String(meta?.total ?? 'â€”'), icon: ShoppingBag, color: 'violet', filter: 'all' as const },
+          { label: 'Total Sales', value: String(meta?.total ?? '—'), icon: ShoppingBag, color: 'violet', filter: 'all' as const },
           { label: 'Revenue', value: formatCurrency(totalRevenue), icon: TrendingUp, color: 'green', filter: 'all' as const },
           { label: 'Paid', value: String(paidCount), icon: Receipt, color: 'green', filter: 'PAID' as const },
           { label: 'Returned', value: String(returnedCount), icon: RotateCcw, color: 'rose', filter: 'RETURNED' as const },
-        ].map(({ label, value, icon: Icon, color, filter }) => (
+          ...(hasCustomerCredit
+            ? [{
+                label: 'Customer Due',
+                value: formatCurrency(customerDueTotal),
+                icon: CreditCard,
+                color: 'amber',
+                filter: 'DUE' as const,
+                sub: customerDueCount > 0 ? `${customerDueCount} invoice${customerDueCount === 1 ? '' : 's'}` : undefined,
+              }]
+            : []),
+        ].map(({ label, value, icon: Icon, color, filter, sub }) => (
           <button
             key={label}
             type="button"
@@ -1244,6 +1269,7 @@ export default function SalesPage() {
             <div>
               <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
               <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
+              {sub && <p className="text-[10px] text-amber-500 mt-0.5">{sub}</p>}
             </div>
           </button>
         ))}
@@ -1260,8 +1286,7 @@ export default function SalesPage() {
           {([
             { id: 'all', label: 'All' },
             { id: 'PAID', label: 'Paid' },
-            { id: 'PARTIAL', label: 'Partial' },
-            { id: 'UNPAID', label: 'Unpaid' },
+            ...(hasCustomerCredit ? [{ id: 'DUE' as const, label: 'Customer Due' }] : []),
             { id: 'RETURNED', label: 'Returned' },
           ] as const).map(opt => (
             <button

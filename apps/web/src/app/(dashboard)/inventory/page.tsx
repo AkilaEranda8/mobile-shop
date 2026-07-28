@@ -1189,23 +1189,26 @@ export default function InventoryPage() {
   const filteredProducts = useMemo(() => products.filter(p => {
     if (categoryFilter !== 'all' && p.categoryName !== categoryFilter) return false
     if (brandFilter !== 'all' && p.brandName !== brandFilter) return false
-    if (statusFilter === 'out' && p.stock !== 0) return false
-    if (statusFilter === 'low' && !(p.stock > 0 && p.stock < p.minStock)) return false
-    if (statusFilter === 'in' && !(p.stock >= p.minStock)) return false
     const q = textSearch.trim().toLowerCase()
     if (q) {
       if (!productSearchHaystack(p).includes(q)) return false
     }
     return true
-  }).sort((a, b) => compareSkuOrder(a.sku, b.sku)), [products, categoryFilter, brandFilter, statusFilter, textSearch])
+  }).sort((a, b) => compareSkuOrder(a.sku, b.sku)), [products, categoryFilter, brandFilter, textSearch])
 
-  /* Flatten: each variant becomes its own table row */
+  const matchesStockStatus = (stock: number, minStock: number) => {
+    if (statusFilter === 'out') return stock === 0
+    if (statusFilter === 'low') return stock > 0 && stock < minStock
+    if (statusFilter === 'in') return stock > 0 && stock >= minStock
+    return true
+  }
+
+  /* Flatten: each variant becomes its own table row; stock status filters apply to displayed qty */
   const flatRows = useMemo<FlatRow[]>(() => {
     const rows: FlatRow[] = []
     for (const product of filteredProducts) {
       const vars = Array.isArray(product.storageVariations) ? product.storageVariations : []
       if (vars.length === 0) {
-        // No variants — single row
         rows.push({
           key: product.id,
           product,
@@ -1220,7 +1223,6 @@ export default function InventoryPage() {
           brandName: product.brandName ?? '',
         })
       } else {
-        // One row per variant
         for (const v of vars) {
           rows.push({
             key: `${product.id}__${v.id ?? v.storage + v.colorName}`,
@@ -1239,7 +1241,18 @@ export default function InventoryPage() {
         }
       }
     }
-    return rows.sort((a, b) => compareSkuOrder(a.product.sku, b.product.sku))
+    return rows
+      .filter(row => matchesStockStatus(row.displayStock, row.displayMinStock))
+      .sort((a, b) => compareSkuOrder(a.product.sku, b.product.sku))
+  }, [filteredProducts, statusFilter])
+
+  const allFlatRowCount = useMemo(() => {
+    let count = 0
+    for (const product of filteredProducts) {
+      const vars = Array.isArray(product.storageVariations) ? product.storageVariations : []
+      count += vars.length > 0 ? vars.length : 1
+    }
+    return count
   }, [filteredProducts])
 
   const hasActiveFilters = categoryFilter !== 'all' || brandFilter !== 'all' || statusFilter !== 'all' || textSearch.trim().length > 0
@@ -1264,7 +1277,15 @@ export default function InventoryPage() {
     [brands],
   )
 
-  const lowStockCount = filteredProducts.filter(p => p.stock < p.minStock && p.stock > 0).length
+  const lowStockCount = flatRows.filter(r => r.displayStock > 0 && r.displayStock < r.displayMinStock).length
+  const outOfStockCount = flatRows.filter(r => r.displayStock === 0).length
+  const stockValue = filteredProducts.reduce((s, p) => {
+    const vars = Array.isArray(p.storageVariations) ? p.storageVariations : []
+    if (vars.length > 0) {
+      return s + vars.reduce((sum, v) => sum + (Number(p.buyingPrice) || 0) * (Number(v.stock) || 0), 0)
+    }
+    return s + (Number(p.buyingPrice) || 0) * (Number(p.stock) || 0)
+  }, 0)
 
   useEffect(() => {
     try {
@@ -1703,7 +1724,7 @@ export default function InventoryPage() {
         {hasActiveFilters && (
           <>
             <span className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
-              {filteredProducts.length} of {products.length}
+              {flatRows.length} of {allFlatRowCount}
             </span>
             <button
               type="button"
@@ -1721,10 +1742,10 @@ export default function InventoryPage() {
         {[
           { label: 'Total SKUs',   value: flatRows.length,                                                                          icon: Package,       color: 'violet' },
           ...(canSeeProductCost
-            ? [{ label: 'Stock Value',  value: formatCurrency(filteredProducts.reduce((s, p) => s + p.buyingPrice * p.stock, 0)),         icon: TrendingUp,    color: 'green'  }]
+            ? [{ label: 'Stock Value',  value: formatCurrency(stockValue),         icon: TrendingUp,    color: 'green'  }]
             : []),
           { label: 'Low Stock',   value: lowStockCount,                                                                               icon: AlertTriangle, color: 'yellow' },
-          { label: 'Out of Stock', value: filteredProducts.filter(p => p.stock === 0).length,                                         icon: AlertCircle,   color: 'red'    },
+          { label: 'Out of Stock', value: outOfStockCount,                                         icon: AlertCircle,   color: 'red'    },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="card p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>

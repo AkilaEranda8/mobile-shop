@@ -25,7 +25,7 @@ function effectiveStock(product: { stock: number; storageVariations?: unknown })
 
 export function mapMovementLabel(type: StockMovementType, note?: string | null): string {
   const n = (note ?? '').toLowerCase()
-  if (n.includes('opening')) return 'Opening Stock'
+  if (n.includes('opening') || n.includes('initial catalog')) return 'Opening Stock'
   if (n.includes('damage') || n.includes('damaged')) return 'Damage'
   if (n.includes('manual')) return 'Manual Entry'
   if (n.includes('purchase return')) return 'Purchase Return'
@@ -40,6 +40,16 @@ export function mapMovementLabel(type: StockMovementType, note?: string | null):
     case 'EXCHANGE_IN': return 'Sales Return'
     default: return type
   }
+}
+
+function isOpeningStockMovement(m: { note?: string | null; reference?: string | null }) {
+  const note = (m.note ?? '').toLowerCase()
+  const ref = m.reference ?? ''
+  return (
+    note.includes('opening')
+    || note.includes('initial catalog')
+    || ref.startsWith('PRODUCT_CREATE:')
+  )
 }
 
 function mapImeiStatus(status: string): string {
@@ -196,6 +206,7 @@ export const productTraceabilityService = {
       saleInvoiceCount,
       customerGroups,
       reservedCount,
+      openingMovements,
     ] = await Promise.all([
       prisma.pOItem.findMany({
         where: poWhere,
@@ -243,6 +254,20 @@ export const productTraceabilityService = {
             },
           })
         : Promise.resolve(0),
+      // Opening stock is product lifetime (not date-filtered) — initial catalog / opening entries
+      prisma.stockMovement.findMany({
+        where: {
+          productId,
+          ...(branchId ? { branchId } : {}),
+          OR: [
+            { note: { contains: 'opening', mode: 'insensitive' } },
+            { note: { contains: 'Initial catalog', mode: 'insensitive' } },
+            { reference: { startsWith: 'PRODUCT_CREATE:' } },
+          ],
+        },
+        select: { quantity: true, note: true, reference: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
     ])
 
     const totalPurchasedQty = poItems.reduce((s, i) => s + (i.receivedQuantity || i.quantity), 0)
@@ -253,6 +278,10 @@ export const productTraceabilityService = {
     const currentStock = effectiveStock(product)
     const reservedStock = reservedCount
     const availableStock = Math.max(0, currentStock - reservedStock)
+    const openingStock = openingMovements
+      .filter(isOpeningStockMovement)
+      .reduce((sum, m) => sum + Math.max(0, m.quantity), 0)
+    const openingStockAt = openingMovements.find(isOpeningStockMovement)?.createdAt ?? null
 
     return {
       product: {
@@ -268,12 +297,16 @@ export const productTraceabilityService = {
         currentStock,
         reservedStock,
         availableStock,
+        openingStock,
+        openingStockAt,
       },
       analytics: {
         totalPurchasedQty,
         totalSoldQty,
         totalReturnedQty,
         currentStock,
+        openingStock,
+        openingStockAt,
         totalPurchaseValue,
         totalSalesValue,
         grossProfit: totalSalesValue - totalPurchaseValue,
