@@ -309,7 +309,7 @@ export default function DashboardPage() {
             <p className={`text-[11px] mt-0.5 flex items-center gap-0.5 font-medium ${k.subPositive ? 'text-green-600' : 'text-red-600'}`}>
               <ArrowUpRight size={11}/>{k.sub}
             </p>
-            <Sparkline data={k.spark.length > 0 ? k.spark : [2, 5, 3, 7, 4, 8, 6]} color={k.sparkColor}/>
+            <Sparkline data={k.spark.length > 0 ? [...k.spark] : [2, 5, 3, 7, 4, 8, 6]} color={k.sparkColor}/>
           </div>
         ))}
       </div>
