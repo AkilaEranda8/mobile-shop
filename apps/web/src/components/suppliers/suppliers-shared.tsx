@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef, type KeyboardEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Truck, Phone, Mail, Package, Eye, Edit, Loader2, X, ChevronDown, Trash2, FileText, MapPin, Globe, Hash, ShoppingBag, TrendingUp, AlertCircle, Calendar, CheckCircle, Save, PackageCheck, ShieldAlert, CreditCard, Banknote, Receipt, Smartphone, ClipboardList } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -447,6 +447,41 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
   const [chequeDate, setChequeDate] = useState(todayChequeDate)
   const [paymentDate, setPaymentDate] = useState('')
   const [loading, setLoading] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const focusPayField = useCallback((dir: 1 | -1, from?: EventTarget | null) => {
+    const root = formRef.current
+    if (!root) return
+    const fields = Array.from(root.querySelectorAll<HTMLElement>('[data-pay-field]'))
+      .filter(el => {
+        if ((el as HTMLInputElement).disabled) return false
+        if (el.getAttribute('aria-hidden') === 'true') return false
+        // Skip hidden cheque/reference fields when not in DOM layout
+        return el.offsetParent !== null || el === document.activeElement
+      })
+    if (!fields.length) return
+    const active = (from instanceof HTMLElement ? from : document.activeElement) as HTMLElement | null
+    const idx = active ? fields.indexOf(active) : -1
+    const nextIdx = idx < 0
+      ? (dir > 0 ? 0 : fields.length - 1)
+      : Math.max(0, Math.min(fields.length - 1, idx + dir))
+    const next = fields[nextIdx]
+    if (!next || next === active) return
+    next.focus()
+    if (next instanceof HTMLInputElement && (next.type === 'text' || next.type === 'number' || next.type === 'search')) {
+      next.select()
+    }
+  }, [])
+
+  const onPayFieldKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'ArrowDown' || (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement))) {
+      e.preventDefault()
+      focusPayField(1, e.target)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      focusPayField(-1, e.target)
+    }
+  }, [focusPayField])
 
   useEffect(() => {
     let alive = true
@@ -597,7 +632,10 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
+          <p className="text-[10px] -mt-1 mb-1" style={{ color: 'var(--text-muted)' }}>
+            ↑↓ or Enter moves between fields
+          </p>
           {/* Meta + quick totals */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div className="lg:col-span-2 space-y-1.5 text-[12px]">
@@ -755,9 +793,11 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                 type="number"
                 min="0.01"
                 step="0.01"
+                data-pay-field
                 className="input-field font-semibold tabular-nums"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
+                onKeyDown={onPayFieldKeyDown}
               />
               {totalDue > 0 && (
                 <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -772,10 +812,12 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               </label>
               <input
                 type="datetime-local"
+                data-pay-field
                 className="input-field"
                 value={paymentDate}
                 max={datetimeLocalMaxNow()}
                 onChange={e => setPaymentDate(clampDatetimeLocalToNow(e.target.value))}
+                onKeyDown={onPayFieldKeyDown}
               />
               <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
                 Leave blank to use current date &amp; time. Future dates are not allowed.
@@ -788,10 +830,12 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
                   Reference / Note <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
                 </label>
                 <input
+                  data-pay-field
                   className="input-field"
                   placeholder="Bank ref…"
                   value={reference}
                   onChange={e => setReference(e.target.value)}
+                  onKeyDown={onPayFieldKeyDown}
                 />
               </div>
             )}
@@ -802,13 +846,30 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               Payment Method
             </label>
             <div className={`grid gap-1.5 ${payMethods.length <= 3 ? 'grid-cols-3' : payMethods.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
-              {payMethods.map(({ id, label }) => {
+              {payMethods.map(({ id, label }, mi) => {
                 const active = methodId === id
                 return (
                   <button
                     key={id}
                     type="button"
+                    data-pay-field
+                    data-method-id={id}
                     onClick={() => setMethodId(id)}
+                    onKeyDown={e => {
+                      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                        e.preventDefault()
+                        const next = payMethods[(mi + (e.key === 'ArrowRight' ? 1 : -1) + payMethods.length) % payMethods.length]
+                        if (!next) return
+                        setMethodId(next.id)
+                        requestAnimationFrame(() => {
+                          formRef.current
+                            ?.querySelector<HTMLElement>(`[data-method-id="${next.id}"]`)
+                            ?.focus()
+                        })
+                        return
+                      }
+                      onPayFieldKeyDown(e)
+                    }}
                     className="py-2 px-2 text-[10px] font-semibold rounded-lg border transition-colors"
                     style={active
                       ? {
@@ -835,6 +896,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
               chequeDate={chequeDate}
               onNumberChange={setChequeNumber}
               onDateChange={setChequeDate}
+              onFieldKeyDown={onPayFieldKeyDown}
             />
           )}
 
@@ -848,6 +910,8 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
             </button>
             <button
               type="submit"
+              data-pay-field
+              onKeyDown={onPayFieldKeyDown}
               disabled={
                 loading
                 || !amount

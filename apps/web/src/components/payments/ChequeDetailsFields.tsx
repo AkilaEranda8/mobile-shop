@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import { formatDate } from '@/lib/utils'
 
 /** Asia/Colombo calendar date as YYYY-MM-DD (for `<input type="date">`). */
@@ -52,6 +52,8 @@ type Props = {
   required?: boolean
   /** Compact styling for dark POS panel */
   variant?: 'default' | 'pos'
+  /** Optional keyboard nav (↑↓ / Enter) between payment fields */
+  onFieldKeyDown?: (e: KeyboardEvent) => void
 }
 
 const defaultInput: CSSProperties = {
@@ -70,6 +72,7 @@ export function ChequeDetailsFields({
   onDateChange,
   required = true,
   variant = 'default',
+  onFieldKeyDown,
 }: Props) {
   const isPos = variant === 'pos'
   const labelCls = isPos
@@ -90,8 +93,10 @@ export function ChequeDetailsFields({
         </label>
         <input
           type="text"
+          data-pay-field
           value={chequeNumber}
           onChange={e => onNumberChange(e.target.value)}
+          onKeyDown={onFieldKeyDown}
           placeholder="e.g. 123456"
           required={required}
           autoComplete="off"
@@ -105,8 +110,10 @@ export function ChequeDetailsFields({
         </label>
         <input
           type="date"
+          data-pay-field
           value={chequeDate}
           onChange={e => onDateChange(e.target.value)}
+          onKeyDown={onFieldKeyDown}
           required={required}
           className={inputCls}
           style={defaultInput}
