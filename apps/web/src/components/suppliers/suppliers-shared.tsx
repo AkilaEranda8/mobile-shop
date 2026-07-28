@@ -473,7 +473,7 @@ export function RecordPaymentModal({ supplier, allPOs, onClose, onSaved }: {
     }
   }, [])
 
-  const onPayFieldKeyDown = useCallback((e: KeyboardEvent) => {
+  const onPayFieldKeyDown = useCallback((e: ReactKeyboardEvent) => {
     if (e.key === 'ArrowDown' || (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement))) {
       e.preventDefault()
       focusPayField(1, e.target)
