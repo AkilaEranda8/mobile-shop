@@ -61,6 +61,9 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 export default function DashboardPage() {
   const { openPos } = usePos()
   const { canView, canEdit } = useRolePermissions()
+  // Profit / margin KPIs follow Reports (or Finance) access — hiding Reports for Manager
+  // must also hide these on the dashboard so financials are not leaked.
+  const canSeeProfit = canView('REPORTS') || canView('FINANCE')
 
   /* ── Data ── */
   const dashTo = businessToday()
@@ -238,16 +241,63 @@ export default function DashboardPage() {
 
       {/* ── KPI Strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-        {[
-          { label: 'Sales (30 Days)',        value: formatCurrency(totalRevenue),            sub: `${grossMargin}% gross margin`,                icon: ShoppingCart, iconBg: '#ede9fe', iconColor: 'var(--brand-primary)', spark: sparkRev,   sparkColor: 'var(--brand-primary)', subPositive: true },
-          { label: 'Gross Profit (30 Days)', value: formatCurrency(totalGrossProfit),      sub: `COGS: ${formatCurrency(totalCogs)}`,            icon: TrendingUp,   iconBg: '#dcfce7', iconColor: '#16a34a', spark: sparkGross, sparkColor: '#22c55e', subPositive: totalGrossProfit >= 0 },
-          { label: 'Net Profit (30 Days)',   value: formatCurrency(totalNetProfit),          sub: `Expenses: ${formatCurrency(totalExpenses)}`,    icon: DollarSign,   iconBg: totalNetProfit >= 0 ? '#dbeafe' : '#ffe4e6', iconColor: totalNetProfit >= 0 ? '#2563eb' : '#e11d48', spark: sparkNet, sparkColor: totalNetProfit >= 0 ? '#3b82f6' : '#f43f5e', subPositive: totalNetProfit >= 0 },
-          { label: 'Total Orders',           value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`, icon: Receipt, iconBg: '#dbeafe', iconColor: '#2563eb', spark: [], sparkColor: '#3b82f6', subPositive: true },
-          { label: 'Active Repairs',         value: String(repairStats.active),               sub: `${repairStats.inProg} currently in repair`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [], sparkColor: '#f97316', subPositive: true },
-          { label: 'Low Stock Items',        value: String(s?.lowStockCount ?? 0),            sub: (s?.lowStockCount ?? 0) === 0 ? 'All stocked ✓' : 'Needs restocking', icon: AlertTriangle, iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [], sparkColor: '#f43f5e', subPositive: (s?.lowStockCount ?? 0) === 0 },
-          { label: 'Total Customers',        value: String(s?.totalCustomers ?? 0),           sub: `${s?.expiringWarranties ?? 0} warranties expiring`, icon: Users, iconBg: '#cffafe', iconColor: '#0891b2', spark: [], sparkColor: '#06b6d4', subPositive: true },
-          { label: 'Ready for Pickup',       value: String(s?.readyForPickup ?? repairStats.ready), sub: repairStats.ready > 0 ? 'Awaiting customer' : 'None waiting', icon: PackageCheck, iconBg: '#d1fae5', iconColor: '#059669', spark: [], sparkColor: '#10b981', subPositive: true },
-        ].map(k => (
+        {([
+          {
+            label: "Today's Sales",
+            value: formatCurrency(Number(s?.todayRevenue ?? weekInsight.todaySales) || 0),
+            sub: weekInsight.ordersToday > 0
+              ? `${weekInsight.ordersToday} order${weekInsight.ordersToday === 1 ? '' : 's'} today`
+              : 'No sales yet today',
+            icon: ShoppingCart,
+            iconBg: '#ede9fe',
+            iconColor: 'var(--brand-primary)',
+            spark: sparkRev,
+            sparkColor: 'var(--brand-primary)',
+            subPositive: (Number(s?.todayRevenue ?? weekInsight.todaySales) || 0) >= weekInsight.yesterdaySales,
+            show: true,
+          },
+          {
+            label: 'Sales (30 Days)',
+            value: formatCurrency(totalRevenue),
+            sub: canSeeProfit ? `${grossMargin}% gross margin` : `Avg ${formatCurrency(weekInsight.avgDaily)} / day`,
+            icon: Receipt,
+            iconBg: '#e0e7ff',
+            iconColor: '#4f46e5',
+            spark: sparkRev,
+            sparkColor: '#6366f1',
+            subPositive: true,
+            show: true,
+          },
+          {
+            label: 'Gross Profit (30 Days)',
+            value: formatCurrency(totalGrossProfit),
+            sub: `COGS: ${formatCurrency(totalCogs)}`,
+            icon: TrendingUp,
+            iconBg: '#dcfce7',
+            iconColor: '#16a34a',
+            spark: sparkGross,
+            sparkColor: '#22c55e',
+            subPositive: totalGrossProfit >= 0,
+            show: canSeeProfit,
+          },
+          {
+            label: 'Net Profit (30 Days)',
+            value: formatCurrency(totalNetProfit),
+            sub: `Expenses: ${formatCurrency(totalExpenses)}`,
+            icon: DollarSign,
+            iconBg: totalNetProfit >= 0 ? '#dbeafe' : '#ffe4e6',
+            iconColor: totalNetProfit >= 0 ? '#2563eb' : '#e11d48',
+            spark: sparkNet,
+            sparkColor: totalNetProfit >= 0 ? '#3b82f6' : '#f43f5e',
+            subPositive: totalNetProfit >= 0,
+            show: canSeeProfit,
+          },
+          { label: 'Total Orders',           value: String(s?.totalSalesCount ?? s?.todaySalesCount ?? 0), sub: `${s?.todaySalesCount ?? 0} today`, icon: Receipt, iconBg: '#dbeafe', iconColor: '#2563eb', spark: [], sparkColor: '#3b82f6', subPositive: true, show: true },
+          { label: 'Active Repairs',         value: String(repairStats.active),               sub: `${repairStats.inProg} currently in repair`,       icon: Wrench,       iconBg: '#ffedd5', iconColor: '#ea580c', spark: [], sparkColor: '#f97316', subPositive: true, show: true },
+          { label: 'Low Stock Items',        value: String(s?.lowStockCount ?? 0),            sub: (s?.lowStockCount ?? 0) === 0 ? 'All stocked ✓' : 'Needs restocking', icon: AlertTriangle, iconBg: '#ffe4e6', iconColor: '#e11d48', spark: [], sparkColor: '#f43f5e', subPositive: (s?.lowStockCount ?? 0) === 0, show: true },
+          { label: 'Total Customers',        value: String(s?.totalCustomers ?? 0),           sub: `${s?.expiringWarranties ?? 0} warranties expiring`, icon: Users, iconBg: '#cffafe', iconColor: '#0891b2', spark: [], sparkColor: '#06b6d4', subPositive: true, show: true },
+          { label: 'Ready for Pickup',       value: String(s?.readyForPickup ?? repairStats.ready), sub: repairStats.ready > 0 ? 'Awaiting customer' : 'None waiting', icon: PackageCheck, iconBg: '#d1fae5', iconColor: '#059669', spark: [], sparkColor: '#10b981', subPositive: true, show: true },
+        ] as const).filter(k => k.show).map(k => (
           <div key={k.label} className={`${CARD} p-4 flex flex-col`}>
             <div className="flex items-start gap-2.5 mb-2">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: k.iconBg }}>
@@ -280,19 +330,23 @@ export default function DashboardPage() {
               <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `LKR ${(v/1000).toFixed(0)}k`} width={72}/>
               <Tooltip formatter={(v: any) => formatCurrency(v)} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}/>
               <Line type="monotone" dataKey="sales"       stroke="var(--brand-primary)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--brand-primary)', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Sales"/>
-              <Line type="monotone" dataKey="grossProfit" stroke="#22c55e" strokeWidth={2}   dot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Gross Profit"/>
-              <Line type="monotone" dataKey="netProfit"   stroke="#2563eb" strokeWidth={2}   dot={{ r: 3, fill: '#2563eb', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Net Profit"/>
+              {canSeeProfit && (
+                <Line type="monotone" dataKey="grossProfit" stroke="#22c55e" strokeWidth={2}   dot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Gross Profit"/>
+              )}
+              {canSeeProfit && (
+                <Line type="monotone" dataKey="netProfit"   stroke="#2563eb" strokeWidth={2}   dot={{ r: 3, fill: '#2563eb', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Net Profit"/>
+              )}
             </LineChart>
           </ResponsiveContainer>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700">
-            {[
-              { label: 'Sales',         value: formatCurrency(totalRevenue),      color: 'var(--brand-primary)' },
-              { label: 'COGS',          value: formatCurrency(totalCogs),         color: 'var(--status-warn)' },
-              { label: 'Gross Profit',  value: formatCurrency(totalGrossProfit),  color: '#22c55e' },
-              { label: 'Expenses',      value: formatCurrency(totalExpenses),     color: '#ef4444' },
-              { label: 'Net Profit',    value: formatCurrency(totalNetProfit),    color: '#2563eb' },
-              { label: 'Gross Margin',  value: `${grossMargin}%`,                 color: '#06b6d4' },
-            ].map(l => (
+          <div className={`grid gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700 ${canSeeProfit ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3'}`}>
+            {([
+              { label: 'Sales',         value: formatCurrency(totalRevenue),      color: 'var(--brand-primary)', show: true },
+              { label: 'COGS',          value: formatCurrency(totalCogs),         color: 'var(--status-warn)', show: canSeeProfit },
+              { label: 'Gross Profit',  value: formatCurrency(totalGrossProfit),  color: '#22c55e', show: canSeeProfit },
+              { label: 'Expenses',      value: formatCurrency(totalExpenses),     color: '#ef4444', show: canSeeProfit },
+              { label: 'Net Profit',    value: formatCurrency(totalNetProfit),    color: '#2563eb', show: canSeeProfit },
+              { label: 'Gross Margin',  value: `${grossMargin}%`,                 color: '#06b6d4', show: canSeeProfit },
+            ] as const).filter(l => l.show).map(l => (
               <div key={l.label} className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: l.color }}/>

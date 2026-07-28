@@ -183,20 +183,30 @@ export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
   const [showHow, setShowHow] = useState(false)
   const { canView } = useRolePermissions()
   const factors = useMemo(() => {
-    return buildFactors(data).map(f => {
-      if ((f.id === 'gross' || f.id === 'net') && !canView('FINANCE') && !canView('REPORTS')) {
-        return { ...f, href: '/dashboard' }
-      }
-      if (f.id === 'stock' && !canView('INVENTORY')) {
-        return { ...f, href: '/dashboard' }
-      }
-      return f
-    })
+    const canSeeProfit = canView('FINANCE') || canView('REPORTS')
+    return buildFactors(data)
+      .filter(f => {
+        if ((f.id === 'gross' || f.id === 'net') && !canSeeProfit) return false
+        return true
+      })
+      .map(f => {
+        if (f.id === 'stock' && !canView('INVENTORY')) {
+          return { ...f, href: '/dashboard' }
+        }
+        if ((f.id === 'gross' || f.id === 'net') && !canView('FINANCE') && !canView('REPORTS')) {
+          return { ...f, href: '/dashboard' }
+        }
+        return f
+      })
   }, [data, canView])
-  const score = useMemo(
-    () => clamp(factors.reduce((s, f) => s + f.score, 0)),
-    [factors],
-  )
+  const score = useMemo(() => {
+    const earned = factors.reduce((s, f) => s + f.score, 0)
+    const max = factors.reduce((s, f) => s + f.max, 0) || 1
+    // Keep 0–100 scale even when profit factors are hidden by role permissions
+    return clamp(Math.round((earned / max) * 100))
+  }, [factors])
+  const pointsEarned = useMemo(() => factors.reduce((s, f) => s + f.score, 0), [factors])
+  const pointsMax = useMemo(() => factors.reduce((s, f) => s + f.max, 0) || 100, [factors])
 
   const color = score >= 75 ? '#22c55e' : score >= 50 ? 'var(--status-warn)' : '#ef4444'
   const label = score >= 85 ? 'Excellent' : score >= 75 ? 'Strong' : score >= 50 ? 'Good' : score >= 30 ? 'Fair' : 'Needs Attention'
@@ -236,7 +246,7 @@ export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
         >
           <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>How the score works</p>
           <p>Sales up to 18 · Gross margin 18 · Net profit 16 · Stock 16 · Customers 16 · Repairs 16 (max 100).</p>
-          <p style={{ color: 'var(--text-muted)' }}>Only existing shop data is used — higher margins and healthy stock raise the score.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Only existing shop data is used — higher margins and healthy stock raise the score. Profit factors are hidden when Reports/Finance access is off.</p>
         </div>
       )}
 
@@ -323,8 +333,8 @@ export function BusinessHealthCard({ data }: { data: BusinessHealthInput }) {
         >
           <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Points earned</p>
           <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
-            {factors.reduce((s, f) => s + f.score, 0)}
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>/100</span>
+            {pointsEarned}
+            <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>/{pointsMax}</span>
           </p>
         </div>
         <div
