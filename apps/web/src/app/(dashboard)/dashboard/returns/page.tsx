@@ -18,6 +18,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
+import { usePaymentMethods } from '@/lib/payment-methods'
 
 const RETURN_REASONS = [
   'Defective / Damaged',
@@ -44,8 +45,10 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const [sale,         setSale]         = useState<any>(null)
   const [qtys,         setQtys]         = useState<Record<string, number>>({})
   const [reason,       setReason]       = useState(RETURN_REASONS[0])
+  const [refundMethodId, setRefundMethodId] = useState('CASH')
   const [notes,        setNotes]        = useState('')
   const [loading,      setLoading]      = useState(false)
+  const paymentMethods = usePaymentMethods()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -102,10 +105,14 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const invoiceDue = Math.max(0, Number(sale?.dueAmount ?? 0))
   const appliedToDuePreview = Math.min(refundAmount, invoiceDue)
   const creditPreview = Math.max(0, refundAmount - appliedToDuePreview)
+  const refundMethod = refundMethodId === 'CREDIT'
+    ? 'CREDIT'
+    : paymentMethods.find(m => m.id === refundMethodId)?.key ?? 'CASH'
+  const isCustomerCredit = refundMethod === 'CREDIT'
 
   const handleSubmit = async () => {
     if (!selectedItems.length) return toast.error('Select at least one item to return')
-    if (!sale?.customerId && creditPreview > 0.001) {
+    if (isCustomerCredit && !sale?.customerId && creditPreview > 0.001) {
       return toast.error('Link a customer first — extra return value becomes store credit (no cash refund)')
     }
     setLoading(true)
@@ -124,13 +131,15 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
           }
         }),
         reason,
-        refundMethod: 'CREDIT',
+        refundMethod,
         notes: notes || undefined,
       })
       const data = res?.data ?? res
-      const applied = Number(data?.outstandingApplied ?? appliedToDuePreview)
-      const credit = Number(data?.customerCreditCreated ?? creditPreview)
-      if (credit > 0.001) {
+      const applied = Number(data?.outstandingApplied ?? (isCustomerCredit ? appliedToDuePreview : 0))
+      const credit = Number(data?.customerCreditCreated ?? (isCustomerCredit ? creditPreview : 0))
+      if (!isCustomerCredit) {
+        toast.success(`Return processed — ${formatCurrency(refundAmount)} refunded via ${paymentMethods.find(m => m.id === refundMethodId)?.label ?? refundMethod}`)
+      } else if (credit > 0.001) {
         toast.success(`Return settled — ${formatCurrency(applied)} off outstanding, ${formatCurrency(credit)} store credit`)
       } else {
         toast.success(`Return settled — ${formatCurrency(applied || refundAmount)} applied to outstanding`)
@@ -245,6 +254,26 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1.5">Refund Method</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[...paymentMethods, { id: 'CREDIT', key: 'CREDIT' as const, label: 'Customer Credit' }].map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setRefundMethodId(m.id)}
+                      className={`px-2 py-2 text-[10px] font-semibold rounded-lg border text-left transition-colors ${
+                        refundMethodId === m.id
+                          ? 'bg-violet-50 dark:bg-violet-500/20 border-violet-300 dark:border-violet-500/40 text-violet-600 dark:text-violet-300'
+                          : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-slate-500 hover:border-violet-300 dark:hover:border-white/20'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1.5">Notes (optional)</label>
                 <input className="input-field" placeholder="Additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
               </div>
@@ -255,15 +284,24 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
                     <span className="text-gray-600 dark:text-slate-400">Return total</span>
                     <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(refundAmount)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
-                    <span>Reduce outstanding</span>
-                    <span className="font-bold">{formatCurrency(appliedToDuePreview)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Store credit (shop owes)</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(creditPreview)}</span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 dark:text-slate-500 pt-1">No cash refund. Extra value is kept as customer credit.</p>
+                  {isCustomerCredit ? (
+                    <>
+                      <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                        <span>Reduce outstanding</span>
+                        <span className="font-bold">{formatCurrency(appliedToDuePreview)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">Store credit (shop owes)</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(creditPreview)}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-500 pt-1">No cash refund. Extra value is kept as customer credit.</p>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                      <span>Refund via</span>
+                      <span className="font-bold">{paymentMethods.find(m => m.id === refundMethodId)?.label ?? refundMethod}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

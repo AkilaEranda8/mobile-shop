@@ -263,9 +263,13 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
 
   let refundsTotal = 0
   let cashRefunds = 0
+  let moneyRefunds = 0
   for (const ret of saleReturns) {
-    refundsTotal += Number(ret.refundAmount)
-    if (ret.refundMethod === 'CASH') cashRefunds += Number(ret.refundAmount)
+    const amt = Number(ret.refundAmount)
+    refundsTotal += amt
+    // Customer Credit is not a cash/bank outflow — only real payment-method refunds are.
+    if (ret.refundMethod !== 'CREDIT') moneyRefunds += amt
+    if (ret.refundMethod === 'CASH') cashRefunds += amt
   }
 
   const reloadBreakdown: Record<string, { amount: number; commission: number; count: number }> = {}
@@ -474,6 +478,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       otherIncome: Math.round(otherIncome * 100) / 100,
       creditPayments: Math.round(creditPayments * 100) / 100,
       refundsTotal: Math.round(refundsTotal * 100) / 100,
+      moneyRefunds: Math.round(moneyRefunds * 100) / 100,
       salesCount,
     },
     profit: {
@@ -492,7 +497,7 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       cashSupplierPayments: Math.round(cashSupplierPayments * 100) / 100,
       reloadProviderPayments: Math.round(reloadProviderPayments * 100) / 100,
       cashReloadProviderPayments: Math.round(cashReloadProviderPayments * 100) / 100,
-      cashOutTotal: Math.round((totalExpenses + supplierPayments + reloadProviderPayments) * 100) / 100,
+      cashOutTotal: Math.round((totalExpenses + supplierPayments + reloadProviderPayments + moneyRefunds) * 100) / 100,
       breakdown: expenseBreakdown,
     },
     reload: {

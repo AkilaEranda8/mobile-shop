@@ -21,6 +21,8 @@ export interface BusinessFinancialSummary {
   /** Reload provider settlements — cash out only, excluded from net profit */
   reloadProviderPayments: number
   refundsTotal: number
+  /** Cash/card/bank refunds only (excludes Customer Credit settlement). */
+  moneyRefunds: number
   grossProfit: number
   netProfit: number
   repairJobsCompleted: number
@@ -36,6 +38,7 @@ export interface DailyRevenueRow {
   supplierPayments: number
   reloadProviderPayments: number
   refundsTotal: number
+  moneyRefunds: number
   grossProfit: number
   profit: number
   reloadCommission: number
@@ -62,6 +65,7 @@ function emptySummary(): BusinessFinancialSummary {
     supplierPayments: 0,
     reloadProviderPayments: 0,
     refundsTotal: 0,
+    moneyRefunds: 0,
     grossProfit: 0,
     netProfit: 0,
     repairJobsCompleted: 0,
@@ -85,6 +89,7 @@ function addSummaries(a: BusinessFinancialSummary, b: BusinessFinancialSummary):
     supplierPayments: round2(a.supplierPayments + b.supplierPayments),
     reloadProviderPayments: round2(a.reloadProviderPayments + b.reloadProviderPayments),
     refundsTotal: round2(a.refundsTotal + b.refundsTotal),
+    moneyRefunds: round2(a.moneyRefunds + b.moneyRefunds),
     grossProfit: round2(a.grossProfit + b.grossProfit),
     netProfit: round2(a.netProfit + b.netProfit),
     repairJobsCompleted: a.repairJobsCompleted + b.repairJobsCompleted,
@@ -116,6 +121,7 @@ function mapPreviewToSummary(
     supplierPayments: round2(preview.expenses.supplierPayments ?? 0),
     reloadProviderPayments: round2(preview.expenses.reloadProviderPayments ?? 0),
     refundsTotal: s.refundsTotal,
+    moneyRefunds: round2(s.moneyRefunds ?? 0),
     grossProfit: p.grossProfit,
     netProfit: p.netProfit,
     repairJobsCompleted: preview.repairs.repairsCompleted,
@@ -135,6 +141,7 @@ export function toDailyRevenueRow(date: string, fin: BusinessFinancialSummary): 
     supplierPayments: fin.supplierPayments,
     reloadProviderPayments: fin.reloadProviderPayments,
     refundsTotal: fin.refundsTotal,
+    moneyRefunds: fin.moneyRefunds,
     grossProfit: fin.grossProfit,
     profit: fin.netProfit,
     reloadCommission: fin.reloadCommission,
@@ -311,6 +318,7 @@ async function mapClosingRecordToSummary(closed: {
     supplierPayments,
     reloadProviderPayments,
     refundsTotal: 0,
+    moneyRefunds: 0,
     grossProfit,
     netProfit,
     repairJobsCompleted: 0,
@@ -390,7 +398,7 @@ export function toFinanceSummaryResponse(
     opExpenses: fin.opExpenses,
     supplierPayments: fin.supplierPayments,
     reloadProviderPayments: fin.reloadProviderPayments,
-    cashOutTotal: round2(fin.opExpenses + fin.supplierPayments + fin.reloadProviderPayments + fin.refundsTotal),
+    cashOutTotal: round2(fin.opExpenses + fin.supplierPayments + fin.reloadProviderPayments + (fin.moneyRefunds || fin.refundsTotal)),
     refundsTotal: fin.refundsTotal,
     repairJobsCompleted: fin.repairJobsCompleted,
     totalExpense,

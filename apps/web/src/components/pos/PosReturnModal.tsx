@@ -6,6 +6,7 @@ import { salesApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { POS_THEME } from './HexaPosLayout'
+import { usePaymentMethods } from '@/lib/payment-methods'
 
 const RETURN_REASONS = [
   'Defective / Damaged',
@@ -24,8 +25,10 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
   const [sale, setSale] = useState<any>(null)
   const [qtys, setQtys] = useState<Record<string, number>>({})
   const [reason, setReason] = useState(RETURN_REASONS[0])
+  const [refundMethodId, setRefundMethodId] = useState('CASH')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
+  const paymentMethods = usePaymentMethods()
 
   const search = async () => {
     if (!query.trim()) return
@@ -82,10 +85,14 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
   const invoiceDue = Math.max(0, Number(sale?.dueAmount ?? 0))
   const appliedToDuePreview = Math.min(refundAmount, invoiceDue)
   const creditPreview = Math.max(0, refundAmount - appliedToDuePreview)
+  const refundMethod = refundMethodId === 'CREDIT'
+    ? 'CREDIT'
+    : paymentMethods.find(m => m.id === refundMethodId)?.key ?? 'CASH'
+  const isCustomerCredit = refundMethod === 'CREDIT'
 
   const handleSubmit = async () => {
     if (!selectedItems.length) return toast.error('Select at least one item to return')
-    if (!sale?.customerId && creditPreview > 0.001) {
+    if (isCustomerCredit && !sale?.customerId && creditPreview > 0.001) {
       return toast.error('Link a customer first — extra return value becomes store credit (no cash refund)')
     }
     setLoading(true)
@@ -97,13 +104,15 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
           imei: i.imei,
         })),
         reason,
-        refundMethod: 'CREDIT',
+        refundMethod,
         notes: notes.trim() || undefined,
       })
       const data = res?.data ?? res
-      const applied = Number(data?.outstandingApplied ?? appliedToDuePreview)
-      const credit = Number(data?.customerCreditCreated ?? creditPreview)
-      if (credit > 0.001) {
+      const applied = Number(data?.outstandingApplied ?? (isCustomerCredit ? appliedToDuePreview : 0))
+      const credit = Number(data?.customerCreditCreated ?? (isCustomerCredit ? creditPreview : 0))
+      if (!isCustomerCredit) {
+        toast.success(`Return processed — ${formatCurrency(refundAmount)} refunded via ${paymentMethods.find(m => m.id === refundMethodId)?.label ?? refundMethod}`)
+      } else if (credit > 0.001) {
         toast.success(
           `Return settled — ${formatCurrency(applied)} off outstanding, ${formatCurrency(credit)} store credit`,
           { icon: '✓' },
@@ -205,6 +214,26 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
                 {RETURN_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
+            <div>
+              <label className="text-[10px] text-white/50 uppercase">Refund Method</label>
+              <div className="grid grid-cols-2 gap-1.5 mt-1">
+                {[...paymentMethods, { id: 'CREDIT', key: 'CREDIT' as const, label: 'Customer Credit' }].map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setRefundMethodId(m.id)}
+                    className="px-2 py-2 rounded-lg border text-[10px] font-semibold text-left transition-colors"
+                    style={{
+                      borderColor: refundMethodId === m.id ? `${POS_THEME.purple}99` : POS_THEME.border,
+                      background: refundMethodId === m.id ? `${POS_THEME.purple}22` : POS_THEME.bg,
+                      color: refundMethodId === m.id ? '#c4b5fd' : POS_THEME.muted,
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)"
               className="w-full h-9 px-3 rounded-lg text-xs border outline-none text-white placeholder:text-white/40"
               style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }} />
@@ -215,15 +244,24 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
                   <span>Return total</span>
                   <span className="font-bold text-white">{formatCurrency(refundAmount)}</span>
                 </div>
-                <div className="flex justify-between text-amber-300/90">
-                  <span>Reduce outstanding (this invoice+)</span>
-                  <span className="font-bold">{formatCurrency(appliedToDuePreview)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-emerald-400">Store credit (shop owes)</span>
-                  <span className="font-extrabold text-emerald-400">{formatCurrency(creditPreview)}</span>
-                </div>
-                <p className="text-[10px] text-white/40 pt-1">No cash is refunded. Extra value is kept as customer credit.</p>
+                {isCustomerCredit ? (
+                  <>
+                    <div className="flex justify-between text-amber-300/90">
+                      <span>Reduce outstanding (this invoice+)</span>
+                      <span className="font-bold">{formatCurrency(appliedToDuePreview)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-emerald-400">Store credit (shop owes)</span>
+                      <span className="font-extrabold text-emerald-400">{formatCurrency(creditPreview)}</span>
+                    </div>
+                    <p className="text-[10px] text-white/40 pt-1">No cash refund. Extra value is kept as customer credit.</p>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-emerald-400">
+                    <span>Refund via</span>
+                    <span className="font-bold">{paymentMethods.find(m => m.id === refundMethodId)?.label ?? refundMethod}</span>
+                  </div>
+                )}
               </div>
             )}
 

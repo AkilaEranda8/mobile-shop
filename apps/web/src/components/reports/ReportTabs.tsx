@@ -1245,8 +1245,8 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
     let cumulative = 0
     return revenueArr.map(d => {
       const cashIn = (d.salesRevenue ?? 0) + (d.otherIncome ?? 0)
-      // Cash out = OpEx + supplier AP payments + refunds (not COGS — accrual inventory cost)
-      const cashOut = (d.totalExpenses ?? 0) + (d.supplierPayments ?? 0) + (d.refundsTotal ?? 0)
+      // Cash out = OpEx + supplier AP payments + money refunds (not Customer Credit, not COGS)
+      const cashOut = (d.totalExpenses ?? 0) + (d.supplierPayments ?? 0) + (d.moneyRefunds ?? d.refundsTotal ?? 0)
       const net = cashIn - cashOut
       cumulative += net
       return {

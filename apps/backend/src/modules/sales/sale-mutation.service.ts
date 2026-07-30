@@ -136,21 +136,20 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
     }
   }
 
-  // Returns never pay cash out of the drawer. Settlement order:
-  // 1) reduce this invoice outstanding
-  // 2) reduce customer's other open invoices
-  // 3) remainder → customer store credit (shop owes)
-  // Paid walk-in sales must be linked to a customer so credit has an owner.
   const refundAmount = round2(resolved.reduce((s, i) => s + Number(i.total), 0))
+  const method = String(input.refundMethod || 'CASH').toUpperCase()
+  if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT'].includes(method)) {
+    throw new AppError('Invalid refund method', 400)
+  }
+  const isCustomerCredit = method === 'CREDIT'
   const thisSaleDuePreview = round2(Math.max(0, Number(sale.dueAmount ?? 0)))
-  if (!sale.customerId && refundAmount > thisSaleDuePreview + 0.001) {
+  if (isCustomerCredit && !sale.customerId && refundAmount > thisSaleDuePreview + 0.001) {
     throw new AppError(
       'Link a customer to this invoice before returning. Extra return value becomes store credit — cash is not refunded.',
       400,
     )
   }
 
-  const method = 'CREDIT' as PaymentMethod
   const returnNumber = await generateReturnNumber(input.tenantId)
   const branchId = sale.branchId
 
@@ -164,12 +163,14 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
   const saleReturn = await prisma.$transaction(async (tx) => {
     // 1) Apply to this invoice's outstanding first
     const thisSaleDue = round2(Math.max(0, Number(sale.dueAmount ?? 0)))
-    const thisSaleDueApplied = round2(Math.min(refundAmount, thisSaleDue))
+    const thisSaleDueApplied = isCustomerCredit
+      ? round2(Math.min(refundAmount, thisSaleDue))
+      : 0
     let remaining = round2(refundAmount - thisSaleDueApplied)
     let outstandingApplied = thisSaleDueApplied
 
     // 2) Apply remainder to customer's other open invoices (oldest first)
-    if (remaining > 0.001 && sale.customerId) {
+    if (isCustomerCredit && remaining > 0.001 && sale.customerId) {
       const otherOpen = await tx.sale.findMany({
         where: {
           tenantId: input.tenantId,
@@ -205,8 +206,8 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
       }
     }
 
-    const customerCreditCreated = round2(Math.max(0, remaining))
-    if (customerCreditCreated > 0.001 && !sale.customerId) {
+    const customerCreditCreated = isCustomerCredit ? round2(Math.max(0, remaining)) : 0
+    if (isCustomerCredit && customerCreditCreated > 0.001 && !sale.customerId) {
       throw new AppError(
         'Link a customer to this invoice before returning. Extra return value becomes store credit — cash is not refunded.',
         400,
@@ -221,7 +222,7 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
         returnNumber,
         reason: input.reason,
         refundAmount,
-        refundMethod: method,
+        refundMethod: method as PaymentMethod,
         outstandingApplied,
         customerCreditCreated,
         processedBy: input.performedBy,
@@ -291,9 +292,15 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
       }
     }
 
-    const nextDue = round2(Math.max(0, thisSaleDue - thisSaleDueApplied))
     const nextTotal = Math.max(0, round2(Number(sale.total) - refundAmount))
-    const nextPaid = Math.max(0, round2(nextTotal - nextDue))
+    const refundFromPaid = isCustomerCredit ? 0 : Math.min(refundAmount, Number(sale.paidAmount))
+    const refundFromDue = isCustomerCredit ? 0 : Math.max(0, refundAmount - refundFromPaid)
+    const nextDue = isCustomerCredit
+      ? round2(Math.max(0, thisSaleDue - thisSaleDueApplied))
+      : round2(Math.max(0, thisSaleDue - refundFromDue))
+    const nextPaid = isCustomerCredit
+      ? Math.max(0, round2(nextTotal - nextDue))
+      : Math.max(0, round2(Number(sale.paidAmount) - refundFromPaid))
     const nextStatus = isFullReturn
       ? 'RETURNED' as const
       : nextDue > 0.001
@@ -310,7 +317,7 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
       },
     })
 
-    if (sale.customerId) {
+    if (isCustomerCredit && sale.customerId) {
       const customer = await tx.customer.findFirst({
         where: { id: sale.customerId, tenantId: input.tenantId },
         select: { id: true, totalDue: true, creditBalance: true },
@@ -324,6 +331,21 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
         data: {
           totalDue: nextCustomerDue,
           creditBalance: nextCreditBalance,
+          ...(isFullReturn ? { totalPurchases: { decrement: 1 } } : {}),
+        },
+      })
+    } else if (sale.customerId) {
+      const customer = await tx.customer.findFirst({
+        where: { id: sale.customerId, tenantId: input.tenantId },
+        select: { id: true, totalDue: true },
+      })
+      if (!customer) throw new AppError('Customer not found for this sale', 404)
+      await tx.customer.update({
+        where: { id: customer.id },
+        data: {
+          ...(refundFromDue > 0
+            ? { totalDue: round2(Math.max(0, Number(customer.totalDue) - refundFromDue)) }
+            : {}),
           ...(isFullReturn ? { totalPurchases: { decrement: 1 } } : {}),
         },
       })
