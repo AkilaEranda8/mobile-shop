@@ -203,7 +203,7 @@ export default function DashboardPage() {
     const items: { label: string; detail: string; href: string; tone: 'warn' | 'ok' | 'info' }[] = []
     const dues = Number(s?.customerDues ?? 0)
     const duesCount = Number(s?.customersWithDues ?? 0)
-    if (dues > 0) {
+    if (canSeeProfit && dues > 0) {
       items.push({
         label: 'Customer dues',
         detail: `${formatCurrency(dues)} from ${duesCount} customer${duesCount === 1 ? '' : 's'}`,
@@ -234,7 +234,7 @@ export default function DashboardPage() {
       })
     }
     return items.slice(0, 4)
-  }, [s, repairStats.ready, repairStats.inProg, canView])
+  }, [s, repairStats.ready, repairStats.inProg, canView, canSeeProfit])
 
   const CARD = 'bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700'
 
@@ -269,14 +269,14 @@ export default function DashboardPage() {
           {
             label: 'Sales (30 Days)',
             value: formatCurrency(totalRevenue),
-            sub: canSeeProfit ? `${grossMargin}% gross margin` : `Avg ${formatCurrency(weekInsight.avgDaily)} / day`,
+            sub: `${grossMargin}% gross margin`,
             icon: Receipt,
             iconBg: '#e0e7ff',
             iconColor: '#4f46e5',
             spark: sparkRev,
             sparkColor: '#6366f1',
             subPositive: true,
-            show: true,
+            show: canSeeProfit,
           },
           {
             label: 'Gross Profit (30 Days)',
@@ -317,7 +317,7 @@ export default function DashboardPage() {
             spark: [],
             sparkColor: Number(s?.customerDues ?? 0) > 0 ? '#f97316' : '#10b981',
             subPositive: Number(s?.customerDues ?? 0) === 0,
-            show: canView('CUSTOMERS'),
+            show: canView('CUSTOMERS') && canSeeProfit,
           },
         ] as const).filter(k => k.show).map(k => (
           <div key={k.label} className={`${CARD} p-4 flex flex-col`}>
@@ -360,9 +360,9 @@ export default function DashboardPage() {
               )}
             </LineChart>
           </ResponsiveContainer>
-          <div className={`grid gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700 ${canSeeProfit ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3'}`}>
+          <div className={`grid gap-2 mt-4 pt-4 border-t border-gray-50 dark:border-slate-700 grid-cols-3 sm:grid-cols-6 ${canSeeProfit ? '' : 'hidden'}`}>
             {([
-              { label: 'Sales',         value: formatCurrency(totalRevenue),      color: 'var(--brand-primary)', show: true },
+              { label: 'Sales',         value: formatCurrency(totalRevenue),      color: 'var(--brand-primary)', show: canSeeProfit },
               { label: 'COGS',          value: formatCurrency(totalCogs),         color: 'var(--status-warn)', show: canSeeProfit },
               { label: 'Gross Profit',  value: formatCurrency(totalGrossProfit),  color: '#22c55e', show: canSeeProfit },
               { label: 'Expenses',      value: formatCurrency(totalExpenses),     color: '#ef4444', show: canSeeProfit },
