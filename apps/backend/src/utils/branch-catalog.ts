@@ -26,15 +26,15 @@ export type BranchCatalogSource = {
 }
 
 /** Branch-scoped SKU suffix when the same catalog exists at multiple branches. */
-export const BRANCH_CATALOG_SKU_SUFFIX_RE = /-BR[A-Z0-9]{6}$/i
+export const BRANCH_CATALOG_SKU_SUFFIX_RE = /(?:-BR[A-Z0-9]{6})+$/i
 
 export function destBranchSku(baseSku: string, toBranchId: string) {
   const suffix = `-BR${toBranchId.slice(-6).toUpperCase()}`
   const max = 100 - suffix.length
-  return `${baseSku.slice(0, max)}${suffix}`
+  return `${catalogBaseSku(baseSku).slice(0, max)}${suffix}`
 }
 
-/** Strip `-BRxxxxxx` so HQ + branch catalog clones share one catalog key. */
+/** Strip one or more `-BRxxxxxx` suffixes so all branch clones share one catalog key. */
 export function catalogBaseSku(sku: string) {
   return sku.replace(BRANCH_CATALOG_SKU_SUFFIX_RE, '')
 }
@@ -102,8 +102,23 @@ export async function findBranchCatalogProduct(
   baseSku: string,
   toBranchId: string,
 ) {
-  const sku = destBranchSku(baseSku, toBranchId)
-  return db.product.findFirst({ where: { tenantId, sku, isActive: true } })
+  const sku = catalogBaseSku(baseSku)
+
+  // The clean/base SKU normally belongs to the original (usually HQ) branch.
+  // Always prefer it when transferring a branch clone back to that branch.
+  const baseCatalog = await db.product.findFirst({
+    where: { tenantId, branchId: toBranchId, sku, isActive: true },
+  })
+  if (baseCatalog) return baseCatalog
+
+  return db.product.findFirst({
+    where: {
+      tenantId,
+      branchId: toBranchId,
+      sku: destBranchSku(sku, toBranchId),
+      isActive: true,
+    },
+  })
 }
 
 /** Ensure a zero-stock catalog row exists at the destination branch. */

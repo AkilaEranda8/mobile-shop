@@ -245,6 +245,6 @@ export async function executeStockTransferEffects(input: ExecuteStockTransferInp
     variationKey: variationKey ?? null,
     imeis: imeis ?? null,
     mode: mergeIntoDest ? ('merge' as const) : ('partial' as const),
-    destSku: destBranchSku(product.sku, toBranchId),
+    destSku: destProduct.sku,
   }
 }

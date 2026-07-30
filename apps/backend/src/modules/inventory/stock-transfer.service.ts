@@ -244,7 +244,6 @@ export const stockTransferService = {
     if (!product) throw new AppError('Product not found', 404)
 
     const sourceBranchId = fromBranchId || product.branchId
-    const destSku = destBranchSku(product.sku, toBranchId)
     const destCatalog = await findBranchCatalogProduct(prisma, tenantId, product.sku, toBranchId)
     const hasSeparateDest = !!destCatalog && destCatalog.id !== product.id
     const variants = await listTransferableVariantsForBranch(prisma, {
@@ -262,7 +261,7 @@ export const stockTransferService = {
     )
 
     return {
-      destSku,
+      destSku: destCatalog?.sku ?? destBranchSku(product.sku, toBranchId),
       catalogReady: hasSeparateDest,
       catalogProductId: hasSeparateDest ? destCatalog!.id : null,
       willRelocate: !variationKey && product.stock > 0 && !hasSeparateDest,
