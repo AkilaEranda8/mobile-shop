@@ -538,6 +538,22 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
   }
 }
 
+/**
+ * Guard against closing/saving a business day that is still in the future for
+ * the server (Asia/Colombo). This catches the common field bug where a device
+ * with a wrong clock/date reports "tomorrow" and the day gets closed with no
+ * sales — producing a phantom cash-over variance against expected cash of 0.
+ */
+function assertNotFutureBusinessDate(dateKey: string) {
+  const today = businessDateFromInstant()
+  if (dateKey > today) {
+    throw new AppError(
+      `Cannot open or close ${dateKey} — that business day is in the future. Please check the device date/time and try again.`,
+      400,
+    )
+  }
+}
+
 export async function assertBusinessDayOpen(tenantId: string, branchId: string, at: Date = new Date()) {
   const dateStr = businessDateFromInstant(at)
   const closed = await prisma.dailyClosing.findFirst({
@@ -664,6 +680,7 @@ export async function startBusinessDay(
   if (!Number.isFinite(openingCash) || openingCash < 0) {
     throw new AppError('Opening cash must be zero or greater', 400)
   }
+  assertNotFutureBusinessDate(normalizeBusinessDate(dateStr))
   const preview = await buildDailyClosingPreview(tenantId, branchId, dateStr)
   if (preview.isClosed) throw new AppError('Business day is already closed', 400)
 
@@ -702,6 +719,7 @@ export async function saveOpeningCash(
     throw new AppError('Opening cash must be zero or greater', 400)
   }
   const dateKey = normalizeBusinessDate(dateStr)
+  assertNotFutureBusinessDate(dateKey)
   const preview = await buildDailyClosingPreview(tenantId, branchId, dateKey)
   if (preview.isClosed) throw new AppError('Day is already closed', 400)
 
@@ -745,6 +763,7 @@ export async function saveDailyClosingDraft(
   })
   const prevSummary = (existing?.summaryJson as Record<string, unknown>) ?? {}
 
+  assertNotFutureBusinessDate(dateKey)
   const actualCash = body.cashCount ? calcCashCountTotal(body.cashCount) : preview.cash.actualCash
   const data = previewToClosingData(preview, {
     openingCash: body.openingCash ?? preview.openingCash,
@@ -788,6 +807,7 @@ export async function closeBusinessDay(
   })
   const prevSummary = (existing?.summaryJson as Record<string, unknown>) ?? {}
 
+  assertNotFutureBusinessDate(dateKey)
   const actualCash = calcCashCountTotal(body.cashCount)
   const data = previewToClosingData(preview, {
     openingCash: body.openingCash ?? preview.openingCash,

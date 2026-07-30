@@ -284,6 +284,18 @@ export default function DailyClosingPage() {
 
   const closeDay = async () => {
     if (!canClose) { if (!canEdit) viewOnlyToast('Daily Closing'); return }
+    if (date > businessToday()) {
+      toast.error('This day is in the future — check your device date/time before closing.')
+      return
+    }
+    const noSales = (d?.sales?.salesCount ?? 0) === 0
+    if (noSales && cashTotal > 0) {
+      if (!confirm(
+        `No sales are recorded on ${date}, but you counted ${formatCurrency(cashTotal)} in cash.\n\n` +
+        'This usually means the wrong date is selected. Closing now will report the full amount as a cash variance.\n\n' +
+        'Are you sure this is the correct day to close?',
+      )) return
+    }
     if (!confirm('Close business day? New sales will be blocked until reopened.')) return
     setSaving(true)
     try {
