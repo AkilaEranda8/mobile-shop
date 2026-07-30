@@ -71,6 +71,7 @@ const CUSTOMER_LIST_SELECT = {
   loyaltyPoints: true,
   totalPurchases: true,
   totalDue: true,
+  creditBalance: true,
   totalRepairs: true,
   notes: true,
   isActive: true,

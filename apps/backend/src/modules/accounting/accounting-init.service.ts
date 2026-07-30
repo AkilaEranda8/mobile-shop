@@ -283,7 +283,7 @@ export async function ensureAccountingRegisters(tenantId: string) {
     })
   }
 
-  for (const [key, code] of [['epfPayable', '2310'], ['etfPayable', '2311']] as const) {
+  for (const [key, code] of [['epfPayable', '2310'], ['etfPayable', '2311'], ['customerCredits', '2150']] as const) {
     const row = MOBILE_SHOP_COA.find(r => r.code === code)
     if (!row) continue
     await prisma.glAccount.upsert({

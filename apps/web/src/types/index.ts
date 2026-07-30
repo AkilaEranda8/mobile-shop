@@ -184,6 +184,8 @@ export interface Customer {
   totalPurchases: number
   /** Outstanding for the active branch (or tenant-wide when All Branches). */
   totalDue: number
+  /** Store credit — amount the shop owes the customer (e.g. from returns). */
+  creditBalance?: number
   /** Optional: due at the active branch only. */
   branchDue?: number
   /** Optional: due across all branches. */

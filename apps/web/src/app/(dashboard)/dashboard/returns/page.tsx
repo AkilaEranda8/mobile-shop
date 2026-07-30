@@ -44,7 +44,6 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const [sale,         setSale]         = useState<any>(null)
   const [qtys,         setQtys]         = useState<Record<string, number>>({})
   const [reason,       setReason]       = useState(RETURN_REASONS[0])
-  const [refundMethod, setRefundMethod] = useState('CASH')
   const [notes,        setNotes]        = useState('')
   const [loading,      setLoading]      = useState(false)
 
@@ -100,15 +99,22 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
     const unitNet = i.quantity > 0 ? i.total / i.quantity : i.unitPrice
     return s + unitNet * qtys[i.id]
   }, 0)
+  const invoiceDue = Math.max(0, Number(sale?.dueAmount ?? 0))
+  const appliedToDuePreview = Math.min(refundAmount, invoiceDue)
+  const creditPreview = Math.max(0, refundAmount - appliedToDuePreview)
 
   const handleSubmit = async () => {
     if (!selectedItems.length) return toast.error('Select at least one item to return')
+    if (!sale?.customerId && creditPreview > 0.001) {
+      return toast.error('Link a customer first — extra return value becomes store credit (no cash refund)')
+    }
     setLoading(true)
     try {
-      await salesApi.processReturn(sale.id, {
+      const res: any = await salesApi.processReturn(sale.id, {
         items: selectedItems.map((i: any) => {
           const unitNet = i.quantity > 0 ? i.total / i.quantity : i.unitPrice
           return {
+            saleItemId:  i.id,
             productId:   i.productId,
             productName: i.productName,
             quantity:    qtys[i.id],
@@ -118,10 +124,17 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
           }
         }),
         reason,
-        refundMethod,
+        refundMethod: 'CREDIT',
         notes: notes || undefined,
       })
-      toast.success('Return processed — stock restored & refund recorded')
+      const data = res?.data ?? res
+      const applied = Number(data?.outstandingApplied ?? appliedToDuePreview)
+      const credit = Number(data?.customerCreditCreated ?? creditPreview)
+      if (credit > 0.001) {
+        toast.success(`Return settled — ${formatCurrency(applied)} off outstanding, ${formatCurrency(credit)} store credit`)
+      } else {
+        toast.success(`Return settled — ${formatCurrency(applied || refundAmount)} applied to outstanding`)
+      }
       onDone(); onClose()
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to process return')
@@ -232,31 +245,25 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1.5">Refund Method</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {['CASH','CARD','UPI','BANK_TRANSFER'].map(m => (
-                    <button key={m} type="button" onClick={() => setRefundMethod(m)}
-                      className={`py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
-                        refundMethod === m
-                          ? 'bg-rose-50 dark:bg-rose-500/20 border-rose-300 dark:border-rose-500/40 text-rose-600 dark:text-rose-300'
-                          : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-slate-500 hover:border-rose-300 hover:text-rose-500 dark:hover:border-white/20 dark:hover:text-slate-300'
-                      }`}>{m.replace('_',' ')}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1.5">Notes (optional)</label>
                 <input className="input-field" placeholder="Additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
               </div>
 
               {refundAmount > 0 && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle size={13} className="text-rose-500 dark:text-rose-400" />
-                    <span className="text-xs text-rose-600 dark:text-rose-300 font-medium">Refund amount</span>
+                <div className="rounded-lg border p-3 space-y-1.5 text-xs bg-gray-50 dark:bg-white/3 border-gray-200 dark:border-white/10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-slate-400">Return total</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(refundAmount)}</span>
                   </div>
-                  <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(refundAmount)}</span>
+                  <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                    <span>Reduce outstanding</span>
+                    <span className="font-bold">{formatCurrency(appliedToDuePreview)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Store credit (shop owes)</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(creditPreview)}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 dark:text-slate-500 pt-1">No cash refund. Extra value is kept as customer credit.</p>
                 </div>
               )}
 
@@ -384,10 +391,16 @@ function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) 
               </div>
               <div className="flex items-center gap-1.5">
                 <Banknote size={13} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ color: 'var(--text-muted)' }}>Refund method:</span>
+                <span style={{ color: 'var(--text-muted)' }}>Settlement:</span>
                 <span className="font-medium inline-flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-                  {methodIcon[ret.refundMethod]}
-                  {refundMethodLabel}
+                  {Number(ret.customerCreditCreated ?? 0) > 0 || Number(ret.outstandingApplied ?? 0) > 0 || ret.refundMethod === 'CREDIT'
+                    ? 'Outstanding / Store credit'
+                    : (
+                      <>
+                        {methodIcon[ret.refundMethod]}
+                        {refundMethodLabel}
+                      </>
+                    )}
                 </span>
               </div>
             </div>
@@ -411,9 +424,21 @@ function ReturnDetailModal({ ret, onClose }: { ret: any; onClose: () => void }) 
                   <span className="font-medium">{sale.total != null ? formatCurrency(sale.total) : '—'}</span>
                 </div>
                 <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="font-semibold">Total Refunded</span>
+                  <span className="font-semibold">Return value</span>
                   <span className="font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(ret.refundAmount ?? 0)}</span>
                 </div>
+                {Number(ret.outstandingApplied ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Applied to outstanding</span>
+                    <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(ret.outstandingApplied)}</span>
+                  </div>
+                )}
+                {Number(ret.customerCreditCreated ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Store credit</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(ret.customerCreditCreated)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -676,18 +701,32 @@ export default function ReturnsPage() {
       ),
     },
     {
-      accessorKey: 'refundMethod',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Method" />,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 text-xs text-foreground/70">
-          {methodIcon[row.original.refundMethod]}
-          <span>{row.original.refundMethod?.replace('_', ' ')}</span>
-        </div>
-      ),
+      id: 'settlement',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Settlement" />,
+      cell: ({ row }) => {
+        const r = row.original
+        const credit = Number(r.customerCreditCreated ?? 0)
+        const applied = Number(r.outstandingApplied ?? 0)
+        if (r.refundMethod === 'CREDIT' || credit > 0 || applied > 0) {
+          return (
+            <div className="text-[11px] leading-tight">
+              {applied > 0 && <p className="text-amber-600 dark:text-amber-400">Due −{formatCurrency(applied)}</p>}
+              {credit > 0 && <p className="font-bold text-emerald-500">Credit {formatCurrency(credit)}</p>}
+              {applied <= 0 && credit <= 0 && <p className="text-muted-foreground">Store credit</p>}
+            </div>
+          )
+        }
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-foreground/70">
+            {methodIcon[r.refundMethod]}
+            <span>{r.refundMethod?.replace('_', ' ')}</span>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'refundAmount',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Refund" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Return value" />,
       cell: ({ row }) => (
         <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(row.original.refundAmount)}</span>
       ),
@@ -722,7 +761,7 @@ export default function ReturnsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Total Returns',   value: String(meta?.total ?? returns.length), icon: RotateCcw,   color: 'rose'   },
-          { label: 'Total Refunded',  value: formatCurrency(totalRefunded),          icon: TrendingDown, color: 'orange' },
+          { label: 'Total Returned',  value: formatCurrency(totalRefunded),          icon: TrendingDown, color: 'orange' },
           { label: 'Items Returned',  value: String(totalItems),                     icon: Package,      color: 'slate'  },
           { label: 'Top Reason',      value: reasonCounts[0]?.[0]?.split(' /')[0] ?? '—', icon: AlertTriangle, color: 'yellow' },
         ].map(({ label, value, icon: Icon, color }) => (

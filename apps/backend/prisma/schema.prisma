@@ -529,6 +529,8 @@ model Customer {
   loyaltyPoints  Int      @default(0)
   totalPurchases Int      @default(0)
   totalDue       Float    @default(0)
+  /// Amount the shop owes the customer (e.g. returns settled as store credit).
+  creditBalance  Float    @default(0)
   totalRepairs   Int      @default(0)
   notes          String?
   isActive       Boolean  @default(true)
@@ -619,17 +621,21 @@ model SalePayment {
 }
 
 model SaleReturn {
-  id           String        @id @default(cuid())
-  tenantId     String
-  branchId     String?
-  saleId       String
-  returnNumber String
-  reason       String
-  refundAmount Float
-  refundMethod PaymentMethod
-  processedBy  String
-  notes        String?
-  createdAt    DateTime      @default(now())
+  id                    String        @id @default(cuid())
+  tenantId              String
+  branchId              String?
+  saleId                String
+  returnNumber          String
+  reason                String
+  refundAmount          Float
+  refundMethod          PaymentMethod
+  /// Portion of the return applied to customer outstanding invoices.
+  outstandingApplied    Float         @default(0)
+  /// Excess return value kept as shop-owes-customer credit (no cash out).
+  customerCreditCreated Float         @default(0)
+  processedBy           String
+  notes                 String?
+  createdAt             DateTime      @default(now())
 
   tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sale   Sale             @relation(fields: [saleId], references: [id])
@@ -1963,6 +1969,7 @@ enum GlAccountSubtype {
   BANK
   AR
   AP
+  CUSTOMER_CREDIT
   INVENTORY
   TAX_INPUT
   TAX_OUTPUT

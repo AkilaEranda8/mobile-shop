@@ -726,6 +726,14 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                       {formatCurrency(customer.totalDue ?? 0)}
                     </span>
                   </div>
+                  {Number(customer.creditBalance ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Store credit</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(customer.creditBalance ?? 0)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1450,12 +1458,25 @@ export default function CustomersPage() {
     },
     {
       accessorKey: 'totalDue',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Outstanding" />,
-      cell: ({ row }) => (
-        <span className={`text-xs font-bold ${row.original.totalDue > 0 ? 'text-red-400' : 'text-slate-500'}`}>
-          {formatCurrency(row.original.totalDue)}
-        </span>
-      ),
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
+      cell: ({ row }) => {
+        const due = Number(row.original.totalDue ?? 0)
+        const credit = Number(row.original.creditBalance ?? 0)
+        if (credit > 0) {
+          return (
+            <div>
+              <p className="text-xs font-bold text-emerald-500">{formatCurrency(credit)}</p>
+              <p className="text-[10px] text-emerald-600/80">Store credit</p>
+              {due > 0 && <p className="text-[10px] text-red-400 mt-0.5">Due {formatCurrency(due)}</p>}
+            </div>
+          )
+        }
+        return (
+          <span className={`text-xs font-bold ${due > 0 ? 'text-red-400' : 'text-slate-500'}`}>
+            {formatCurrency(due)}
+          </span>
+        )
+      },
     },
     {
       accessorKey: 'createdAt',

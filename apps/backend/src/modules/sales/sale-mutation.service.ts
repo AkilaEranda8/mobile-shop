@@ -136,13 +136,22 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
     }
   }
 
-  const method = String(input.refundMethod || 'CASH').toUpperCase()
-  if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT'].includes(method)) {
-    throw new AppError('Invalid refund method', 400)
+  // Returns never pay cash out of the drawer. Settlement order:
+  // 1) reduce this invoice outstanding
+  // 2) reduce customer's other open invoices
+  // 3) remainder → customer store credit (shop owes)
+  // Paid walk-in sales must be linked to a customer so credit has an owner.
+  const refundAmount = round2(resolved.reduce((s, i) => s + Number(i.total), 0))
+  const thisSaleDuePreview = round2(Math.max(0, Number(sale.dueAmount ?? 0)))
+  if (!sale.customerId && refundAmount > thisSaleDuePreview + 0.001) {
+    throw new AppError(
+      'Link a customer to this invoice before returning. Extra return value becomes store credit — cash is not refunded.',
+      400,
+    )
   }
 
+  const method = 'CREDIT' as PaymentMethod
   const returnNumber = await generateReturnNumber(input.tenantId)
-  const refundAmount = round2(resolved.reduce((s, i) => s + Number(i.total), 0))
   const branchId = sale.branchId
 
   const totalSoldQty = sale.items.reduce((s, i) => s + i.quantity, 0)
@@ -150,10 +159,60 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
   const totalPriorBySaleItem = Object.values(alreadyReturnedBySaleItem).reduce((s, v) => s + v, 0)
   const totalPriorBySku = Object.values(alreadyReturnedByProductSku).reduce((s, v) => s + v, 0)
   const totalPriorQty = totalPriorBySaleItem > 0 ? totalPriorBySaleItem : totalPriorBySku
-  const newSaleStatus = (totalPriorQty + totalNewQty >= totalSoldQty) ? 'RETURNED' as const : sale.status
-  const isFullReturn = newSaleStatus === 'RETURNED'
+  const isFullReturn = (totalPriorQty + totalNewQty >= totalSoldQty)
 
   const saleReturn = await prisma.$transaction(async (tx) => {
+    // 1) Apply to this invoice's outstanding first
+    const thisSaleDue = round2(Math.max(0, Number(sale.dueAmount ?? 0)))
+    const thisSaleDueApplied = round2(Math.min(refundAmount, thisSaleDue))
+    let remaining = round2(refundAmount - thisSaleDueApplied)
+    let outstandingApplied = thisSaleDueApplied
+
+    // 2) Apply remainder to customer's other open invoices (oldest first)
+    if (remaining > 0.001 && sale.customerId) {
+      const otherOpen = await tx.sale.findMany({
+        where: {
+          tenantId: input.tenantId,
+          customerId: sale.customerId,
+          id: { not: sale.id },
+          dueAmount: { gt: 0 },
+          status: { not: 'RETURNED' },
+          ...(branchId ? { branchId } : {}),
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, dueAmount: true, paidAmount: true, total: true, status: true },
+      })
+      for (const inv of otherOpen) {
+        if (remaining <= 0.001) break
+        const due = round2(Math.max(0, Number(inv.dueAmount ?? 0)))
+        if (due <= 0) continue
+        const apply = round2(Math.min(remaining, due))
+        const nextDueOther = round2(due - apply)
+        const paidOther = round2(Number(inv.paidAmount ?? 0))
+        await tx.sale.update({
+          where: { id: inv.id },
+          data: {
+            dueAmount: nextDueOther,
+            status: nextDueOther <= 0.001
+              ? 'PAID'
+              : paidOther > 0.001
+                ? 'PARTIAL'
+                : 'DUE',
+          },
+        })
+        outstandingApplied = round2(outstandingApplied + apply)
+        remaining = round2(remaining - apply)
+      }
+    }
+
+    const customerCreditCreated = round2(Math.max(0, remaining))
+    if (customerCreditCreated > 0.001 && !sale.customerId) {
+      throw new AppError(
+        'Link a customer to this invoice before returning. Extra return value becomes store credit — cash is not refunded.',
+        400,
+      )
+    }
+
     const ret = await tx.saleReturn.create({
       data: {
         tenantId: input.tenantId,
@@ -162,7 +221,9 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
         returnNumber,
         reason: input.reason,
         refundAmount,
-        refundMethod: method as PaymentMethod,
+        refundMethod: method,
+        outstandingApplied,
+        customerCreditCreated,
         processedBy: input.performedBy,
         notes: input.notes ?? null,
         items: {
@@ -230,28 +291,42 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
       }
     }
 
-    const refundFromPaid = Math.min(refundAmount, sale.paidAmount)
-    const refundFromDue = Math.max(0, refundAmount - refundFromPaid)
-    // Never drive totals below zero (e.g. void of a fully discounted repair sale).
+    const nextDue = round2(Math.max(0, thisSaleDue - thisSaleDueApplied))
     const nextTotal = Math.max(0, round2(Number(sale.total) - refundAmount))
-    const nextPaid = Math.max(0, round2(Number(sale.paidAmount) - refundFromPaid))
-    const nextDue = Math.max(0, round2(Number(sale.dueAmount) - refundFromDue))
+    const nextPaid = Math.max(0, round2(nextTotal - nextDue))
+    const nextStatus = isFullReturn
+      ? 'RETURNED' as const
+      : nextDue > 0.001
+        ? (nextPaid > 0.001 ? 'PARTIAL' as const : 'DUE' as const)
+        : 'PAID' as const
 
     await tx.sale.update({
       where: { id: sale.id },
       data: {
-        status: newSaleStatus,
+        status: nextStatus,
         total: nextTotal,
         paidAmount: nextPaid,
-        ...(refundFromDue > 0 && { dueAmount: nextDue }),
+        dueAmount: nextDue,
       },
     })
 
-    if (refundFromDue > 0 && sale.customerId) {
+    if (sale.customerId) {
+      const customer = await tx.customer.findFirst({
+        where: { id: sale.customerId, tenantId: input.tenantId },
+        select: { id: true, totalDue: true, creditBalance: true },
+      })
+      if (!customer) throw new AppError('Customer not found for this sale', 404)
+
+      const nextCustomerDue = round2(Math.max(0, Number(customer.totalDue) - outstandingApplied))
+      const nextCreditBalance = round2(Math.max(0, Number(customer.creditBalance ?? 0) + customerCreditCreated))
       await tx.customer.update({
-        where: { id: sale.customerId },
-        data: { totalDue: { decrement: refundFromDue } },
-      }).catch(() => {})
+        where: { id: customer.id },
+        data: {
+          totalDue: nextCustomerDue,
+          creditBalance: nextCreditBalance,
+          ...(isFullReturn ? { totalPurchases: { decrement: 1 } } : {}),
+        },
+      })
     }
 
     const origIncomeTx = await tx.transaction.findFirst({
@@ -264,13 +339,6 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
       } else {
         await tx.transaction.update({ where: { id: origIncomeTx.id }, data: { amount: newAmount } })
       }
-    }
-
-    if (isFullReturn && sale.customerId) {
-      await tx.customer.update({
-        where: { id: sale.customerId },
-        data: { totalPurchases: { decrement: 1 } },
-      }).catch(() => {})
     }
 
     const returnedImeis = resolved.map(ri => ri.imei).filter(Boolean) as string[]
@@ -342,7 +410,7 @@ export async function voidSaleInvoice(opts: {
     actorEmail: opts.actorEmail,
     items: itemsToReturn,
     reason,
-    refundMethod: 'CASH',
+    refundMethod: 'CREDIT',
     notes: `VOID — ${reason}`,
     req: opts.req,
   })

@@ -735,27 +735,84 @@ export async function postSaleReturnJournal(tenantId: string, returnId: string, 
     lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'vatOutput'), debit: vatReversal, credit: 0, description: 'VAT reversal on return' })
   }
 
-  let creditAccountId: string
+  const customerId = ret.sale.customerId ?? undefined
+  const outstandingApplied = round2(Math.max(0, Number((ret as any).outstandingApplied ?? 0)))
+  const customerCreditCreated = round2(Math.max(0, Number((ret as any).customerCreditCreated ?? 0)))
+  // Legacy cash/card returns: full amount against the refund method account.
+  // New policy (CREDIT): split AR reduction + Customer Credits Payable — never cash.
   const method = ret.refundMethod
-  if (method === 'CASH') creditAccountId = await resolveBranchCashGlAccountId(tenantId, branchId)
-  else if (method === 'CARD') creditAccountId = await resolveAccountIdByKey(tenantId, 'cardClearing')
-  else if (method === 'UPI' || method === 'WALLET') creditAccountId = await resolveAccountIdByKey(tenantId, 'upiClearing')
-  else if (method === 'BANK_TRANSFER' || method === 'CHEQUE') creditAccountId = await resolveAccountIdByKey(tenantId, 'bank')
-  else if (method === 'CREDIT') creditAccountId = await resolveAccountIdByKey(tenantId, 'ar')
-  else creditAccountId = await resolveBranchCashGlAccountId(tenantId, branchId)
 
-  lines.push({
-    accountId: creditAccountId,
-    debit: 0,
-    credit: returnTotal,
-    description: `Refund ${method}`,
-    metadata: {
-      returnNumber: ret.returnNumber,
-      saleId: ret.saleId,
-      invoiceNumber: ret.sale.invoiceNumber,
-      refundMethod: method,
-    },
-  })
+  if (method === 'CREDIT' || outstandingApplied > 0 || customerCreditCreated > 0) {
+    let applied = outstandingApplied
+    let creditCreated = customerCreditCreated
+    if (applied + creditCreated <= 0.001) {
+      // Pre-migration CREDIT rows: treat full return as AR reduction
+      applied = returnTotal
+      creditCreated = 0
+    }
+    // Normalize split to journal total if drift
+    const splitSum = round2(applied + creditCreated)
+    if (Math.abs(splitSum - returnTotal) > 0.02) {
+      creditCreated = round2(Math.max(0, returnTotal - applied))
+    }
+
+    if (applied > 0.001) {
+      lines.push({
+        accountId: await resolveAccountIdByKey(tenantId, 'ar'),
+        debit: 0,
+        credit: applied,
+        description: 'Return applied to customer outstanding',
+        customerId,
+        metadata: {
+          returnNumber: ret.returnNumber,
+          saleId: ret.saleId,
+          invoiceNumber: ret.sale.invoiceNumber,
+          settlement: 'OUTSTANDING',
+        },
+      })
+    }
+    if (creditCreated > 0.001) {
+      let creditLiabilityId: string
+      try {
+        creditLiabilityId = await resolveAccountIdByKey(tenantId, 'customerCredits')
+      } catch {
+        creditLiabilityId = await resolveAccountIdByKey(tenantId, 'ar')
+      }
+      lines.push({
+        accountId: creditLiabilityId,
+        debit: 0,
+        credit: creditCreated,
+        description: 'Customer store credit (shop owes)',
+        customerId,
+        metadata: {
+          returnNumber: ret.returnNumber,
+          saleId: ret.saleId,
+          invoiceNumber: ret.sale.invoiceNumber,
+          settlement: 'CUSTOMER_CREDIT',
+        },
+      })
+    }
+  } else {
+    let creditAccountId: string
+    if (method === 'CASH') creditAccountId = await resolveBranchCashGlAccountId(tenantId, branchId)
+    else if (method === 'CARD') creditAccountId = await resolveAccountIdByKey(tenantId, 'cardClearing')
+    else if (method === 'UPI' || method === 'WALLET') creditAccountId = await resolveAccountIdByKey(tenantId, 'upiClearing')
+    else if (method === 'BANK_TRANSFER' || method === 'CHEQUE') creditAccountId = await resolveAccountIdByKey(tenantId, 'bank')
+    else creditAccountId = await resolveBranchCashGlAccountId(tenantId, branchId)
+
+    lines.push({
+      accountId: creditAccountId,
+      debit: 0,
+      credit: returnTotal,
+      description: `Refund ${method}`,
+      metadata: {
+        returnNumber: ret.returnNumber,
+        saleId: ret.saleId,
+        invoiceNumber: ret.sale.invoiceNumber,
+        refundMethod: method,
+      },
+    })
+  }
 
   const je = await createPostedJournalEntry({
     tenantId,

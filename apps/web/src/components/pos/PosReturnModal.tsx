@@ -24,7 +24,6 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
   const [sale, setSale] = useState<any>(null)
   const [qtys, setQtys] = useState<Record<string, number>>({})
   const [reason, setReason] = useState(RETURN_REASONS[0])
-  const [refundMethod, setRefundMethod] = useState('CASH')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -80,21 +79,38 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
     return s + unitNet * qtys[i.id]
   }, 0)
 
+  const invoiceDue = Math.max(0, Number(sale?.dueAmount ?? 0))
+  const appliedToDuePreview = Math.min(refundAmount, invoiceDue)
+  const creditPreview = Math.max(0, refundAmount - appliedToDuePreview)
+
   const handleSubmit = async () => {
     if (!selectedItems.length) return toast.error('Select at least one item to return')
+    if (!sale?.customerId && creditPreview > 0.001) {
+      return toast.error('Link a customer first — extra return value becomes store credit (no cash refund)')
+    }
     setLoading(true)
     try {
-      await salesApi.processReturn(sale.id, {
+      const res: any = await salesApi.processReturn(sale.id, {
         items: selectedItems.map((i: any) => ({
           saleItemId: i.id,
           quantity: qtys[i.id],
           imei: i.imei,
         })),
         reason,
-        refundMethod,
+        refundMethod: 'CREDIT',
         notes: notes.trim() || undefined,
       })
-      toast.success(`Return processed — ${formatCurrency(refundAmount)} refunded`)
+      const data = res?.data ?? res
+      const applied = Number(data?.outstandingApplied ?? appliedToDuePreview)
+      const credit = Number(data?.customerCreditCreated ?? creditPreview)
+      if (credit > 0.001) {
+        toast.success(
+          `Return settled — ${formatCurrency(applied)} off outstanding, ${formatCurrency(credit)} store credit`,
+          { icon: '✓' },
+        )
+      } else {
+        toast.success(`Return settled — ${formatCurrency(applied || refundAmount)} applied to outstanding`, { icon: '✓' })
+      }
       onDone?.()
       onClose()
     } catch (e: any) {
@@ -156,7 +172,10 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
             <button type="button" onClick={() => { setStep('search'); setSale(null) }} className="text-[11px] text-violet-400 hover:underline">← Back to search</button>
             <div className="rounded-xl border p-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
               <p className="text-xs font-bold text-white">{sale?.invoiceNumber}</p>
-              <p className="text-[10px] text-white/60">{sale?.customerName} · {formatCurrency(sale?.total ?? 0)}</p>
+              <p className="text-[10px] text-white/60">
+                {sale?.customerName || 'Walk-in'} · {formatCurrency(sale?.total ?? 0)}
+                {invoiceDue > 0 ? ` · Due ${formatCurrency(invoiceDue)}` : ''}
+              </p>
             </div>
             <div className="space-y-2">
               {(sale?.items ?? []).map((item: any) => {
@@ -178,31 +197,36 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
                 )
               })}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] text-white/50 uppercase">Reason</label>
-                <select value={reason} onChange={e => setReason(e.target.value)}
-                  className="w-full mt-1 h-9 px-2 rounded-lg text-xs border outline-none text-white"
-                  style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}>
-                  {RETURN_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] text-white/50 uppercase">Refund via</label>
-                <select value={refundMethod} onChange={e => setRefundMethod(e.target.value)}
-                  className="w-full mt-1 h-9 px-2 rounded-lg text-xs border outline-none text-white"
-                  style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}>
-                  {['CASH', 'CARD', 'UPI', 'BANK_TRANSFER'].map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
+            <div>
+              <label className="text-[10px] text-white/50 uppercase">Reason</label>
+              <select value={reason} onChange={e => setReason(e.target.value)}
+                className="w-full mt-1 h-9 px-2 rounded-lg text-xs border outline-none text-white"
+                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }}>
+                {RETURN_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
             </div>
             <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)"
               className="w-full h-9 px-3 rounded-lg text-xs border outline-none text-white placeholder:text-white/40"
               style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }} />
-            <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: POS_THEME.border }}>
-              <span className="text-sm text-white/60">Refund total</span>
-              <span className="text-lg font-extrabold" style={{ color: POS_THEME.green }}>{formatCurrency(refundAmount)}</span>
-            </div>
+
+            {refundAmount > 0 && (
+              <div className="rounded-xl border p-3 space-y-1.5 text-xs" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+                <div className="flex justify-between text-white/70">
+                  <span>Return total</span>
+                  <span className="font-bold text-white">{formatCurrency(refundAmount)}</span>
+                </div>
+                <div className="flex justify-between text-amber-300/90">
+                  <span>Reduce outstanding (this invoice+)</span>
+                  <span className="font-bold">{formatCurrency(appliedToDuePreview)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-emerald-400">Store credit (shop owes)</span>
+                  <span className="font-extrabold text-emerald-400">{formatCurrency(creditPreview)}</span>
+                </div>
+                <p className="text-[10px] text-white/40 pt-1">No cash is refunded. Extra value is kept as customer credit.</p>
+              </div>
+            )}
+
             <button type="button" onClick={handleSubmit} disabled={loading || refundAmount <= 0}
               className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50"
               style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }}>
