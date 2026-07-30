@@ -74,7 +74,9 @@ export async function postSaleJournal(tenantId: string, saleId: string, actorEma
     const amt = round2(Math.max(0, Number(p.amount ?? 0)))
     if (amt <= 0 || p.method === 'CREDIT') continue
     let accountId: string
-    if (p.method === 'CASH') accountId = await resolveBranchCashGlAccountId(tenantId, sale.branchId)
+    if (p.method === 'STORE_CREDIT') {
+      accountId = await resolveAccountIdByKey(tenantId, 'customerCredits')
+    } else if (p.method === 'CASH') accountId = await resolveBranchCashGlAccountId(tenantId, sale.branchId)
     else if (p.method === 'CARD') accountId = await resolveAccountIdByKey(tenantId, 'cardClearing')
     else if (p.method === 'UPI' || p.method === 'WALLET') accountId = await resolveAccountIdByKey(tenantId, 'upiClearing')
     else if (p.method === 'BANK_TRANSFER' || p.method === 'CHEQUE') accountId = await resolveAccountIdByKey(tenantId, 'bank')
@@ -83,7 +85,8 @@ export async function postSaleJournal(tenantId: string, saleId: string, actorEma
       accountId,
       debit: amt,
       credit: 0,
-      description: `Receipt ${p.method}`,
+      description: p.method === 'STORE_CREDIT' ? 'Store credit redeemed' : `Receipt ${p.method}`,
+      customerId: p.method === 'STORE_CREDIT' ? (sale.customerId ?? undefined) : undefined,
       metadata: { paymentMethod: p.method, saleId: sale.id, invoiceNumber: sale.invoiceNumber, reference: p.reference ?? null },
     })
   }

@@ -534,7 +534,7 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
   if (input.payments) {
     payments = input.payments.map(p => {
       const method = String(p.method || 'CASH').toUpperCase()
-      if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT'].includes(method)) {
+      if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT', 'STORE_CREDIT'].includes(method)) {
         throw new AppError(`Invalid payment method: ${p.method}`, 400)
       }
       const amount = round2(Number(p.amount))
@@ -549,6 +549,12 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
   }
 
   const creditPaid = round2(payments.filter(p => p.method === 'CREDIT').reduce((s, p) => s + p.amount, 0))
+  const storeCreditPaid = round2(payments.filter(p => p.method === 'STORE_CREDIT').reduce((s, p) => s + p.amount, 0))
+  const moneyPaid = round2(
+    payments
+      .filter(p => p.method !== 'CREDIT' && p.method !== 'STORE_CREDIT')
+      .reduce((s, p) => s + p.amount, 0),
+  )
   const cashPaid = round2(payments.filter(p => p.method !== 'CREDIT').reduce((s, p) => s + p.amount, 0))
   const paidAmount = cashPaid
   const dueAmount = round2(Math.max(0, total - paidAmount))
@@ -557,6 +563,9 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
 
   if (effectiveDue > 0 && !sale.customerId) {
     throw new AppError('Customer is required when the invoice has an outstanding balance', 400)
+  }
+  if (storeCreditPaid > 0.001 && !sale.customerId) {
+    throw new AppError('Customer is required to redeem store credit', 400)
   }
 
   let status: 'PAID' | 'PARTIAL' | 'DUE' = 'PAID'
@@ -695,6 +704,30 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
       })
     }
 
+    const prevStoreCredit = round2(
+      sale.payments
+        .filter(p => p.method === 'STORE_CREDIT')
+        .reduce((s, p) => s + Math.max(0, Number(p.amount) || 0), 0),
+    )
+    const storeCreditDelta = round2(storeCreditPaid - prevStoreCredit)
+    if (sale.customerId && Math.abs(storeCreditDelta) >= 0.01) {
+      const customer = await tx.customer.findUnique({
+        where: { id: sale.customerId },
+        select: { creditBalance: true },
+      })
+      const available = round2(Math.max(0, Number(customer?.creditBalance ?? 0)))
+      if (storeCreditDelta > available + 0.001) {
+        throw new AppError(
+          `Store credit exceeds available balance. Available: ${available.toFixed(2)}`,
+          400,
+        )
+      }
+      await tx.customer.update({
+        where: { id: sale.customerId },
+        data: { creditBalance: { decrement: storeCreditDelta } },
+      })
+    }
+
     const s = await tx.sale.update({
       where: { id: sale.id },
       data: {
@@ -716,27 +749,27 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
       where: { reference: sale.invoiceNumber, type: 'INCOME', tenantId: input.tenantId },
     })
     if (incomeTx) {
-      if (finalPaid <= 0) {
+      if (moneyPaid <= 0) {
         await tx.transaction.delete({ where: { id: incomeTx.id } })
       } else {
         await tx.transaction.update({
           where: { id: incomeTx.id },
           data: {
-            amount: finalPaid,
+            amount: moneyPaid,
             description: `Sale ${sale.invoiceNumber} (edited)`,
           },
         })
       }
-    } else if (finalPaid > 0 && sale.branchId) {
+    } else if (moneyPaid > 0 && sale.branchId) {
       await tx.transaction.create({
         data: {
           tenantId: input.tenantId,
           branchId: sale.branchId,
           type: 'INCOME',
           category: 'Sales',
-          amount: finalPaid,
+          amount: moneyPaid,
           description: `Sale ${sale.invoiceNumber} (edited)`,
-          paymentMethod: (payments.find(p => p.method !== 'CREDIT')?.method as PaymentMethod) || 'CASH',
+          paymentMethod: (payments.find(p => p.method !== 'CREDIT' && p.method !== 'STORE_CREDIT')?.method as PaymentMethod) || 'CASH',
           reference: sale.invoiceNumber,
           performedBy: input.performedBy,
         },

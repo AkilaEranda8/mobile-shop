@@ -1366,6 +1366,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [manualTotalMode, setManualTotalMode]     = useState(false)
   const [manualTotal, setManualTotal]             = useState('')
   const [customerOutstanding, setCustomerOutstanding] = useState(0)
+  const [customerStoreCredit, setCustomerStoreCredit] = useState(0)
+  const [useStoreCredit, setUseStoreCredit] = useState(false)
   const [includeOutstanding, setIncludeOutstanding] = useState(false)
   const [outstandingPayAmount, setOutstandingPayAmount] = useState('')
   const [amountPaying, setAmountPaying] = useState('')
@@ -2487,15 +2489,20 @@ function POSContent({ onClose }: { onClose: () => void }) {
     return Math.min(Math.max(0, v), customerOutstanding)
   })()
   const settleOldOutstanding = hasCustomerCredit && includeOutstanding && !!selectedCustomer && outstandingPaying > 0
+  const availableStoreCredit = hasCustomerCredit && selectedCustomer ? Math.max(0, Number(customerStoreCredit) || 0) : 0
+  const storeCreditApplied = (
+    hasCustomerCredit && useStoreCredit && !!selectedCustomer && cart.length > 0 && saleTotal > 0
+  ) ? Math.min(availableStoreCredit, saleTotal) : 0
+  const billAfterStoreCredit = Math.max(0, saleTotal - storeCreditApplied)
   const canOpenCheckout = cart.length > 0 || (hasCustomerCredit && !!selectedCustomer && customerOutstanding > 0)
   const payNowForSale = (() => {
     if (!hasCustomerCredit) return billTotal
     const v = parseFloat(amountPaying)
-    if (isNaN(v) || amountPaying.trim() === '') return saleTotal
-    return Math.min(Math.max(0, v), saleTotal)
+    if (isNaN(v) || amountPaying.trim() === '') return billAfterStoreCredit
+    return Math.min(Math.max(0, v), billAfterStoreCredit)
   })()
-  const saleDueAmount = creditMode && payNowForSale < saleTotal ? Math.max(0, saleTotal - payNowForSale) : 0
-  const needsCustomerForPartial = hasCustomerCredit && payNowForSale < saleTotal && !selectedCustomer?.id
+  const saleDueAmount = creditMode && payNowForSale < billAfterStoreCredit ? Math.max(0, billAfterStoreCredit - payNowForSale) : 0
+  const needsCustomerForPartial = hasCustomerCredit && payNowForSale < billAfterStoreCredit && !selectedCustomer?.id
   const collectAtCheckout = payNowForSale + outstandingPaying
   const cashReceivedAmount = paymentMethod === 'CASH'
     ? (parseFloat(customerPaid) || collectAtCheckout)
@@ -2535,12 +2542,15 @@ function POSContent({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!selectedCustomer?.id) {
       setCustomerOutstanding(0)
+      setCustomerStoreCredit(0)
+      setUseStoreCredit(false)
       setIncludeOutstanding(false)
       setOutstandingPayAmount('')
       return
     }
     setCustomerOutstanding(selectedCustomer.totalDue ?? 0)
-  }, [selectedCustomer?.id, selectedCustomer?.totalDue])
+    setCustomerStoreCredit(Number(selectedCustomer.creditBalance ?? 0))
+  }, [selectedCustomer?.id, selectedCustomer?.totalDue, selectedCustomer?.creditBalance])
 
   useEffect(() => {
     if (customerOutstanding > 0) {
@@ -2556,12 +2566,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }, [customerOutstanding])
 
   useEffect(() => {
+    if (availableStoreCredit > 0) setUseStoreCredit(true)
+    else setUseStoreCredit(false)
+  }, [availableStoreCredit, selectedCustomer?.id])
+
+  useEffect(() => {
     if (cartView !== 'checkout' || !selectedCustomer?.id) return
     customersApi.getById(selectedCustomer.id).then((res: any) => {
       const full = res?.data ?? res
       if (!full?.id) return
       setSelectedCustomer(full)
       setCustomerOutstanding(full.totalDue ?? 0)
+      setCustomerStoreCredit(Number(full.creditBalance ?? 0))
     }).catch(() => {})
   }, [cartView, selectedCustomer?.id])
 
@@ -2570,17 +2586,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
   }, [creditMode])
 
   useEffect(() => {
-    if (saleTotal !== prevSaleTotalRef.current) {
-      setAmountPaying(saleTotal > 0 ? saleTotal.toFixed(2) : '')
-      prevSaleTotalRef.current = saleTotal
+    const target = billAfterStoreCredit
+    if (target !== prevSaleTotalRef.current) {
+      setAmountPaying(target > 0 ? target.toFixed(2) : '')
+      prevSaleTotalRef.current = target
     }
-  }, [saleTotal])
+  }, [billAfterStoreCredit])
 
   useEffect(() => {
     if (paymentMethod !== 'CASH') return
-    const amt = collectAtCheckout > 0 ? collectAtCheckout : saleTotal
+    const amt = collectAtCheckout > 0 ? collectAtCheckout : billAfterStoreCredit
     setCustomerPaid(amt > 0 ? amt.toFixed(2) : '')
-  }, [paymentMethod, collectAtCheckout, saleTotal])
+  }, [paymentMethod, collectAtCheckout, billAfterStoreCredit])
 
   const refreshCustomerBalance = useCallback(async (customerId: string) => {
     try {
@@ -2588,6 +2605,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const full = res?.data ?? res
       setSelectedCustomer(full)
       setCustomerOutstanding(full.totalDue ?? 0)
+      setCustomerStoreCredit(Number(full.creditBalance ?? 0))
       return full
     } catch {
       return null
@@ -2600,6 +2618,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (!c) {
       setSelectedCustomer(null)
       setCustomerOutstanding(0)
+      setCustomerStoreCredit(0)
+      setUseStoreCredit(false)
       setIncludeOutstanding(false)
       setOutstandingPayAmount('')
       return
@@ -2610,9 +2630,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
       const full = res?.data ?? res
       setSelectedCustomer(full)
       setCustomerOutstanding(full.totalDue ?? 0)
+      setCustomerStoreCredit(Number(full.creditBalance ?? 0))
       if ((full.totalDue ?? 0) > 0) setOutstandingPayAmount(Number(full.totalDue).toFixed(2))
     } catch {
       setCustomerOutstanding(c.totalDue ?? 0)
+      setCustomerStoreCredit(Number(c.creditBalance ?? 0))
       if ((c.totalDue ?? 0) > 0) setOutstandingPayAmount(Number(c.totalDue).toFixed(2))
     }
   }, [])
@@ -2641,15 +2663,19 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setShowCartCustDrop(true)
       return
     }
-    if (creditMode && cart.length > 0 && payNowForSale < saleTotal && saleDueAmount <= 0) {
+    if (creditMode && cart.length > 0 && payNowForSale < billAfterStoreCredit && saleDueAmount <= 0) {
       setCheckoutError('Use "Paying now" for partial payment — do not use Edit total')
+      return
+    }
+    if (useStoreCredit && storeCreditApplied > availableStoreCredit + 0.001) {
+      setCheckoutError('Store credit exceeds available balance')
       return
     }
     if (settleOldOutstanding && outstandingPaying > customerOutstanding + 0.001) {
       setCheckoutError('Outstanding payment exceeds customer balance')
       return
     }
-    if (paymentMethod === 'CASH') {
+    if (paymentMethod === 'CASH' && collectAtCheckout > 0.001) {
       const paid = parseFloat(customerPaid) || 0
       if (paid + 0.001 < collectAtCheckout) {
         setCheckoutError('Customer paid amount is less than total')
@@ -2714,6 +2740,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
       }
 
       const payments: { method: string; amount: number; reference?: string }[] = []
+      if (storeCreditApplied > 0) {
+        payments.push({ method: 'STORE_CREDIT', amount: storeCreditApplied })
+      }
       if (payNowForSale > 0) {
         payments.push({
           method: paymentMethod,
@@ -2733,9 +2762,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
         discount:      discountAmount,
         tax,
         total:         saleTotal,
-        paidAmount:    payNowForSale,
+        paidAmount:    storeCreditApplied + payNowForSale,
         dueAmount:     saleDueAmount,
-        status:        saleDueAmount > 0 ? (payNowForSale > 0 ? 'PARTIAL' : 'DUE') : 'PAID',
+        status:        saleDueAmount > 0 ? (storeCreditApplied + payNowForSale > 0 ? 'PARTIAL' : 'DUE') : 'PAID',
         ...(hasPosBillDate && billDate ? { businessDate: billDate } : {}),
         items: cart.map(i => ({
           productId:   i.isService ? undefined : i.productId,
@@ -2783,7 +2812,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           id: localId,
           offline: true,
           ...receiptData,
-          paidAmount: payNowForSale,
+          paidAmount: storeCreditApplied + payNowForSale,
         })
         autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx, receiptWin)
         setCart([])
@@ -2889,7 +2918,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setCompletedSale({
         ...res.data,
         ...receiptData,
-        paidAmount: payNowForSale,
+        paidAmount: storeCreditApplied + payNowForSale,
       })
       autoPrintPosReceipt(receiptData, invoiceSettings, thermalShopCtx, receiptWin)
     } catch (e: any) {
@@ -3144,7 +3173,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
     setMobileView('products')
     setManualTotalMode(false); setManualTotal('')
-    setCustomerOutstanding(0); setIncludeOutstanding(false); setOutstandingPayAmount('')
+    setCustomerOutstanding(0); setCustomerStoreCredit(0); setUseStoreCredit(false); setIncludeOutstanding(false); setOutstandingPayAmount('')
     setAmountPaying(''); setCustomerPaid(''); setPaymentMethodId('CASH')
     prevSaleTotalRef.current = 0
     setShowCustDrop(false); setShowCartCustDrop(false)
@@ -3328,7 +3357,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
         {filteredCustomers.slice(0, 80).map((c: any) => (
           <button key={c.id} type="button" onClick={() => selectCustomer(c)} className="w-full px-3 py-2 text-left border-b hover:bg-black/5" style={{ borderColor: POS_THEME.border }}>
             <p className="text-xs font-semibold" style={{ color: POS_THEME.text }}>{c.name}</p>
-            <p className="text-[10px]" style={{ color: POS_THEME.muted }}>{c.phone}{(c.totalDue ?? 0) > 0 ? ` · Due ${formatCurrency(c.totalDue)}` : ''}</p>
+            <p className="text-[10px]" style={{ color: POS_THEME.muted }}>
+              {c.phone}
+              {(c.totalDue ?? 0) > 0 ? ` · Due ${formatCurrency(c.totalDue)}` : ''}
+              {hasCustomerCredit && Number(c.creditBalance ?? 0) > 0 ? ` · Credit ${formatCurrency(c.creditBalance)}` : ''}
+            </p>
           </button>
         ))}
       </div>
@@ -4058,6 +4091,9 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           {selectedCustomer && customerOutstanding > 0 && (
                             <p className="text-[10px] font-bold text-red-400">Due {formatCurrency(customerOutstanding)}</p>
                           )}
+                          {selectedCustomer && availableStoreCredit > 0 && (
+                            <p className="text-[10px] font-bold text-emerald-400">Store credit {formatCurrency(availableStoreCredit)}</p>
+                          )}
                         </div>
                       </div>
                       <button type="button" onClick={() => { setShowCartCustDrop(o => !o); setShowCustDrop(false); setCustSearch(''); setShowRegister(false) }}
@@ -4112,6 +4148,34 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-xs" style={{ color: POS_THEME.green }}>
                       <span>Saving</span><span>-{formatCurrency(discountAmount)}</span>
+                    </div>
+                  )}
+                  {hasCustomerCredit && selectedCustomer && availableStoreCredit > 0 && cart.length > 0 && (
+                    <div className="rounded-xl border p-2.5" style={{ borderColor: useStoreCredit ? 'rgba(16,185,129,.55)' : POS_THEME.border, background: useStoreCredit ? 'rgba(16,185,129,.12)' : POS_THEME.card }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Wallet size={13} className="text-emerald-400 shrink-0" />
+                          <span className="text-xs font-semibold text-white">Use store credit</span>
+                          <span className="text-[10px] font-bold text-emerald-400">{formatCurrency(availableStoreCredit)}</span>
+                        </div>
+                        <Switch
+                          checked={useStoreCredit}
+                          onChange={setUseStoreCredit}
+                          title="Apply store credit to this bill"
+                          trackStyle={{ background: useStoreCredit ? '#10b981' : POS_THEME.border }}
+                        />
+                      </div>
+                      {useStoreCredit && storeCreditApplied > 0 && (
+                        <div className="mt-2 flex justify-between text-[11px]">
+                          <span className="text-white/80">Applied to this bill</span>
+                          <span className="font-bold text-emerald-400">−{formatCurrency(storeCreditApplied)}</span>
+                        </div>
+                      )}
+                      {useStoreCredit && availableStoreCredit > saleTotal && (
+                        <p className="mt-1 text-[10px] text-emerald-300/80">
+                          Remaining credit after sale: {formatCurrency(availableStoreCredit - storeCreditApplied)}
+                        </p>
+                      )}
                     </div>
                   )}
                   {hasCustomerCredit && selectedCustomer && customerOutstanding > 0 && (
@@ -4169,13 +4233,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold" style={{ color: POS_THEME.text }}>Paying now</span>
-                        <span className="text-[10px]" style={{ color: POS_THEME.muted }}>Bill {formatCurrency(saleTotal)}</span>
+                        <span className="text-[10px]" style={{ color: POS_THEME.muted }}>
+                          {storeCreditApplied > 0
+                            ? `Left ${formatCurrency(billAfterStoreCredit)}`
+                            : `Bill ${formatCurrency(saleTotal)}`}
+                        </span>
                       </div>
                       <input
                         ref={payNowRef}
                         type="number"
                         min="0"
-                        max={saleTotal}
+                        max={billAfterStoreCredit}
                         step="0.01"
                         value={amountPaying}
                         onChange={e => setAmountPaying(e.target.value)}
@@ -4184,6 +4252,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
                         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       />
+                      {storeCreditApplied > 0 && (
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-emerald-400">Store credit</span>
+                          <span className="font-bold text-emerald-400">−{formatCurrency(storeCreditApplied)}</span>
+                        </div>
+                      )}
                       {creditMode && saleDueAmount > 0 && (
                         <div className="flex justify-between text-[11px]">
                           <span className="text-white">Added to customer credit</span>
@@ -4217,6 +4291,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <span className="pos-price text-2xl font-extrabold">{formatCurrency(cart.length > 0 ? saleTotal : collectAtCheckout)}</span>
                     )}
                   </div>
+                  {storeCreditApplied > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span style={{ color: POS_THEME.muted }}>After store credit</span>
+                      <span className="font-bold text-emerald-400">{formatCurrency(billAfterStoreCredit)}</span>
+                    </div>
+                  )}
                   {includeOutstanding && outstandingPaying > 0 && (
                     <div className="flex justify-between text-xs">
                       <span style={{ color: POS_THEME.muted }}>Old balance collecting</span>
@@ -4267,7 +4347,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )}
                     </div>
                   )}
-                  {!includeOutstanding && creditMode && collectAtCheckout !== saleTotal && (
+                  {!includeOutstanding && creditMode && Math.abs(collectAtCheckout - billAfterStoreCredit) > 0.001 && (
                     <div className="flex justify-between text-xs" style={{ color: POS_THEME.muted }}>
                       <span>Collecting now</span>
                       <span className="font-bold" style={{ color: POS_THEME.text }}>{formatCurrency(collectAtCheckout)}</span>
@@ -4296,6 +4376,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       </ul>
                     </div>
                   )}
+                  {collectAtCheckout > 0.001 ? (
                   <div className={`grid gap-1.5 ${payMethods.length <= 3 ? 'grid-cols-3' : payMethods.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
                     {payMethods.map(({ id, key: method, label }, idx) => {
                       const MI = method === 'CASH' ? Banknote : method === 'CARD' ? CreditCard : method === 'WALLET' ? Wallet : method === 'UPI' ? Smartphone : Banknote
@@ -4321,6 +4402,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       )
                     })}
                   </div>
+                  ) : storeCreditApplied > 0 && cart.length > 0 ? (
+                    <div className="rounded-xl border px-3 py-2.5 text-center" style={{ borderColor: 'rgba(16,185,129,.45)', background: 'rgba(16,185,129,.12)' }}>
+                      <p className="text-xs font-bold text-emerald-400">Fully covered by store credit</p>
+                      <p className="text-[10px] text-emerald-300/80 mt-0.5">No cash or card payment needed</p>
+                    </div>
+                  ) : null}
                   {hasHirePurchase && (
                     <button
                       type="button"

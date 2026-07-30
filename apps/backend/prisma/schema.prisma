@@ -84,6 +84,8 @@ enum PaymentMethod {
   WALLET
   CHEQUE
   CREDIT
+  /// Redeem customer store credit (shop owed the customer) against a sale — not cash in.
+  STORE_CREDIT
 }
 
 enum SaleStatus {

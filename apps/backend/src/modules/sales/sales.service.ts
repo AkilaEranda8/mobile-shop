@@ -270,7 +270,37 @@ export const salesService = {
           }
         }
       }
-      if (body.customerId) {
+      const payments = Array.isArray(body.payments) ? body.payments : []
+      const storeCreditPaid = Math.round(
+        payments
+          .filter((p: { method?: string }) => String(p.method || '').toUpperCase() === 'STORE_CREDIT')
+          .reduce((s: number, p: { amount?: number }) => s + Math.max(0, Number(p.amount) || 0), 0) * 100,
+      ) / 100
+      if (storeCreditPaid > 0.001) {
+        if (!body.customerId) {
+          throw new AppError('Customer is required to redeem store credit', 400)
+        }
+        const customer = await tx.customer.findFirst({
+          where: { id: body.customerId, tenantId },
+          select: { id: true, creditBalance: true },
+        })
+        if (!customer) throw new AppError('Customer not found', 404)
+        const available = Math.round(Math.max(0, Number(customer.creditBalance ?? 0)) * 100) / 100
+        if (storeCreditPaid > available + 0.001) {
+          throw new AppError(
+            `Store credit exceeds available balance. Available: ${available.toFixed(2)}, Requested: ${storeCreditPaid.toFixed(2)}`,
+            400,
+          )
+        }
+        await tx.customer.update({
+          where: { id: body.customerId },
+          data: {
+            creditBalance: { decrement: storeCreditPaid },
+            totalPurchases: { increment: 1 },
+            totalDue: { increment: body.dueAmount ?? 0 },
+          },
+        })
+      } else if (body.customerId) {
         await tx.customer.update({ where: { id: body.customerId }, data: { totalPurchases: { increment: 1 }, totalDue: { increment: body.dueAmount ?? 0 } } })
       }
       await createDailyReloadsFromSaleItems(tx, {
@@ -295,13 +325,20 @@ export const salesService = {
     const warranties = txResult.warranties
     // ── Auto-create income transaction in Finance (non-blocking) ──
     try {
-      const paymentMethod = (body.payments?.[0]?.method ?? 'CASH') as any
-      const chequeRefs = (body.payments ?? [])
+      const moneyMethods = new Set(['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'])
+      const moneyPayments = (body.payments ?? []).filter((p: { method?: string; amount?: number }) =>
+        moneyMethods.has(String(p.method || '').toUpperCase()) && Number(p.amount) > 0,
+      )
+      const paymentMethod = (moneyPayments[0]?.method ?? 'CASH') as any
+      const chequeRefs = moneyPayments
         .map((p: { method?: string; reference?: string | null }) => String(p.reference ?? '').trim())
         .filter((r: string) => /cheque\s*#/i.test(r))
       const chequeRef = chequeRefs[0] || ''
-      // Resolve branchId: use provided or fall back to tenant's first branch
-      const incomeAmount = Number(body.paidAmount ?? body.total ?? 0)
+      // Money-in only — exclude on-account CREDIT and STORE_CREDIT redemptions
+      const incomeAmount = moneyPayments.reduce(
+        (s: number, p: { amount?: number }) => s + Math.max(0, Number(p.amount) || 0),
+        0,
+      )
       if (incomeAmount > 0) {
         await prisma.transaction.create({
           data: {
