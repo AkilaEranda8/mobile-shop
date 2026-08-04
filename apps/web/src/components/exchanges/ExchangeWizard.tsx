@@ -25,6 +25,7 @@ import {
 } from '@/lib/exchangeBill'
 import InvoicePrint, { type InvoiceData } from '@/components/invoice/InvoicePrint'
 import { ExchangeStockPicker, type ExchangeStockItem } from '@/components/exchanges/ExchangeStockPicker'
+import { useCanSeeProductCost, useCanEditProductCost } from '@/lib/hooks'
 import toast from 'react-hot-toast'
 
 const CONDITIONS = [
@@ -139,6 +140,8 @@ function buildInvoiceFromSale(
 }
 
 export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const canSeeProductCost = useCanSeeProductCost()
+  const canEditProductCost = useCanEditProductCost()
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [stockLoading, setStockLoading] = useState(false)
@@ -518,8 +521,18 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
                 </div>
                 <div className="sm:col-span-2">
                   <FieldLabel>Buy Price (LKR) *</FieldLabel>
-                  <input type="number" min="0" className="input-field w-full" placeholder="Valuation amount"
-                    value={form.buyPrice} onChange={e => setForm(p => ({ ...p, buyPrice: e.target.value }))} />
+                  {canSeeProductCost ? (
+                    <input
+                      type="number" min="0" className="input-field w-full" placeholder="Valuation amount"
+                      value={form.buyPrice}
+                      disabled={!canEditProductCost}
+                      onChange={e => canEditProductCost && setForm(p => ({ ...p, buyPrice: e.target.value }))}
+                    />
+                  ) : (
+                    <p className="text-sm pt-2" style={{ color: 'var(--text-muted)' }}>
+                      Product Cost permission required to set trade-in buy price
+                    </p>
+                  )}
                 </div>
               </div>
             </SectionCard>

@@ -5,7 +5,11 @@ import { resolveActiveBranch, getUserBranchIds, assertBranchRecordAccess, effect
 import { AppError } from '../../middleware/error.middleware'
 import { prisma } from '../../config/database'
 import { masterCatalogImportService } from '../master-catalog/master-catalog-import.service'
-import { redactProductCost, redactProductCostList } from '../../utils/product-cost-redact'
+import {
+  redactProductCost,
+  redactProductCostList,
+  stripProductCostWriteFields,
+} from '../../utils/product-cost-redact'
 
 export const productsController = {
   async list(req: Request, res: Response, next: NextFunction) {
@@ -23,7 +27,7 @@ export const productsController = {
   },
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const body = { ...req.body }
+      const body = stripProductCostWriteFields(req, { ...req.body })
       const tenantId = req.tenantId!
       const activeBranches = await prisma.branch.findMany({
         where: { tenantId, isActive: true },
@@ -39,16 +43,19 @@ export const productsController = {
       } else {
         const user = req.user!
         const allowed = await getUserBranchIds(user.userId, tenantId, user.role)
-        if (!allowed.includes(body.branchId)) throw new AppError('Branch access denied', 403)
+        if (!allowed.includes(String(body.branchId))) throw new AppError('Branch access denied', 403)
       }
-      sendSuccess(res, await productsService.create(tenantId, body, req), 'Product created', 201)
+      const created = await productsService.create(tenantId, body as any, req)
+      sendSuccess(res, redactProductCost(req, created), 'Product created', 201)
     } catch (e) { next(e) }
   },
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const existing = await productsService.getById(req.tenantId!, req.params.id) as { branchId?: string }
       assertBranchRecordAccess(req, existing.branchId)
-      sendSuccess(res, await productsService.update(req.tenantId!, req.params.id, req.body, req))
+      const body = stripProductCostWriteFields(req, { ...req.body })
+      const updated = await productsService.update(req.tenantId!, req.params.id, body as any, req)
+      sendSuccess(res, redactProductCost(req, updated))
     } catch (e) { next(e) }
   },
   async remove(req: Request, res: Response, next: NextFunction) {

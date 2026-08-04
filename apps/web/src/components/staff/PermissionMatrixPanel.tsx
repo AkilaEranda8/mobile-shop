@@ -195,7 +195,7 @@ export function PermissionMatrixPanel({ canEdit }: { canEdit: boolean }) {
                   <div>{mod.label}</div>
                   {mod.key === 'PRODUCT_COST' && (
                     <p className="text-[10px] font-normal text-slate-500 mt-0.5">
-                      Buying price &amp; margin. Set View/Edit on staff columns to enable for them.
+                      Hides buying/cost price everywhere (inventory, PO, repairs, sales COGS, exchanges). View = see; Edit = change.
                     </p>
                   )}
                 </td>

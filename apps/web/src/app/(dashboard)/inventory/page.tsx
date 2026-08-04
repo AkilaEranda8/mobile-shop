@@ -67,6 +67,7 @@ function exportProductsCSV(products: Product[]) {
 
 /* ── CSV Import Modal ────────────────────────────────────────────────── */
 function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const canSeeProductCost = useCanSeeProductCost()
   const inputRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<ProductCsvRow[]>([])
   const [parseWarnings, setParseWarnings] = useState<string[]>([])
@@ -209,7 +210,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
                       <th className="px-3 py-1.5 font-medium">SKU</th>
                       <th className="px-3 py-1.5 font-medium">Brand</th>
                       <th className="px-3 py-1.5 font-medium">Category</th>
-                      <th className="px-3 py-1.5 font-medium text-right">Buy</th>
+                      {canSeeProductCost && <th className="px-3 py-1.5 font-medium text-right">Buy</th>}
                       <th className="px-3 py-1.5 font-medium text-right">Sell</th>
                       <th className="px-3 py-1.5 font-medium text-right">Stock</th>
                     </tr>
@@ -221,7 +222,9 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
                         <td className="px-3 py-1.5 text-slate-500">{r.sku || '—'}</td>
                         <td className="px-3 py-1.5">{r.brandName || 'General'}</td>
                         <td className="px-3 py-1.5">{r.categoryName || '—'}</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums">{r.buyingPrice || '0'}</td>
+                        {canSeeProductCost && (
+                          <td className="px-3 py-1.5 text-right tabular-nums">{r.buyingPrice || '0'}</td>
+                        )}
                         <td className="px-3 py-1.5 text-right tabular-nums">{r.sellingPrice || '0'}</td>
                         <td className="px-3 py-1.5 text-right tabular-nums">{r.stock ?? '0'}</td>
                       </tr>

@@ -13,6 +13,7 @@ import { emitPurchaseAccounting, emitOpeningSupplierApAccounting } from '../acco
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 import { applyPurchaseOrderReceiveEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { resolveQueryDateRange, parseOptionalPaymentAt, assertPaymentAtNotFuture } from '../../utils/date-range'
+import { redactPurchaseOrderCost, redactPurchaseOrderCostList } from '../../utils/product-cost-redact'
 import { recordSupplierPayment } from './supplier-payment.service'
 import { OPENING_BALANCE_SUPPLIER_PO_NOTES } from '../../constants/business-rules.constants'
 import { assertPurchaseOrderTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
@@ -497,7 +498,7 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
       : []
     const countMap = new Map(counts.map(c => [c.purchaseOrderId!, c._count._all]))
     const data = raw.map(po => ({ ...po, imeiRegisteredCount: countMap.get(po.id) ?? 0 }))
-    sendPaginated(res, data, total, page, limit)
+    sendPaginated(res, redactPurchaseOrderCostList(req, data), total, page, limit)
   } catch (e) { next(e) }
 })
 
@@ -597,7 +598,7 @@ router.post('/purchase-orders', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNI
     const result = po.status === 'RECEIVED'
       ? await prisma.purchaseOrder.findFirst({ where: { id: po.id }, include: { items: true } })
       : po
-    sendSuccess(res, result, 'Purchase order created', 201)
+    sendSuccess(res, result ? redactPurchaseOrderCost(req, result) : result, 'Purchase order created', 201)
   } catch (e) { next(e) }
 })
 
@@ -888,7 +889,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TEC
         await recalcSupplierStats(po.supplierId, req.tenantId!)
       }
       await recalcSupplierStats(nextSupplierId, req.tenantId!)
-      return sendSuccess(res, updated, 'Purchase order updated')
+      return sendSuccess(res, redactPurchaseOrderCost(req, updated), 'Purchase order updated')
     }
 
     const updated = await prisma.purchaseOrder.update({
@@ -901,7 +902,7 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TEC
     })
 
     await recalcSupplierStats(po.supplierId, req.tenantId!)
-    sendSuccess(res, updated)
+    sendSuccess(res, redactPurchaseOrderCost(req, updated))
   } catch (e) { next(e) }
 })
 

@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/utils'
 import { getInvoiceSettings } from '@/lib/invoiceSettings'
 import { authStorage } from '@/lib/auth'
 import { BarcodeLabelPreview } from '@/components/inventory/BarcodeLabelPreview'
+import { useCanSeeProductCost } from '@/lib/hooks'
 
 /* ─── Static fallback company info ─────────────────────────────────── */
 const COMPANY_DEFAULTS = {
@@ -110,6 +111,7 @@ function InvoiceContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const poId         = searchParams.get('id')
+  const canSeeProductCost = useCanSeeProductCost()
 
   const invSettings = getInvoiceSettings()
   const currentUser = authStorage.getUser()
@@ -411,7 +413,7 @@ function InvoiceContent() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    {['Product','IMEI','Specs','Qty','Unit Price','Disc.','Tax','Total'].map((h, i) => (
+                    {['Product','IMEI','Specs','Qty',...(canSeeProductCost ? ['Unit Price','Disc.','Tax','Total'] : [])].map((h, i) => (
                       <th key={h} className={`px-4 py-3.5 text-[10px] uppercase tracking-widest font-bold text-slate-500 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
                     ))}
                   </tr>
@@ -465,22 +467,26 @@ function InvoiceContent() {
                         <td className="px-4 py-4 text-right">
                           <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded-lg">{qty}</span>
                         </td>
-                        {/* Unit price */}
-                        <td className="px-4 py-4 text-right">
-                          <span className="text-sm font-semibold text-gray-700">{fmt(unitPrice)}</span>
-                        </td>
-                        {/* Discount */}
-                        <td className="px-4 py-4 text-right">
-                          <span className="text-xs text-red-400">{discount ? `-${fmt(discount)}` : '—'}</span>
-                        </td>
-                        {/* Tax */}
-                        <td className="px-4 py-4 text-right">
-                          <span className="text-xs text-amber-400">{tax != null ? `${tax}%` : '—'}</span>
-                        </td>
-                        {/* Total */}
-                        <td className="px-4 py-4 text-right">
-                          <span className="text-sm font-bold text-gray-900">{fmt(lineTotal)}</span>
-                        </td>
+                        {canSeeProductCost && (
+                          <>
+                            {/* Unit price */}
+                            <td className="px-4 py-4 text-right">
+                              <span className="text-sm font-semibold text-gray-700">{fmt(unitPrice)}</span>
+                            </td>
+                            {/* Discount */}
+                            <td className="px-4 py-4 text-right">
+                              <span className="text-xs text-red-400">{discount ? `-${fmt(discount)}` : '—'}</span>
+                            </td>
+                            {/* Tax */}
+                            <td className="px-4 py-4 text-right">
+                              <span className="text-xs text-amber-400">{tax != null ? `${tax}%` : '—'}</span>
+                            </td>
+                            {/* Total */}
+                            <td className="px-4 py-4 text-right">
+                              <span className="text-sm font-bold text-gray-900">{fmt(lineTotal)}</span>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     )
                   })}

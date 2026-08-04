@@ -9,7 +9,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
+import { useSuppliers, usePurchaseOrders, useProducts, useCanSeeProductCost, useCanEditProductCost } from '@/lib/hooks'
 import { suppliersApi, imeiApi, productsApi } from '@/lib/api'
 import { getActiveBranchId, getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
@@ -1668,6 +1668,8 @@ export function NewPOModal({
   editPo?: PurchaseOrder | null
 }) {
   const isEdit = !!editPo
+  const canSeeProductCost = useCanSeeProductCost()
+  const canEditProductCost = useCanEditProductCost()
   const [supplierId, setSupplierId]   = useState(editPo?.supplierId ?? suppliers[0]?.id ?? '')
   const [expectedDelivery, setExpDel] = useState(() => {
     if (!editPo?.expectedDelivery) return ''
@@ -1756,7 +1758,7 @@ export function NewPOModal({
   const selectProduct = (i: number, product: any) => {
     const vars = normalizeStorageVariations(product.storageVariations)
     const firstVar = vars[0]
-    const unitCost = resolvePoUnitCostFromProduct(product)
+    const unitCost = canSeeProductCost ? resolvePoUnitCostFromProduct(product) : ''
     setItems(prev => prev.map((row, idx) =>
       idx === i ? {
         ...row,
@@ -1786,7 +1788,7 @@ export function NewPOModal({
   const quickAddProduct = (product: any) => {
     const vars = normalizeStorageVariations(product.storageVariations)
     const firstVar = vars[0]
-    const unitCost = resolvePoUnitCostFromProduct(product)
+    const unitCost = canSeeProductCost ? resolvePoUnitCostFromProduct(product) : ''
     const existing = items.findIndex(r => r.productId === product.id && !r.storage)
     let targetIdx = existing
     if (existing >= 0 && vars.length === 0) {
@@ -1840,7 +1842,15 @@ export function NewPOModal({
     }
     const missingCost = items.filter(r => !Number(r.unitCost))
     if (missingCost.length) {
-      toast.error('Enter buying price (unit cost) for each item')
+      toast.error(
+        canSeeProductCost
+          ? 'Enter buying price (unit cost) for each item'
+          : 'Product Cost permission is required to set buying prices on purchase orders',
+      )
+      return
+    }
+    if (!canEditProductCost && !isEdit) {
+      toast.error('Product Cost Edit permission is required to create purchase orders with buying prices')
       return
     }
     setLoading(true)
@@ -1984,7 +1994,9 @@ export function NewPOModal({
             <div className="grid grid-cols-12 gap-3 mb-1 px-2 sticky top-0 z-10 py-1" style={{ background: 'var(--bg-card)' }}>
               <span className="col-span-5 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Product</span>
               <span className="col-span-2 text-[10px] text-[var(--text-muted)] uppercase tracking-wide text-center">Qty</span>
-              <span className="col-span-3 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Buying Price</span>
+              <span className="col-span-3 text-[10px] text-[var(--text-muted)] uppercase tracking-wide">
+                {canSeeProductCost ? 'Buying Price' : 'Buying Price (hidden)'}
+              </span>
               <span className="col-span-2 text-[10px] text-[var(--text-muted)] uppercase tracking-wide text-right">Total</span>
             </div>
 
@@ -2080,32 +2092,43 @@ export function NewPOModal({
 
                     {/* Buying Price */}
                     <div className="col-span-3">
-                      <input
-                        ref={el => { costRefs.current[i] = el }}
-                        required type="number" min="0" step="1"
-                        className="input-field text-sm w-full text-[var(--text-primary)] font-semibold tabular-nums"
-                        style={{ background: 'var(--bg-card)' }}
-                        placeholder="Enter price"
-                        value={item.unitCost}
-                        onChange={e => updateItem(i, 'unitCost', e.target.value)}
-                        onFocus={e => e.target.select()}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            focusQuickSearch()
-                          }
-                        }}
-                      />
-                      {Number(item.unitCost) > 0 && (
-                        <p className="text-[10px] font-semibold text-violet-600 mt-0.5 tabular-nums">
-                          {formatCurrency(Number(item.unitCost))}
-                        </p>
+                      {canSeeProductCost ? (
+                        <>
+                          <input
+                            ref={el => { costRefs.current[i] = el }}
+                            required type="number" min="0" step="1"
+                            className="input-field text-sm w-full text-[var(--text-primary)] font-semibold tabular-nums"
+                            style={{ background: 'var(--bg-card)' }}
+                            placeholder="Enter price"
+                            value={item.unitCost}
+                            disabled={!canEditProductCost && isEdit}
+                            onChange={e => canEditProductCost && updateItem(i, 'unitCost', e.target.value)}
+                            onFocus={e => e.target.select()}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                focusQuickSearch()
+                              }
+                            }}
+                          />
+                          {Number(item.unitCost) > 0 && (
+                            <p className="text-[10px] font-semibold text-violet-600 mt-0.5 tabular-nums">
+                              {formatCurrency(Number(item.unitCost))}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm pt-2" style={{ color: 'var(--text-muted)' }}>—</p>
                       )}
                     </div>
 
                     {/* Total + delete */}
                     <div className="col-span-2 flex items-center justify-end gap-2 pt-1">
-                      <span className="text-sm font-bold text-[var(--text-primary)]">{formatCurrency(Number(item.quantity) * Number(item.unitCost))}</span>
+                      <span className="text-sm font-bold text-[var(--text-primary)]">
+                        {canSeeProductCost
+                          ? formatCurrency(Number(item.quantity) * Number(item.unitCost))
+                          : '—'}
+                      </span>
                       <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
                         className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-red-400 hover:bg-red-400/10 disabled:opacity-20 transition-all flex-shrink-0">
                         <Trash2 size={12} />
@@ -2131,7 +2154,9 @@ export function NewPOModal({
                                   onClick={() => {
                                     const firstColorForStorage = vars.find((v: any) => v.storage === s)
                                     const product = allProducts.find(p => p.id === item.productId)
-                                    const nextCost = resolvePoUnitCost(product ?? {}, firstColorForStorage)
+                                    const nextCost = canSeeProductCost
+                                      ? resolvePoUnitCost(product ?? {}, firstColorForStorage)
+                                      : ''
                                     setItems(prev => prev.map((row, idx) => idx === i ? {
                                       ...row,
                                       storage:   s,
@@ -2157,10 +2182,12 @@ export function NewPOModal({
                               {colorOpts.map((v: any) => (
                                 <button key={v.colorName ?? v.sku ?? Math.random()} type="button"
                                   onClick={() => {
-                                    const nextCost = resolvePoUnitCost(
-                                      allProducts.find(p => p.id === item.productId) ?? { buyingPrice: undefined },
-                                      v,
-                                    )
+                                    const nextCost = canSeeProductCost
+                                      ? resolvePoUnitCost(
+                                          allProducts.find(p => p.id === item.productId) ?? { buyingPrice: undefined },
+                                          v,
+                                        )
+                                      : ''
                                     setItems(prev => prev.map((row, idx) => idx === i ? {
                                       ...row,
                                       colorName: v.colorName,

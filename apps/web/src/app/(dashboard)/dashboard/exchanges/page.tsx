@@ -22,6 +22,7 @@ import { tradeInFromExchange, soldVariantFromExchange } from '@/lib/exchangeBill
 import { authStorage } from '@/lib/auth'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { getActiveBranchId } from '@/lib/active-branch'
+import { useCanSeeProductCost } from '@/lib/hooks'
 import toast from 'react-hot-toast'
 
 const CONDITIONS = [
@@ -46,6 +47,7 @@ function ExchangeDetailModal({
   onDeleted: () => void
 }) {
   const { canEdit } = useModuleAccess()
+  const canSeeProductCost = useCanSeeProductCost()
   const [deleting, setDeleting] = useState(false)
   const [printing, setPrinting] = useState(false)
   const cond = CONDITIONS.find(c => c.value === exchange.oldCondition) ?? CONDITIONS[1]
@@ -222,10 +224,12 @@ function ExchangeDetailModal({
                 <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
               </div>
               <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--text-muted)' }}>Trade-in value</span>
-                  <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue ?? 0)}</span>
-                </div>
+                {canSeeProductCost && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Trade-in value</span>
+                    <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue ?? 0)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span style={{ color: 'var(--text-muted)' }}>Sold price</span>
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">
@@ -258,7 +262,7 @@ function ExchangeDetailModal({
                         <th className="px-3 py-2 text-left">IMEI</th>
                         <th className="px-3 py-2 text-left">Colour / Storage</th>
                         <th className="px-3 py-2 text-left">Condition</th>
-                        <th className="px-3 py-2 text-right">Buy Price</th>
+                        {canSeeProductCost && <th className="px-3 py-2 text-right">Buy Price</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -273,9 +277,11 @@ function ExchangeDetailModal({
                         <td className="px-3 py-2">
                           <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${cond.badge}`}>{cond.label}</span>
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                          {formatCurrency(exchange.exchangeValue ?? 0)}
-                        </td>
+                        {canSeeProductCost && (
+                          <td className="px-3 py-2 text-right font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                            {formatCurrency(exchange.exchangeValue ?? 0)}
+                          </td>
+                        )}
                       </tr>
                     </tbody>
                   </table>
@@ -342,10 +348,12 @@ function ExchangeDetailModal({
                 </p>
               </div>
               <div className="p-3 text-[12px] space-y-2">
-                <div className="flex items-center justify-between">
-                  <span style={{ color: 'var(--text-muted)' }}>Trade-in value:</span>
-                  <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue ?? 0)}</span>
-                </div>
+                {canSeeProductCost && (
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Trade-in value:</span>
+                    <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(exchange.exchangeValue ?? 0)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span style={{ color: 'var(--text-muted)' }}>Sold price:</span>
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">
@@ -400,6 +408,7 @@ function ExchangeDetailModal({
 export default function ExchangesPage() {
   const searchParams = useSearchParams()
   const { canEdit } = useModuleAccess()
+  const canSeeProductCost = useCanSeeProductCost()
   const [records, setRecords]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
   const [showNew, setShowNew]   = useState(false)
@@ -522,11 +531,11 @@ export default function ExchangesPage() {
         </div>
       ) : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>,
     },
-    {
+    ...(canSeeProductCost ? [{
       accessorKey: 'exchangeValue',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Buy Price" />,
-      cell: ({ row }) => <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(row.original.exchangeValue)}</span>,
-    },
+      header: ({ column }: any) => <DataTableColumnHeader column={column} title="Buy Price" />,
+      cell: ({ row }: any) => <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(row.original.exchangeValue)}</span>,
+    }] : []),
     {
       id: 'balance',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
@@ -559,7 +568,7 @@ export default function ExchangesPage() {
         <TableActionsRow showAction={{ action: () => openDetail(row.original) }} />
       ),
     },
-  ], [openDetail])
+  ], [openDetail, canSeeProductCost])
 
   return (
     <div className="space-y-6">
@@ -598,7 +607,7 @@ export default function ExchangesPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Total Exchanges', value: String(stats.total),       icon: <ArrowLeftRight size={15} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.22)'  },
-          { label: 'Trade-in Value',  value: formatCurrency(stats.totalBuy),  icon: <Package size={15} />,      color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
+          ...(canSeeProductCost ? [{ label: 'Trade-in Value',  value: formatCurrency(stats.totalBuy),  icon: <Package size={15} />,      color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' }] : []),
           { label: 'With Invoice',    value: String(stats.withInvoice), icon: <Receipt size={15} />,      color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.22)'  },
           { label: 'Shop Refunds',    value: String(stats.refunds),     icon: <Smartphone size={15} />,   color: '#e11d48', bg: 'rgba(225,29,72,0.08)',  border: 'rgba(225,29,72,0.22)'  },
         ].map(({ label, value, icon, color, bg, border }) => (

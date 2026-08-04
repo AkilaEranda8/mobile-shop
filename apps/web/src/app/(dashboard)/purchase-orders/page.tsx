@@ -9,7 +9,7 @@ import { DataTableColumnHeader } from '@/components/table/data-table-column-head
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { useSuppliers, usePurchaseOrders, useProducts } from '@/lib/hooks'
+import { useSuppliers, usePurchaseOrders, useProducts, useCanSeeProductCost } from '@/lib/hooks'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { suppliersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -63,6 +63,7 @@ function PODetailsModal({
   receiving?: boolean
   printingBarcodes?: boolean
 }) {
+  const canSeeProductCost = useCanSeeProductCost()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -222,8 +223,8 @@ function PODetailsModal({
                         <th className="px-3 py-2 text-left">Product</th>
                         <th className="px-3 py-2 text-right">Ordered</th>
                         <th className="px-3 py-2 text-right">Received</th>
-                        <th className="px-3 py-2 text-right">Unit cost</th>
-                        <th className="px-3 py-2 text-right">Subtotal</th>
+                        {canSeeProductCost && <th className="px-3 py-2 text-right">Unit cost</th>}
+                        {canSeeProductCost && <th className="px-3 py-2 text-right">Subtotal</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -240,13 +241,17 @@ function PODetailsModal({
                           </td>
                           <td className="px-3 py-2 text-right">{item.quantity}</td>
                           <td className="px-3 py-2 text-right">{item.receivedQuantity ?? 0}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(item.unitCost ?? 0)}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(item.total ?? (item.quantity * item.unitCost))}</td>
+                          {canSeeProductCost && (
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(item.unitCost ?? 0)}</td>
+                          )}
+                          {canSeeProductCost && (
+                            <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(item.total ?? (item.quantity * item.unitCost))}</td>
+                          )}
                         </tr>
                       ))}
                       {(!po.items || po.items.length === 0) && (
                         <tr>
-                          <td colSpan={6} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No items</td>
+                          <td colSpan={canSeeProductCost ? 6 : 4} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No items</td>
                         </tr>
                       )}
                     </tbody>
@@ -310,7 +315,7 @@ function PODetailsModal({
                           <th className="px-3 py-2 text-right">Ordered</th>
                           <th className="px-3 py-2 text-right">Received</th>
                           <th className="px-3 py-2 text-right">Pending</th>
-                          <th className="px-3 py-2 text-right">Line value</th>
+                          {canSeeProductCost && <th className="px-3 py-2 text-right">Line value</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -332,7 +337,9 @@ function PODetailsModal({
                               <td className="px-3 py-2 text-right">{ordered}</td>
                               <td className="px-3 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">{received}</td>
                               <td className={`px-3 py-2 text-right font-medium ${pending > 0 ? 'text-amber-600 dark:text-amber-400' : ''}`}>{pending}</td>
-                              <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(item.total ?? (ordered * Number(item.unitCost ?? 0)))}</td>
+                              {canSeeProductCost && (
+                                <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(item.total ?? (ordered * Number(item.unitCost ?? 0)))}</td>
+                              )}
                             </tr>
                           )
                         })}

@@ -8,13 +8,17 @@ import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { prisma } from '../../config/database'
 import { getPagination } from '../../utils/pagination'
 import { effectiveBranchId } from '../../utils/active-branch'
+import { redactSaleCost, redactSaleCostList } from '../../utils/product-cost-redact'
 
 const router = Router()
 router.use(authenticate)
 router.use(enforceModuleAccess('POS'))
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-  try { const r = await salesService.list(req.tenantId!, req); sendPaginated(res, r.data, r.total, r.page, r.limit) } catch (e) { next(e) }
+  try {
+    const r = await salesService.list(req.tenantId!, req)
+    sendPaginated(res, redactSaleCostList(req, r.data), r.total, r.page, r.limit)
+  } catch (e) { next(e) }
 })
 
 router.get('/returns', async (req: Request, res: Response, next: NextFunction) => {
@@ -39,14 +43,21 @@ router.get('/returns', async (req: Request, res: Response, next: NextFunction) =
 })
 
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try { sendSuccess(res, await salesService.getById(req.tenantId!, req.params.id, req)) } catch (e) { next(e) }
+  try {
+    sendSuccess(res, redactSaleCost(req, await salesService.getById(req.tenantId!, req.params.id, req)))
+  } catch (e) { next(e) }
 })
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const u = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { name: true } })
     const cashierName = u?.name || req.user!.email
-    sendSuccess(res, await salesService.create(req.tenantId!, req.user!.userId, cashierName, req.body, req), 'Sale created', 201)
+    sendSuccess(
+      res,
+      redactSaleCost(req, await salesService.create(req.tenantId!, req.user!.userId, cashierName, req.body, req)),
+      'Sale created',
+      201,
+    )
   } catch (e) { next(e) }
 })
 
@@ -54,7 +65,7 @@ router.patch('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Re
   try {
     sendSuccess(
       res,
-      await updateSaleInvoice({
+      redactSaleCost(req, await updateSaleInvoice({
         tenantId: req.tenantId!,
         saleId: req.params.id,
         adminPassword: String(req.body.adminPassword ?? ''),
@@ -67,7 +78,7 @@ router.patch('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Re
         discount: req.body.discount != null ? Number(req.body.discount) : undefined,
         items: Array.isArray(req.body.items) ? req.body.items : undefined,
         payments: Array.isArray(req.body.payments) ? req.body.payments : undefined,
-      }),
+      })),
       'Sale updated',
     )
   } catch (e) { next(e) }
@@ -77,7 +88,7 @@ router.post('/:id/void', authorize('OWNER', 'MANAGER'), async (req: Request, res
   try {
     sendSuccess(
       res,
-      await voidSaleInvoice({
+      redactSaleCost(req, await voidSaleInvoice({
         tenantId: req.tenantId!,
         saleId: req.params.id,
         adminPassword: String(req.body.adminPassword ?? ''),
@@ -85,7 +96,7 @@ router.post('/:id/void', authorize('OWNER', 'MANAGER'), async (req: Request, res
         performedBy: req.user?.userId ?? 'system',
         actorEmail: req.user?.email,
         req,
-      }),
+      })),
       'Sale voided',
     )
   } catch (e) { next(e) }
@@ -95,7 +106,7 @@ router.delete('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
   try {
     sendSuccess(
       res,
-      await voidSaleInvoice({
+      redactSaleCost(req, await voidSaleInvoice({
         tenantId: req.tenantId!,
         saleId: req.params.id,
         adminPassword: String(req.body?.adminPassword ?? req.query.adminPassword ?? ''),
@@ -103,7 +114,7 @@ router.delete('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
         performedBy: req.user?.userId ?? 'system',
         actorEmail: req.user?.email,
         req,
-      }),
+      })),
       'Sale deleted',
     )
   } catch (e) { next(e) }
