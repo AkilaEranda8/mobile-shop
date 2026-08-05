@@ -1704,10 +1704,66 @@ export function NewPOModal({
   const [quickOpen, setQuickOpen]     = useState(false)
   const [quickHighlight, setQuickHighlight] = useState(0)
   const [rowHighlight, setRowHighlight]       = useState<Record<number, number>>({})
+  const [rowSearchResults, setRowSearchResults] = useState<Record<number, any[]>>({})
+  const [quickSearchResults, setQuickSearchResults] = useState<any[]>([])
+  const [productSearchLoading, setProductSearchLoading] = useState(false)
   const quickSearchRef = useRef<HTMLInputElement>(null)
   const qtyRefs = useRef<Record<number, HTMLInputElement | null>>({})
   const costRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const searchTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const branchId = getActiveBranchId() ?? ''
+
+  const PO_PRODUCT_DROPDOWN_LIMIT = 50
+
+  const runProductSearch = useCallback(async (q: string): Promise<any[]> => {
+    const trimmed = q.trim()
+    try {
+      const res: any = await productsApi.list({
+        search: trimmed || undefined,
+        limit: String(PO_PRODUCT_DROPDOWN_LIMIT),
+        ...(branchId ? { branchId } : {}),
+      } as Record<string, string>)
+      return (res?.data ?? res ?? []) as any[]
+    } catch {
+      return []
+    }
+  }, [branchId])
+
+  // Debounced API search for per-row product pickers (supports single-letter queries like "A")
+  useEffect(() => {
+    if (openIdx == null) return
+    const idx = openIdx
+    const q = searches[idx] ?? ''
+    const key = `row-${idx}`
+    if (searchTimers.current[key]) clearTimeout(searchTimers.current[key])
+    setProductSearchLoading(true)
+    searchTimers.current[key] = setTimeout(() => {
+      void runProductSearch(q).then(rows => {
+        setRowSearchResults(prev => ({ ...prev, [idx]: rows }))
+        setProductSearchLoading(false)
+      })
+    }, 200)
+    return () => {
+      if (searchTimers.current[key]) clearTimeout(searchTimers.current[key])
+    }
+  }, [openIdx, searches, runProductSearch])
+
+  // Debounced API search for quick-add bar
+  useEffect(() => {
+    if (!quickOpen) return
+    const key = 'quick'
+    if (searchTimers.current[key]) clearTimeout(searchTimers.current[key])
+    setProductSearchLoading(true)
+    searchTimers.current[key] = setTimeout(() => {
+      void runProductSearch(quickSearch).then(rows => {
+        setQuickSearchResults(rows)
+        setProductSearchLoading(false)
+      })
+    }, 200)
+    return () => {
+      if (searchTimers.current[key]) clearTimeout(searchTimers.current[key])
+    }
+  }, [quickOpen, quickSearch, runProductSearch])
 
   const focusQty = (i: number) => {
     setTimeout(() => {
@@ -1736,7 +1792,7 @@ export function NewPOModal({
     }, 50)
   }
 
-  const { data: productsData } = useProducts({ limit: '2000' })
+  const { data: productsData } = useProducts({ limit: '5000' })
   const allProducts: any[] = (productsData?.data ?? []) as any[]
 
   useEffect(() => {
@@ -1750,9 +1806,13 @@ export function NewPOModal({
   }, [editPo?.id, allProducts.length])
 
   const getFiltered = (i: number) => {
-    const q = (searches[i] ?? '').toLowerCase()
-    if (!q) return allProducts.slice(0, 10)
-    return allProducts.filter(p => productSearchHaystack(p).includes(q)).slice(0, 10)
+    // While API is loading for this open row, prefer local filter so typing feels instant
+    if (!(i in rowSearchResults) || (openIdx === i && productSearchLoading)) {
+      const q = (searches[i] ?? '').toLowerCase().trim()
+      if (!q) return allProducts.slice(0, PO_PRODUCT_DROPDOWN_LIMIT)
+      return allProducts.filter(p => productSearchHaystack(p).includes(q)).slice(0, PO_PRODUCT_DROPDOWN_LIMIT)
+    }
+    return rowSearchResults[i]
   }
 
   const selectProduct = (i: number, product: any) => {
@@ -1815,9 +1875,16 @@ export function NewPOModal({
     setQuickHighlight(0)
   }
 
-  const quickFiltered = quickSearch.trim()
-    ? allProducts.filter(p => productSearchHaystack(p).includes(quickSearch.toLowerCase())).slice(0, 8)
-    : allProducts.slice(0, 8)
+  // Local filter while API is in flight; API results (even empty) once loaded
+  const quickFiltered = !quickOpen
+    ? []
+    : productSearchLoading
+      ? (() => {
+          const q = quickSearch.toLowerCase().trim()
+          if (!q) return allProducts.slice(0, PO_PRODUCT_DROPDOWN_LIMIT)
+          return allProducts.filter(p => productSearchHaystack(p).includes(q)).slice(0, PO_PRODUCT_DROPDOWN_LIMIT)
+        })()
+      : quickSearchResults
 
   useEffect(() => { setQuickHighlight(0) }, [quickSearch])
 
@@ -1958,8 +2025,16 @@ export function NewPOModal({
                     }
                   }}
                 />
-                {quickOpen && quickFiltered.length > 0 && (
+                {quickOpen && (
                   <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-52 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                    {productSearchLoading && quickFiltered.length === 0 && (
+                      <p className="text-xs text-[var(--text-muted)] px-3 py-2.5 flex items-center gap-2">
+                        <Loader2 size={12} className="animate-spin" /> Searching products…
+                      </p>
+                    )}
+                    {!productSearchLoading && quickFiltered.length === 0 && (
+                      <p className="text-xs text-[var(--text-muted)] px-3 py-2.5">No matching products</p>
+                    )}
                     {quickFiltered.map((p: any, hi: number) => (
                       <button key={p.id} type="button"
                         onMouseDown={() => quickAddProduct(p)}
@@ -1971,7 +2046,9 @@ export function NewPOModal({
                         </div>
                         <div className="text-right flex-shrink-0 flex items-center gap-2">
                           <div>
-                            <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
+                            {canSeeProductCost && (
+                              <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
+                            )}
                             <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
                           </div>
                           <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
@@ -2042,8 +2119,18 @@ export function NewPOModal({
                             }
                           }}
                         />
-                        {openIdx === i && getFiltered(i).length > 0 && (
+                        {openIdx === i && (
                           <div className="absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
+                            {productSearchLoading && getFiltered(i).length === 0 && (
+                              <p className="text-xs text-[var(--text-muted)] px-3 py-2.5 flex items-center gap-2">
+                                <Loader2 size={12} className="animate-spin" /> Searching products…
+                              </p>
+                            )}
+                            {!productSearchLoading && getFiltered(i).length === 0 && (
+                              <p className="text-xs text-[var(--text-muted)] px-3 py-2.5">
+                                {allProducts.length === 0 ? 'No products in inventory' : 'No matching products'}
+                              </p>
+                            )}
                             {getFiltered(i).map((p: any, hi: number) => (
                               <button
                                 key={p.id}
@@ -2057,14 +2144,13 @@ export function NewPOModal({
                                   <p className="text-[10px] text-slate-500">{p.sku}{p.brandName ? ` · ${p.brandName}` : ''}{p.trackImei ? ' · IMEI' : ''}</p>
                                 </div>
                                 <div className="text-right flex-shrink-0">
-                                  <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
+                                  {canSeeProductCost && (
+                                    <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
+                                  )}
                                   <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
                                 </div>
                               </button>
                             ))}
-                            {allProducts.length === 0 && (
-                              <p className="text-xs text-gray-500 dark:text-slate-500 px-3 py-2">No products in inventory</p>
-                            )}
                           </div>
                         )}
                       </div>
