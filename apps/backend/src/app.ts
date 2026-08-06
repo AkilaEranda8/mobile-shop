@@ -82,9 +82,11 @@ app.use(express.urlencoded({ extended: true }))
 const uploadsDir = path.join(process.cwd(), 'uploads')
 fs.mkdirSync(uploadsDir, { recursive: true })
 app.use('/uploads', (_req, res, next) => {
-  // Reduce cross-site resource access for uploaded files
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin')
-  res.setHeader('Access-Control-Allow-Origin', env.FRONTEND_URL)
+  // Logos/product images are served from the API host and embedded on the app
+  // origin (e.g. app.hexalyte.com → api.shop.hexalyte.com). CORP must stay
+  // cross-origin or <img> tags are blocked by the browser.
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+  res.setHeader('Access-Control-Allow-Origin', '*')
   next()
 }, express.static(uploadsDir))
 
