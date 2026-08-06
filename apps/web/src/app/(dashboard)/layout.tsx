@@ -33,6 +33,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [router])
 
+  // Auto-collapse sidebar on laptop widths so content has room (user can still expand)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1279px)')
+    const apply = () => {
+      if (mq.matches) setSidebarCollapsed(true)
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+
   if (!checked) return null
 
   return (
@@ -72,7 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <AnnouncementBanners />
         <ReleaseNotesPopup />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6" style={{ color: 'var(--text-primary)' }}>
+        <main className="flex-1 overflow-y-auto" style={{ color: 'var(--text-primary)', padding: 'var(--main-pad)' }}>
           <HexTableProvider>
             <RoleAccessGuard>{children}</RoleAccessGuard>
           </HexTableProvider>

@@ -83,7 +83,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
   }
 
   return (
-    <header className="h-14 flex items-center px-4 gap-4 sticky top-0 z-40 border-b transition-colors"
+    <header className="h-14 flex items-center px-3 xl:px-4 gap-2 xl:gap-4 sticky top-0 z-40 border-b transition-colors"
       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
 
       {/* Mobile menu toggle */}
@@ -92,18 +92,18 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
       </button>
 
       {/* Search */}
-      <div className="flex-1 max-w-md relative z-[200] overflow-visible">
+      <div className="flex-1 max-w-md relative z-[200] overflow-visible min-w-0">
         <GlobalSearch />
       </div>
 
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex items-center gap-1.5 xl:gap-2 ml-auto shrink-0">
         <BranchControl />
 
         {/* Business Services */}
         <Link
           href="/business-services"
           title="Business Services"
-          className="inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
+          className="inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
           style={{
             background: 'var(--sidebar-active-bg)',
             color: 'var(--sidebar-active-text)',
@@ -111,7 +111,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
           }}
         >
           <BriefcaseBusiness size={14} />
-          <span className="hidden sm:inline">Business Services</span>
+          <span className="hidden xl:inline">Business Services</span>
         </Link>
 
         {/* POS Terminal — requires POS Edit (feature flag alone is not enough) */}
@@ -122,11 +122,11 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
               openPos()
             }}
             title="Open POS (F2)"
-            className="btn-accent flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+            className="btn-accent flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
           >
             <ShoppingCart size={14} />
-            <span className="hidden sm:inline">POS Terminal</span>
-            <kbd className="hidden md:inline text-[9px] opacity-60 font-mono ml-0.5">F2</kbd>
+            <span className="hidden xl:inline">POS Terminal</span>
+            <kbd className="hidden 2xl:inline text-[9px] opacity-60 font-mono ml-0.5">F2</kbd>
           </button>
         )}
 
@@ -136,22 +136,22 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
           <button
             type="button"
             onClick={() => switchTheme('light')}
-            className="theme-toggle-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+            className="theme-toggle-btn flex items-center gap-1.5 px-2 xl:px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
             style={activeTheme === 'light'
               ? { background: 'var(--bg-card)', color: 'var(--sidebar-active-text)', boxShadow: '0 1px 3px rgba(0,0,0,0.12)', border: '1px solid var(--border-subtle)' }
               : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent' }}
           >
-            <Sun size={13} /><span className="hidden sm:inline">Light</span>
+            <Sun size={13} /><span className="hidden xl:inline">Light</span>
           </button>
           <button
             type="button"
             onClick={() => switchTheme('dark')}
-            className="theme-toggle-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
+            className="theme-toggle-btn flex items-center gap-1.5 px-2 xl:px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200"
             style={activeTheme === 'dark'
               ? { background: 'var(--sidebar-active-bg)', color: 'var(--sidebar-active-text)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', border: '1px solid var(--sidebar-active-border)' }
               : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent' }}
           >
-            <Moon size={13} /><span className="hidden sm:inline">Dark</span>
+            <Moon size={13} /><span className="hidden xl:inline">Dark</span>
           </button>
         </div>
 

@@ -453,7 +453,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   return (
     <aside className={cn(
       'flex flex-col h-full border-r transition-all duration-300 relative',
-      collapsed ? 'w-16' : 'w-64'
+      collapsed ? 'w-16' : 'w-56 xl:w-64'
     )}
       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}
     >

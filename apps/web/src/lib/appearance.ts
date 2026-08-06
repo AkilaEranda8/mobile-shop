@@ -217,7 +217,7 @@ export interface AppearanceSettings {
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   accent: DEFAULT_ACCENT,
-  textSize: 'lg',
+  textSize: 'md',
   uiFont: 'inter',
   compactMode: false,
   animations: true,

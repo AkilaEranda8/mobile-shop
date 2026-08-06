@@ -9,6 +9,14 @@
   :root {
     --font-sans: 'Inter', system-ui, sans-serif;
     --ui-scale: 1;
+    /* Control density — tighter on laptops / compact mode */
+    --control-py: 0.5rem;
+    --control-px: 0.875rem;
+    --control-gap: 0.375rem;
+    --toolbar-gap: 0.5rem;
+    --main-pad: 1rem;
+    --main-pad-lg: 1.25rem;
+    --card-radius: 0.75rem;
     --tc-background: 0 0% 100%;
     --tc-foreground: 222.2 84% 4.9%;
     --tc-card: 0 0% 100%;
@@ -186,18 +194,53 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 }
 
-/* Compact + reduced motion preferences from Settings → Appearance */
+/* Compact preference from Settings → Appearance */
+html[data-compact="true"] {
+  --control-py: 0.375rem;
+  --control-px: 0.625rem;
+  --control-gap: 0.25rem;
+  --toolbar-gap: 0.375rem;
+  --main-pad: 0.75rem;
+  --main-pad-lg: 0.875rem;
+  --card-radius: 0.625rem;
+}
 html[data-compact="true"] .card {
-  border-radius: 0.75rem;
+  border-radius: var(--card-radius);
 }
 html[data-compact="true"] main {
-  padding: 0.75rem !important;
+  padding: var(--main-pad) !important;
 }
 html[data-compact="true"] .sidebar-item {
-  padding: 0.5rem 0.625rem;
+  padding: 0.45rem 0.55rem;
 }
 html[data-compact="true"] .page-title {
   font-size: 1.25rem;
+}
+
+/* Laptop / short desktop: denser chrome without requiring Settings toggle */
+@media (max-width: 1366px), (max-height: 820px) {
+  :root {
+    --control-py: 0.375rem;
+    --control-px: 0.625rem;
+    --control-gap: 0.25rem;
+    --toolbar-gap: 0.375rem;
+    --main-pad: 0.75rem;
+    --main-pad-lg: 0.875rem;
+    --card-radius: 0.625rem;
+  }
+  main {
+    padding: var(--main-pad) !important;
+  }
+  .page-title {
+    font-size: 1.35rem;
+  }
+}
+
+/* Large desktops: a bit more breathing room */
+@media (min-width: 1440px) and (min-height: 821px) {
+  :root {
+    --main-pad: 1.5rem;
+  }
 }
 html[data-animations="false"] *,
 html[data-animations="false"] *::before,
@@ -228,7 +271,9 @@ html[data-animations="false"] *::after {
     background-color: var(--brand-primary);
     color: #ffffff !important;
     border: 1px solid transparent;
-    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 active:scale-[0.98] text-sm;
+    gap: var(--control-gap);
+    padding: var(--control-py) var(--control-px);
+    @apply inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 active:scale-[0.98] text-sm;
   }
 
   .btn-primary:hover {
@@ -245,14 +290,18 @@ html[data-animations="false"] *::after {
     background: var(--brand-gradient);
     color: #ffffff !important;
     border: 1px solid transparent;
-    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 active:scale-[0.98] text-sm;
+    gap: var(--control-gap);
+    padding: var(--control-py) var(--control-px);
+    @apply inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 active:scale-[0.98] text-sm;
   }
 
   .btn-secondary {
     background: var(--bg-card);
     color: var(--text-secondary);
     border: 1px solid var(--border-default);
-    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 text-sm;
+    gap: var(--control-gap);
+    padding: var(--control-py) var(--control-px);
+    @apply inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 text-sm;
   }
 
   .btn-secondary:hover {
@@ -265,7 +314,9 @@ html[data-animations="false"] *::after {
     background: #fef2f2;
     color: #b91c1c;
     border: 1px solid #fecaca;
-    @apply inline-flex items-center justify-center gap-1.5 font-semibold px-3.5 py-2 rounded-lg transition-all duration-150 text-sm;
+    gap: var(--control-gap);
+    padding: var(--control-py) var(--control-px);
+    @apply inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 text-sm;
   }
 
   .btn-danger:hover {
@@ -290,7 +341,8 @@ html[data-animations="false"] *::after {
     background: var(--bg-card);
     border: 1px solid var(--border-default);
     color: var(--text-primary);
-    @apply w-full rounded-lg px-3.5 py-2.5 focus:outline-none transition-all duration-150 text-sm;
+    padding: var(--control-py) var(--control-px);
+    @apply w-full rounded-lg focus:outline-none transition-all duration-150 text-sm;
   }
 
   .input-field:focus {
@@ -307,7 +359,7 @@ html[data-animations="false"] *::after {
     border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-card);
     color: var(--text-primary);
-    @apply rounded-xl;
+    border-radius: var(--card-radius, 0.75rem);
   }
 
   .card-hover {
