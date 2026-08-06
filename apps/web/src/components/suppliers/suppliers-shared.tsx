@@ -22,7 +22,7 @@ import { datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-dat
 
 export type PoProduct = { id: string; trackImei?: boolean; name?: string }
 
-/** PO unit cost: prefer variant cost when > 0, else product buying price, else blank for manual entry. */
+/** PO unit cost: prefer product buying price, else variant cost. Round to whole LKR (PO input uses step=1). */
 export function normalizeStorageVariations(raw: unknown): any[] {
   if (Array.isArray(raw)) return raw
   if (typeof raw === 'string') {
@@ -36,21 +36,30 @@ export function normalizeStorageVariations(raw: unknown): any[] {
   return []
 }
 
+function roundPoUnitCost(n: number): number {
+  // Inventory/PO UI uses whole rupees (step=1, formatCurrency 0 decimals).
+  return Math.round(n)
+}
+
 export function resolvePoUnitCost(product: { buyingPrice?: number | string | null }, variation?: { costPrice?: number | string | null }) {
   const varCost = variation?.costPrice != null && variation.costPrice !== '' ? Number(variation.costPrice) : NaN
   const buyCost = product?.buyingPrice != null && product.buyingPrice !== '' ? Number(product.buyingPrice) : NaN
-  if (Number.isFinite(varCost) && varCost > 0) return varCost
-  if (Number.isFinite(buyCost) && buyCost > 0) return buyCost
+  // When a specific variation is selected, prefer its cost; otherwise prefer product buying price.
+  if (variation != null && Number.isFinite(varCost) && varCost > 0) return roundPoUnitCost(varCost)
+  if (Number.isFinite(buyCost) && buyCost > 0) return roundPoUnitCost(buyCost)
+  if (Number.isFinite(varCost) && varCost > 0) return roundPoUnitCost(varCost)
   return ''
 }
 
 export function resolvePoUnitCostFromProduct(product: { buyingPrice?: number | string | null; stock?: number; storageVariations?: unknown }) {
+  const buyCost = product?.buyingPrice != null && product.buyingPrice !== '' ? Number(product.buyingPrice) : NaN
+  if (Number.isFinite(buyCost) && buyCost > 0) return roundPoUnitCost(buyCost)
   const vars = normalizeStorageVariations(product.storageVariations)
   for (const v of vars) {
-    const resolved = resolvePoUnitCost(product, v)
-    if (resolved !== '') return resolved
+    const varCost = v?.costPrice != null && v.costPrice !== '' ? Number(v.costPrice) : NaN
+    if (Number.isFinite(varCost) && varCost > 0) return roundPoUnitCost(varCost)
   }
-  return resolvePoUnitCost(product)
+  return ''
 }
 
 /** Stock available for PO/sales — sum variant rows when product has storage variations. */
@@ -2199,7 +2208,7 @@ export function NewPOModal({
                           />
                           {Number(item.unitCost) > 0 && (
                             <p className="text-[10px] font-semibold text-violet-600 mt-0.5 tabular-nums">
-                              {formatCurrency(Number(item.unitCost))}
+                              {formatCurrency(Math.round(Number(item.unitCost)))}
                             </p>
                           )}
                         </>
