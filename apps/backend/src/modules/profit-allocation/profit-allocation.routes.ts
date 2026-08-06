@@ -175,11 +175,15 @@ router.post('/funds/normalize-percentages', authorize('OWNER', 'MANAGER'), async
 
 router.get('/transactions', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { page, limit } = getPagination(req)
+    const { page, limit: rawLimit } = getPagination(req)
+    const limit = Math.min(100, rawLimit)
     const branchId = effectiveBranchId(req)
     const fundId = req.query.fundId as string | undefined
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
+    if ((from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) || (to && !/^\d{4}-\d{2}-\d{2}$/.test(to))) {
+      throw new AppError('from/to must be YYYY-MM-DD', 400)
+    }
     const result = await profitAllocationService.listTransactions(req.tenantId!, {
       branchId,
       fundId,

@@ -70,14 +70,21 @@ app.use(cors({
 }))
 app.use(compression())
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
-app.use(express.json({ limit: '10mb' }))
+// Capture raw body for webhook signature verification (e.g. Meta/WhatsApp)
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => {
+    ;(req as any).rawBody = buf
+  },
+}))
 app.use(express.urlencoded({ extended: true }))
 
 const uploadsDir = path.join(process.cwd(), 'uploads')
 fs.mkdirSync(uploadsDir, { recursive: true })
 app.use('/uploads', (_req, res, next) => {
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  // Reduce cross-site resource access for uploaded files
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin')
+  res.setHeader('Access-Control-Allow-Origin', env.FRONTEND_URL)
   next()
 }, express.static(uploadsDir))
 

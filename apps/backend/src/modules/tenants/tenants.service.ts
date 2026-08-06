@@ -222,14 +222,40 @@ export const tenantsService = {
   },
 
   async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean; isDefault?: boolean; dailyClosingEnabled?: boolean }) {
+    // Prevent mass-assignment overwriting tenantId (or other unexpected fields).
+    const {
+      name,
+      address,
+      city,
+      state,
+      phone,
+      email,
+      isHeadquarters,
+      isDefault,
+      dailyClosingEnabled,
+    } = body as any
+
     const branch = await prisma.$transaction(async (tx) => {
-      if (body.isHeadquarters) {
+      if (isHeadquarters) {
         await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true }, data: { isHeadquarters: false } })
       }
-      if (body.isDefault) {
+      if (isDefault) {
         await tx.branch.updateMany({ where: { tenantId, isDefault: true }, data: { isDefault: false } })
       }
-      return tx.branch.create({ data: { tenantId, ...body } })
+      return tx.branch.create({
+        data: {
+          tenantId,
+          name,
+          address,
+          city,
+          state,
+          phone,
+          email,
+          isHeadquarters,
+          isDefault,
+          dailyClosingEnabled,
+        },
+      })
     })
     try {
       await ensureBranchCashAccounts(tenantId, branch.id, branch.name)
@@ -246,6 +272,44 @@ export const tenantsService = {
     userId?: string,
     role?: string,
   ) {
+    // Whitelist updatable fields to avoid overwriting tenantId or other sensitive columns.
+    const {
+      name,
+      address,
+      city,
+      state,
+      phone,
+      email,
+      isActive,
+      isHeadquarters,
+      isDefault,
+      dailyClosingEnabled,
+    } = body as any
+
+    const safeUpdate: Partial<{
+      name: string
+      address: string
+      city: string
+      state: string
+      phone: string
+      email: string
+      isActive: boolean
+      isHeadquarters: boolean
+      isDefault: boolean
+      dailyClosingEnabled: boolean
+    }> = {
+      name,
+      address,
+      city,
+      state,
+      phone,
+      email,
+      isActive,
+      isHeadquarters,
+      isDefault,
+      dailyClosingEnabled,
+    }
+
     const b = await prisma.branch.findFirst({ where: { id, tenantId } })
     if (!b) throw new AppError('Branch not found', 404)
     if (role && userId && !OWNER_ROLES.has(role)) {
@@ -253,13 +317,13 @@ export const tenantsService = {
       if (!allowed.includes(id)) throw new AppError('Branch access denied', 403)
     }
     return prisma.$transaction(async (tx) => {
-      if (body.isHeadquarters) {
+      if (isHeadquarters) {
         await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true, id: { not: id } }, data: { isHeadquarters: false } })
       }
-      if (body.isDefault) {
+      if (isDefault) {
         await tx.branch.updateMany({ where: { tenantId, isDefault: true, id: { not: id } }, data: { isDefault: false } })
       }
-      return tx.branch.update({ where: { id }, data: body })
+      return tx.branch.update({ where: { id }, data: safeUpdate })
     })
   },
 }

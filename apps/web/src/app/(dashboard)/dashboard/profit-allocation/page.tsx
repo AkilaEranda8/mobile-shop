@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { businessToday, businessPeriodFrom } from '@/lib/business-date'
+import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { profitAllocationApi } from '@/lib/api'
@@ -83,6 +83,25 @@ type TxRow = {
   userName: string | null
   fund: { name: string; type: string }
   createdAt: string
+}
+
+type PeriodDayRow = {
+  date: string
+  sales: number
+  profit: number
+  allocated: number
+  remaining: number
+  saved: boolean
+  included: boolean
+}
+
+/** Prefer business calendar date (UTC midnight key); fall back to createdAt Colombo label. */
+function txBusinessDateKey(tx: TxRow): string {
+  if (tx.date) {
+    const raw = typeof tx.date === 'string' ? tx.date : String(tx.date)
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+  }
+  return new Date(tx.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' })
 }
 
 const FUND_TYPE_COLORS: Record<string, { color: string; bg: string; border: string }> = {
@@ -240,6 +259,7 @@ export default function ProfitAllocationPage() {
   const [txLoading, setTxLoading] = useState(false)
   const [periodData, setPeriodData] = useState<{
     totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number; liveDays?: number }
+    days: PeriodDayRow[]
     fundLines: FundLine[]
     summaries: unknown[]
   } | null>(null)
@@ -280,7 +300,7 @@ export default function ProfitAllocationPage() {
     setTxLoading(true)
     try {
       const res = await profitAllocationApi.transactions({
-        branchId, from: dateFrom, to: dateTo, page: String(txPage), limit: '10',
+        branchId, from: dateFrom, to: dateTo, page: String(txPage), limit: '50',
       }) as { data: TxRow[]; meta?: { total: number } }
       setTransactions(res.data ?? [])
       setTxTotal(res.meta?.total ?? res.data?.length ?? 0)
@@ -300,11 +320,13 @@ export default function ProfitAllocationPage() {
       })
       const payload = ((res as { data?: unknown }).data ?? res) as {
         totals: { sales: number; profit: number; allocated: number; remaining: number; savedDays: number; liveDays?: number }
+        days?: PeriodDayRow[]
         fundLines: FundLine[]
         summaries: unknown[]
       }
       setPeriodData({
         totals: payload.totals,
+        days: payload.days ?? [],
         fundLines: payload.fundLines ?? [],
         summaries: payload.summaries ?? [],
       })
@@ -322,6 +344,26 @@ export default function ProfitAllocationPage() {
 
   const activeDashboard = todayDashboard
   const tableLoading = todayLoading
+  const isMultiDayPeriod = dateFrom !== dateTo
+  const periodTotals = periodData?.totals
+
+  const transactionsByDay = useMemo(() => {
+    const groups = new Map<string, { date: string; rows: TxRow[]; allocated: number; withdrawn: number; deposited: number; net: number }>()
+    for (const tx of transactions) {
+      const key = txBusinessDateKey(tx)
+      let g = groups.get(key)
+      if (!g) {
+        g = { date: key, rows: [], allocated: 0, withdrawn: 0, deposited: 0, net: 0 }
+        groups.set(key, g)
+      }
+      g.rows.push(tx)
+      g.net += tx.amount
+      if (tx.type === 'ALLOCATION') g.allocated += tx.amount
+      else if (tx.type === 'WITHDRAW') g.withdrawn += Math.abs(tx.amount)
+      else if (tx.type === 'DEPOSIT') g.deposited += tx.amount
+    }
+    return [...groups.values()].sort((a, b) => b.date.localeCompare(a.date))
+  }, [transactions])
 
   const filteredLines = useMemo(() => {
     const lines = activeDashboard?.lines
@@ -514,12 +556,19 @@ export default function ProfitAllocationPage() {
     )
   }
 
-  const kpiCards = [
-    { label: "Today's Sales", value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
-    { label: "Today's Profit", value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
-    { label: 'Allocated Today', value: formatCurrency(activeDashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
-    { label: 'Remaining Profit', value: formatCurrency(activeDashboard?.remainingProfit ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
-  ]
+  const kpiCards = isMultiDayPeriod
+    ? [
+        { label: 'Period Sales', value: formatCurrency(periodTotals?.sales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
+        { label: 'Period Profit', value: formatCurrency(periodTotals?.profit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
+        { label: 'Allocated (period)', value: formatCurrency(periodTotals?.allocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
+        { label: 'Remaining (period)', value: formatCurrency(periodTotals?.remaining ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
+      ]
+    : [
+        { label: "Today's Sales", value: formatCurrency(activeDashboard?.todaySales ?? 0), icon: <Banknote size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
+        { label: "Today's Profit", value: formatCurrency(activeDashboard?.todayProfit ?? 0), icon: <TrendingUp size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
+        { label: 'Allocated Today', value: formatCurrency(activeDashboard?.totalAllocated ?? 0), icon: <PieChartIcon size={16} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.20)' },
+        { label: 'Remaining Profit', value: formatCurrency(activeDashboard?.remainingProfit ?? 0), icon: <Wallet size={16} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
+      ]
 
   return (
     <div className="space-y-6">
@@ -640,7 +689,7 @@ export default function ProfitAllocationPage() {
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards — single day uses day view; 7/30/month uses combined period totals */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map(({ label, value, icon, color, bg, border }) => (
           <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
@@ -648,7 +697,15 @@ export default function ProfitAllocationPage() {
               <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>{icon}</div>
             </div>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              {isMultiDayPeriod && periodLoading ? '…' : value}
+            </p>
+            {isMultiDayPeriod && periodTotals && (
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                {formatDate(dateFrom)} → {formatDate(dateTo)}
+                {periodTotals.savedDays != null ? ` · ${periodTotals.savedDays} saved day${periodTotals.savedDays === 1 ? '' : 's'}` : ''}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -965,12 +1022,12 @@ export default function ProfitAllocationPage() {
           )}
         </div>
 
-        {/* Recent transactions */}
+        {/* Recent transactions — grouped by business day */}
         <div className="card p-5">
           <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             Recent Transactions
             <span className="block text-[11px] font-normal mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              {formatDate(dateFrom)} → {formatDate(dateTo)}
+              {formatDate(dateFrom)} → {formatDate(dateTo)} · grouped by day
             </span>
           </h3>
           {txLoading ? (
@@ -978,46 +1035,133 @@ export default function ProfitAllocationPage() {
           ) : transactions.length === 0 ? (
             <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No transactions yet</p>
           ) : (
-            <div className="space-y-0 max-h-72 overflow-y-auto">
-              {transactions.map(tx => (
-                <div key={tx.id} className="flex items-center gap-3 px-2 py-3 transition-colors hover:bg-white/2"
-                  style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={tx.amount < 0 || tx.type === 'WITHDRAW'
-                      ? { background: 'rgba(185,28,28,0.10)', border: '1px solid rgba(185,28,28,0.25)', color: '#b91c1c' }
-                      : { background: 'rgba(21,128,61,0.10)', border: '1px solid rgba(21,128,61,0.25)', color: '#15803d' }}>
-                    {tx.amount < 0 || tx.type === 'WITHDRAW' ? <ArrowDownRight size={13} /> : <ArrowUpRight size={13} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{tx.fund?.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-                        style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
-                        {tx.type}
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {transactionsByDay.map(group => (
+                <div key={group.date}>
+                  <div
+                    className="sticky top-0 z-[1] flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg mb-1"
+                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {formatBusinessDateLabel(group.date)}
+                      <span className="font-normal ml-1.5" style={{ color: 'var(--text-muted)' }}>
+                        ({group.rows.length})
                       </span>
-                      <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(tx.createdAt)}</span>
+                    </span>
+                    <span className="text-[11px] text-right" style={{ color: 'var(--text-muted)' }}>
+                      Alloc {formatCurrency(group.allocated)}
+                      {group.withdrawn > 0 ? ` · Out ${formatCurrency(group.withdrawn)}` : ''}
+                      {group.deposited > 0 ? ` · In ${formatCurrency(group.deposited)}` : ''}
+                    </span>
+                  </div>
+                  {group.rows.map(tx => (
+                    <div key={tx.id} className="flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-white/2"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={tx.amount < 0 || tx.type === 'WITHDRAW'
+                          ? { background: 'rgba(185,28,28,0.10)', border: '1px solid rgba(185,28,28,0.25)', color: '#b91c1c' }
+                          : { background: 'rgba(21,128,61,0.10)', border: '1px solid rgba(21,128,61,0.25)', color: '#15803d' }}>
+                        {tx.amount < 0 || tx.type === 'WITHDRAW' ? <ArrowDownRight size={13} /> : <ArrowUpRight size={13} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{tx.fund?.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                            style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+                            {tx.type}
+                          </span>
+                        </div>
+                        {tx.notes && <p className="text-[11px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{tx.notes}</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold" style={{ color: tx.amount < 0 ? '#b91c1c' : '#15803d' }}>
+                          {tx.amount < 0 ? '' : '+'}{formatCurrency(tx.amount)}
+                        </p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Bal {formatCurrency(tx.balanceAfter)}</p>
+                      </div>
                     </div>
-                    {tx.notes && <p className="text-[11px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{tx.notes}</p>}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold" style={{ color: tx.amount < 0 ? '#b91c1c' : '#15803d' }}>
-                      {tx.amount < 0 ? '' : '+'}{formatCurrency(tx.amount)}
-                    </p>
-                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Bal {formatCurrency(tx.balanceAfter)}</p>
-                  </div>
+                  ))}
                 </div>
               ))}
             </div>
           )}
-          {txTotal > 10 && (
+          {txTotal > 50 && (
             <div className="flex justify-center gap-2 mt-4">
               <button disabled={txPage <= 1} onClick={() => setTxPage(p => p - 1)} className="btn-secondary text-xs px-3 py-1.5">Prev</button>
               <span className="text-xs self-center" style={{ color: 'var(--text-muted)' }}>Page {txPage}</span>
-              <button disabled={txPage * 10 >= txTotal} onClick={() => setTxPage(p => p + 1)} className="btn-secondary text-xs px-3 py-1.5">Next</button>
+              <button disabled={txPage * 50 >= txTotal} onClick={() => setTxPage(p => p + 1)} className="btn-secondary text-xs px-3 py-1.5">Next</button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Daily breakdown for selected history range */}
+      {isMultiDayPeriod && (
+        <div className="card p-5">
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Daily Totals</h3>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              {formatDate(dateFrom)} → {formatDate(dateTo)} · sales, profit & allocated combined per day
+            </p>
+          </div>
+          <div className="overflow-x-auto max-h-80 overflow-y-auto">
+            <table className="w-full">
+              <thead className="sticky top-0 z-[1]" style={{ background: 'var(--bg-card)' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  {['Date', 'Sales', 'Profit', 'Allocated', 'Remaining', 'Status'].map((h, i) => (
+                    <th key={h} className={`table-header${i > 0 && i < 5 ? ' text-right' : ''}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {periodLoading ? (
+                  <tr><td colSpan={6} className="text-center py-8"><Loader2 className="animate-spin text-violet-400 mx-auto" size={22} /></td></tr>
+                ) : (periodData?.days?.length ?? 0) > 0 ? (
+                  <>
+                    {[...(periodData!.days)].reverse().map(day => (
+                      <tr
+                        key={day.date}
+                        className="transition-colors hover:bg-white/2 cursor-pointer"
+                        style={{ borderBottom: '1px solid var(--border-subtle)', opacity: day.included ? 1 : 0.55 }}
+                        onClick={() => { setViewDate(day.date); setDashboardOverride(null) }}
+                        title="Open day view"
+                      >
+                        <td className="table-cell"><span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{formatBusinessDateLabel(day.date)}</span></td>
+                        <td className="table-cell text-right"><span className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatCurrency(day.sales)}</span></td>
+                        <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: '#15803d' }}>{formatCurrency(day.profit)}</span></td>
+                        <td className="table-cell text-right"><span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(day.allocated)}</span></td>
+                        <td className="table-cell text-right"><span className="text-sm" style={{ color: 'var(--text-muted)' }}>{formatCurrency(day.remaining)}</span></td>
+                        <td className="table-cell">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                            style={day.saved
+                              ? { background: 'rgba(21,128,61,0.12)', color: '#15803d' }
+                              : day.included
+                                ? { background: 'rgba(217,119,6,0.12)', color: '#d97706' }
+                                : { background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
+                            {day.saved ? 'Saved' : day.included ? 'Live' : '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {periodTotals && (
+                      <tr style={{ borderTop: '2px solid var(--border-default)' }}>
+                        <td className="table-cell"><span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Total</span></td>
+                        <td className="table-cell text-right"><span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(periodTotals.sales)}</span></td>
+                        <td className="table-cell text-right"><span className="text-sm font-bold" style={{ color: '#15803d' }}>{formatCurrency(periodTotals.profit)}</span></td>
+                        <td className="table-cell text-right"><span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(periodTotals.allocated)}</span></td>
+                        <td className="table-cell text-right"><span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>{formatCurrency(periodTotals.remaining)}</span></td>
+                        <td className="table-cell" />
+                      </tr>
+                    )}
+                  </>
+                ) : (
+                  <tr><td colSpan={6} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>No daily data for this period</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Fund Summary for selected history range */}
       <div className="card p-5">

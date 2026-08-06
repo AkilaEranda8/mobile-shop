@@ -1003,19 +1003,32 @@ function mergePeriodFundLine(
   agg.remainingBalance = line.remainingBalance
 }
 
+const PERIOD_SUMMARY_MAX_DAYS = 366
+
+function assertBusinessDateParam(label: string, value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new AppError(`${label} must be YYYY-MM-DD`, 400)
+  }
+  return value
+}
+
 export async function getPeriodSummary(
   tenantId: string,
   branchId: string,
   fromStr: string,
   toStr: string,
 ) {
-  const from = normalizeBusinessDate(fromStr)
-  const to = normalizeBusinessDate(toStr)
+  const from = assertBusinessDateParam('from', fromStr)
+  const to = assertBusinessDateParam('to', toStr)
   if (from > to) throw new AppError('Start date must be on or before end date', 400)
+
+  const days = listBusinessDays(from, to)
+  if (days.length > PERIOD_SUMMARY_MAX_DAYS) {
+    throw new AppError(`Date range cannot exceed ${PERIOD_SUMMARY_MAX_DAYS} days`, 400)
+  }
 
   const start = allocationDbDate(from)
   const end = businessDayRange(to).end
-  const days = listBusinessDays(from, to)
 
   await ensureDefaultFunds(tenantId, branchId)
 
@@ -1034,13 +1047,35 @@ export async function getPeriodSummary(
   let totalSales = 0
   let totalProfit = 0
   let totalAllocated = 0
+  let liveDaysCounted = 0
+  const dayRows: Array<{
+    date: string
+    sales: number
+    profit: number
+    allocated: number
+    remaining: number
+    saved: boolean
+    included: boolean
+  }> = []
 
   for (const day of days) {
     const saved = savedByDate.get(day)
     if (saved) {
-      totalSales += saved.todaySales
-      totalProfit += saved.todayProfit
-      totalAllocated += saved.totalAllocated
+      const sales = round2(saved.todaySales)
+      const profit = round2(saved.todayProfit)
+      const allocated = round2(saved.totalAllocated)
+      totalSales += sales
+      totalProfit += profit
+      totalAllocated += allocated
+      dayRows.push({
+        date: day,
+        sales,
+        profit,
+        allocated,
+        remaining: round2(profit - allocated),
+        saved: true,
+        included: true,
+      })
       const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, day)
       for (const line of saved.lines) {
         const fund = line.fund
@@ -1075,12 +1110,36 @@ export async function getPeriodSummary(
     const dayTime = allocationDbDate(day).getTime()
     const todayTime = allocationDbDate(todayKey).getTime()
     const daysBehind = Math.round((todayTime - dayTime) / (24 * 60 * 60 * 1000))
-    if (daysBehind > 3) continue
+    if (daysBehind > 3) {
+      dayRows.push({
+        date: day,
+        sales: 0,
+        profit: 0,
+        allocated: 0,
+        remaining: 0,
+        saved: false,
+        included: false,
+      })
+      continue
+    }
 
     const calc = await calculateAllocationLines(tenantId, branchId, day)
-    totalSales += calc.todaySales
-    totalProfit += calc.todayProfit
-    totalAllocated += calc.totalAllocated
+    const sales = round2(calc.todaySales)
+    const profit = round2(calc.todayProfit)
+    const allocated = round2(calc.totalAllocated)
+    totalSales += sales
+    totalProfit += profit
+    totalAllocated += allocated
+    liveDaysCounted += 1
+    dayRows.push({
+      date: day,
+      sales,
+      profit,
+      allocated,
+      remaining: round2(profit - allocated),
+      saved: false,
+      included: true,
+    })
     for (const line of calc.lines) {
       mergePeriodFundLine(fundLineAgg, line)
     }
@@ -1092,7 +1151,7 @@ export async function getPeriodSummary(
     allocated: round2(totalAllocated),
     remaining: round2(totalProfit - totalAllocated),
     savedDays: allocRecords.length,
-    liveDays: days.length - allocRecords.length,
+    liveDays: liveDaysCounted,
   }
 
   const summaries = await buildFundSummariesForRange(tenantId, branchId, start, end)
@@ -1101,6 +1160,7 @@ export async function getPeriodSummary(
     from,
     to,
     totals,
+    days: dayRows,
     fundLines: [...fundLineAgg.values()].sort((a, b) => a.sortOrder - b.sortOrder),
     summaries,
   }

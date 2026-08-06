@@ -4,6 +4,8 @@ import { notifySaleInvoice } from '../notification-engine/notification-engine.se
 import { sendSuccess } from '../../utils/response'
 import { prisma } from '../../config/database'
 import { effectiveBranchId } from '../../utils/active-branch'
+import { env } from '../../config/env'
+import { createHmac, timingSafeEqual } from 'crypto'
 
 export const whatsappController = {
 
@@ -117,25 +119,75 @@ export const whatsappController = {
     const mode      = req.query['hub.mode']
     const token     = req.query['hub.verify_token']
     const challenge = req.query['hub.challenge']
-    if (mode === 'subscribe' && token) {
-      res.status(200).send(challenge)
-    } else {
-      res.sendStatus(403)
-    }
+    if (mode !== 'subscribe' || !token) return res.sendStatus(403)
+
+    const tokenStr = Array.isArray(token) ? token[0] : String(token)
+    const challengeStr = Array.isArray(challenge) ? challenge[0] : String(challenge ?? '')
+    if (!challengeStr) return res.sendStatus(403)
+
+    // Multi-tenant: accept webhook verification only if the token matches
+    // an enabled tenant WhatsApp config.
+    const cfg = await prisma.whatsAppConfig.findFirst({
+      where: { verifyToken: tokenStr, enabled: true },
+      select: { id: true },
+    })
+    if (!cfg) return res.sendStatus(403)
+
+    return res.status(200).send(challengeStr)
   },
 
   // ── Meta webhook events (public) ────────────────────────────────────────────
   async webhookEvent(req: Request, res: Response) {
     const body = req.body
+
+    // Signature verification (best-effort). Meta sends `X-Hub-Signature-256: sha256=<hex>`.
+    const signature = req.header('x-hub-signature-256')
+    const secret = env.WHATSAPP_APP_SECRET || env.META_APP_SECRET
+    if (secret) {
+      if (!signature) return res.sendStatus(403)
+      const rawBody = (req as any).rawBody as Buffer | undefined
+      if (!rawBody) return res.sendStatus(400)
+
+      const expected = 'sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex')
+      const sigBuf = Buffer.from(signature)
+      const expBuf = Buffer.from(expected)
+      if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+        return res.sendStatus(403)
+      }
+    }
+
     if (body?.object === 'whatsapp_business_account') {
-      for (const entry of body.entry ?? []) {
-        for (const change of entry.changes ?? []) {
+      const entries = body.entry ?? []
+      const phoneNumberIds = entries.map((e: any) => String(e?.id ?? '')).filter(Boolean)
+
+      const enabledConfigs = phoneNumberIds.length
+        ? await prisma.whatsAppConfig.findMany({
+            where: { phoneNumberId: { in: phoneNumberIds }, enabled: true },
+            select: { id: true, phoneNumberId: true },
+          })
+        : []
+
+      const cfgIdsByPhone = new Map<string, string[]>()
+      for (const c of enabledConfigs) {
+        const key = String(c.phoneNumberId ?? '')
+        if (!key) continue
+        cfgIdsByPhone.set(key, [...(cfgIdsByPhone.get(key) ?? []), c.id])
+      }
+
+      for (const entry of entries) {
+        const phoneId = String(entry?.id ?? '')
+        const cfgIds = cfgIdsByPhone.get(phoneId)
+        if (!cfgIds?.length) continue
+
+        for (const change of entry?.changes ?? []) {
           const statuses = change?.value?.statuses ?? []
           for (const status of statuses) {
-            if (status?.id && status?.status) {
+            const metaMessageId = status?.id
+            const nextStatus = status?.status
+            if (metaMessageId && nextStatus) {
               await prisma.whatsAppMessage.updateMany({
-                where: { metaMessageId: status.id },
-                data:  { status: status.status },
+                where: { metaMessageId: metaMessageId, configId: { in: cfgIds } },
+                data: { status: nextStatus },
               }).catch(() => {})
             }
           }

@@ -14,6 +14,9 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().default('http://localhost:3000'),
   BACKEND_URL:  z.string().default('http://localhost:3001'),
   API_PREFIX: z.string().default('api/v1'),
+  // Meta/WhatsApp webhook secrets (optional; only needed for signature verification)
+  WHATSAPP_APP_SECRET: z.string().optional(),
+  META_APP_SECRET: z.string().optional(),
   AWS_REGION: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),

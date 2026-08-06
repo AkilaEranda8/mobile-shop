@@ -39,7 +39,8 @@ const upload = multer({
   storage,
   limits: { fileSize: 1 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp']
+    // Disallow SVG for logo uploads to reduce stored XSS risk.
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
     cb(null, allowed.includes(file.mimetype))
   },
 })

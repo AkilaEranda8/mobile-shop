@@ -26,10 +26,27 @@ const TABLE_HEADERS = [
   'Remaining Balance',
 ]
 
+/** Prevent CSV/Excel formula injection (=, +, -, @, tab, CR). */
+function sanitizeSpreadsheetCell(value: string | number): string | number {
+  if (typeof value === 'number') return value
+  const s = String(value ?? '')
+  if (/^[=+\-@\t\r]/.test(s)) return `'${s}`
+  return s
+}
+
+function escapeHtml(value: string | number): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function lineRow(l: AllocationLine) {
   return [
-    l.fundName,
-    l.fundType,
+    sanitizeSpreadsheetCell(l.fundName),
+    sanitizeSpreadsheetCell(l.fundType),
     l.value,
     l.todayAllocation,
     l.yesterdayBalance,
@@ -37,6 +54,12 @@ function lineRow(l: AllocationLine) {
     l.withdrawn,
     l.remainingBalance,
   ]
+}
+
+function csvEscape(cell: string | number): string {
+  const s = String(cell ?? '')
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
 }
 
 export function exportAllocationCsv(
@@ -51,7 +74,7 @@ export function exportAllocationCsv(
   'Formula: Yesterday + Allocation = Total; Total − Withdrawn + Deposits ± Adjustments = Remaining',
   '',
   TABLE_HEADERS.join(','),
-  ...rows.map(r => r.join(',')),
+  ...rows.map(r => r.map(csvEscape).join(',')),
   ].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -87,7 +110,7 @@ export function exportAllocationPdf(
   meta: { date: string; todaySales: number; todayProfit: number; totalAllocated: number; remainingProfit: number },
 ) {
   const html = `
-    <html><head><title>Profit Allocation ${meta.date}</title>
+    <html><head><title>Profit Allocation ${escapeHtml(meta.date)}</title>
     <style>
       body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
       h1 { font-size: 18px; margin-bottom: 4px; }
@@ -97,10 +120,10 @@ export function exportAllocationPdf(
       th { background: #f5f5f5; }
       td.num { text-align: right; }
     </style></head><body>
-      <h1>Profit Allocation — ${meta.date}</h1>
+      <h1>Profit Allocation — ${escapeHtml(meta.date)}</h1>
       <div class="meta">
-        Sales: Rs. ${meta.todaySales.toLocaleString()} · Profit: Rs. ${meta.todayProfit.toLocaleString()} ·
-        Allocated: Rs. ${meta.totalAllocated.toLocaleString()} · Remaining: Rs. ${meta.remainingProfit.toLocaleString()}
+        Sales: Rs. ${escapeHtml(meta.todaySales.toLocaleString())} · Profit: Rs. ${escapeHtml(meta.todayProfit.toLocaleString())} ·
+        Allocated: Rs. ${escapeHtml(meta.totalAllocated.toLocaleString())} · Remaining: Rs. ${escapeHtml(meta.remainingProfit.toLocaleString())}
       </div>
       <p class="meta">Yesterday + Allocation = Total · Total − Withdrawn + Deposits ± Adjustments = Remaining</p>
       <table>
@@ -111,10 +134,10 @@ export function exportAllocationPdf(
         <tbody>
           ${lines.map(l => `
           <tr>
-            <td>${l.fundName}</td><td>${l.fundType}</td><td class="num">${l.value}</td>
-            <td class="num">${l.todayAllocation}</td><td class="num">${l.yesterdayBalance}</td>
-            <td class="num">${l.totalBalance}</td><td class="num">${l.withdrawn}</td>
-            <td class="num">${l.remainingBalance}</td>
+            <td>${escapeHtml(l.fundName)}</td><td>${escapeHtml(l.fundType)}</td><td class="num">${escapeHtml(l.value)}</td>
+            <td class="num">${escapeHtml(l.todayAllocation)}</td><td class="num">${escapeHtml(l.yesterdayBalance)}</td>
+            <td class="num">${escapeHtml(l.totalBalance)}</td><td class="num">${escapeHtml(l.withdrawn)}</td>
+            <td class="num">${escapeHtml(l.remainingBalance)}</td>
           </tr>`).join('')}
         </tbody>
       </table>
