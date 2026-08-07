@@ -91,6 +91,7 @@ const reportsSubmenu: NavSubItem[] = [
   { href: '/dashboard/reports/repairs', icon: Wrench, label: 'Repairs', feature: 'REPORTS', permission: 'REPORTS' },
   { href: '/dashboard/reports/delivery', icon: Truck, label: 'Delivery', feature: 'REPORTS', permission: 'REPORTS' },
   { href: '/dashboard/daily-reload-report', icon: PhoneCall, label: 'Daily Reload Report', badge: 'NEW', feature: 'DAILY_RELOAD', permission: 'DAILY_RELOAD' },
+  { href: '/dashboard/recharge-card-report', icon: CreditCard, label: 'Recharge Card Report', badge: 'NEW', feature: 'DAILY_RELOAD', permission: 'DAILY_RELOAD' },
   { href: '/dashboard/category-report', icon: Tag, label: 'Category Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
   { href: '/dashboard/customer-report', icon: Users, label: 'Customer Report', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },
   { href: '/dashboard/payment-methods', icon: Wallet, label: 'Payment Methods', badge: 'NEW', feature: 'REPORTS', permission: 'REPORTS' },

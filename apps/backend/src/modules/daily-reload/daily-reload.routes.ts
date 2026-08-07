@@ -253,17 +253,26 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
-    const { from, to } = req.query as Record<string, string>
+    const { from, to, reloadType: reloadTypeRaw } = req.query as Record<string, string>
     const { start, end } = resolveQueryDateRange({ from, to, days: 30 })
+
+    const typeFilterRaw = String(reloadTypeRaw ?? '').trim().toUpperCase()
+    const typeFilter: ReloadServiceType | null =
+      typeFilterRaw === 'RECHARGE_CARD' || typeFilterRaw === 'RELOAD'
+        ? typeFilterRaw
+        : null
 
     res.setHeader('Cache-Control', 'no-store')
     const settings = await fetchTenantReloadSettings(tenantId)
-    const reloads = branchId
+    const allReloads = branchId
       ? await findBranchReloads(tenantId, branchId, start, end)
       : await prisma.dailyReload.findMany({
           where: { tenantId, reloadDate: { gte: start, lte: end } },
           orderBy: { reloadDate: 'asc' },
         })
+    const reloads = typeFilter
+      ? allReloads.filter((r: any) => reloadServiceType(r) === typeFilter)
+      : allReloads
 
     const totalAmount  = reloads.reduce((s: number, r: any) => s + Number(r.amount), 0)
     const successCount = reloads.filter((r: any) => r.status === 'Success').length
@@ -272,6 +281,7 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
 
     const byDate: Record<string, { date: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
     const byProvider: Record<string, { provider: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
+    const byAmount: Record<string, { amount: number; label: string; count: number; totalAmount: number; commission: number; successCount: number }> = {}
     const byType: Record<string, { type: string; label: string; count: number; totalAmount: number; commission: number; successCount: number }> = {
       RELOAD: { type: 'RELOAD', label: 'Mobile Reload', count: 0, totalAmount: 0, commission: 0, successCount: 0 },
       RECHARGE_CARD: { type: 'RECHARGE_CARD', label: 'Recharge Card', count: 0, totalAmount: 0, commission: 0, successCount: 0 },
@@ -299,6 +309,22 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
       byProvider[provider].commission += commission
       if (isSuccess) byProvider[provider].successCount++
 
+      const amtKey = String(Math.round(amt * 100) / 100)
+      if (!byAmount[amtKey]) {
+        byAmount[amtKey] = {
+          amount: Number(amtKey),
+          label: `LKR ${amtKey}`,
+          count: 0,
+          totalAmount: 0,
+          commission: 0,
+          successCount: 0,
+        }
+      }
+      byAmount[amtKey].count++
+      byAmount[amtKey].totalAmount += amt
+      byAmount[amtKey].commission += commission
+      if (isSuccess) byAmount[amtKey].successCount++
+
       const typeRow = byType[svc] ?? byType.RELOAD
       typeRow.count++
       typeRow.totalAmount += amt
@@ -321,6 +347,16 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
       }))
       .sort((a, b) => b.totalAmount - a.totalAmount)
 
+    const amountBreakdown = Object.values(byAmount)
+      .map((a) => ({
+        ...a,
+        totalAmount: round2(a.totalAmount),
+        commission: round2(a.commission),
+        netPayable: round2(a.totalAmount - a.commission),
+        share: totalAmount > 0 ? round2((a.totalAmount / totalAmount) * 100) : 0,
+      }))
+      .sort((a, b) => a.amount - b.amount)
+
     const typeBreakdown = Object.values(byType)
       .filter((t) => t.count > 0)
       .map((t) => ({
@@ -332,6 +368,7 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
       }))
 
     sendSuccess(res, {
+      reloadType:     typeFilter,
       totalCount:     reloads.length,
       totalAmount:    round2(totalAmount),
       commission:     totalCommission,
@@ -340,6 +377,7 @@ router.get('/report', async (req: Request, res: Response, next: NextFunction) =>
       failCount:      reloads.length - successCount,
       dailyBreakdown: Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date)),
       providerBreakdown,
+      amountBreakdown,
       typeBreakdown,
       settings,
     })

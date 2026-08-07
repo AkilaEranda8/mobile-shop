@@ -267,9 +267,12 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
     pathname === '/dashboard/customer-report' ||
     pathname === '/dashboard/purchase-report' ||
     pathname === '/dashboard/payment-methods' ||
-    pathname === '/dashboard/daily-reload-report'
+    pathname === '/dashboard/daily-reload-report' ||
+    pathname === '/dashboard/recharge-card-report'
   ) {
-    return pathname === '/dashboard/daily-reload-report' ? 'DAILY_RELOAD' : 'REPORTS'
+    return pathname === '/dashboard/daily-reload-report' || pathname === '/dashboard/recharge-card-report'
+      ? 'DAILY_RELOAD'
+      : 'REPORTS'
   }
   if (pathname.startsWith('/dashboard/staff') || pathname === '/staff' || pathname.startsWith('/staff/')) return 'STAFF'
   if (pathname.startsWith('/dashboard/role-permissions')) return 'STAFF'
