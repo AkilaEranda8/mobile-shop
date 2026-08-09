@@ -2504,10 +2504,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const saleDueAmount = creditMode && payNowForSale < billAfterStoreCredit ? Math.max(0, billAfterStoreCredit - payNowForSale) : 0
   const needsCustomerForPartial = hasCustomerCredit && payNowForSale < billAfterStoreCredit && !selectedCustomer?.id
   const collectAtCheckout = payNowForSale + outstandingPaying
+  // Walk-in cash: tendered amount can exceed collect (change). Customer checkout has no
+  // separate tender field — cash received is exactly what is being collected now.
   const cashReceivedAmount = paymentMethod === 'CASH'
-    ? (parseFloat(customerPaid) || collectAtCheckout)
+    ? (!selectedCustomer
+      ? (parseFloat(customerPaid) || collectAtCheckout)
+      : collectAtCheckout)
     : payNowForSale
-  const changeAmount = paymentMethod === 'CASH'
+  const changeAmount = paymentMethod === 'CASH' && !selectedCustomer
     ? Math.max(0, cashReceivedAmount - collectAtCheckout)
     : 0
 
@@ -2595,9 +2599,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (paymentMethod !== 'CASH') return
-    const amt = collectAtCheckout > 0 ? collectAtCheckout : billAfterStoreCredit
-    setCustomerPaid(amt > 0 ? amt.toFixed(2) : '')
-  }, [paymentMethod, collectAtCheckout, billAfterStoreCredit])
+    // Never fall back to full bill when collecting 0 (full credit) — that falsely
+    // looked like cash tendered and showed a bogus "Change Return".
+    setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')
+  }, [paymentMethod, collectAtCheckout])
 
   const refreshCustomerBalance = useCallback(async (customerId: string) => {
     try {
@@ -4480,12 +4485,6 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <span className="text-lg font-extrabold" style={{ color: POS_THEME.green }}>{formatCurrency(changeAmount)}</span>
                         </div>
                       )}
-                    </div>
-                  )}
-                  {selectedCustomer && paymentMethod === 'CASH' && changeAmount > 0 && (
-                    <div className="rounded-xl border px-3 py-2.5 flex items-center justify-between" style={{ background: `${POS_THEME.green}15`, borderColor: `${POS_THEME.green}40` }}>
-                      <span className="text-xs font-semibold" style={{ color: POS_THEME.green }}>Change Return</span>
-                      <span className="text-lg font-extrabold" style={{ color: POS_THEME.green }}>{formatCurrency(changeAmount)}</span>
                     </div>
                   )}
                   {checkoutError && (
