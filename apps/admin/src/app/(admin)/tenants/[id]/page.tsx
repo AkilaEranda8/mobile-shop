@@ -86,6 +86,10 @@ export default function TenantDetailPage() {
   const [priceModalErr, setPriceModalErr] = useState('')
   const [deleteInput, setDeleteInput] = useState('')
   const [editPlan, setEditPlan]       = useState<{ plan: string; mrr: string; clearTrialData: boolean } | null>(null)
+  const [editInfo, setEditInfo]       = useState<{
+    name: string; ownerName: string; ownerEmail: string; phone: string
+  } | null>(null)
+  const [editInfoErr, setEditInfoErr] = useState('')
 
   const loadTenant = useCallback(() => {
     setLoading(true)
@@ -296,6 +300,32 @@ export default function TenantDetailPage() {
     setActionLoading(false)
   }
 
+  async function handleSaveInfo() {
+    if (!tenant || !editInfo) return
+    setEditInfoErr('')
+    const name = editInfo.name.trim()
+    const ownerName = editInfo.ownerName.trim()
+    const ownerEmail = editInfo.ownerEmail.trim()
+    if (!name || !ownerName || !ownerEmail) {
+      setEditInfoErr('Shop name, owner name and email are required')
+      return
+    }
+    setActionLoading(true)
+    try {
+      await updateTenant(tenant.id, {
+        name,
+        ownerName,
+        ownerEmail,
+        phone: editInfo.phone.trim(),
+      })
+      setEditInfo(null)
+      loadTenant()
+    } catch (e) {
+      setEditInfoErr(e instanceof Error ? e.message : 'Failed to update tenant info')
+    }
+    setActionLoading(false)
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-gray-400">
@@ -420,12 +450,31 @@ export default function TenantDetailPage() {
             </dl>
           </div>
           <div className="card p-5">
-            <h3 className="section-title">Tenant Info</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="section-title mb-0">Tenant Info</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditInfoErr('')
+                  setEditInfo({
+                    name: tenant.name,
+                    ownerName: tenant.ownerName,
+                    ownerEmail: tenant.ownerEmail,
+                    phone: tenant.ownerPhone ?? '',
+                  })
+                }}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Edit
+              </button>
+            </div>
             <dl className="space-y-2.5">
               {[
                 ['Tenant ID',  <span className="font-mono text-[10px] text-blue-600 break-all">{tenant.id}</span>],
+                ['Shop Name', tenant.name],
                 ['Owner',  tenant.ownerName],
                 ['Email',  tenant.ownerEmail],
+                ['Phone', tenant.ownerPhone || '—'],
                 ['Products',  (tenant._count?.products ?? '—').toLocaleString()],
                 ['Branches',  (tenant.branches?.length ?? '—').toLocaleString()],
               ].map(([k, v]) => (
@@ -742,6 +791,62 @@ export default function TenantDetailPage() {
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditPlan(null)} className="btn-secondary">Cancel</button>
               <button onClick={handleSavePlan} disabled={actionLoading} className="btn-primary">
+                {actionLoading ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit tenant contact / name modal */}
+      {editInfo && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-sm font-bold text-gray-900 mb-4">Edit Tenant Info</h3>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Shop Name</label>
+                <input
+                  className="input"
+                  value={editInfo.name}
+                  onChange={e => setEditInfo({ ...editInfo, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Owner Name</label>
+                <input
+                  className="input"
+                  value={editInfo.ownerName}
+                  onChange={e => setEditInfo({ ...editInfo, ownerName: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Owner Email</label>
+                <input
+                  className="input"
+                  type="email"
+                  value={editInfo.ownerEmail}
+                  onChange={e => setEditInfo({ ...editInfo, ownerEmail: e.target.value })}
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Also updates the OWNER login email.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Phone / WhatsApp</label>
+                <input
+                  className="input"
+                  value={editInfo.phone}
+                  placeholder="+94771234567"
+                  onChange={e => setEditInfo({ ...editInfo, phone: e.target.value })}
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Saved to HQ branch + invoice settings.</p>
+              </div>
+              {editInfoErr && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{editInfoErr}</p>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={() => setEditInfo(null)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={handleSaveInfo} disabled={actionLoading} className="btn-primary">
                 {actionLoading ? 'Saving…' : 'Save Changes'}
               </button>
             </div>

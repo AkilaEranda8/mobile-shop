@@ -133,6 +133,8 @@ export interface TenantUser {
 }
 export interface TenantRow {
   id: string; name: string; ownerEmail: string; ownerName: string
+  ownerPhone?: string | null
+  ownerPhoneSource?: string | null
   plan: string; status: string; mrr: number | null
   subscriptionEndsAt: string | null; trialEndsAt: string | null
   createdAt: string; branches?: unknown[]

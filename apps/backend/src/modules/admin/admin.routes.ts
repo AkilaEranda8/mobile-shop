@@ -180,7 +180,8 @@ router.get('/tenants/:id', async (req: Request, res: Response, next: NextFunctio
       },
     })
     if (!tenant) throw new AppError('Tenant not found', 404)
-    sendSuccess(res, tenant)
+    const { phone: ownerPhone, source: ownerPhoneSource } = await resolveTenantOwnerPhone(tenant.id)
+    sendSuccess(res, { ...tenant, ownerPhone, ownerPhoneSource })
   } catch (e) { next(e) }
 })
 
@@ -249,9 +250,27 @@ router.delete('/tenants/:id', async (req: Request, res: Response, next: NextFunc
 
 router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const allowed = ['name', 'plan', 'status', 'mrr', 'trialEndsAt', 'subscriptionEndsAt']
+    const allowed = ['name', 'plan', 'status', 'mrr', 'trialEndsAt', 'subscriptionEndsAt', 'ownerName', 'ownerEmail']
     const data: Record<string, unknown> = {}
     for (const k of allowed) if (k in req.body) data[k] = req.body[k]
+
+    const phoneRaw = typeof req.body.phone === 'string' ? req.body.phone.trim() : undefined
+    const phoneProvided = 'phone' in req.body
+
+    if (typeof data.ownerEmail === 'string') {
+      data.ownerEmail = data.ownerEmail.trim().toLowerCase()
+      if (!data.ownerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.ownerEmail))) {
+        throw new AppError('Valid owner email is required', 400)
+      }
+    }
+    if (typeof data.ownerName === 'string') {
+      data.ownerName = String(data.ownerName).trim()
+      if (!data.ownerName) throw new AppError('Owner name is required', 400)
+    }
+    if (typeof data.name === 'string') {
+      data.name = String(data.name).trim()
+      if (!data.name) throw new AppError('Shop name is required', 400)
+    }
 
     if ('plan' in data) {
       const nextPlan = String(data.plan ?? '')
@@ -269,14 +288,103 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
       }
     }
 
-    const tenant = await prisma.tenant.update({ where: { id: req.params.id }, data })
+    const existing = await prisma.tenant.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        ownerEmail: true,
+        ownerName: true,
+        name: true,
+        invoiceSettings: true,
+        branches: { select: { id: true, phone: true, isHeadquarters: true, isActive: true } },
+      },
+    })
+    if (!existing) throw new AppError('Tenant not found', 404)
+
+    if (typeof data.ownerEmail === 'string' && data.ownerEmail !== existing.ownerEmail.toLowerCase()) {
+      const emailTaken = await prisma.tenant.findFirst({
+        where: { ownerEmail: { equals: String(data.ownerEmail), mode: 'insensitive' }, NOT: { id: existing.id } },
+        select: { id: true },
+      })
+      if (emailTaken) throw new AppError('Another tenant already uses this owner email', 409)
+
+      const userTaken = await prisma.user.findFirst({
+        where: {
+          email: { equals: String(data.ownerEmail), mode: 'insensitive' },
+          NOT: { tenantId: existing.id },
+        },
+        select: { id: true },
+      })
+      if (userTaken) throw new AppError('This email is already used by a user in another tenant', 409)
+    }
+
+    if (Object.keys(data).length === 0 && !phoneProvided) {
+      throw new AppError('No fields to update', 400)
+    }
+
+    const tenant = await prisma.$transaction(async (tx) => {
+      let invPatch: Record<string, unknown> | undefined
+      if (phoneProvided) {
+        const normalizedPhone = phoneRaw
+          ? (phoneRaw.startsWith('+') ? phoneRaw : `+${phoneRaw.replace(/\D/g, '')}`)
+          : ''
+        const hq = existing.branches.find(b => b.isHeadquarters)
+          ?? existing.branches.find(b => b.isActive)
+          ?? existing.branches[0]
+        if (hq) {
+          await tx.branch.update({ where: { id: hq.id }, data: { phone: normalizedPhone } })
+        }
+        const inv = (existing.invoiceSettings && typeof existing.invoiceSettings === 'object')
+          ? { ...(existing.invoiceSettings as Record<string, unknown>) }
+          : {}
+        inv.phone = normalizedPhone || null
+        invPatch = inv
+      }
+
+      const updated = Object.keys(data).length || invPatch
+        ? await tx.tenant.update({
+            where: { id: req.params.id },
+            data: {
+              ...data,
+              ...(invPatch ? { invoiceSettings: invPatch } : {}),
+            },
+          })
+        : await tx.tenant.findUniqueOrThrow({ where: { id: req.params.id } })
+
+      if (typeof data.ownerEmail === 'string' || typeof data.ownerName === 'string') {
+        const ownerUser = await tx.user.findFirst({
+          where: {
+            tenantId: existing.id,
+            OR: [
+              { role: 'OWNER' },
+              { email: { equals: existing.ownerEmail, mode: 'insensitive' } },
+            ],
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true },
+        })
+        if (ownerUser) {
+          const userPatch: { email?: string; name?: string } = {}
+          if (typeof data.ownerEmail === 'string') userPatch.email = String(data.ownerEmail)
+          if (typeof data.ownerName === 'string') userPatch.name = String(data.ownerName)
+          if (Object.keys(userPatch).length) {
+            await tx.user.update({ where: { id: ownerUser.id }, data: userPatch })
+          }
+        }
+      }
+
+      return updated
+    })
+
     // Plan change without an explicit mrr override → recompute from plan base + priced addons.
     if ('plan' in data && !('mrr' in data)) {
       await recalculateTenantMrr(req.params.id)
       const refreshed = await prisma.tenant.findUnique({ where: { id: req.params.id } })
-      return sendSuccess(res, refreshed ?? tenant)
+      const { phone: ownerPhone, source: ownerPhoneSource } = await resolveTenantOwnerPhone(req.params.id)
+      return sendSuccess(res, { ...(refreshed ?? tenant), ownerPhone, ownerPhoneSource })
     }
-    sendSuccess(res, tenant)
+    const { phone: ownerPhone, source: ownerPhoneSource } = await resolveTenantOwnerPhone(req.params.id)
+    sendSuccess(res, { ...tenant, ownerPhone, ownerPhoneSource })
   } catch (e) { next(e) }
 })
 
