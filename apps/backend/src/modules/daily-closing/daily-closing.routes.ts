@@ -14,7 +14,7 @@ import {
   saveOpeningCash,
 } from './daily-closing.service'
 import { normalizeBusinessDate, businessDateDb } from '../../utils/date-range'
-import { isDailyClosingEnabledForBranch, isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { isDailyClosingEnabledForBranch, isFeatureEnabledForBranch, isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import { autoAllocateOnDayClose } from '../profit-allocation/profit-allocation.service'
 import { effectiveBranchId, resolveMutationBranchId } from '../../utils/active-branch'
 import { emitDailyClosingAccounting } from '../accounting/integration/accounting-events.service'
@@ -59,6 +59,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
     const branchId = effectiveBranchId(req)
+    if (branchId) await assertBranchDailyClosing(tenantId, branchId)
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
     const where: any = { tenantId, ...(branchId && { branchId }) }
@@ -157,7 +158,7 @@ router.post('/close', authorize('OWNER', 'MANAGER'), async (req: Request, res: R
     const dateKey = resolveBusinessDate(date)
     const preview = await closeBusinessDay(req.tenantId!, branchId, dateKey, user.userId, user.email, { openingCash, cashCount, notes })
 
-    const profitFeat = await isTenantFeatureEnabled(req.tenantId!, 'PROFIT_ALLOCATION')
+    const profitFeat = await isFeatureEnabledForBranch(req.tenantId!, branchId, 'PROFIT_ALLOCATION')
     if (profitFeat) {
       try {
         await autoAllocateOnDayClose(

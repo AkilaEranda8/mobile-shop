@@ -13,9 +13,10 @@ import { cn } from '@/lib/utils'
 import { authStorage } from '@/lib/auth'
 import { authApi, tenantApi, notificationsApi } from '@/lib/api'
 import { fetchInvoiceSettings, getInvoiceSettings } from '@/lib/invoiceSettings'
-import { useTenantFeatures, useRolePermissions } from '@/lib/hooks'
+import { useTenantFeatures, useRolePermissions, useActiveBranchId } from '@/lib/hooks'
 import { usePos } from '@/lib/use-pos'
 import { getActiveBranchId, getBranchLabel, getVisibleBranches } from '@/lib/active-branch'
+import { isFeatureEnabledForActiveBranch } from '@/lib/tenant-features'
 import type { RolePermissionModuleKey } from '@/lib/role-permissions'
 import type { LucideIcon } from 'lucide-react'
 
@@ -275,10 +276,18 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [plan, setPlan]         = useState('')
   const [logo, setLogo]         = useState('')
   const [suggestionUnreadCount, setSuggestionUnreadCount] = useState(0)
-  const { hasFeature }          = useTenantFeatures()
+  const { features }          = useTenantFeatures()
+  const activeBranchId        = useActiveBranchId()
   const { canView, canEdit }    = useRolePermissions()
   const { openPos, posOpen }    = usePos()
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
+
+  const hasFeature = (feature: string) =>
+    isFeatureEnabledForActiveBranch(features, feature, {
+      activeBranchId,
+      branchScope: user?.branchScope,
+      branches: user?.branches,
+    })
 
   const allowsNavAccess = (permission?: string, requiresEdit?: boolean) => {
     if (!permission) return true

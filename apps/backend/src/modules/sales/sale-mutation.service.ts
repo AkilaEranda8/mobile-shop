@@ -10,6 +10,7 @@ import { emitSaleReturnAccounting } from '../accounting/integration/accounting-e
 import { createPostedJournalEntry } from '../accounting/journals/journal-create.service'
 import type { JournalDraftLine } from '../accounting/journals/journal-validator.util'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
+import { assertFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import type { Request } from 'express'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -142,6 +143,14 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
     throw new AppError('Invalid refund method', 400)
   }
   const isCustomerCredit = method === 'CREDIT'
+  if (isCustomerCredit) {
+    await assertFeatureEnabledForBranch(
+      input.tenantId,
+      sale.branchId,
+      'CUSTOMER_CREDIT',
+      'Customer Credit is not enabled for this branch',
+    )
+  }
   const thisSaleDuePreview = round2(Math.max(0, Number(sale.dueAmount ?? 0)))
   if (isCustomerCredit && !sale.customerId && refundAmount > thisSaleDuePreview + 0.001) {
     throw new AppError(
@@ -561,6 +570,15 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
   const effectiveDue = round2(Math.max(dueAmount, creditPaid > 0 ? creditPaid : dueAmount))
   const finalPaid = round2(Math.max(0, total - effectiveDue))
 
+  if (creditPaid > 0.001 || storeCreditPaid > 0.001 || effectiveDue > 0.001) {
+    await assertFeatureEnabledForBranch(
+      input.tenantId,
+      sale.branchId,
+      'CUSTOMER_CREDIT',
+      'Customer Credit is not enabled for this branch',
+    )
+  }
+
   if (effectiveDue > 0 && !sale.customerId) {
     throw new AppError('Customer is required when the invoice has an outstanding balance', 400)
   }
@@ -588,11 +606,11 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
     for (const row of items) {
       if (!row.productId || row.qtyDelta === 0 || !sale.branchId) continue
 
-      const product = await tx.product.findUnique({
-        where: { id: row.productId },
+      const product = await tx.product.findFirst({
+        where: { id: row.productId, tenantId: input.tenantId, branchId: sale.branchId },
         select: { stock: true, name: true, storageVariations: true, trackImei: true },
       })
-      if (!product) continue
+      if (!product) throw new AppError('Product not available at this branch', 400)
       if (product.trackImei) {
         throw new AppError(`Cannot change quantity for IMEI-tracked product "${product.name}"`, 400)
       }

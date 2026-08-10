@@ -11,7 +11,7 @@ import {
 import { buildCategoryProfitTable } from '../finance/category-profit.util'
 import { isReloadSaleItem } from '../finance/reload-item.util'
 import { saleItemCogsSql } from '../../utils/sale-item-cost.util'
-import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { isFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import { revertSavedProfitAllocation } from '../profit-allocation/revert-allocation.util'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
 
@@ -59,8 +59,8 @@ function isMobileProduct(product: { trackImei?: boolean; category?: { name?: str
   return /mobile|phone|smartphone|handset/.test(cat)
 }
 
-async function isDailyReloadEnabled(tenantId: string): Promise<boolean> {
-  return isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+async function isDailyReloadEnabled(tenantId: string, branchId: string): Promise<boolean> {
+  return isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
 }
 
 async function getOpeningCash(tenantId: string, branchId: string, dateStr: string): Promise<number> {
@@ -75,8 +75,8 @@ async function getOpeningCash(tenantId: string, branchId: string, dateStr: strin
 
 export async function buildDailyClosingPreview(tenantId: string, branchId: string, dateStr: string) {
   const dateKey = normalizeBusinessDate(dateStr)
-  const dailyReloadEnabled = await isDailyReloadEnabled(tenantId)
-  const profitAllocationEnabled = await isTenantFeatureEnabled(tenantId, 'PROFIT_ALLOCATION')
+  const dailyReloadEnabled = await isDailyReloadEnabled(tenantId, branchId)
+  const profitAllocationEnabled = await isFeatureEnabledForBranch(tenantId, branchId, 'PROFIT_ALLOCATION')
   const { start, end } = parseDateRange(dateKey)
   const branchFilter = { tenantId, branchId }
   const imeiWhere = { branchId }

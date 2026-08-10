@@ -14,7 +14,7 @@ import {
 } from '../daily-reload/reload-settings.util'
 import { findBranchReloads } from '../daily-reload/reload-branch.util'
 import { businessDayRange, businessDateDb, businessDateKeyFromInstant, listBusinessDays, normalizeBusinessDate } from '../../utils/date-range'
-import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { isFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import type { createFundSchema, updateFundSchema } from './profit-allocation.schema'
 import type { z } from 'zod'
 
@@ -116,7 +116,7 @@ async function getReloadCommissionByFund(tenantId: string, branchId: string, dat
 
 async function getManualFundIncomeMap(tenantId: string, branchId: string, dateStr: string) {
   const dateKey = normalizeBusinessDate(dateStr)
-  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const dailyReloadEnabled = await isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
 
   const map: Record<string, number> = {}
   if (dailyReloadEnabled) {
@@ -174,7 +174,7 @@ async function getDayProfit(tenantId: string, branchId: string, dateStr: string)
 export async function ensureDefaultFunds(tenantId: string, branchId: string) {
   const count = await prisma.profitFund.count({ where: { tenantId, branchId } })
   if (count > 0) return
-  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const dailyReloadEnabled = await isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
   const funds = defaultFundsForTenant(dailyReloadEnabled)
   await prisma.profitFund.createMany({
     data: funds.map(f => ({
@@ -191,7 +191,7 @@ export async function ensureDefaultFunds(tenantId: string, branchId: string) {
 
 async function ensureExtendedFunds(tenantId: string, branchId: string) {
   await ensureDefaultFunds(tenantId, branchId)
-  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const dailyReloadEnabled = await isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
   const existing = await prisma.profitFund.findMany({
     where: { tenantId, branchId },
     select: { name: true },
@@ -214,7 +214,7 @@ async function ensureExtendedFunds(tenantId: string, branchId: string) {
 
 export async function listFunds(tenantId: string, branchId: string) {
   await ensureExtendedFunds(tenantId, branchId)
-  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const dailyReloadEnabled = await isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
   const funds = await prisma.profitFund.findMany({
     where: { tenantId, branchId },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -376,7 +376,7 @@ export async function calculateAllocationLines(
   opts?: { normalizePercentages?: boolean },
 ) {
   await ensureExtendedFunds(tenantId, branchId)
-  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const dailyReloadEnabled = await isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
   const fundsRaw = await prisma.profitFund.findMany({
     where: { tenantId, branchId, isActive: true },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -414,7 +414,7 @@ export async function calculateAllocationLines(
   }> = []
 
   const categoryCostMap = await buildCategoryCostMap(tenantId, branchId, dateStr)
-  const profitAllocationExcel = await isTenantFeatureEnabled(tenantId, 'PROFIT_ALLOCATION')
+  const profitAllocationExcel = await isFeatureEnabledForBranch(tenantId, branchId, 'PROFIT_ALLOCATION')
   const manualIncomeMap = profitAllocationExcel
     ? await getManualFundIncomeMap(tenantId, branchId, dateStr)
     : {}

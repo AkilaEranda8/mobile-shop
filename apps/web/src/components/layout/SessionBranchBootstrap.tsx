@@ -15,9 +15,11 @@ export function SessionBranchBootstrap() {
     const hasUnassignedBranches = user.role !== 'OWNER'
       && (user.branches?.some(b => !assigned.includes(b.id)) ?? false)
     const missingDcFlag = user.branches?.some(b => b.dailyClosingEnabled === undefined) ?? false
+    const missingDisabled = user.branches?.some(b => b.disabledFeatures === undefined) ?? false
     const needsHydrate = !user.branches?.length || hasUnassignedBranches
       || (!user.activeBranchId && user.branchScope !== 'all')
       || missingDcFlag
+      || missingDisabled
     if (!needsHydrate) return
 
     branchesApi.list()
@@ -25,6 +27,7 @@ export function SessionBranchBootstrap() {
         const list = (res?.data ?? res ?? []) as Array<{
           id: string; name: string; city: string; isHeadquarters: boolean; isDefault?: boolean; isActive: boolean
           dailyClosingEnabled?: boolean
+          disabledFeatures?: string[] | null
         }>
         const assigned = user.branchIds?.length
           ? user.branchIds
@@ -39,6 +42,7 @@ export function SessionBranchBootstrap() {
           isDefault: b.isDefault ?? false,
           isActive: b.isActive,
           dailyClosingEnabled: b.dailyClosingEnabled !== false,
+          disabledFeatures: Array.isArray(b.disabledFeatures) ? b.disabledFeatures.map(String) : [],
         }))
         const assignedIds = assigned.length ? assigned : branches.map(b => b.id)
         const activeBranchId = user.activeBranchId
@@ -52,10 +56,23 @@ export function SessionBranchBootstrap() {
           suggestedBranchId: activeBranchId,
         }
         authStorage.updateUser(next)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('active-branch-changed', {
+            detail: {
+              branchId: next.branchScope === 'all' ? null : next.activeBranchId,
+              scope: next.branchScope,
+            },
+          }))
+        }
       })
       .catch(() => {
         if (user.branchIds?.[0] && !user.activeBranchId) {
           authStorage.updateUser({ activeBranchId: user.branchIds[0] })
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('active-branch-changed', {
+              detail: { branchId: user.branchIds[0], scope: 'assigned' },
+            }))
+          }
         }
       })
   }, [])

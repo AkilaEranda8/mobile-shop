@@ -16,6 +16,7 @@ import {
 } from './profit-allocation.schema'
 import * as profitAllocationService from './profit-allocation.service'
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { isFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 
 const router = Router()
 router.use(authenticate)
@@ -23,10 +24,8 @@ router.use(enforceModuleAccess('PROFIT_ALLOCATION'))
 
 async function requireProfitAllocationFeature(req: Request, _res: Response, next: NextFunction) {
   try {
-    const feat = await prisma.tenantFeature.findFirst({
-      where: { tenantId: req.tenantId!, feature: 'PROFIT_ALLOCATION', enabled: true },
-    })
-    if (!feat) throw new AppError('Profit Allocation is not enabled. Enable it in Settings or contact admin.', 403)
+    const ok = await isFeatureEnabledForBranch(req.tenantId!, effectiveBranchId(req), 'PROFIT_ALLOCATION')
+    if (!ok) throw new AppError('Profit Allocation is not enabled for this branch. Enable it in Settings or contact admin.', 403)
     next()
   } catch (e) { next(e) }
 }

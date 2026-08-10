@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { RELOAD_PROVIDER_IDS, type ReloadServiceType } from './reload-settings.util'
+import { normalizeDisabledFeatures } from '../../constants/plan-limits'
 
 const PROVIDER_BY_SKU: Record<string, string> = {
   DIALOG: 'Dialog',
@@ -50,6 +51,16 @@ export async function createDailyReloadsFromSaleItems(
     where: { tenantId: opts.tenantId, feature: 'DAILY_RELOAD', enabled: true },
   })
   if (!feat) return 0
+
+  if (opts.branchId) {
+    const branch = await tx.branch.findFirst({
+      where: { id: opts.branchId, tenantId: opts.tenantId },
+      select: { disabledFeatures: true },
+    })
+    if (!branch || normalizeDisabledFeatures(branch.disabledFeatures).includes('DAILY_RELOAD')) {
+      return 0
+    }
+  }
 
   let created = 0
   for (const item of opts.items) {

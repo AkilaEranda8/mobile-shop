@@ -8,9 +8,10 @@ import { authStorage } from '@/lib/auth'
 import toast from 'react-hot-toast'
 import { Switch } from '@/components/ui/Switch'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
-import { useFeatureFlag } from '@/lib/hooks'
+import { useTenantFeatures } from '@/lib/hooks'
+import { BRANCH_OPT_OUT_FEATURES, BRANCH_OPT_OUT_LABELS } from '@/lib/tenant-features'
 
-/* ── Plan limits ─────────────────────────────────────────────────── */
+/* ── Plan limits (keep in sync with backend plan-limits.ts) ───────── */
 const PLAN_BRANCH_LIMIT: Record<string, number> = {
   STARTER: 1,
   PRO: 3,
@@ -36,18 +37,26 @@ interface Branch {
   isDefault: boolean
   isActive: boolean
   dailyClosingEnabled?: boolean
+  disabledFeatures?: string[]
   createdAt: string
 }
 
 const emptyForm = {
   name: '', address: '', city: '', state: '', phone: '', email: '',
   isHeadquarters: false, isDefault: false, dailyClosingEnabled: true,
+  disabledFeatures: [] as string[],
 }
 
 /* ── Add / Edit Modal ────────────────────────────────────────────── */
 function BranchModal({
-  branch, onClose, onSaved, showDailyClosingToggle,
-}: { branch?: Branch; onClose: () => void; onSaved: () => void; showDailyClosingToggle?: boolean }) {
+  branch, onClose, onSaved, showDailyClosingToggle, optOutFeatures,
+}: {
+  branch?: Branch
+  onClose: () => void
+  onSaved: () => void
+  showDailyClosingToggle?: boolean
+  optOutFeatures: string[]
+}) {
   const isEdit = !!branch
   const [form, setForm] = useState(
     isEdit
@@ -56,13 +65,23 @@ function BranchModal({
           phone: branch.phone, email: branch.email ?? '',
           isHeadquarters: branch.isHeadquarters, isDefault: branch.isDefault ?? false,
           dailyClosingEnabled: branch.dailyClosingEnabled !== false,
+          disabledFeatures: Array.isArray(branch.disabledFeatures) ? [...branch.disabledFeatures] : [],
         }
-      : { ...emptyForm }
+      : { ...emptyForm, disabledFeatures: [] as string[] }
   )
   const [loading, setLoading] = useState(false)
 
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }))
+
+  const toggleDisabled = (feature: string, enabledOnBranch: boolean) => {
+    setForm(p => {
+      const set = new Set(p.disabledFeatures)
+      if (enabledOnBranch) set.delete(feature)
+      else set.add(feature)
+      return { ...p, disabledFeatures: [...set] }
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,6 +97,7 @@ function BranchModal({
         isHeadquarters: form.isHeadquarters,
         isDefault: form.isDefault,
         ...(showDailyClosingToggle ? { dailyClosingEnabled: form.dailyClosingEnabled } : {}),
+        ...(optOutFeatures.length ? { disabledFeatures: form.disabledFeatures.filter(f => optOutFeatures.includes(f)) } : {}),
       }
       if (isEdit) {
         await branchesApi.update(branch.id, body)
@@ -170,6 +190,26 @@ function BranchModal({
                 </p>
               </div>
             )}
+            {optOutFeatures.length > 0 && (
+              <div className="col-span-2 space-y-2 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                <p className="text-xs font-semibold pt-2" style={{ color: 'var(--text-secondary)' }}>
+                  Modules for this branch
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                  Tenant-enabled features you can turn off for this branch only. Billing stays at shop level.
+                </p>
+                {optOutFeatures.map(feature => {
+                  const label = BRANCH_OPT_OUT_LABELS[feature as keyof typeof BRANCH_OPT_OUT_LABELS] ?? feature
+                  const on = !form.disabledFeatures.includes(feature)
+                  return (
+                    <label key={feature} className="flex items-center gap-3 cursor-pointer">
+                      <Switch checked={on} onChange={v => toggleDisabled(feature, v)} />
+                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
@@ -195,7 +235,10 @@ export default function BranchesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { canEdit } = useModuleAccess()
-  const hasDailyClosing = useFeatureFlag('DAILY_CLOSING')
+  const { hasFeature } = useTenantFeatures()
+  const hasDailyClosing = hasFeature('DAILY_CLOSING')
+  // Tenant-level only (ignore active-branch opt-out) so owners can manage per-branch toggles.
+  const optOutFeatures = BRANCH_OPT_OUT_FEATURES.filter(f => hasFeature(f))
   const user = authStorage.getUser()
   const [branches, setBranches] = useState<Branch[]>([])
   const [plan, setPlan]         = useState('STARTER')
@@ -232,18 +275,27 @@ export default function BranchesPage() {
         branchesApi.list(),
         user?.tenantId ? tenantApi.get(user.tenantId) : Promise.resolve(null),
       ])
-      setBranches((brRes.data ?? brRes) as Branch[])
-      const list = (brRes.data ?? brRes) as Branch[]
+      const list = ((brRes.data ?? brRes) as Branch[]).map(b => ({
+        ...b,
+        dailyClosingEnabled: b.dailyClosingEnabled !== false,
+        disabledFeatures: Array.isArray(b.disabledFeatures) ? b.disabledFeatures.map(String) : [],
+      }))
+      setBranches(list)
       const u = authStorage.getUser()
       if (u?.branches?.length) {
         authStorage.updateUser({
           branches: u.branches.map(b => {
             const fresh = list.find(x => x.id === b.id)
             return fresh
-              ? { ...b, dailyClosingEnabled: fresh.dailyClosingEnabled !== false }
+              ? {
+                  ...b,
+                  dailyClosingEnabled: fresh.dailyClosingEnabled !== false,
+                  disabledFeatures: fresh.disabledFeatures ?? [],
+                }
               : b
           }),
         })
+        window.dispatchEvent(new Event('active-branch-changed'))
       }
       const t = tenantRes?.data ?? tenantRes
       if (t?.plan) setPlan(t.plan)
@@ -255,9 +307,23 @@ export default function BranchesPage() {
 
   return (
     <div className="space-y-6">
-      {(showAdd) && <BranchModal showDailyClosingToggle={hasDailyClosing} onClose={() => setShowAdd(false)} onSaved={fetchData} />}
-      {editBranch  && <BranchModal showDailyClosingToggle={hasDailyClosing} branch={editBranch} onClose={() => setEditBranch(null)} onSaved={fetchData} />}
-
+      {(showAdd) && (
+        <BranchModal
+          showDailyClosingToggle={hasDailyClosing}
+          optOutFeatures={optOutFeatures}
+          onClose={() => setShowAdd(false)}
+          onSaved={fetchData}
+        />
+      )}
+      {editBranch && (
+        <BranchModal
+          showDailyClosingToggle={hasDailyClosing}
+          optOutFeatures={optOutFeatures}
+          branch={editBranch}
+          onClose={() => setEditBranch(null)}
+          onSaved={fetchData}
+        />
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
@@ -334,6 +400,11 @@ export default function BranchesPage() {
                       {hasDailyClosing && branch.dailyClosingEnabled === false && (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/25">
                           DC OFF
+                        </span>
+                      )}
+                      {(branch.disabledFeatures?.length ?? 0) > 0 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-500/15 text-slate-400 border border-slate-500/25">
+                          {branch.disabledFeatures!.length} module{branch.disabledFeatures!.length !== 1 ? 's' : ''} off
                         </span>
                       )}
                     </div>

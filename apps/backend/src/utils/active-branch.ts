@@ -11,6 +11,8 @@ export interface BranchSummary {
   isHeadquarters: boolean
   isDefault: boolean
   isActive: boolean
+  dailyClosingEnabled?: boolean
+  disabledFeatures?: string[]
 }
 
 declare global {
@@ -46,11 +48,32 @@ export async function getUserBranchIds(userId: string, tenantId: string, role: s
 }
 
 export async function getTenantBranches(tenantId: string): Promise<BranchSummary[]> {
-  return prisma.branch.findMany({
+  const rows = await prisma.branch.findMany({
     where: { tenantId, isActive: true },
-    select: { id: true, name: true, city: true, isHeadquarters: true, isDefault: true, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      isHeadquarters: true,
+      isDefault: true,
+      isActive: true,
+      dailyClosingEnabled: true,
+      disabledFeatures: true,
+    },
     orderBy: [{ isDefault: 'desc' }, { isHeadquarters: 'desc' }, { name: 'asc' }],
   })
+  return rows.map(b => ({
+    id: b.id,
+    name: b.name,
+    city: b.city,
+    isHeadquarters: b.isHeadquarters,
+    isDefault: b.isDefault,
+    isActive: b.isActive,
+    dailyClosingEnabled: b.dailyClosingEnabled !== false,
+    disabledFeatures: Array.isArray(b.disabledFeatures)
+      ? (b.disabledFeatures as unknown[]).map(v => String(v))
+      : [],
+  }))
 }
 
 /**

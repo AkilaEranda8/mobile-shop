@@ -11,6 +11,8 @@ import {
   buildPriceMap,
 } from '../tenants/tenant-features'
 import { handleAccountingFeatureBatch } from '../accounting/accounting-feature.util'
+import { recalculateTenantMrr } from '../../utils/tenant-mrr'
+import { planBranchLimit } from '../../constants/plan-limits'
 import { DEFAULT_MAINTENANCE_MESSAGE, getMaintenanceStatus, syncMaintenanceAnnouncement } from '../../utils/platform-config'
 import {
   authRateLimitKey,
@@ -250,7 +252,30 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
     const allowed = ['name', 'plan', 'status', 'mrr', 'trialEndsAt', 'subscriptionEndsAt']
     const data: Record<string, unknown> = {}
     for (const k of allowed) if (k in req.body) data[k] = req.body[k]
+
+    if ('plan' in data) {
+      const nextPlan = String(data.plan ?? '')
+      const limit = planBranchLimit(nextPlan)
+      if (Number.isFinite(limit)) {
+        const activeCount = await prisma.branch.count({
+          where: { tenantId: req.params.id, isActive: true },
+        })
+        if (activeCount > limit) {
+          throw new AppError(
+            `Cannot set plan to ${nextPlan}: ${activeCount} active branches exceed the limit of ${limit}. Deactivate extra branches first.`,
+            400,
+          )
+        }
+      }
+    }
+
     const tenant = await prisma.tenant.update({ where: { id: req.params.id }, data })
+    // Plan change without an explicit mrr override → recompute from plan base + priced addons.
+    if ('plan' in data && !('mrr' in data)) {
+      await recalculateTenantMrr(req.params.id)
+      const refreshed = await prisma.tenant.findUnique({ where: { id: req.params.id } })
+      return sendSuccess(res, refreshed ?? tenant)
+    }
     sendSuccess(res, tenant)
   } catch (e) { next(e) }
 })
@@ -299,8 +324,9 @@ router.put('/tenants/:id/features', async (req: Request, res: Response, next: Ne
       })
     )
     await handleAccountingFeatureBatch(req.params.id, features, (req as any).user?.email ?? 'admin')
+    const mrr = await recalculateTenantMrr(req.params.id)
     const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
-    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) }, 'Features updated')
+    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows), mrr }, 'Features updated')
   } catch (e) { next(e) }
 })
 

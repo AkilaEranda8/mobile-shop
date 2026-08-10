@@ -24,15 +24,17 @@ import type {
  * Behavior mirrors legacy inline logic in sales.service.ts (delegate parity).
  */
 export async function applySaleStockEffects(input: ApplySaleStockInput): Promise<void> {
-  const { tx, branchId, saleId, invoiceNumber, cashierName, customerId, items } = input
+  const { tx, tenantId, branchId, saleId, invoiceNumber, cashierName, customerId, items } = input
 
   for (const item of items) {
     if (!item.productId) continue
-    const product = await tx.product.findUnique({
-      where: { id: item.productId },
+    const product = await tx.product.findFirst({
+      where: { id: item.productId, tenantId, branchId },
       select: { stock: true, name: true, storageVariations: true },
     })
-    if (!product) continue
+    if (!product) {
+      throw new AppError('Product not available at this branch', 400)
+    }
 
     const variantMode = hasVariants(product.storageVariations)
     const available = variantMode ? sumVariantStock(product.storageVariations) : product.stock
@@ -71,7 +73,7 @@ export async function applySaleStockEffects(input: ApplySaleStockInput): Promise
       })
     } else {
       const dec = await tx.product.updateMany({
-        where: { id: item.productId, stock: { gte: item.quantity } },
+        where: { id: item.productId, branchId, stock: { gte: item.quantity } },
         data: { stock: { decrement: item.quantity } },
       })
       if (dec.count === 0) {
@@ -96,6 +98,9 @@ export async function applySaleStockEffects(input: ApplySaleStockInput): Promise
     if (item.imei) {
       const existingImei = await tx.imeiRecord.findUnique({ where: { imei: item.imei } })
       if (existingImei) {
+        if (existingImei.branchId !== branchId) {
+          throw new AppError(`IMEI ${item.imei} belongs to a different branch`, 400)
+        }
         await tx.imeiRecord.update({
           where: { imei: item.imei },
           data: {

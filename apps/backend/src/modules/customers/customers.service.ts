@@ -8,6 +8,7 @@ import { emitOpeningCustomerArAccounting } from '../accounting/integration/accou
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { parseOptionalPaymentAt, assertPaymentAtNotFuture } from '../../utils/date-range'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
+import { assertFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -403,6 +404,7 @@ export const customersService = {
   }, req?: Request) {
     const c = await prisma.customer.findFirst({ where: { id: customerId, tenantId } })
     if (!c) throw new AppError('Customer not found', 404)
+    if (req && c.branchId) assertBranchRecordAccess(req, c.branchId)
 
     const cashAmount = round2(Number(body.amount) || 0)
     const discountAmount = round2(Math.max(0, Number(body.discount) || 0))
@@ -429,6 +431,13 @@ export const customersService = {
     if (req) {
       await resolveMutationBranchId(req, { preferred: branchId })
     }
+
+    await assertFeatureEnabledForBranch(
+      tenantId,
+      branchId,
+      'CUSTOMER_CREDIT',
+      'Customer Credit is not enabled for this branch',
+    )
 
     let occurredAt: Date | undefined
     try {

@@ -17,6 +17,7 @@ import {
 import { buildProviderBreakdown, computeProviderPriorBalances, summarizeProviderBreakdown } from './reload-provider.util'
 import { findBranchReloads } from './reload-branch.util'
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
+import { isFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 
 const router = Router()
 router.use(authenticate)
@@ -24,10 +25,8 @@ router.use(enforceModuleAccess('DAILY_RELOAD'))
 
 async function requireDailyReloadFeature(req: Request, _res: Response, next: NextFunction) {
   try {
-    const feat = await prisma.tenantFeature.findFirst({
-      where: { tenantId: req.tenantId!, feature: 'DAILY_RELOAD', enabled: true },
-    })
-    if (!feat) throw new AppError('Daily Reload is not enabled for this shop. Ask your admin to enable it.', 403)
+    const ok = await isFeatureEnabledForBranch(req.tenantId!, effectiveBranchId(req), 'DAILY_RELOAD')
+    if (!ok) throw new AppError('Daily Reload is not enabled for this branch. Ask your admin to enable it.', 403)
     next()
   } catch (e) { next(e) }
 }

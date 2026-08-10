@@ -121,6 +121,11 @@ export function ensureOperationalBranch(): string | undefined {
       suggestedBranchId: id,
     })
     localStorage.setItem(lastBranchKey(user.id), id)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('active-branch-changed', {
+        detail: { branchId: id, scope },
+      }))
+    }
   }
 
   return id

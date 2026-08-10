@@ -1,6 +1,7 @@
 import { prisma } from '../../../config/database'
 import { enqueueOutboxItem } from './accounting-outbox.service'
 import { processAccountingOutbox } from './accounting-processor.service'
+import { isFeatureEnabledForBranch } from '../../../utils/tenant-feature.util'
 
 type EventPayload = {
   tenantId: string
@@ -35,7 +36,14 @@ export async function emitAccountingEvents(
     const settings = await accountingReady(events[0].tenantId)
     if (!settings) return { skipped: true, reason: 'accounting not initialized' }
 
+    const allowed: EventPayload[] = []
     for (const e of events) {
+      const ok = await isFeatureEnabledForBranch(e.tenantId, e.branchId, 'ACCOUNTING')
+      if (ok) allowed.push(e)
+    }
+    if (!allowed.length) return { skipped: true, reason: 'accounting disabled for branch' }
+
+    for (const e of allowed) {
       await enqueueOutboxItem({
         tenantId: e.tenantId,
         branchId: e.branchId,

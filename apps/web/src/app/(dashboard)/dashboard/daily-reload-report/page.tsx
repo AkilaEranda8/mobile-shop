@@ -9,7 +9,7 @@ import {
   PhoneCall, DollarSign, TrendingUp, CheckCircle, Download, Calendar,
   Search, Wallet, CreditCard,
 } from 'lucide-react'
-import { useActiveBranchId, useDailyReloadReport, useTenantFeatures } from '@/lib/hooks'
+import { useActiveBranchId, useDailyReloadReport, useFeatureFlag } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 
@@ -105,8 +105,7 @@ const renderPieLabel = ({ name, percent }: any) =>
   percent > 0.04 ? `${String(name).slice(0, 12)}${String(name).length > 12 ? '…' : ''} ${(percent * 100).toFixed(0)}%` : ''
 
 export default function DailyReloadReportPage() {
-  const { hasFeature, loading: featuresLoading } = useTenantFeatures()
-  const hasDailyReload = hasFeature('DAILY_RELOAD')
+  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
 
   const [period, setPeriod] = useState('30')
   const branchId = useActiveBranchId() ?? ''
@@ -177,14 +176,6 @@ export default function DailyReloadReportPage() {
     r.date, r.count, r.totalAmount.toFixed(2), r.commission.toFixed(2), r.successCount, r.count - r.successCount,
   ])
 
-  if (featuresLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh] text-sm" style={{ color: 'var(--text-muted)' }}>
-        Loading report…
-      </div>
-    )
-  }
-
   if (!hasDailyReload) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -193,7 +184,7 @@ export default function DailyReloadReportPage() {
         </div>
         <div className="text-center">
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Daily Reload Report</h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>This feature is not enabled for your account.</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>This feature is not enabled for this branch.</p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Contact your administrator to enable Daily Reload.</p>
         </div>
       </div>

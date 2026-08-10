@@ -6,7 +6,7 @@ import { enforceModuleAccess, requireModuleAccess } from '../../middleware/modul
 import { AppError } from '../../middleware/error.middleware'
 import { sendPaginated, sendSuccess } from '../../utils/response'
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
-import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { isFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import { getPagination } from '../../utils/pagination'
 import { generateInvoiceNumber } from '../../utils/counters'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
@@ -62,8 +62,9 @@ const DEFAULT_ACTIONS: Record<string, HpAction[]> = {
 
 async function requireFeature(req: Request, _res: Response, next: NextFunction) {
   try {
-    if (!(await isTenantFeatureEnabled(req.tenantId!, 'HIRE_PURCHASE'))) {
-      throw new AppError('Hire Purchase is not enabled for this tenant', 403)
+    const branchId = effectiveBranchId(req)
+    if (!(await isFeatureEnabledForBranch(req.tenantId!, branchId, 'HIRE_PURCHASE'))) {
+      throw new AppError('Hire Purchase is not enabled for this branch', 403)
     }
     next()
   } catch (error) {

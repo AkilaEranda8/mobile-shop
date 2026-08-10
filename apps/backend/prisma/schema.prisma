@@ -315,6 +315,8 @@ model Branch {
   isActive            Boolean  @default(true)
   /// When tenant has DAILY_CLOSING, this branch can opt out of day lock / day close UI
   dailyClosingEnabled Boolean  @default(true)
+  /// Tenant-enabled opt-in modules this branch turns off (e.g. ["ACCOUNTING","HIRE_PURCHASE"])
+  disabledFeatures    Json?
   /// Per-branch bill/receipt header overrides (merged over Tenant.invoiceSettings)
   invoiceSettings     Json?
   createdAt           DateTime @default(now())

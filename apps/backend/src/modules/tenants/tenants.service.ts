@@ -11,6 +11,7 @@ import {
 import { normalizeRolePermissions } from './role-permissions.util'
 import { ensureBranchCashAccounts } from '../accounting/accounting-init.service'
 import { invalidateRolePermissionCache } from '../../middleware/module-access.middleware'
+import { normalizeDisabledFeatures, planBranchLimit } from '../../constants/plan-limits'
 
 const OWNER_ROLES = new Set(['OWNER', 'PLATFORM_ADMIN'])
 
@@ -221,7 +222,18 @@ export const tenantsService = {
     })
   },
 
-  async createBranch(tenantId: string, body: { name: string; address: string; city: string; state: string; phone: string; email?: string; isHeadquarters?: boolean; isDefault?: boolean; dailyClosingEnabled?: boolean }) {
+  async createBranch(tenantId: string, body: {
+    name: string
+    address: string
+    city: string
+    state: string
+    phone: string
+    email?: string
+    isHeadquarters?: boolean
+    isDefault?: boolean
+    dailyClosingEnabled?: boolean
+    disabledFeatures?: string[]
+  }) {
     // Prevent mass-assignment overwriting tenantId (or other unexpected fields).
     const {
       name,
@@ -233,7 +245,21 @@ export const tenantsService = {
       isHeadquarters,
       isDefault,
       dailyClosingEnabled,
+      disabledFeatures,
     } = body as any
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } })
+    if (!tenant) throw new AppError('Tenant not found', 404)
+    const limit = planBranchLimit(tenant.plan)
+    if (Number.isFinite(limit)) {
+      const activeCount = await prisma.branch.count({ where: { tenantId, isActive: true } })
+      if (activeCount >= limit) {
+        throw new AppError(
+          `Your ${tenant.plan} plan allows only ${limit} branch${limit === 1 ? '' : 'es'}. Upgrade to add more.`,
+          403,
+        )
+      }
+    }
 
     const branch = await prisma.$transaction(async (tx) => {
       if (isHeadquarters) {
@@ -254,6 +280,7 @@ export const tenantsService = {
           isHeadquarters,
           isDefault,
           dailyClosingEnabled,
+          disabledFeatures: normalizeDisabledFeatures(disabledFeatures),
         },
       })
     })
@@ -268,7 +295,19 @@ export const tenantsService = {
   async updateBranch(
     tenantId: string,
     id: string,
-    body: Partial<{ name: string; address: string; city: string; state: string; phone: string; email: string; isActive: boolean; isHeadquarters: boolean; isDefault: boolean; dailyClosingEnabled: boolean }>,
+    body: Partial<{
+      name: string
+      address: string
+      city: string
+      state: string
+      phone: string
+      email: string
+      isActive: boolean
+      isHeadquarters: boolean
+      isDefault: boolean
+      dailyClosingEnabled: boolean
+      disabledFeatures: string[]
+    }>,
     userId?: string,
     role?: string,
   ) {
@@ -284,6 +323,7 @@ export const tenantsService = {
       isHeadquarters,
       isDefault,
       dailyClosingEnabled,
+      disabledFeatures,
     } = body as any
 
     const safeUpdate: Partial<{
@@ -297,6 +337,7 @@ export const tenantsService = {
       isHeadquarters: boolean
       isDefault: boolean
       dailyClosingEnabled: boolean
+      disabledFeatures: string[]
     }> = {
       name,
       address,
@@ -309,6 +350,9 @@ export const tenantsService = {
       isDefault,
       dailyClosingEnabled,
     }
+    if (disabledFeatures !== undefined) {
+      safeUpdate.disabledFeatures = normalizeDisabledFeatures(disabledFeatures)
+    }
 
     const b = await prisma.branch.findFirst({ where: { id, tenantId } })
     if (!b) throw new AppError('Branch not found', 404)
@@ -316,6 +360,22 @@ export const tenantsService = {
       const allowed = await getUserBranchIds(userId, tenantId, role)
       if (!allowed.includes(id)) throw new AppError('Branch access denied', 403)
     }
+
+    // Reactivating a branch still counts against plan limit.
+    if (isActive === true && !b.isActive) {
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } })
+      const limit = planBranchLimit(tenant?.plan)
+      if (Number.isFinite(limit)) {
+        const activeCount = await prisma.branch.count({ where: { tenantId, isActive: true } })
+        if (activeCount >= limit) {
+          throw new AppError(
+            `Your ${tenant?.plan ?? 'current'} plan allows only ${limit} active branch${limit === 1 ? '' : 'es'}.`,
+            403,
+          )
+        }
+      }
+    }
+
     return prisma.$transaction(async (tx) => {
       if (isHeadquarters) {
         await tx.branch.updateMany({ where: { tenantId, isHeadquarters: true, id: { not: id } }, data: { isHeadquarters: false } })

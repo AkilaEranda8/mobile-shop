@@ -11,7 +11,7 @@ import {
   toFinanceSummaryResponse,
   type BusinessFinancialSummary,
 } from './business-financials.service'
-import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { isFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
@@ -197,7 +197,7 @@ async function buildPeriodIncomeBreakdown(
 ): Promise<LineItem[]> {
   const { start, end } = resolveQueryDateRange({ from: fromKey, to: toKey })
   const bf = await branchFilter(tenantId, branchId)
-  const dailyReloadEnabled = await isTenantFeatureEnabled(tenantId, 'DAILY_RELOAD')
+  const dailyReloadEnabled = await isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
 
   const sales = await prisma.sale.findMany({
     where: {

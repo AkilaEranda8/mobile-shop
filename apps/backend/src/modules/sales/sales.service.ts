@@ -14,7 +14,7 @@ import { applySaleStockEffectsIfEnabled } from '../inventory-engine/inventory-en
 import { applySalePricingIfEnabled } from '../pricing-engine/pricing-engine.service'
 import { buildReportFilterContext } from '../report-engine/report-engine.service'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
-import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
+import { isTenantFeatureEnabled, assertFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import {
   businessDateFromInstant,
   businessDayNoon,
@@ -86,6 +86,21 @@ export const salesService = {
       throw new AppError('Customer is required when recording credit / partial payment', 400)
     }
     const branchId = await resolveMutationBranchId(req, { preferred: body.branchId })
+    const paymentsPreview = Array.isArray(body.payments) ? body.payments : []
+    const usesCustomerCredit =
+      dueAmount > 0.001
+      || paymentsPreview.some((p: { method?: string }) => {
+        const m = String(p.method || '').toUpperCase()
+        return m === 'CREDIT' || m === 'STORE_CREDIT'
+      })
+    if (usesCustomerCredit) {
+      await assertFeatureEnabledForBranch(
+        tenantId,
+        branchId,
+        'CUSTOMER_CREDIT',
+        'Customer Credit is not enabled for this branch',
+      )
+    }
     const { saleAt } = await resolveSaleInstant(tenantId, body.businessDate)
     await assertBusinessDayOpenIfEnabled(tenantId, branchId, saleAt)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
@@ -101,7 +116,7 @@ export const salesService = {
     }>()
     if (productIds.length) {
       const products = await prisma.product.findMany({
-        where: { tenantId, id: { in: productIds } },
+        where: { tenantId, branchId, id: { in: productIds } },
         select: {
           id: true,
           buyingPrice: true,
@@ -111,6 +126,9 @@ export const salesService = {
           creditPrice: true,
         },
       })
+      if (products.length !== productIds.length) {
+        throw new AppError('One or more products are not available at this branch', 400)
+      }
       for (const p of products) {
         productCostMap.set(p.id, {
           buyingPrice: p.buyingPrice,
@@ -133,10 +151,11 @@ export const salesService = {
     for (const item of items) {
       if (!item.productId) continue
       const product = await prisma.product.findFirst({
-        where: { id: item.productId, tenantId },
+        where: { id: item.productId, tenantId, branchId },
         select: { trackImei: true, name: true },
       })
-      if (!product?.trackImei) continue
+      if (!product) throw new AppError('Product not available at this branch', 400)
+      if (!product.trackImei) continue
       const imei = (item.imei ?? '').trim()
       if (!imei) throw new AppError(`IMEI required for "${product.name}"`, 400)
       if (Number(item.quantity) > 1) {
@@ -146,6 +165,9 @@ export const salesService = {
       if (!record) throw new AppError(`IMEI ${imei} is not registered in the system`, 400)
       if (record.productId !== item.productId) {
         throw new AppError(`IMEI ${imei} belongs to a different product`, 400)
+      }
+      if (record.branchId !== branchId) {
+        throw new AppError(`IMEI ${imei} belongs to a different branch`, 400)
       }
       if (record.status !== 'IN_STOCK') {
         throw new AppError(`IMEI ${imei} is not available for sale (status: ${record.status})`, 400)
@@ -208,8 +230,11 @@ export const salesService = {
       if (!stockHandledByEngine) {
         for (const item of items) {
           if (!item.productId) continue  // service items have no productId — skip stock ops
-          const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true, storageVariations: true } })
-          if (!product) continue         // productId present but not found — skip safely
+          const product = await tx.product.findFirst({
+            where: { id: item.productId, tenantId, branchId },
+            select: { stock: true, name: true, storageVariations: true },
+          })
+          if (!product) throw new AppError('Product not available at this branch', 400)
 
           const variantMode = hasVariants(product.storageVariations)
           const available = variantMode ? sumVariantStock(product.storageVariations) : product.stock
@@ -242,7 +267,7 @@ export const salesService = {
             })
           } else {
             const dec = await tx.product.updateMany({
-              where: { id: item.productId, stock: { gte: item.quantity } },
+              where: { id: item.productId, branchId, stock: { gte: item.quantity } },
               data:  { stock: { decrement: item.quantity } },
             })
             if (dec.count === 0) {
@@ -253,6 +278,9 @@ export const salesService = {
           if (item.imei) {
             const existingImei = await tx.imeiRecord.findUnique({ where: { imei: item.imei } })
             if (existingImei) {
+              if (existingImei.branchId !== branchId) {
+                throw new AppError(`IMEI ${item.imei} belongs to a different branch`, 400)
+              }
               await tx.imeiRecord.update({ where: { imei: item.imei }, data: { status: 'SOLD', customerId: body.customerId ?? existingImei.customerId, saleId: s.id } })
             } else if (item.productId) {
               await tx.imeiRecord.create({

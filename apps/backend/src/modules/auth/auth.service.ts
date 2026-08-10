@@ -431,8 +431,7 @@ export const authService = {
       include: { branches: { select: { branchId: true } } },
     })
     if (!user) throw new AppError('User not found', 404)
-    const { password: _pw, ...safe } = user as any
-    return safe
+    return buildUserSession(user)
   },
 
   async impersonateExchange(code: string) {

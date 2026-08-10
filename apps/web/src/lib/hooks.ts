@@ -6,7 +6,7 @@ import {
   imeiApi, usersApi, branchesApi, tenantApi, dailyReloadApi, dailyClosingApi, profitAllocationApi,
   fetchPlatformStatus, type PlatformStatus,
 } from './api'
-import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES } from './tenant-features'
+import { isFeatureEnabled, clearFeaturesCache, PRICED_FEATURES, isFeatureEnabledForActiveBranch } from './tenant-features'
 import { normalizeRepairTicket } from './repair.util'
 import { getActiveBranchId } from './active-branch'
 import { authStorage } from './auth'
@@ -106,8 +106,21 @@ export function useTenantFeatures() {
 }
 
 export function useFeatureFlag(feature: string): boolean {
-  const { hasFeature } = useTenantFeatures()
-  return hasFeature(feature)
+  const { features } = useTenantFeatures()
+  const activeBranchId = useActiveBranchId()
+  const [userTick, setUserTick] = useState(0)
+  useEffect(() => {
+    const sync = () => setUserTick(t => t + 1)
+    window.addEventListener('active-branch-changed', sync)
+    return () => window.removeEventListener('active-branch-changed', sync)
+  }, [])
+  const user = authStorage.getUser()
+  void userTick
+  return isFeatureEnabledForActiveBranch(features, feature, {
+    activeBranchId,
+    branchScope: user?.branchScope,
+    branches: user?.branches,
+  })
 }
 
 const ROLE_PERMS_CACHE_PREFIX = 'hx_role_permissions'
