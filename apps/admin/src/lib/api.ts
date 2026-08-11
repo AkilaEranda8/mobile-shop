@@ -2,6 +2,8 @@
  * Hexalyte Admin API client — real data only, no mock fallbacks
  */
 
+import { ADMIN_SESSION_MAX_AGE } from './products'
+
 const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_URL || 'http://localhost:3001/admin/v1'
 const API_BASE   = process.env.NEXT_PUBLIC_API_URL       || 'http://localhost:3001/api/v1'
 
@@ -11,12 +13,17 @@ const USER_KEY = 'admin_user'
 
 export type AdminUserInfo = { id?: string; name: string; email: string; role: string }
 
+function touchAdminGateCookie() {
+  if (typeof document === 'undefined') return
+  document.cookie = `admin_token=1; path=/; max-age=${ADMIN_SESSION_MAX_AGE}; SameSite=Strict`
+}
+
 export const adminAuth = {
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null),
   setToken: (t: string) => {
     localStorage.setItem(TOKEN_KEY, t)
     // Gate cookie only — JWT stays in localStorage (avoids 4KB cookie limit)
-    document.cookie = `admin_token=1; path=/; max-age=${60 * 60 * 8}; SameSite=Strict`
+    touchAdminGateCookie()
   },
   getUser: (): AdminUserInfo | null => {
     if (typeof window === 'undefined') return null
@@ -118,6 +125,7 @@ async function req<T>(
 
   const { json, text } = await parseResponseBody(res)
   if (!res.ok) throw new Error(responseErrorMessage(json, text))
+  if (token) touchAdminGateCookie()
   return (json.data ?? json) as T
 }
 

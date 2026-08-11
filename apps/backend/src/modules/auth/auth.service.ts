@@ -57,7 +57,8 @@ async function issueLocalTokens(user: {
   const payload = { userId: user.id, tenantId: user.tenantId, role: user.role, email: user.email }
   const accessToken = signAccessToken(payload)
   const refreshToken = signRefreshToken(payload)
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const days = user.role === 'PLATFORM_ADMIN' ? 30 : 7
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
   await prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt } })
   return { accessToken, refreshToken }
 }

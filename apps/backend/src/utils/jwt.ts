@@ -10,12 +10,23 @@ export interface JwtPayload {
   impersonation?: boolean
 }
 
+const PLATFORM_ADMIN_ACCESS_TTL = '30d'
+const PLATFORM_ADMIN_REFRESH_TTL = '30d'
+
+function accessTtl(role?: string) {
+  return role === 'PLATFORM_ADMIN' ? PLATFORM_ADMIN_ACCESS_TTL : env.JWT_EXPIRES_IN
+}
+
+function refreshTtl(role?: string) {
+  return role === 'PLATFORM_ADMIN' ? PLATFORM_ADMIN_REFRESH_TTL : env.JWT_REFRESH_EXPIRES_IN
+}
+
 export function signAccessToken(payload: JwtPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as any })
+  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: accessTtl(payload.role) as any })
 }
 
 export function signRefreshToken(payload: JwtPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRES_IN as any })
+  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: refreshTtl(payload.role) as any })
 }
 
 /** Short-lived HS256 token for admin → shop support session */

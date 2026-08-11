@@ -98,6 +98,9 @@ function normalizeBillingPhone(phone: string): string {
   return phone.startsWith('+') ? phone : `+${digits}`
 }
 
+/** Paying MRR only — suspended/cancelled shops keep a stored mrr but must not inflate totals. */
+const MRR_WHERE = { status: { in: ['ACTIVE', 'TRIAL'] as const } }
+
 // ── Dashboard Stats ──────────────────────────────────────────────────────────
 router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
   try {
@@ -109,7 +112,7 @@ router.get('/stats', async (_req: Request, res: Response, next: NextFunction) =>
       prisma.tenant.count({ where: { status: 'ACTIVE' } }),
       prisma.tenant.count({ where: { status: 'TRIAL' } }),
       prisma.tenant.count({ where: { status: 'SUSPENDED' } }),
-      prisma.tenant.aggregate({ _sum: { mrr: true } }),
+      prisma.tenant.aggregate({ where: MRR_WHERE, _sum: { mrr: true } }),
       prisma.user.count(),
       prisma.tenant.count({
         where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
@@ -657,7 +660,9 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
       paymentDuePeriodEnd: t.paymentDuePeriodEnd,
       paymentDueAt: t.paymentDueAt,
     }))
-    const mrrTotal = data.reduce((s: number, t: { mrr: number | null }) => s + (t.mrr ?? 0), 0)
+    const mrrTotal = data.reduce((s: number, t: { status: string; mrr: number | null }) => (
+      t.status === 'SUSPENDED' || t.status === 'CANCELLED' ? s : s + (t.mrr ?? 0)
+    ), 0)
     sendSuccess(res, { data, mrrTotal })
   } catch (e) { next(e) }
 })
@@ -865,8 +870,9 @@ router.get('/analytics', async (_req: Request, res: Response, next: NextFunction
       prisma.sale.aggregate({ _sum: { total: true }, _count: true }),
       prisma.repairTicket.count(),
       prisma.customer.count(),
-      prisma.tenant.groupBy({ by: ['plan'], _count: true, _sum: { mrr: true } }),
+      prisma.tenant.groupBy({ by: ['plan'], where: MRR_WHERE, _count: true, _sum: { mrr: true } }),
       prisma.tenant.findMany({
+        where: MRR_WHERE,
         select: { id: true, name: true, mrr: true, plan: true, status: true,
           _count: { select: { sales: true, users: true } } },
         orderBy: { mrr: 'desc' },
@@ -1639,7 +1645,7 @@ router.get('/mrr-chart', async (_req: Request, res: Response, next: NextFunction
       d.setMonth(d.getMonth() - i)
       const label = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })
       const agg = await prisma.tenant.aggregate({
-        where: { createdAt: { lte: d }, status: { in: ['ACTIVE', 'TRIAL'] } },
+        where: { createdAt: { lte: d }, ...MRR_WHERE },
         _sum: { mrr: true },
       })
       months.push({ month: label, mrr: agg._sum.mrr ?? 0 })

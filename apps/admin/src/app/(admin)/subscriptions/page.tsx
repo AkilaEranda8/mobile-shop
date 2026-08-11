@@ -493,18 +493,23 @@ export default function SubscriptionsPage() {
   const arpu    = Math.round(mrr / (stats?.activeTenants || 1))
   const churnMrr = Math.round(mrr * (stats?.churnRate ?? 0) / 100)
 
-  /* revenue by plan — computed from real subs */
+  const payingSubs = useMemo(
+    () => subs.filter(s => s.status !== 'SUSPENDED' && s.status !== 'CANCELLED'),
+    [subs],
+  )
+
+  /* revenue by plan — computed from real paying subs (not suspended/cancelled) */
   const planRevenue = useMemo(() => {
     const map: Record<string, number> = {}
-    subs.forEach(s => { if (s.mrr) map[s.plan] = (map[s.plan] ?? 0) + s.mrr })
+    payingSubs.forEach(s => { if (s.mrr) map[s.plan] = (map[s.plan] ?? 0) + s.mrr })
     return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [subs])
+  }, [payingSubs])
 
   const planCounts = useMemo(() => {
     const map: Record<string, number> = {}
-    subs.forEach(s => { map[s.plan] = (map[s.plan] ?? 0) + 1 })
+    payingSubs.forEach(s => { map[s.plan] = (map[s.plan] ?? 0) + 1 })
     return map
-  }, [subs])
+  }, [payingSubs])
 
   const filtered = useMemo(() =>
     subs.filter(s =>
@@ -512,7 +517,7 @@ export default function SubscriptionsPage() {
       (planFilter === 'ALL' || s.plan === planFilter)
     ), [subs, search, planFilter])
 
-  const totalMrr = subs.reduce((s, t) => s + (t.mrr ?? 0), 0)
+  const totalMrr = payingSubs.reduce((s, t) => s + (t.mrr ?? 0), 0)
   const paymentDueList = useMemo(() => subs.filter(s => s.paymentDue), [subs])
 
   const openWhatsApp = (s: SubscriptionRow, mode: 'invoice' | 'reminder' = 'invoice') => {
@@ -848,7 +853,7 @@ export default function SubscriptionsPage() {
           </div>
           {filtered.length > 0 && (
             <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <p className="text-xs text-gray-400">Total MRR: <span className="font-semibold text-gray-700">{fmt(filtered.reduce((s, t) => s + (t.mrr ?? 0), 0))}</span></p>
+              <p className="text-xs text-gray-400">Total MRR: <span className="font-semibold text-gray-700">{fmt(filtered.filter(t => t.status !== 'SUSPENDED' && t.status !== 'CANCELLED').reduce((s, t) => s + (t.mrr ?? 0), 0))}</span></p>
               <p className="text-xs text-gray-400">{filtered.length} of {subs.length} tenants</p>
             </div>
           )}

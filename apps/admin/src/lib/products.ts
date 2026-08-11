@@ -46,3 +46,5 @@ export function getProduct(id: HubProduct): ProductDef {
 
 export const PRODUCT_STORAGE_KEY = 'hx_admin_product'
 export const HUB_SESSION_COOKIE = 'hx_hub_session'
+/** Gate cookie lifetime — 30 days so admin is not kicked after 8 hours. */
+export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 24 * 30

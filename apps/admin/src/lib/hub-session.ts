@@ -2,6 +2,7 @@ import {
   type HubProduct,
   PRODUCT_STORAGE_KEY,
   HUB_SESSION_COOKIE,
+  ADMIN_SESSION_MAX_AGE,
   getProduct,
 } from './products'
 import { adminAuth } from './api'
@@ -15,7 +16,7 @@ const SALON_USER = 'hx_salon_user'
 const FASHION_GATE = 'hx_fashion_token'
 const SALON_GATE = 'hx_salon_token'
 const GATE_VALUE = '1'
-const COOKIE_MAX = 60 * 60 * 8
+const COOKIE_MAX = ADMIN_SESSION_MAX_AGE
 
 export type HubUserInfo = { id?: string; name: string; email: string; role: string }
 
