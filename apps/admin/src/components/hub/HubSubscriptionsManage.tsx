@@ -35,16 +35,11 @@ import {
   type SalonPlanRow,
   type SalonTenantRow,
 } from '@/lib/salon-api'
+import { formatMoney as fmtMoney } from '@/lib/format-money'
 
 type HubProductKind = 'fashion' | 'salon'
 
 type Tab = 'overview' | 'tenants' | 'invoices' | 'plans'
-
-function fmtMoney(n: number) {
-  if (Math.abs(n) >= 100000) return `Rs.${(n / 100000).toFixed(1)}L`
-  if (Math.abs(n) >= 1000) return `Rs.${(n / 1000).toFixed(1)}K`
-  return `Rs.${Math.round(n).toLocaleString()}`
-}
 
 function fmtDate(v?: string | null) {
   if (!v) return '—'

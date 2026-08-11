@@ -3,6 +3,7 @@
 import { LOGO_BASE64 } from '@/lib/logo-base64'
 import type { SubscriptionRow } from '@/lib/api'
 import type { SubscriptionInvoiceData } from '@/lib/subscription-invoice'
+import { formatMoney } from '@/lib/format-money'
 
 export default function SubscriptionInvoicePrint({
   sub,
@@ -65,11 +66,11 @@ export default function SubscriptionInvoicePrint({
             <tr>
               <td style={{ padding: '14px', borderBottom: '1px solid #f3f4f6' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>Hexalyte {inv.planLabel} Plan</div>
-                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{inv.periodLabel} subscription · Rs. {inv.mrr.toLocaleString()} / month</div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{inv.periodLabel} subscription · {formatMoney(inv.mrr)} / month</div>
                 <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Period: {inv.periodStart} → {inv.periodEnd}</div>
               </td>
               <td style={{ textAlign: 'center', padding: '14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f3f4f6' }}>{inv.months}</td>
-              <td style={{ textAlign: 'right', padding: '14px', fontSize: 13, fontWeight: 700, color: '#111', borderBottom: '1px solid #f3f4f6' }}>Rs. {inv.total.toLocaleString()}</td>
+              <td style={{ textAlign: 'right', padding: '14px', fontSize: 13, fontWeight: 700, color: '#111', borderBottom: '1px solid #f3f4f6' }}>{formatMoney(inv.total)}</td>
             </tr>
           </tbody>
         </table>
@@ -77,13 +78,13 @@ export default function SubscriptionInvoicePrint({
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 32 }}>
           <div style={{ width: 220 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
-              <span>Subtotal ({inv.months} × Rs. {inv.mrr.toLocaleString()})</span><span>Rs. {inv.total.toLocaleString()}</span>
+              <span>Subtotal ({inv.months} × {formatMoney(inv.mrr)})</span><span>{formatMoney(inv.total)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, color: '#6b7280' }}>
               <span>Tax (0%)</span><span>Rs. 0</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 4, background: '#111', borderRadius: 8, fontSize: 14, fontWeight: 800, color: '#fff' }}>
-              <span>Total ({inv.periodLabel})</span><span>Rs. {inv.total.toLocaleString()}</span>
+              <span>Total ({inv.periodLabel})</span><span>{formatMoney(inv.total)}</span>
             </div>
           </div>
         </div>

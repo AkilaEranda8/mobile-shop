@@ -13,12 +13,7 @@ import {
   fetchStats, fetchTenants, fetchMrrChart, fetchAnalytics, fetchActivityLogs,
   type PlatformStats, type TenantRow, type MrrPoint, type AnalyticsData, type ActivityLog,
 } from '@/lib/api'
-
-function fmt(n: number) {
-  if (n >= 100000) return `Rs.${(n / 100000).toFixed(1)}L`
-  if (n >= 1000)   return `Rs.${(n / 1000).toFixed(1)}K`
-  return `Rs.${n}`
-}
+import { formatMoney as fmt } from '@/lib/format-money'
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: '2-digit' })
 }
@@ -172,7 +167,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                  tickFormatter={v => `Rs.${(v / 1000).toFixed(0)}K`} width={52} />
+                  tickFormatter={v => fmt(v)} width={72} />
                 <Tooltip formatter={(v: number) => [fmt(v), 'MRR']} />
                 <Line type="monotone" dataKey="mrr" stroke="#111827" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
               </LineChart>
@@ -239,7 +234,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                  tickFormatter={v => `${(v / 1000).toFixed(0)}K`} width={44} />
+                  tickFormatter={v => fmt(v)} width={72} />
                 <Tooltip formatter={(v: number) => [fmt(v), 'GMV']} />
                 <Legend iconSize={10} wrapperStyle={{ fontSize: 10 }} />
                 <Bar dataKey="gmv"      fill="#111827" radius={[3, 3, 0, 0]} name="GMV (Rs.)" />

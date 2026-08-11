@@ -3,6 +3,7 @@ import { ensureBillingWhatsAppTenant } from '../utils/billing-whatsapp-tenant'
 import { resolveTenantOwnerPhone } from '../utils/tenant-owner-phone'
 import { whatsappService } from '../modules/whatsapp/whatsapp.service'
 import { logPlatformActivity } from '../utils/activity-log'
+import { buildSubscriptionInvoicePdf } from '../utils/subscription-invoice-pdf'
 
 const BILLING_SLUG = 'hexalyte-billing-internal'
 const TZ = 'Asia/Colombo'
@@ -127,6 +128,7 @@ type TenantRow = {
   plan: string
   mrr: number | null
   ownerName: string
+  ownerEmail: string
   subscriptionEndsAt: Date | null
   paymentDue: boolean
   paymentDueAmount: number | null
@@ -157,6 +159,7 @@ async function loadNearbyTenants(): Promise<TenantRow[]> {
       plan: true,
       mrr: true,
       ownerName: true,
+      ownerEmail: true,
       subscriptionEndsAt: true,
       paymentDue: true,
       paymentDueAmount: true,
@@ -236,13 +239,28 @@ async function sendDayBeforeInvoices(tenants: TenantRow[], todayKey: string, tom
         expiresOn: tenant.subscriptionEndsAt!,
       })
 
-      await whatsappService.sendMessage(billingTenantId, {
+      const pdfBuffer = buildSubscriptionInvoicePdf({
+        invoiceNo: draft.invoiceNo,
+        shopName: tenant.name,
+        ownerName: tenant.ownerName || tenant.name,
+        ownerEmail: tenant.ownerEmail,
+        plan: tenant.plan,
+        months: draft.months,
+        mrr: draft.mrr,
+        total: draft.total,
+        periodStart: draft.periodStart,
+        periodEnd: draft.periodEnd,
+      })
+
+      await whatsappService.sendInvoice(billingTenantId, {
         phone,
-        message,
+        orderId: draft.invoiceNo,
         customerName: tenant.ownerName || tenant.name,
-        type: 'invoice',
         amount: draft.total,
-        referenceId: draft.invoiceNo,
+        message,
+        pdfBase64: pdfBuffer.toString('base64'),
+        pdfFilename: `Subscription-${draft.invoiceNo}.pdf`,
+        attachPdf: true,
       })
 
       // Save draft invoice details for payment day — do NOT mark paymentDue yet
@@ -266,7 +284,7 @@ async function sendDayBeforeInvoices(tenants: TenantRow[], todayKey: string, tom
         actorType: 'SYSTEM',
         actor: 'subscription-renewal-job',
         target: tenant.name,
-        details: `Day-before WhatsApp invoice ${draft.invoiceNo} · Rs.${draft.total.toLocaleString('en-LK')} · expires ${tomorrowKey} · Payment Due NOT marked yet · to ${phone}`,
+        details: `Day-before WhatsApp invoice+PDF ${draft.invoiceNo} · Rs.${draft.total.toLocaleString('en-LK')} · expires ${tomorrowKey} · Payment Due NOT marked yet · to ${phone}`,
         tenantId: tenant.id,
       })
 
@@ -360,7 +378,8 @@ async function markPaymentDueOnExpiryDay(tenants: TenantRow[], todayKey: string)
 
 /**
  * 08:00 Asia/Colombo daily:
- * 1) Day before expiry → WhatsApp invoice (no Payment Due)
+ * 1) Day before expiry → WhatsApp invoice ONLY if SUBSCRIPTION_RENEWAL_WA_AUTO=1
+ *    (default OFF — send reminders manually from Admin → Payment Due)
  * 2) Expiry / payment day → mark Payment Due only if still unsettled
  */
 export async function processSubscriptionRenewalReminders(): Promise<{
@@ -372,8 +391,6 @@ export async function processSubscriptionRenewalReminders(): Promise<{
     due: { considered: 0, marked: 0, skipped: 0 },
   }
 
-  if (process.env.SUBSCRIPTION_RENEWAL_WA_AUTO === '0') return empty
-
   const nowParts = colomboParts()
   if (nowParts.hour !== JOB_HOUR) return empty
 
@@ -381,10 +398,13 @@ export async function processSubscriptionRenewalReminders(): Promise<{
   const tomorrowKey = addDaysToDateKey(todayKey, 1)
   const tenants = await loadNearbyTenants()
 
-  const wa = await sendDayBeforeInvoices(tenants, todayKey, tomorrowKey)
-  // Reload so day-before draft fields are available when marking due same morning
-  // (only relevant if someone expires "today" — separate set from tomorrow).
-  const dueTenants = await loadNearbyTenants()
+  // Manual-only by default. Opt in with SUBSCRIPTION_RENEWAL_WA_AUTO=1
+  const autoWa = process.env.SUBSCRIPTION_RENEWAL_WA_AUTO === '1'
+  const wa = autoWa
+    ? await sendDayBeforeInvoices(tenants, todayKey, tomorrowKey)
+    : empty.wa
+
+  const dueTenants = autoWa ? await loadNearbyTenants() : tenants
   const due = await markPaymentDueOnExpiryDay(dueTenants, todayKey)
 
   return { wa, due }
@@ -402,8 +422,9 @@ export function startSubscriptionRenewalReminderJob(): void {
   }, CHECK_EVERY_MS)
 
   if (typeof timer.unref === 'function') timer.unref()
+  const autoWa = process.env.SUBSCRIPTION_RENEWAL_WA_AUTO === '1'
   console.log(
-    `[subscription-renewal] job started — ${JOB_HOUR}:00 ${TZ}: day-before WA invoice; payment-day mark Payment Due if unsettled`,
+    `[subscription-renewal] job started — ${JOB_HOUR}:00 ${TZ}: WhatsApp auto=${autoWa ? 'ON' : 'OFF (manual Remind)'} · payment-day mark Payment Due if unsettled`,
   )
 }
 

@@ -15,6 +15,7 @@ import {
   type TenantRow, type TenantSale,
 } from '@/lib/api'
 import { Switch } from '@/components/ui/Switch'
+import { formatMoney } from '@/lib/format-money'
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'badge-green', TRIAL: 'badge-blue', SUSPENDED: 'badge-yellow', CANCELLED: 'badge-gray',
@@ -389,7 +390,7 @@ export default function TenantDetailPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-5 pt-5 border-t border-gray-100">
           {[
-            { label: 'MRR',       value: tenant.mrr ? `Rs.${tenant.mrr.toLocaleString()}` : 'Trial', icon: CreditCard },
+            { label: 'MRR',       value: tenant.mrr ? formatMoney(tenant.mrr) : 'Trial', icon: CreditCard },
             { label: 'Users',     value: String(tenant._count?.users ?? (tenant.users?.length ?? '—')), icon: Users },
             { label: 'Sales',     value: (tenant._count?.sales ?? '—').toLocaleString(), icon: ShoppingCart },
             { label: 'Repairs',   value: (tenant._count?.repairs ?? '—').toLocaleString(), icon: Wrench },
@@ -437,7 +438,7 @@ export default function TenantDetailPage() {
               {[
                 ['Plan',  <span className={PLAN_BADGE[tenant.plan] ?? 'badge-gray'}>{tenant.plan}</span>],
                 ['Status', <span className={STATUS_BADGE[tenant.status] ?? 'badge-gray'}>{tenant.status}</span>],
-                ['MRR',  tenant.mrr ? `Rs.${tenant.mrr.toLocaleString()}` : 'Free Trial'],
+                ['MRR',  tenant.mrr ? formatMoney(tenant.mrr) : 'Free Trial'],
                 ['Sub. Ends', tenant.subscriptionEndsAt ? fmtDate(tenant.subscriptionEndsAt) : '—'],
                 ['Trial Ends', tenant.trialEndsAt ? fmtDate(tenant.trialEndsAt) : '—'],
                 ['Joined', fmtDate(tenant.createdAt)],
@@ -544,7 +545,7 @@ export default function TenantDetailPage() {
                             onClick={() => openEditPrice(f.key)}
                             className="text-[10px] font-semibold text-emerald-700 mt-1 hover:underline"
                           >
-                            Rs.{price.toLocaleString('en-LK')}/mo — edit price
+                            {formatMoney(price)}/mo — edit price
                           </button>
                         )}
                       </div>
@@ -669,7 +670,7 @@ export default function TenantDetailPage() {
                   <td className="td font-mono text-xs text-blue-600">{s.invoiceNumber}</td>
                   <td className="td text-xs text-gray-700">{s.customerName ?? '—'}</td>
                   <td className="td text-xs text-gray-600">{s.cashierName}</td>
-                  <td className="td text-right text-xs font-semibold text-gray-900">Rs.{Number(s.total).toLocaleString()}</td>
+                  <td className="td text-right text-xs font-semibold text-gray-900">{formatMoney(s.total)}</td>
                   <td className="td"><span className={SALE_STATUS_BADGE[s.status] ?? 'badge-gray'}>{s.status}</span></td>
                   <td className="td text-xs text-gray-500 whitespace-nowrap">{fmtDate(s.createdAt)}</td>
                 </tr>

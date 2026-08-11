@@ -13,14 +13,9 @@ import {
   fetchAnalytics, fetchMrrChart,
   type AnalyticsData, type MrrPoint,
 } from '@/lib/api'
+import { formatMoney as fmt } from '@/lib/format-money'
 
 /* ── helpers ─────────────────────────────────────────────────── */
-function fmt(n: number) {
-  if (n >= 10000000) return `Rs.${(n / 10000000).toFixed(1)}Cr`
-  if (n >= 100000)   return `Rs.${(n / 100000).toFixed(1)}L`
-  if (n >= 1000)     return `Rs.${(n / 1000).toFixed(1)}K`
-  return `Rs.${n}`
-}
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: '2-digit' })
 }
@@ -167,7 +162,7 @@ export default function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                    tickFormatter={v => `Rs.${(v / 1000).toFixed(0)}K`} width={55} />
+                    tickFormatter={v => fmt(v)} width={72} />
                   <Tooltip content={<ChartTooltip />} />
                   <Area type="monotone" dataKey="mrr" name="MRR" stroke="#111827" strokeWidth={2.5}
                     fill="url(#mrrGrad)" dot={false} activeDot={{ r: 4 }} />

@@ -78,7 +78,7 @@ export function buildSubscriptionInvoiceMessage(sub: SubscriptionRow, inv: Subsc
     `📋 *Invoice:* ${inv.invoiceNo}`,
     `📦 *Plan:* ${inv.planLabel} (${inv.periodLabel})`,
     `🗓 *Period:* ${inv.periodStart} → ${inv.periodEnd}`,
-    `💰 *Total:* Rs. ${inv.total.toLocaleString()}`,
+    `💰 *Total:* Rs. ${inv.total.toLocaleString('en-LK')}`,
     `📅 *Payment due before:* ${inv.dueDate}`,
     '',
     '*Bank Transfer*',
@@ -87,6 +87,31 @@ export function buildSubscriptionInvoiceMessage(sub: SubscriptionRow, inv: Subsc
     '',
     'Please complete payment and reply with the transfer reference.',
     'Your subscription will be extended after payment is confirmed.',
+    '',
+    '— *Hexalyte Innovation (Pvt) Ltd*',
+    'info@hexalyte.com · +94 70 3130100',
+  ].join('\n')
+}
+
+/** Manual follow-up for tenants already marked Payment Due. */
+export function buildPaymentDueReminderMessage(sub: SubscriptionRow, inv: SubscriptionInvoiceData): string {
+  return [
+    `Hello ${sub.ownerName ?? sub.name},`,
+    '',
+    `This is a *payment reminder* for *${sub.name}*.`,
+    '',
+    `Your Hexalyte subscription payment is still *due*. Access will be extended only after we confirm the transfer.`,
+    '',
+    `📋 *Invoice:* ${inv.invoiceNo}`,
+    `📦 *Plan:* ${inv.planLabel} (${inv.periodLabel})`,
+    `🗓 *Period:* ${inv.periodStart} → ${inv.periodEnd}`,
+    `💰 *Amount due:* Rs. ${inv.total.toLocaleString('en-LK')}`,
+    '',
+    '*Bank Transfer*',
+    'Commercial Bank · Akila Eranda Gankewela',
+    'Account: 2000124779 · SWIFT: CCEYLKLX',
+    '',
+    'Please complete payment and reply with the transfer reference.',
     '',
     '— *Hexalyte Innovation (Pvt) Ltd*',
     'info@hexalyte.com · +94 70 3130100',

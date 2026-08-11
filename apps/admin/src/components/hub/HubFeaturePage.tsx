@@ -36,6 +36,7 @@ import {
 } from '@/lib/fashion-api'
 import { salonPlatform, fetchSalonTenants } from '@/lib/salon-api'
 import HubSubscriptionsManage from '@/components/hub/HubSubscriptionsManage'
+import { formatMoney as fmtMoney } from '@/lib/format-money'
 
 export type HubProductKind = 'fashion' | 'salon'
 export type HubFeatureKey =
@@ -110,12 +111,6 @@ function str(v: unknown, fallback = '—'): string {
   if (v == null || v === '') return fallback
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v)
   return fallback
-}
-
-function fmtMoney(n: number) {
-  if (Math.abs(n) >= 100000) return `Rs.${(n / 100000).toFixed(1)}L`
-  if (Math.abs(n) >= 1000) return `Rs.${(n / 1000).toFixed(1)}K`
-  return `Rs.${Math.round(n).toLocaleString()}`
 }
 
 function fmtDate(v: unknown) {
@@ -623,7 +618,7 @@ function AnalyticsView({ data }: { data: unknown }) {
               <AreaChart data={chart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => fmtMoney(v)} width={80} />
                 <Tooltip formatter={(v: number) => fmtMoney(v)} />
                 <Area type="monotone" dataKey="mrr" stroke="#111827" fill="#e5e7eb" strokeWidth={2} />
               </AreaChart>

@@ -16,6 +16,7 @@ import {
 import {
   buildTenantOnboardShareMessage,
 } from '@/lib/tenantOnboardMessage'
+import { formatMoney } from '@/lib/format-money'
 
 function WhatsAppFormattedLine({ line }: { line: string }) {
   const parts = line.split(/(\*[^*]+\*|_[^_]+_)/g)
@@ -71,7 +72,7 @@ function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: '2-digit' })
 }
 function fmtMRR(n: number) {
-  return n === 0 ? '—' : `Rs.${n.toLocaleString()}`
+  return n === 0 ? '—' : formatMoney(n)
 }
 
 const PER_PAGE = 20

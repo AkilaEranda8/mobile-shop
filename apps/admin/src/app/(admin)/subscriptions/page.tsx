@@ -5,7 +5,7 @@ import {
   DollarSign, TrendingUp, Users, AlertTriangle, CreditCard,
   Send, ArrowUpDown, XCircle, CheckCircle, Clock, Search,
   RefreshCw, ChevronRight, X, Loader2, FileText, Printer, Pencil, Plus, Trash2,
-  MessageCircle,
+  MessageCircle, Bell,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -18,6 +18,7 @@ import {
   type SubscriptionRow, type PlatformStats, type MrrPoint,
 } from '@/lib/api'
 import { buildSubscriptionInvoice } from '@/lib/subscription-invoice'
+import { formatMoney as fmt } from '@/lib/format-money'
 import SubscriptionInvoicePrint from '@/components/subscriptions/SubscriptionInvoicePrint'
 import SendSubscriptionInvoiceModal from '@/components/subscriptions/SendSubscriptionInvoiceModal'
 
@@ -65,11 +66,6 @@ const DEFAULT_FEATURES: Record<string, string[]> = {
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: '2-digit' })
-}
-function fmt(n: number) {
-  if (n >= 100000) return `Rs.${(n / 100000).toFixed(1)}L`
-  if (n >= 1000)   return `Rs.${(n / 1000).toFixed(1)}K`
-  return `Rs.${n}`
 }
 function daysOverdue(dateStr: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000))
@@ -122,7 +118,7 @@ function ChangePlanModal({ sub, onClose, onSaved, planMrr, planFeatures }: {
                 <p className="text-xs text-gray-400 mt-0.5">{(planFeatures[p] ?? DEFAULT_FEATURES[p]).slice(0, 2).join(' · ')}</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-gray-900">Rs.{(planMrr[p] ?? DEFAULT_MRR[p]).toLocaleString()}</p>
+                <p className="text-sm font-bold text-gray-900">{fmt(planMrr[p] ?? DEFAULT_MRR[p])}</p>
                 <p className="text-[10px] text-gray-400">/mo</p>
               </div>
               {plan === p && <CheckCircle size={14} className="text-gray-900 ml-2 flex-shrink-0" />}
@@ -152,7 +148,7 @@ function ChangePlanModal({ sub, onClose, onSaved, planMrr, planFeatures }: {
             <p className="text-xs text-blue-600 font-semibold">{plan} Plan · ACTIVE</p>
             <p className="text-[11px] text-blue-400">Ends {new Date(subEnd).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
           </div>
-          <p className="text-sm font-bold text-blue-700">Rs.{(planMrr[plan] ?? DEFAULT_MRR[plan] ?? 0).toLocaleString()}/mo</p>
+          <p className="text-sm font-bold text-blue-700">{fmt(planMrr[plan] ?? DEFAULT_MRR[plan] ?? 0)}/mo</p>
         </div>
         {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
         <div className="flex gap-2">
@@ -275,7 +271,7 @@ function InvoiceModal({
             </button>
           ))}
           <span className="text-[11px] text-gray-400 ml-auto">
-            {inv.periodStart} → {inv.periodEnd} · Rs.{inv.total.toLocaleString()}
+            {inv.periodStart} → {inv.periodEnd} · {fmt(inv.total)}
           </span>
         </div>
 
@@ -300,7 +296,7 @@ function InvoiceModal({
             onClick={() => onSendWhatsApp(isDue ? { ...localSub, paymentDueMonths: months } : { ...localSub, paymentDueMonths: months })}
             className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium"
           >
-            <MessageCircle size={12} /> WhatsApp Client
+            <MessageCircle size={12} /> {isDue ? 'Send Reminder' : 'WhatsApp Client'}
           </button>
           <div className="flex-1" />
           {!isDue ? (
@@ -450,7 +446,7 @@ function ExtendModal({ sub, onClose, onSaved }: { sub: SubscriptionRow; onClose:
 
 /* ── Main Page ───────────────────────────────────────────────── */
 export default function SubscriptionsPage() {
-  const [tab, setTab]           = useState<'overview' | 'subscriptions' | 'plans' | 'overdue'>('overview')
+  const [tab, setTab]           = useState<'overview' | 'subscriptions' | 'plans' | 'due' | 'overdue'>('overview')
   const [search, setSearch]     = useState('')
   const [planFilter, setPlanFilter] = useState('ALL')
   const [subs, setSubs]         = useState<SubscriptionRow[]>([])
@@ -462,6 +458,7 @@ export default function SubscriptionsPage() {
   const [extendSub, setExtendSub]   = useState<SubscriptionRow | null>(null)
   const [invoiceSub, setInvoiceSub] = useState<SubscriptionRow | null>(null)
   const [sendWaSub, setSendWaSub]     = useState<SubscriptionRow | null>(null)
+  const [sendWaMode, setSendWaMode]   = useState<'invoice' | 'reminder'>('invoice')
   const [waSentMsg, setWaSentMsg]     = useState<string | null>(null)
   const [editingPlan, setEditingPlan] = useState<string | null>(null)
   const [planMrr, setPlanMrr]         = useState<Record<string, number>>({ ...DEFAULT_MRR })
@@ -516,6 +513,12 @@ export default function SubscriptionsPage() {
     ), [subs, search, planFilter])
 
   const totalMrr = subs.reduce((s, t) => s + (t.mrr ?? 0), 0)
+  const paymentDueList = useMemo(() => subs.filter(s => s.paymentDue), [subs])
+
+  const openWhatsApp = (s: SubscriptionRow, mode: 'invoice' | 'reminder' = 'invoice') => {
+    setSendWaMode(mode)
+    setSendWaSub(s)
+  }
 
   return (
     <div className="space-y-5">
@@ -530,6 +533,7 @@ export default function SubscriptionsPage() {
           onSaved={load}
           onSendWhatsApp={(s) => {
             setInvoiceSub(null)
+            setSendWaMode(s.paymentDue ? 'reminder' : 'invoice')
             setSendWaSub(s)
           }}
         />
@@ -537,9 +541,14 @@ export default function SubscriptionsPage() {
       {sendWaSub && (
         <SendSubscriptionInvoiceModal
           sub={sendWaSub}
+          mode={sendWaMode}
           onClose={() => setSendWaSub(null)}
           onSent={() => {
-            setWaSentMsg(`Invoice sent to ${sendWaSub.name} via WhatsApp`)
+            setWaSentMsg(
+              sendWaMode === 'reminder'
+                ? `Payment reminder sent to ${sendWaSub.name}`
+                : `Invoice sent to ${sendWaSub.name} via WhatsApp`,
+            )
             setTimeout(() => setWaSentMsg(null), 4000)
           }}
         />
@@ -562,7 +571,7 @@ export default function SubscriptionsPage() {
         <div>
           <h1 className="page-title">Subscriptions & Billing</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {loading ? 'Loading...' : `${subs.length} tenants · ${overdue.length} overdue · MRR ${fmt(totalMrr)}`}
+            {loading ? 'Loading...' : `${subs.length} tenants · ${paymentDueList.length} payment due · ${overdue.length} overdue · MRR ${fmt(totalMrr)}`}
           </p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
@@ -601,13 +610,15 @@ export default function SubscriptionsPage() {
 
       {/* Tabs */}
       <div className="flex gap-0 border-b border-gray-200">
-        {(['overview', 'subscriptions', 'plans', 'overdue'] as const).map(t => (
+        {(['overview', 'subscriptions', 'plans', 'due', 'overdue'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === t ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}>
             {t === 'overdue'
               ? <span className="flex items-center gap-1.5">Overdue {overdue.length > 0 && <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">{overdue.length}</span>}</span>
+              : t === 'due'
+                ? <span className="flex items-center gap-1.5">Payment Due {paymentDueList.length > 0 && <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">{paymentDueList.length}</span>}</span>
               : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
@@ -757,14 +768,14 @@ export default function SubscriptionsPage() {
                             <span className="text-xs font-semibold text-gray-900">{s.name}</span>
                             {s.paymentDue && (
                               <p className="text-[10px] text-amber-600 font-semibold">
-                                Payment due{s.paymentDueAmount != null ? ` · Rs.${s.paymentDueAmount.toLocaleString()}` : ''}
+                                Payment due{s.paymentDueAmount != null ? ` · ${fmt(s.paymentDueAmount)}` : ''}
                               </p>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="td"><span className={PLAN_BADGE[s.plan] ?? 'badge-gray'}>{s.plan}</span></td>
-                      <td className="td text-xs font-semibold text-gray-800">{s.mrr != null ? `Rs.${s.mrr.toLocaleString()}` : '—'}</td>
+                      <td className="td text-xs font-semibold text-gray-800">{s.mrr != null ? fmt(s.mrr) : '—'}</td>
                       <td className="td">
                         <div className="flex flex-col gap-1 items-start">
                           <span className={s.status === 'ACTIVE' ? 'badge-green' : s.status === 'TRIAL' ? 'badge-yellow' : 'badge-red'}>
@@ -782,7 +793,17 @@ export default function SubscriptionsPage() {
                       </td>
                       <td className="td text-xs text-gray-400">{s.ownerEmail}</td>
                       <td className="td">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1">
+                          {s.paymentDue && (
+                            <button
+                              onClick={() => openWhatsApp(s, 'reminder')}
+                              title="Send payment reminder"
+                              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors font-medium"
+                            >
+                              <Bell size={11} /> Remind
+                            </button>
+                          )}
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => setChangePlan(s)} title="Change Plan"
                             className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-violet-600 hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-colors font-medium">
                             <ArrowUpDown size={11} /> Plan
@@ -795,7 +816,7 @@ export default function SubscriptionsPage() {
                             className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors font-medium">
                             <FileText size={11} /> Invoice
                           </button>
-                          <button onClick={() => setSendWaSub(s)} title="Send invoice + message via WhatsApp"
+                          <button onClick={() => openWhatsApp(s, s.paymentDue ? 'reminder' : 'invoice')} title={s.paymentDue ? 'Send payment reminder via WhatsApp' : 'Send invoice + message via WhatsApp'}
                             className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-green-700 hover:bg-green-50 border border-transparent hover:border-green-200 transition-colors font-medium">
                             <MessageCircle size={11} /> WhatsApp
                           </button>
@@ -816,6 +837,7 @@ export default function SubscriptionsPage() {
                               <CheckCircle size={11} /> Paid
                             </button>
                           )}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -857,7 +879,7 @@ export default function SubscriptionsPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-4xl font-black text-gray-900">Rs.{(planMrr[p] ?? 0).toLocaleString()}</p>
+                  <p className="text-4xl font-black text-gray-900">{fmt(planMrr[p] ?? 0)}</p>
                   <p className="text-xs text-gray-400 mt-0.5">per month</p>
                 </div>
                 <div className="flex-1 space-y-1.5">
@@ -880,6 +902,84 @@ export default function SubscriptionsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ── PAYMENT DUE ──────────────────────────────────────── */}
+      {tab === 'due' && (
+        <div>
+          {paymentDueList.length === 0 ? (
+            <div className="card p-16 text-center">
+              <CheckCircle size={36} className="text-emerald-400 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-700">No payment-due tenants</p>
+              <p className="text-xs text-gray-400 mt-1">Reminders are sent only when you click Remind — nothing goes out automatically</p>
+            </div>
+          ) : (
+            <div className="card overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-amber-100 bg-amber-50">
+                <Bell size={15} className="text-amber-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">{paymentDueList.length} payment due</p>
+                  <p className="text-[11px] text-amber-700">Send each reminder manually — WhatsApp + invoice PDF</p>
+                </div>
+                <p className="text-xs text-amber-600 ml-auto font-semibold">
+                  {fmt(paymentDueList.reduce((s, t) => s + (t.paymentDueAmount ?? t.mrr ?? 0), 0))} outstanding
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="th">Shop</th>
+                      <th className="th">Invoice</th>
+                      <th className="th">Amount</th>
+                      <th className="th">Marked due</th>
+                      <th className="th">Owner</th>
+                      <th className="th text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {paymentDueList.map(s => (
+                      <tr key={s.id} className="hover:bg-amber-50/40">
+                        <td className="td">
+                          <p className="text-xs font-semibold text-gray-900">{s.name}</p>
+                          <p className="text-[10px] text-gray-400">{s.plan}</p>
+                        </td>
+                        <td className="td text-xs font-mono text-gray-700">{s.paymentDueInvoiceNo ?? '—'}</td>
+                        <td className="td text-xs font-semibold text-gray-900">{fmt(s.paymentDueAmount ?? s.mrr ?? 0)}</td>
+                        <td className="td text-xs text-gray-500">{s.paymentDueAt ? fmtDate(s.paymentDueAt) : '—'}</td>
+                        <td className="td text-xs text-gray-400">{s.ownerEmail}</td>
+                        <td className="td">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openWhatsApp(s, 'reminder')}
+                              className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors font-medium"
+                            >
+                              <Bell size={11} /> Remind
+                            </button>
+                            <button onClick={() => setInvoiceSub(s)}
+                              className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium">
+                              <FileText size={11} /> Invoice
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`Confirm payment for ${s.name} and extend subscription?`)) return
+                                try { await confirmSubscriptionPayment(s.id); load() }
+                                catch (e: any) { alert(e.message ?? 'Failed') }
+                              }}
+                              className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors font-medium"
+                            >
+                              <CheckCircle size={11} /> Paid
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -933,7 +1033,7 @@ export default function SubscriptionsPage() {
                             </div>
                           </td>
                           <td className="td"><span className={PLAN_BADGE[s.plan] ?? 'badge-gray'}>{s.plan}</span></td>
-                          <td className="td text-xs font-semibold text-red-600">{s.mrr != null ? `Rs.${s.mrr.toLocaleString()}` : '—'}</td>
+                          <td className="td text-xs font-semibold text-red-600">{s.mrr != null ? fmt(s.mrr) : '—'}</td>
                           <td className="td text-xs text-gray-500">{s.subscriptionEndsAt ? fmtDate(s.subscriptionEndsAt) : '—'}</td>
                           <td className="td">
                             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${days > 14 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -962,10 +1062,18 @@ export default function SubscriptionsPage() {
                                 className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium">
                                 <Clock size={11} /> Extend
                               </button>
-                              <button onClick={() => setSendWaSub(s)} title="Send invoice reminder via WhatsApp"
+                              <button onClick={() => openWhatsApp(s, s.paymentDue ? 'reminder' : 'invoice')} title="Send invoice reminder via WhatsApp"
                                 className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium">
                                 <MessageCircle size={11} /> WhatsApp
                               </button>
+                              {s.paymentDue && (
+                                <button
+                                  onClick={() => openWhatsApp(s, 'reminder')}
+                                  className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors font-medium"
+                                >
+                                  <Bell size={11} /> Remind
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

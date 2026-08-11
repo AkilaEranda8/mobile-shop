@@ -4,7 +4,11 @@ import { useRef, useState, useMemo, useEffect } from 'react'
 import { X, Loader2, MessageCircle, FileText } from 'lucide-react'
 import type { SubscriptionRow } from '@/lib/api'
 import { sendSubscriptionInvoice, fetchSubscriptionContact } from '@/lib/api'
-import { buildSubscriptionInvoice, buildSubscriptionInvoiceMessage } from '@/lib/subscription-invoice'
+import {
+  buildSubscriptionInvoice,
+  buildSubscriptionInvoiceMessage,
+  buildPaymentDueReminderMessage,
+} from '@/lib/subscription-invoice'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import SubscriptionInvoicePrint from './SubscriptionInvoicePrint'
 
@@ -18,23 +22,33 @@ export default function SendSubscriptionInvoiceModal({
   sub,
   onClose,
   onSent,
+  mode = 'invoice',
 }: {
   sub: SubscriptionRow
   onClose: () => void
   onSent?: () => void
+  mode?: 'invoice' | 'reminder'
 }) {
+  const isReminder = mode === 'reminder' || Boolean(sub.paymentDue)
   const printRef = useRef<HTMLDivElement>(null)
   const inv = useMemo(
     () => buildSubscriptionInvoice(sub, { months: sub.paymentDueMonths ?? 1 }),
     [sub],
   )
-  const defaultMessage = useMemo(() => buildSubscriptionInvoiceMessage(sub, inv), [sub, inv])
+  const defaultMessage = useMemo(
+    () => isReminder ? buildPaymentDueReminderMessage(sub, inv) : buildSubscriptionInvoiceMessage(sub, inv),
+    [sub, inv, isReminder],
+  )
   const [phone, setPhone] = useState(sub.ownerPhone ?? '')
   const [phoneSource, setPhoneSource] = useState<string | null>(null)
   const [phoneLoading, setPhoneLoading] = useState(true)
   const [message, setMessage] = useState(defaultMessage)
   const [sending, setSending] = useState(false)
   const [err, setErr] = useState('')
+
+  useEffect(() => {
+    setMessage(defaultMessage)
+  }, [defaultMessage])
 
   useEffect(() => {
     let cancelled = false
@@ -99,8 +113,10 @@ export default function SendSubscriptionInvoiceModal({
           <div className="flex items-center gap-2">
             <MessageCircle size={16} className="text-green-600" />
             <div>
-              <h3 className="text-sm font-bold text-gray-900">Send Invoice via WhatsApp</h3>
-              <p className="text-xs text-gray-500">{sub.name} · {inv.invoiceNo}</p>
+              <h3 className="text-sm font-bold text-gray-900">
+                {isReminder ? 'Send Payment Reminder' : 'Send Invoice via WhatsApp'}
+              </h3>
+              <p className="text-xs text-gray-500">{sub.name} · {inv.invoiceNo}{isReminder ? ' · payment due' : ''}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X size={14} /></button>
@@ -134,7 +150,9 @@ export default function SendSubscriptionInvoiceModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Message (PDF attached)</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              {isReminder ? 'Reminder message (invoice PDF attached)' : 'Message (PDF attached)'}
+            </label>
             <textarea
               rows={8}
               className="input w-full text-xs font-mono resize-none"
@@ -154,7 +172,7 @@ export default function SendSubscriptionInvoiceModal({
             <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
             <button type="button" onClick={handleSend} disabled={sending || phoneLoading} className="btn-primary flex-1 justify-center disabled:opacity-50">
               {sending ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
-              {sending ? 'Sending…' : 'Send Invoice + PDF'}
+              {sending ? 'Sending…' : isReminder ? 'Send Reminder' : 'Send Invoice + PDF'}
             </button>
           </div>
         </div>
