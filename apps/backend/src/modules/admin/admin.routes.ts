@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendError } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
@@ -99,7 +100,7 @@ function normalizeBillingPhone(phone: string): string {
 }
 
 /** Paying MRR only — suspended/cancelled shops keep a stored mrr but must not inflate totals. */
-const MRR_WHERE = { status: { in: ['ACTIVE', 'TRIAL'] as const } }
+const MRR_WHERE: Prisma.TenantWhereInput = { status: { in: ['ACTIVE', 'TRIAL'] } }
 
 // ── Dashboard Stats ──────────────────────────────────────────────────────────
 router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
@@ -118,7 +119,7 @@ router.get('/stats', async (_req: Request, res: Response, next: NextFunction) =>
         where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
       }),
     ])
-    const mrr = mrrAgg._sum.mrr ?? 0
+    const mrr = mrrAgg._sum?.mrr ?? 0
     sendSuccess(res, {
       totalTenants, activeTenants, trialTenants, suspendedTenants,
       mrr, arr: mrr * 12, totalUsers, newTenantsThisMonth,
@@ -1648,7 +1649,7 @@ router.get('/mrr-chart', async (_req: Request, res: Response, next: NextFunction
         where: { createdAt: { lte: d }, ...MRR_WHERE },
         _sum: { mrr: true },
       })
-      months.push({ month: label, mrr: agg._sum.mrr ?? 0 })
+      months.push({ month: label, mrr: agg._sum?.mrr ?? 0 })
     }
     sendSuccess(res, months)
   } catch (e) { next(e) }

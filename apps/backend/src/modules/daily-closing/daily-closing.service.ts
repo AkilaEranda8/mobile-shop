@@ -234,6 +234,9 @@ export async function buildDailyClosingPreview(tenantId: string, branchId: strin
       else if (cat === 'Customer Credit Payment') {
         creditPayments += amt
         if (tx.paymentMethod === 'CASH') cashSales += amt
+        else if (tx.paymentMethod === 'CARD') cardPayments += amt
+        else if (tx.paymentMethod === 'UPI' || tx.paymentMethod === 'WALLET') qrPayments += amt
+        else if (tx.paymentMethod === 'BANK_TRANSFER' || tx.paymentMethod === 'CHEQUE') bankFromSales += amt
       } else otherIncome += amt
     } else if (tx.type === 'EXPENSE') {
       if (cat === 'Refund') continue

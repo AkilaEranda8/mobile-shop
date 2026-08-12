@@ -18,6 +18,7 @@ import {
 } from './inventory-cogs.util'
 import { requireAccountingInitialized } from '../accounting-init.service'
 import { evaluatePoIsOpeningSupplierBalance } from '../../business-rules-engine/business-rules-engine.service'
+import { resolvePaymentGlAccountId } from '../subledgers/ar-ap-payment.service'
 
 async function getSettingsOrThrow(tenantId: string) {
   return requireAccountingInitialized(tenantId)
@@ -76,11 +77,9 @@ export async function postSaleJournal(tenantId: string, saleId: string, actorEma
     let accountId: string
     if (p.method === 'STORE_CREDIT') {
       accountId = await resolveAccountIdByKey(tenantId, 'customerCredits')
-    } else if (p.method === 'CASH') accountId = await resolveBranchCashGlAccountId(tenantId, sale.branchId)
-    else if (p.method === 'CARD') accountId = await resolveAccountIdByKey(tenantId, 'cardClearing')
-    else if (p.method === 'UPI' || p.method === 'WALLET') accountId = await resolveAccountIdByKey(tenantId, 'upiClearing')
-    else if (p.method === 'BANK_TRANSFER' || p.method === 'CHEQUE') accountId = await resolveAccountIdByKey(tenantId, 'bank')
-    else accountId = await resolveBranchCashGlAccountId(tenantId, sale.branchId)
+    } else {
+      accountId = await resolvePaymentGlAccountId(tenantId, sale.branchId, p.method)
+    }
     lines.push({
       accountId,
       debit: amt,
@@ -580,8 +579,43 @@ export async function postRepairJournal(tenantId: string, repairId: string, acto
   const lines: JournalDraftLine[] = []
 
   if (paid > 0) {
-    const cashAccount = await resolveBranchCashGlAccountId(tenantId, r.branchId)
-    lines.push({ accountId: cashAccount, debit: paid, credit: 0, description: 'Repair receipt', metadata: { ticketNumber: r.ticketNumber } })
+    const linkedSale = await prisma.sale.findFirst({
+      where: { tenantId, invoiceNumber: r.ticketNumber, source: 'REPAIR' },
+      include: { payments: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    const moneyPayments = (linkedSale?.payments ?? []).filter(
+      p => p.method !== 'CREDIT' && round2(Math.max(0, Number(p.amount ?? 0))) > 0,
+    )
+
+    if (moneyPayments.length > 0) {
+      for (const p of moneyPayments) {
+        const amt = round2(Math.max(0, Number(p.amount ?? 0)))
+        if (amt <= 0) continue
+        const accountId = await resolvePaymentGlAccountId(tenantId, r.branchId, p.method)
+        lines.push({
+          accountId,
+          debit: amt,
+          credit: 0,
+          description: `Repair receipt — ${p.method}`,
+          metadata: {
+            ticketNumber: r.ticketNumber,
+            paymentMethod: p.method,
+            reference: p.reference ?? null,
+          },
+        })
+      }
+    } else {
+      // Legacy tickets without sale payment rows — keep prior cash behaviour
+      const cashAccount = await resolveBranchCashGlAccountId(tenantId, r.branchId)
+      lines.push({
+        accountId: cashAccount,
+        debit: paid,
+        credit: 0,
+        description: 'Repair receipt',
+        metadata: { ticketNumber: r.ticketNumber },
+      })
+    }
   }
   if (due > 0) {
     lines.push({ accountId: await resolveAccountIdByKey(tenantId, 'ar'), debit: due, credit: 0, description: 'Repair receivable', customerId: r.customerId, metadata: { ticketNumber: r.ticketNumber } })

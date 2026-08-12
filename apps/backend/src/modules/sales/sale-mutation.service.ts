@@ -9,6 +9,7 @@ import { voidWarrantiesForSaleReturn } from '../warranty/warranty.service'
 import { emitSaleReturnAccounting } from '../accounting/integration/accounting-events.service'
 import { createPostedJournalEntry } from '../accounting/journals/journal-create.service'
 import type { JournalDraftLine } from '../accounting/journals/journal-validator.util'
+import { resolvePaymentGlAccountId } from '../accounting/subledgers/ar-ap-payment.service'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { assertFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import type { Request } from 'express'
@@ -851,8 +852,24 @@ async function postSaleEditAdjustmentJournal(opts: {
   const salesAcc = await resolveAccountIdByKey(opts.tenantId, 'salesAccessory')
     ?? await resolveAccountIdByKey(opts.tenantId, 'salesMobile')
   const arAcc = await resolveAccountIdByKey(opts.tenantId, 'ar')
-  const cashAcc = await resolveBranchCashGlAccountId(opts.tenantId, opts.branchId)
-  if (!salesAcc || !cashAcc || !arAcc) return null
+  if (!salesAcc || !arAcc) return null
+
+  let receiptAcc = await resolveBranchCashGlAccountId(opts.tenantId, opts.branchId)
+  try {
+    const sale = await prisma.sale.findFirst({
+      where: { id: opts.saleId, tenantId: opts.tenantId },
+      include: { payments: true },
+    })
+    const moneyPay = (sale?.payments ?? []).find(
+      p => p.method !== 'CREDIT' && p.method !== 'STORE_CREDIT' && Number(p.amount) > 0,
+    )
+    if (moneyPay) {
+      receiptAcc = await resolvePaymentGlAccountId(opts.tenantId, opts.branchId, moneyPay.method)
+    }
+  } catch {
+    /* keep cash fallback */
+  }
+  if (!receiptAcc) return null
 
   const lines: JournalDraftLine[] = []
   const absPaid = round2(Math.abs(opts.paidDelta))
@@ -867,9 +884,9 @@ async function postSaleEditAdjustmentJournal(opts: {
   }
 
   if (opts.paidDelta > 0.009) {
-    lines.push({ accountId: cashAcc, debit: absPaid, credit: 0, description: 'Cash receipt adjustment' })
+    lines.push({ accountId: receiptAcc, debit: absPaid, credit: 0, description: 'Receipt adjustment' })
   } else if (opts.paidDelta < -0.009) {
-    lines.push({ accountId: cashAcc, debit: 0, credit: absPaid, description: 'Cash receipt adjustment' })
+    lines.push({ accountId: receiptAcc, debit: 0, credit: absPaid, description: 'Receipt adjustment' })
   }
 
   if (opts.dueDelta > 0.009) {

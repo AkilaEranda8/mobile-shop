@@ -317,6 +317,7 @@ export async function postArPaymentFromTransaction(tenantId: string, txId: strin
     sourceEvent: 'AR_PAYMENT_RECEIVED',
     actorEmail: actorEmail ?? tx.performedBy,
     entryDate: tx.createdAt,
+    bankAccountId: tx.bankAccountId,
   })
 }
 
