@@ -10,6 +10,7 @@ import { emitSaleReturnAccounting } from '../accounting/integration/accounting-e
 import { createPostedJournalEntry } from '../accounting/journals/journal-create.service'
 import type { JournalDraftLine } from '../accounting/journals/journal-validator.util'
 import { resolvePaymentGlAccountId } from '../accounting/subledgers/ar-ap-payment.service'
+import { isMobileProduct } from '../accounting/integration/inventory-cogs.util'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { assertFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import type { Request } from 'express'
@@ -42,14 +43,6 @@ async function resolveAccountIdByKey(tenantId: string, key: string) {
   const map = (settings.defaultAccounts ?? {}) as Record<string, unknown>
   const val = map[key]
   return typeof val === 'string' && val ? val : null
-}
-
-async function resolveBranchCashGlAccountId(tenantId: string, branchId: string) {
-  const cash = await prisma.cashAccount.findFirst({
-    where: { tenantId, branchId, name: 'Main Cash', isActive: true },
-    select: { glAccountId: true },
-  })
-  return cash?.glAccountId ?? null
 }
 
 export async function processSaleReturn(input: ProcessSaleReturnInput) {
@@ -764,22 +757,13 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
       include: { items: true, payments: true },
     })
 
-    const incomeTx = await tx.transaction.findFirst({
-      where: { reference: sale.invoiceNumber, type: 'INCOME', tenantId: input.tenantId },
+    // Keep Finance income in sync with money receipts (exclude CREDIT / STORE_CREDIT)
+    await tx.transaction.deleteMany({
+      where: { reference: sale.invoiceNumber, type: 'INCOME', tenantId: input.tenantId, category: 'Sales' },
     })
-    if (incomeTx) {
-      if (moneyPaid <= 0) {
-        await tx.transaction.delete({ where: { id: incomeTx.id } })
-      } else {
-        await tx.transaction.update({
-          where: { id: incomeTx.id },
-          data: {
-            amount: moneyPaid,
-            description: `Sale ${sale.invoiceNumber} (edited)`,
-          },
-        })
-      }
-    } else if (moneyPaid > 0 && sale.branchId) {
+    if (moneyPaid > 0 && sale.branchId) {
+      const primaryMethod = (payments.find(p => p.method !== 'CREDIT' && p.method !== 'STORE_CREDIT' && p.amount > 0)?.method
+        || 'CASH') as PaymentMethod
       await tx.transaction.create({
         data: {
           tenantId: input.tenantId,
@@ -788,7 +772,7 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
           category: 'Sales',
           amount: moneyPaid,
           description: `Sale ${sale.invoiceNumber} (edited)`,
-          paymentMethod: (payments.find(p => p.method !== 'CREDIT' && p.method !== 'STORE_CREDIT')?.method as PaymentMethod) || 'CASH',
+          paymentMethod: primaryMethod,
           reference: sale.invoiceNumber,
           performedBy: input.performedBy,
         },
@@ -798,11 +782,26 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
     return s
   })
 
-  // GL adjustment when totals / paid / due change and accounting is live
+  // GL adjustment when totals / paid / due / payment methods / qty change and accounting is live
   const totalDelta = round2(total - prevTotal)
   const paidDelta = round2(finalPaid - prevPaid)
   const dueDelta = round2(effectiveDue - prevDue)
-  if (sale.branchId && (Math.abs(totalDelta) >= 0.01 || Math.abs(paidDelta) >= 0.01 || Math.abs(dueDelta) >= 0.01)) {
+  const qtyChanged = items.some(i => i.qtyDelta !== 0)
+  const prevPayMap = aggregateReceiptMethods(sale.payments.map(p => ({ method: p.method, amount: Number(p.amount) })))
+  const nextPayMap = aggregateReceiptMethods(payments)
+  const methodsChanged = [...new Set([...prevPayMap.keys(), ...nextPayMap.keys()])]
+    .some(m => Math.abs(round2((nextPayMap.get(m) ?? 0) - (prevPayMap.get(m) ?? 0))) >= 0.01)
+
+  if (
+    sale.branchId
+    && (
+      Math.abs(totalDelta) >= 0.01
+      || Math.abs(paidDelta) >= 0.01
+      || Math.abs(dueDelta) >= 0.01
+      || methodsChanged
+      || qtyChanged
+    )
+  ) {
     try {
       await postSaleEditAdjustmentJournal({
         tenantId: input.tenantId,
@@ -811,16 +810,38 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
         invoiceNumber: sale.invoiceNumber,
         customerId: sale.customerId,
         totalDelta,
-        paidDelta,
         dueDelta,
+        prevPayments: sale.payments.map(p => ({ method: String(p.method), amount: round2(Number(p.amount)) })),
+        nextPayments: payments.map(p => ({ method: p.method, amount: p.amount })),
+        qtyDeltas: items
+          .filter(i => i.productId && i.qtyDelta !== 0)
+          .map(i => ({ productId: i.productId!, qtyDelta: i.qtyDelta })),
         actorEmail: input.actorEmail,
       })
     } catch (err) {
       console.error('[sales] edit GL adjustment failed:', err)
+      throw new AppError(
+        err instanceof AppError
+          ? err.message
+          : 'Invoice saved but accounting journal failed — check Accounting before editing again',
+        err instanceof AppError ? err.statusCode : 500,
+      )
     }
   }
 
   return updated
+}
+
+function aggregateReceiptMethods(payments: Array<{ method: string; amount: number }>) {
+  const map = new Map<string, number>()
+  for (const p of payments) {
+    const method = String(p.method || '').toUpperCase()
+    if (!method || method === 'CREDIT') continue
+    const amt = round2(Math.max(0, Number(p.amount) || 0))
+    if (amt < 0.01) continue
+    map.set(method, round2((map.get(method) ?? 0) + amt))
+  }
+  return map
 }
 
 async function postSaleEditAdjustmentJournal(opts: {
@@ -830,8 +851,10 @@ async function postSaleEditAdjustmentJournal(opts: {
   invoiceNumber: string
   customerId: string | null
   totalDelta: number
-  paidDelta: number
   dueDelta: number
+  prevPayments: Array<{ method: string; amount: number }>
+  nextPayments: Array<{ method: string; amount: number }>
+  qtyDeltas: Array<{ productId: string; qtyDelta: number }>
   actorEmail?: string
 }) {
   const settings = await prisma.accountingSettings.findUnique({ where: { tenantId: opts.tenantId } })
@@ -854,25 +877,7 @@ async function postSaleEditAdjustmentJournal(opts: {
   const arAcc = await resolveAccountIdByKey(opts.tenantId, 'ar')
   if (!salesAcc || !arAcc) return null
 
-  let receiptAcc = await resolveBranchCashGlAccountId(opts.tenantId, opts.branchId)
-  try {
-    const sale = await prisma.sale.findFirst({
-      where: { id: opts.saleId, tenantId: opts.tenantId },
-      include: { payments: true },
-    })
-    const moneyPay = (sale?.payments ?? []).find(
-      p => p.method !== 'CREDIT' && p.method !== 'STORE_CREDIT' && Number(p.amount) > 0,
-    )
-    if (moneyPay) {
-      receiptAcc = await resolvePaymentGlAccountId(opts.tenantId, opts.branchId, moneyPay.method)
-    }
-  } catch {
-    /* keep cash fallback */
-  }
-  if (!receiptAcc) return null
-
   const lines: JournalDraftLine[] = []
-  const absPaid = round2(Math.abs(opts.paidDelta))
   const absDue = round2(Math.abs(opts.dueDelta))
   const absTotal = round2(Math.abs(opts.totalDelta))
 
@@ -883,10 +888,41 @@ async function postSaleEditAdjustmentJournal(opts: {
     lines.push({ accountId: salesAcc, debit: absTotal, credit: 0, description: 'Sales revenue adjustment' })
   }
 
-  if (opts.paidDelta > 0.009) {
-    lines.push({ accountId: receiptAcc, debit: absPaid, credit: 0, description: 'Receipt adjustment' })
-  } else if (opts.paidDelta < -0.009) {
-    lines.push({ accountId: receiptAcc, debit: 0, credit: absPaid, description: 'Receipt adjustment' })
+  // Receipts by payment method (handles CASH↔BANK etc even when paid total unchanged)
+  const prevMap = aggregateReceiptMethods(opts.prevPayments)
+  const nextMap = aggregateReceiptMethods(opts.nextPayments)
+  const methods = new Set([...prevMap.keys(), ...nextMap.keys()])
+  for (const method of methods) {
+    const delta = round2((nextMap.get(method) ?? 0) - (prevMap.get(method) ?? 0))
+    if (Math.abs(delta) < 0.01) continue
+    let accountId: string
+    if (method === 'STORE_CREDIT') {
+      const creditAcc = await resolveAccountIdByKey(opts.tenantId, 'customerCredits')
+      if (!creditAcc) continue
+      accountId = creditAcc
+    } else {
+      accountId = await resolvePaymentGlAccountId(opts.tenantId, opts.branchId, method as PaymentMethod)
+    }
+    const abs = round2(Math.abs(delta))
+    if (delta > 0) {
+      lines.push({
+        accountId,
+        debit: abs,
+        credit: 0,
+        description: `Receipt adjustment (${method})`,
+        customerId: method === 'STORE_CREDIT' ? (opts.customerId ?? undefined) : undefined,
+        metadata: { paymentMethod: method, saleId: opts.saleId, invoiceNumber: opts.invoiceNumber },
+      })
+    } else {
+      lines.push({
+        accountId,
+        debit: 0,
+        credit: abs,
+        description: `Receipt adjustment (${method})`,
+        customerId: method === 'STORE_CREDIT' ? (opts.customerId ?? undefined) : undefined,
+        metadata: { paymentMethod: method, saleId: opts.saleId, invoiceNumber: opts.invoiceNumber },
+      })
+    }
   }
 
   if (opts.dueDelta > 0.009) {
@@ -905,6 +941,30 @@ async function postSaleEditAdjustmentJournal(opts: {
       description: 'AR adjustment',
       customerId: opts.customerId ?? undefined,
     })
+  }
+
+  // COGS / inventory for quantity edits
+  for (const d of opts.qtyDeltas) {
+    if (!d.productId || d.qtyDelta === 0) continue
+    const product = await prisma.product.findFirst({
+      where: { id: d.productId, tenantId: opts.tenantId },
+      include: { category: { select: { name: true, slug: true } } },
+    })
+    if (!product) continue
+    const unitCost = round2(Math.max(0, Number(product.buyingPrice) || 0))
+    const cost = round2(Math.abs(d.qtyDelta) * unitCost)
+    if (cost < 0.01) continue
+    const mobile = isMobileProduct(product as any)
+    const cogsAcc = await resolveAccountIdByKey(opts.tenantId, mobile ? 'cogsMobile' : 'cogsAccessory')
+    const invAcc = await resolveAccountIdByKey(opts.tenantId, mobile ? 'inventoryMobile' : 'inventoryAccessory')
+    if (!cogsAcc || !invAcc) continue
+    if (d.qtyDelta > 0) {
+      lines.push({ accountId: cogsAcc, debit: cost, credit: 0, description: 'COGS adjustment (qty increase)' })
+      lines.push({ accountId: invAcc, debit: 0, credit: cost, description: 'Inventory adjustment (qty increase)' })
+    } else {
+      lines.push({ accountId: invAcc, debit: cost, credit: 0, description: 'Inventory adjustment (qty decrease)' })
+      lines.push({ accountId: cogsAcc, debit: 0, credit: cost, description: 'COGS adjustment (qty decrease)' })
+    }
   }
 
   // Balance any rounding residue against sales

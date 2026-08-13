@@ -225,7 +225,7 @@ function EditPasswordGate({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
       <form
         className="rounded-xl w-full max-w-md border shadow-2xl p-5 space-y-4"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
@@ -286,7 +286,10 @@ function DeleteSaleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm"
+      onClick={e => e.stopPropagation()}
+    >
       <div
         className="rounded-xl w-full max-w-md border shadow-2xl p-5 space-y-4"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
@@ -406,7 +409,10 @@ function EditSaleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm"
+      onClick={e => e.stopPropagation()}
+    >
       <div
         className="rounded-xl w-full max-w-2xl border shadow-2xl max-h-[92vh] overflow-y-auto"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
@@ -761,7 +767,11 @@ function SaleDetailsModal({
   const safeText = (v: any) => (v === null || v === undefined || v === '' ? 'â€”' : String(v))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={showEdit || showEditAuth || showDelete ? undefined : onClose}
+    >
       <div
         className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
         style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
@@ -1006,6 +1016,7 @@ function SaleDetailsModal({
           </div>
         </div>
       </div>
+    </div>
 
       {showEditAuth && (
         <EditPasswordGate
@@ -1042,7 +1053,7 @@ function SaleDetailsModal({
           }}
         />
       )}
-    </div>
+    </>
   )
 }
 
