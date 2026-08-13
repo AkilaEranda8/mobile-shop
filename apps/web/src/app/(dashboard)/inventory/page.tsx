@@ -759,7 +759,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                   )}
                   {(hasCreditPricing && (detail.creditPrice ?? 0) > 0) && (
                     <div className="flex justify-between">
-                      <span style={{ color: 'var(--text-muted)' }}>Credit</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Cash price</span>
                       <span className="font-medium">{formatCurrency(detail.creditPrice ?? 0)}</span>
                     </div>
                   )}
@@ -878,7 +878,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                           <th className="px-3 py-2 text-left">SKU</th>
                           <th className="px-3 py-2 text-right">Retail</th>
                           {hasWholesalePricing && <th className="px-3 py-2 text-right">Wholesale</th>}
-                          {hasCreditPricing && <th className="px-3 py-2 text-right">Credit</th>}
+                          {hasCreditPricing && <th className="px-3 py-2 text-right">Cash price</th>}
                           {canSeeProductCost && <th className="px-3 py-2 text-right">Cost</th>}
                           <th className="px-3 py-2 text-right">Stock</th>
                         </tr>
@@ -979,7 +979,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                   )}
                   {(hasCreditPricing && (detail.creditPrice ?? 0) > 0) && (
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold">Credit price:</span>
+                      <span className="font-semibold">Cash price:</span>
                       <span className="font-semibold">{formatCurrency(detail.creditPrice ?? 0)}</span>
                     </div>
                   )}
@@ -1495,7 +1495,7 @@ export default function InventoryPage() {
               <p className="text-[10px] text-gray-500 dark:text-slate-500 mt-0.5">Wholesale {formatCurrency(wholesale)}</p>
             )}
             {hasCreditPricing && credit > 0 && (
-              <p className="text-[10px] text-gray-500 dark:text-slate-500 mt-0.5">Credit {formatCurrency(credit)}</p>
+              <p className="text-[10px] text-gray-500 dark:text-slate-500 mt-0.5">Cash price {formatCurrency(credit)}</p>
             )}
           </div>
         )

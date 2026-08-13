@@ -777,13 +777,9 @@ function TransferModal({
                   <CheckCircle size={12} className="flex-shrink-0" style={{ color: 'var(--brand-primary)' }} />
                   Catalog already exists at destination — stock will merge into it
                 </p>
-              ) : preview.willRelocate ? (
-                <p>
-                  No catalog at destination yet — full transfer will move this product row to the destination branch
-                </p>
               ) : (
                 <p>
-                  A catalog entry will be created at the destination branch when stock is transferred
+                  Catalog details will be copied to the destination (stock 0 there first), then the selected units will move. Source product stays on this branch.
                 </p>
               )}
             </div>

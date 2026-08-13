@@ -1,6 +1,5 @@
 import { AppError } from '../middleware/error.middleware'
 import {
-  destBranchSku,
   ensureBranchCatalogProduct,
   findBranchCatalogProduct,
 } from './branch-catalog'
@@ -130,8 +129,9 @@ async function recordTransferMovements(
 }
 
 /**
- * Stock transfer mutation (relocate / merge / partial).
- * Behavior mirrors legacy stock-transfer.service.ts transaction body.
+ * Stock transfer mutation (merge / partial).
+ * Always keeps a catalog row at the source branch; units move to a dest catalog
+ * (created if missing). Never relocates the product row itself.
  */
 export async function executeStockTransferEffects(input: ExecuteStockTransferInput) {
   const {
@@ -144,8 +144,6 @@ export async function executeStockTransferEffects(input: ExecuteStockTransferInp
     quantity,
     variationKey,
     imeis,
-    isFullProduct,
-    isFullImeiTransfer,
     reference,
     movementNote,
     performedBy,
@@ -154,30 +152,6 @@ export async function executeStockTransferEffects(input: ExecuteStockTransferInp
   const sourceVariant = variationKey ? findVariant(product.storageVariations, variationKey) : null
   const destCatalog = await findBranchCatalogProduct(tx, tenantId, product.sku, toBranchId)
   const mergeIntoDest = !!destCatalog && destCatalog.id !== productId
-
-  if (isFullProduct && !mergeIntoDest && (!product.trackImei || isFullImeiTransfer)) {
-    await tx.product.update({
-      where: { id: productId },
-      data: { branchId: toBranchId },
-    })
-    if (product.trackImei && imeis) {
-      await tx.imeiRecord.updateMany({
-        where: { imei: { in: imeis }, productId, branchId: fromBranchId, status: 'IN_STOCK' },
-        data: { branchId: toBranchId },
-      })
-    }
-    await recordTransferMovements(tx, {
-      sourceProductId: productId,
-      destProductId: productId,
-      fromBranchId,
-      toBranchId,
-      quantity,
-      reference,
-      note: movementNote,
-      performedBy,
-    })
-    return { reference, productId, fromBranchId, toBranchId, quantity, mode: 'relocate' as const }
-  }
 
   const destProduct = mergeIntoDest
     ? destCatalog!

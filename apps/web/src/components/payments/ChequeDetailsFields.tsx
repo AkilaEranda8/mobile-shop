@@ -43,11 +43,30 @@ export function parseChequeReference(raw: string | null | undefined): ParsedCheq
   return { chequeNumber, chequeDate, other }
 }
 
+/** Human note left after stripping settlement/system prefixes from a payment reference. */
+export function chequeDescriptionFromReference(raw: string | null | undefined): string | null {
+  const parsed = parseChequeReference(raw)
+  const text = (parsed?.other ?? String(raw ?? '')).trim()
+  if (!text) return null
+  const cleaned = text
+    .split('|')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(part => !/^(Outstanding settlement|Outstanding discount|Credit settlement)$/i.test(part))
+    .filter(part => !/^Discount\s+[\d.,]+$/i.test(part))
+    .join(' · ')
+    .trim()
+  return cleaned || null
+}
+
 type Props = {
   chequeNumber: string
   chequeDate: string
   onNumberChange: (v: string) => void
   onDateChange: (v: string) => void
+  /** Optional free-text description / memo for the cheque. */
+  description?: string
+  onDescriptionChange?: (v: string) => void
   /** When true, number is required for form submit UX (caller still validates). */
   required?: boolean
   /** Compact styling for dark POS panel */
@@ -63,18 +82,21 @@ const defaultInput: CSSProperties = {
 }
 
 /**
- * Shown when payment method is CHEQUE — number + date.
+ * Shown when payment method is CHEQUE — number + date (+ optional description).
  */
 export function ChequeDetailsFields({
   chequeNumber,
   chequeDate,
   onNumberChange,
   onDateChange,
+  description,
+  onDescriptionChange,
   required = true,
   variant = 'default',
   onFieldKeyDown,
 }: Props) {
   const isPos = variant === 'pos'
+  const showDescription = typeof onDescriptionChange === 'function'
   const labelCls = isPos
     ? 'text-[10px] font-semibold uppercase tracking-wide mb-1 block'
     : 'text-[11px] font-semibold uppercase tracking-wide mb-1.5 block'
@@ -86,39 +108,58 @@ export function ChequeDetailsFields({
     : { color: 'var(--text-muted)' }
 
   return (
-    <div className={`grid gap-3 ${isPos ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
-      <div>
-        <label className={labelCls} style={labelStyle}>
-          Cheque Number{required ? '' : ' (optional)'}
-        </label>
-        <input
-          type="text"
-          data-pay-field
-          value={chequeNumber}
-          onChange={e => onNumberChange(e.target.value)}
-          onKeyDown={onFieldKeyDown}
-          placeholder="e.g. 123456"
-          required={required}
-          autoComplete="off"
-          className={inputCls}
-          style={defaultInput}
-        />
+    <div className="space-y-3">
+      <div className={`grid gap-3 ${isPos ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+        <div>
+          <label className={labelCls} style={labelStyle}>
+            Cheque Number{required ? '' : ' (optional)'}
+          </label>
+          <input
+            type="text"
+            data-pay-field
+            value={chequeNumber}
+            onChange={e => onNumberChange(e.target.value)}
+            onKeyDown={onFieldKeyDown}
+            placeholder="e.g. 123456"
+            required={required}
+            autoComplete="off"
+            className={inputCls}
+            style={defaultInput}
+          />
+        </div>
+        <div>
+          <label className={labelCls} style={labelStyle}>
+            Cheque Date
+          </label>
+          <input
+            type="date"
+            data-pay-field
+            value={chequeDate}
+            onChange={e => onDateChange(e.target.value)}
+            onKeyDown={onFieldKeyDown}
+            required={required}
+            className={inputCls}
+            style={defaultInput}
+          />
+        </div>
       </div>
-      <div>
-        <label className={labelCls} style={labelStyle}>
-          Cheque Date
-        </label>
-        <input
-          type="date"
-          data-pay-field
-          value={chequeDate}
-          onChange={e => onDateChange(e.target.value)}
-          onKeyDown={onFieldKeyDown}
-          required={required}
-          className={inputCls}
-          style={defaultInput}
-        />
-      </div>
+      {showDescription && (
+        <div>
+          <label className={labelCls} style={labelStyle}>
+            Description <span className="normal-case font-medium opacity-70">(optional)</span>
+          </label>
+          <textarea
+            data-pay-field
+            value={description ?? ''}
+            onChange={e => onDescriptionChange?.(e.target.value)}
+            onKeyDown={onFieldKeyDown}
+            placeholder="Bank name, drawer, memo…"
+            rows={2}
+            className={`${inputCls} resize-y min-h-[64px]`}
+            style={defaultInput}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -136,6 +177,7 @@ type MetaProps = {
 /** Read-only payment line for details modals — highlights cheque # / date when present. */
 export function ChequePaymentMeta({ method, reference, amount, paidAt, formatAmount, className }: MetaProps) {
   const cheque = parseChequeReference(reference)
+  const description = chequeDescriptionFromReference(reference)
   const isCheque = String(method ?? '').toUpperCase() === 'CHEQUE' || !!cheque
   const methodLabel = method ? String(method).replace(/_/g, ' ') : null
   const paidLabel = paidAt ? formatDate(paidAt, 'long') : null
@@ -153,26 +195,31 @@ export function ChequePaymentMeta({ method, reference, amount, paidAt, formatAmo
           <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>· {paidLabel}</span>
         )}
       </div>
-      {isCheque && (cheque?.chequeNumber || cheque?.chequeDate) ? (
-        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-          {cheque.chequeNumber && (
-            <span>
-              Cheque #{' '}
-              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {cheque.chequeNumber}
+      {isCheque && (cheque?.chequeNumber || cheque?.chequeDate || description) ? (
+        <div className="mt-0.5 space-y-0.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+            {cheque?.chequeNumber && (
+              <span>
+                Cheque #{' '}
+                <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {cheque.chequeNumber}
+                </span>
               </span>
-            </span>
-          )}
-          {cheque.chequeDate && (
-            <span>
-              Date{' '}
-              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                {cheque.chequeDate}
+            )}
+            {cheque?.chequeDate && (
+              <span>
+                Date{' '}
+                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {cheque.chequeDate}
+                </span>
               </span>
-            </span>
-          )}
-          {cheque.other && !/outstanding (settlement|discount)/i.test(cheque.other) && (
-            <span className="truncate max-w-[220px]">{cheque.other}</span>
+            )}
+          </div>
+          {description && (
+            <div className="whitespace-pre-wrap break-words max-w-[280px]" style={{ color: 'var(--text-secondary)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Description: </span>
+              <span style={{ color: 'var(--text-primary)' }}>{description}</span>
+            </div>
           )}
         </div>
       ) : reference ? (

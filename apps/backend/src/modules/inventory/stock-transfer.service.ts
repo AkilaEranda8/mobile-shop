@@ -264,7 +264,9 @@ export const stockTransferService = {
       destSku: destCatalog?.sku ?? destBranchSku(product.sku, toBranchId),
       catalogReady: hasSeparateDest,
       catalogProductId: hasSeparateDest ? destCatalog!.id : null,
-      willRelocate: !variationKey && product.stock > 0 && !hasSeparateDest,
+      // Product row never relocates — units always move onto a dest catalog copy.
+      willRelocate: false,
+      willCreateCatalog: !hasSeparateDest,
       willMerge: hasSeparateDest || !!variationKey,
       trackImei: product.trackImei,
       requiresFullQuantity: false,

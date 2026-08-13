@@ -158,7 +158,7 @@ function CreditPaymentModal({ customerId, customerName, customerPhone, outstandi
       const res: any = await customersApi.creditPayment(customerId, {
         amount: cashAmt,
         discount: discountAmt > 0 ? discountAmt : undefined,
-        note: paymentMethod === 'CHEQUE' ? undefined : (reference.trim() || undefined),
+        note: reference.trim() || undefined,
         reference: chequeRef || (paymentMethod !== 'CHEQUE' ? reference.trim() || undefined : undefined),
         paymentMethod,
         branchId,
@@ -508,6 +508,8 @@ function CreditPaymentModal({ customerId, customerName, customerPhone, outstandi
               chequeDate={chequeDate}
               onNumberChange={setChequeNumber}
               onDateChange={setChequeDate}
+              description={reference}
+              onDescriptionChange={setReference}
             />
           )}
 

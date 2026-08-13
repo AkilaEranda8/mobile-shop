@@ -280,7 +280,7 @@ export async function applyRepairSparePartsStockEffectsIfEnabled(
 }
 
 /**
- * Phase 1: stock transfer effects (relocate / merge / partial + movements + IMEI).
+ * Phase 1: stock transfer effects (merge / partial + movements + IMEI).
  * Delegates to existing stock-transfer util for behavior parity.
  */
 export async function applyStockTransferEffects(input: ApplyStockTransferInput) {

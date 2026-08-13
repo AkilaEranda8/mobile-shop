@@ -833,25 +833,19 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
             .map(id => branches.find(b => b.id === id)?.name)
             .filter(Boolean)
             .join(', ')
-          if (hasInventory) {
-            toast((t) => (
-              <div className="text-sm">
-                <p className="font-medium">Catalog copied to {destNames}</p>
-                <p className="text-xs opacity-80 mt-0.5">Stock &amp; IMEI remain at {stockBranchName}</p>
-                <button
-                  type="button"
-                  className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
-                  onClick={() => { router.push('/dashboard/stock-transfer'); toast.dismiss(t.id) }}
-                >
-                  Open Stock Transfer →
-                </button>
-              </div>
-            ), { duration: 8000 })
-          } else if (catalogBranchIds.length === 1) {
-            toast.success(`Product moved to ${destNames}`)
-          } else {
-            toast.success(`Catalog copied to ${destNames}`)
-          }
+          toast((t) => (
+            <div className="text-sm">
+              <p className="font-medium">Catalog copied to {destNames}</p>
+              <p className="text-xs opacity-80 mt-0.5">Details only — stock &amp; IMEI stay at {stockBranchName}</p>
+              <button
+                type="button"
+                className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
+                onClick={() => { router.push('/dashboard/stock-transfer'); toast.dismiss(t.id) }}
+              >
+                Open Stock Transfer →
+              </button>
+            </div>
+          ), { duration: 8000 })
         } else {
           toast.success(`"${form.name}" updated`)
         }
@@ -1196,7 +1190,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                       <>
                         <div className="flex items-center justify-between gap-2">
                           <label className="block text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {hasInventory ? 'Assign catalog to branches (optional)' : 'Move or assign to branches'}
+                            Assign catalog to branches (optional)
                           </label>
                           <div className="flex gap-2">
                             <button
@@ -1245,11 +1239,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                         </div>
                         <p className="text-[10px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
                           <ArrowLeftRight size={11} className="flex-shrink-0 mt-0.5 opacity-70" />
-                          {hasInventory
-                            ? 'Copies image & details to selected branches. Move stock and IMEI via Stock Transfer.'
-                            : catalogBranchIds.length > 1
-                              ? 'Creates catalog entries at selected branches (stock stays 0).'
-                              : 'Select one branch to move this product, or multiple to copy catalog.'}
+                          Copies image & details only. Stock and IMEI stay on this branch — use Stock Transfer to move units.
                         </p>
                       </>
                     )}

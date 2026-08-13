@@ -4,7 +4,7 @@ import { getPagination } from '../../utils/pagination'
 import { Request } from 'express'
 import { inferTrackImeiFromMeta } from '../../utils/productImei'
 import { effectiveBranchId, assertBranchRecordAccess, getUserBranchIds } from '../../utils/active-branch'
-import { buildBranchCatalogData, catalogBaseSku, findBranchCatalogProduct, isBranchCatalogCloneSku } from '../../utils/branch-catalog'
+import { buildBranchCatalogData, catalogBaseSku, findBranchCatalogProduct, isBranchCatalogCloneSku, preserveDestVariantStocks } from '../../utils/branch-catalog'
 import { generateProductBarcode, generateProductSku, peekProductCodes } from '../../utils/counters'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { Prisma } from '@prisma/client'
@@ -31,12 +31,23 @@ async function upsertCatalogAtBranch(
   const catalog = buildBranchCatalogData(source as any, data, targetBranchId)
   let dest = await findBranchCatalogProduct(tx, tenantId, source.sku, targetBranchId)
   if (!dest) {
+    // New branch row: details only — never carry source stock/IMEI.
     dest = await tx.product.create({
       data: { tenantId, ...catalog, stock: 0 },
     })
   } else {
     if (dest.branchId !== targetBranchId) throw new AppError('Destination SKU exists at another branch', 409)
-    await tx.product.update({ where: { id: dest.id }, data: catalog })
+    // Refresh details but keep destination on-hand stock (and variant qty).
+    await tx.product.update({
+      where: { id: dest.id },
+      data: {
+        ...catalog,
+        storageVariations: preserveDestVariantStocks(
+          dest.storageVariations,
+          catalog.storageVariations,
+        ) as Prisma.InputJsonValue | undefined,
+      },
+    })
   }
   return dest
 }
@@ -481,16 +492,9 @@ export const productsService = {
     }
     if (isActive          !== undefined) data.isActive          = Boolean(isActive)
 
-    const inStockImei = await prisma.imeiRecord.count({
-      where: { productId: id, status: 'IN_STOCK' },
-    })
-    const hasInventory = p.stock > 0 || inStockImei > 0
-
-    let moveBranch = false
-    if (catalogTargets.length === 1 && !hasInventory) {
-      moveBranch = true
-      data.branchId = catalogTargets[0]
-    }
+    // Catalog assign always copies details only (stock stays on source; dest stock = 0).
+    // Never move the source product row between branches via this path.
+    delete data.branchId
 
     const engineOn = await isInventoryEngineEnabled(tenantId)
     const stockTouch = stock !== undefined || storageVariations !== undefined
@@ -538,9 +542,8 @@ export const productsService = {
       }
 
       const catalogAssigned: { branchId: string; productId: string }[] = []
-      const assignTargets = moveBranch ? [] : catalogTargets
 
-      for (const targetBranchId of assignTargets) {
+      for (const targetBranchId of catalogTargets) {
         const dest = await upsertCatalogAtBranch(tx, tenantId, p, data, targetBranchId)
         catalogAssigned.push({ branchId: targetBranchId, productId: dest.id })
       }

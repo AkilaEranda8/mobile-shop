@@ -1,5 +1,6 @@
 import { ProductCondition, Prisma } from '@prisma/client'
 import { AppError } from '../middleware/error.middleware'
+import { variantKey, type VariantRow } from './product-variants'
 
 export type BranchCatalogSource = {
   name: string
@@ -43,9 +44,33 @@ export function isBranchCatalogCloneSku(sku: string) {
   return BRANCH_CATALOG_SKU_SUFFIX_RE.test(sku)
 }
 
-function zeroVariantStock(variations: unknown) {
+export function zeroVariantStock(variations: unknown) {
   if (!Array.isArray(variations)) return variations
   return variations.map((v) => ({ ...(v as Record<string, unknown>), stock: 0 }))
+}
+
+/**
+ * When refreshing catalog details on an existing branch row, keep that branch's
+ * on-hand quantities (parent stock is left untouched by the caller).
+ */
+export function preserveDestVariantStocks(existing: unknown, incoming: unknown): unknown {
+  if (!Array.isArray(incoming)) return incoming ?? existing
+  if (!Array.isArray(existing) || existing.length === 0) return incoming
+
+  const stockMap = new Map<string, number>()
+  for (const row of existing as VariantRow[]) {
+    const qty = Number(row.stock) || 0
+    stockMap.set(variantKey(row), qty)
+    stockMap.set(`${row.storage}::${row.colorName}`, qty)
+  }
+
+  return (incoming as VariantRow[]).map((row) => {
+    const preserved =
+      stockMap.get(variantKey(row)) ??
+      stockMap.get(`${row.storage}::${row.colorName}`) ??
+      0
+    return { ...row, stock: preserved }
+  })
 }
 
 /** Catalog-only fields copied to another branch (no stock / IMEI). */

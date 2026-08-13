@@ -6,6 +6,8 @@ import {
   catalogBaseSku,
   destBranchSku,
   findBranchCatalogProduct,
+  preserveDestVariantStocks,
+  zeroVariantStock,
 } from './branch-catalog'
 
 function assert(condition: boolean, message: string) {
@@ -26,6 +28,24 @@ assert(
   destBranchSku(cloneSku, destinationBranchId) === cloneSku,
   'does not create a double suffix from a clone SKU',
 )
+
+const existingVariants = [
+  { id: 'v1', storage: '128GB', colorName: 'Black', stock: 7, sellingPrice: 100 },
+  { id: 'v2', storage: '256GB', colorName: 'Blue', stock: 3, sellingPrice: 120 },
+]
+const incomingVariants = [
+  { id: 'v1', storage: '128GB', colorName: 'Black', stock: 0, sellingPrice: 110 },
+  { id: 'v2', storage: '256GB', colorName: 'Blue', stock: 0, sellingPrice: 130 },
+  { id: 'v3', storage: '512GB', colorName: 'Gold', stock: 0, sellingPrice: 150 },
+]
+const preserved = preserveDestVariantStocks(existingVariants, incomingVariants) as typeof incomingVariants
+assert(preserved[0].stock === 7, 'keeps dest stock for matching variant')
+assert(preserved[0].sellingPrice === 110, 'refreshes catalog price')
+assert(preserved[1].stock === 3, 'keeps second variant stock')
+assert(preserved[2].stock === 0, 'new variant starts at 0')
+
+const zeroed = zeroVariantStock(existingVariants) as typeof existingVariants
+assert(zeroed.every(v => v.stock === 0), 'zeroVariantStock clears quantities')
 
 const calls: Array<Record<string, unknown>> = []
 const db = {
