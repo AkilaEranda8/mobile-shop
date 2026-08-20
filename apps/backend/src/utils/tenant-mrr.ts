@@ -8,9 +8,17 @@ import { PRICED_FEATURES } from '../modules/tenants/tenant-features'
 export async function recalculateTenantMrr(tenantId: string): Promise<number | null> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { plan: true, mrr: true },
+    select: { plan: true, mrr: true, status: true },
   })
   if (!tenant) return null
+
+  // Trial (and other non-paying) tenants must not carry plan MRR until activated.
+  if (tenant.status !== 'ACTIVE') {
+    if (tenant.mrr !== 0) {
+      await prisma.tenant.update({ where: { id: tenantId }, data: { mrr: 0 } })
+    }
+    return 0
+  }
 
   const planKey = String(tenant.plan || 'STARTER').toUpperCase()
   const cfg = await prisma.platformConfig.findUnique({ where: { key: `plan_mrr_${planKey}` } })

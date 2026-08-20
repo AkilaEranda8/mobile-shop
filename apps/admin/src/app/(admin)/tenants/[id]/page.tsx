@@ -390,7 +390,7 @@ export default function TenantDetailPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-5 pt-5 border-t border-gray-100">
           {[
-            { label: 'MRR',       value: tenant.mrr ? formatMoney(tenant.mrr) : 'Trial', icon: CreditCard },
+            { label: 'MRR',       value: tenant.status === 'TRIAL' ? 'Trial' : (tenant.mrr ? formatMoney(tenant.mrr) : '—'), icon: CreditCard },
             { label: 'Users',     value: String(tenant._count?.users ?? (tenant.users?.length ?? '—')), icon: Users },
             { label: 'Sales',     value: (tenant._count?.sales ?? '—').toLocaleString(), icon: ShoppingCart },
             { label: 'Repairs',   value: (tenant._count?.repairs ?? '—').toLocaleString(), icon: Wrench },
@@ -438,7 +438,7 @@ export default function TenantDetailPage() {
               {[
                 ['Plan',  <span className={PLAN_BADGE[tenant.plan] ?? 'badge-gray'}>{tenant.plan}</span>],
                 ['Status', <span className={STATUS_BADGE[tenant.status] ?? 'badge-gray'}>{tenant.status}</span>],
-                ['MRR',  tenant.mrr ? formatMoney(tenant.mrr) : 'Free Trial'],
+                ['MRR',  tenant.status === 'TRIAL' ? 'Free Trial' : (tenant.mrr ? formatMoney(tenant.mrr) : '—')],
                 ['Sub. Ends', tenant.subscriptionEndsAt ? fmtDate(tenant.subscriptionEndsAt) : '—'],
                 ['Trial Ends', tenant.trialEndsAt ? fmtDate(tenant.trialEndsAt) : '—'],
                 ['Joined', fmtDate(tenant.createdAt)],

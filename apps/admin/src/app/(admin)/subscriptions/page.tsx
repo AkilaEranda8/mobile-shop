@@ -494,7 +494,7 @@ export default function SubscriptionsPage() {
   const churnMrr = Math.round(mrr * (stats?.churnRate ?? 0) / 100)
 
   const payingSubs = useMemo(
-    () => subs.filter(s => s.status !== 'SUSPENDED' && s.status !== 'CANCELLED'),
+    () => subs.filter(s => s.status === 'ACTIVE'),
     [subs],
   )
 
@@ -853,7 +853,7 @@ export default function SubscriptionsPage() {
           </div>
           {filtered.length > 0 && (
             <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <p className="text-xs text-gray-400">Total MRR: <span className="font-semibold text-gray-700">{fmt(filtered.filter(t => t.status !== 'SUSPENDED' && t.status !== 'CANCELLED').reduce((s, t) => s + (t.mrr ?? 0), 0))}</span></p>
+              <p className="text-xs text-gray-400">Total MRR: <span className="font-semibold text-gray-700">{fmt(filtered.filter(t => t.status === 'ACTIVE').reduce((s, t) => s + (t.mrr ?? 0), 0))}</span></p>
               <p className="text-xs text-gray-400">{filtered.length} of {subs.length} tenants</p>
             </div>
           )}

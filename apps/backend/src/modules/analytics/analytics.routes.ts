@@ -19,6 +19,7 @@ import {
 } from '../report-engine/report-engine.service'
 import { buildPaymentMethodCashflow } from '../finance/payment-method-cashflow.service'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
+import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 
 function effectiveProductStock(p: { stock: number; storageVariations?: unknown }): number {
@@ -33,10 +34,7 @@ const dashOrReports = enforceModuleAccessReadAny(['DASHBOARD', 'REPORTS'], 'REPO
 const reportsOnly = requireModuleAccess('REPORTS', 'view')
 
 async function tenantHasServices(tenantId: string): Promise<boolean> {
-  const row = await prisma.tenantFeature.findFirst({
-    where: { tenantId, feature: 'SERVICES', enabled: true },
-  })
-  return !!row
+  return isTenantFeatureEnabled(tenantId, 'SERVICES')
 }
 
 function normalizeServiceCategory(category: string | null | undefined): string {

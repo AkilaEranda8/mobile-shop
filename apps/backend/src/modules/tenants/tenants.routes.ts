@@ -18,8 +18,16 @@ router.get('/my-features', async (req: Request, res: Response, next: NextFunctio
   try {
     const tenantId = (req as any).user?.tenantId
     if (!tenantId) return res.status(401).json({ success: false, message: 'Unauthorized' })
-    const rows = await prisma.tenantFeature.findMany({ where: { tenantId } })
-    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) })
+    const [rows, tenant] = await Promise.all([
+      prisma.tenantFeature.findMany({ where: { tenantId } }),
+      prisma.tenant.findUnique({ where: { id: tenantId }, select: { status: true } }),
+    ])
+    const trialMode = tenant?.status === 'TRIAL'
+    sendSuccess(res, {
+      features: buildFeatureMap(rows, { trialMode }),
+      prices: buildPriceMap(rows),
+      trialMode,
+    })
   } catch (e) { next(e) }
 })
 
@@ -39,8 +47,16 @@ router.patch('/my-features', authorize('OWNER', 'MANAGER'), requireModuleAccess(
       ),
     )
     await handleAccountingFeatureBatch(tenantId, updates, (req as any).user?.email ?? 'owner')
-    const rows = await prisma.tenantFeature.findMany({ where: { tenantId } })
-    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) }, 'Features updated')
+    const [rows, tenant] = await Promise.all([
+      prisma.tenantFeature.findMany({ where: { tenantId } }),
+      prisma.tenant.findUnique({ where: { id: tenantId }, select: { status: true } }),
+    ])
+    const trialMode = tenant?.status === 'TRIAL'
+    sendSuccess(res, {
+      features: buildFeatureMap(rows, { trialMode }),
+      prices: buildPriceMap(rows),
+      trialMode,
+    }, 'Features updated')
   } catch (e) { next(e) }
 })
 

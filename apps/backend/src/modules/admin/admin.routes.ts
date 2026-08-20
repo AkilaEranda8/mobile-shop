@@ -99,8 +99,8 @@ function normalizeBillingPhone(phone: string): string {
   return phone.startsWith('+') ? phone : `+${digits}`
 }
 
-/** Paying MRR only — suspended/cancelled shops keep a stored mrr but must not inflate totals. */
-const MRR_WHERE: Prisma.TenantWhereInput = { status: { in: ['ACTIVE', 'TRIAL'] } }
+/** Paying MRR only — trial shops have mrr=0 until activated; suspended/cancelled keep stored mrr but are excluded. */
+const MRR_WHERE: Prisma.TenantWhereInput = { status: 'ACTIVE' }
 
 // ── Dashboard Stats ──────────────────────────────────────────────────────────
 router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
@@ -169,7 +169,10 @@ router.get('/tenants', async (req: Request, res: Response, next: NextFunction) =
       }),
       prisma.tenant.count({ where }),
     ])
-    sendSuccess(res, { data: tenants, total, page: parseInt(page), limit: parseInt(limit) })
+    sendSuccess(res, {
+      data: tenants.map(t => ({ ...t, mrr: t.status === 'TRIAL' ? 0 : t.mrr })),
+      total, page: parseInt(page), limit: parseInt(limit),
+    })
   } catch (e) { next(e) }
 })
 
@@ -198,11 +201,15 @@ router.patch('/tenants/:id/status', async (req: Request, res: Response, next: Ne
     const tenant = await prisma.tenant.update({ where: { id: req.params.id }, data: { status } })
     if (status === 'ACTIVE') {
       await prisma.user.updateMany({ where: { tenantId: tenant.id }, data: { isActive: true } })
+      await recalculateTenantMrr(tenant.id)
+    } else if (status === 'TRIAL') {
+      await prisma.tenant.update({ where: { id: tenant.id }, data: { mrr: 0 } })
     } else if (status === 'SUSPENDED' || status === 'CANCELLED') {
       await prisma.user.updateMany({ where: { tenantId: tenant.id }, data: { isActive: false } })
       await prisma.refreshToken.deleteMany({ where: { user: { tenantId: tenant.id } } })
     }
-    sendSuccess(res, tenant, `Tenant ${status.toLowerCase()}`)
+    const refreshed = await prisma.tenant.findUnique({ where: { id: tenant.id } })
+    sendSuccess(res, refreshed ?? tenant, `Tenant ${status.toLowerCase()}`)
   } catch (e) { next(e) }
 })
 
@@ -387,6 +394,12 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
       const { phone: ownerPhone, source: ownerPhoneSource } = await resolveTenantOwnerPhone(req.params.id)
       return sendSuccess(res, { ...(refreshed ?? tenant), ownerPhone, ownerPhoneSource })
     }
+    if ('status' in data && data.status === 'ACTIVE') {
+      await recalculateTenantMrr(req.params.id)
+      const refreshed = await prisma.tenant.findUnique({ where: { id: req.params.id } })
+      const { phone: ownerPhone, source: ownerPhoneSource } = await resolveTenantOwnerPhone(req.params.id)
+      return sendSuccess(res, { ...(refreshed ?? tenant), ownerPhone, ownerPhoneSource })
+    }
     const { phone: ownerPhone, source: ownerPhoneSource } = await resolveTenantOwnerPhone(req.params.id)
     sendSuccess(res, { ...tenant, ownerPhone, ownerPhoneSource })
   } catch (e) { next(e) }
@@ -395,8 +408,16 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
 // ── Tenant Feature Flags ──────────────────────────────────────────────────────
 router.get('/tenants/:id/features', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
-    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows) })
+    const [rows, tenant] = await Promise.all([
+      prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } }),
+      prisma.tenant.findUnique({ where: { id: req.params.id }, select: { status: true } }),
+    ])
+    const trialMode = tenant?.status === 'TRIAL'
+    sendSuccess(res, {
+      features: buildFeatureMap(rows, { trialMode }),
+      prices: buildPriceMap(rows),
+      trialMode,
+    })
   } catch (e) { next(e) }
 })
 
@@ -437,8 +458,17 @@ router.put('/tenants/:id/features', async (req: Request, res: Response, next: Ne
     )
     await handleAccountingFeatureBatch(req.params.id, features, (req as any).user?.email ?? 'admin')
     const mrr = await recalculateTenantMrr(req.params.id)
-    const rows = await prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } })
-    sendSuccess(res, { features: buildFeatureMap(rows), prices: buildPriceMap(rows), mrr }, 'Features updated')
+    const [rows, tenant] = await Promise.all([
+      prisma.tenantFeature.findMany({ where: { tenantId: req.params.id } }),
+      prisma.tenant.findUnique({ where: { id: req.params.id }, select: { status: true } }),
+    ])
+    const trialMode = tenant?.status === 'TRIAL'
+    sendSuccess(res, {
+      features: buildFeatureMap(rows, { trialMode }),
+      prices: buildPriceMap(rows),
+      mrr,
+      trialMode,
+    }, 'Features updated')
   } catch (e) { next(e) }
 })
 
@@ -647,7 +677,7 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
       name: t.name,
       plan: t.plan,
       status: t.status,
-      mrr: t.mrr,
+      mrr: t.status === 'TRIAL' ? 0 : t.mrr,
       subscriptionEndsAt: t.subscriptionEndsAt,
       trialEndsAt: t.trialEndsAt,
       ownerEmail: t.ownerEmail,
@@ -662,7 +692,7 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
       paymentDueAt: t.paymentDueAt,
     }))
     const mrrTotal = data.reduce((s: number, t: { status: string; mrr: number | null }) => (
-      t.status === 'SUSPENDED' || t.status === 'CANCELLED' ? s : s + (t.mrr ?? 0)
+      t.status === 'ACTIVE' ? s + (t.mrr ?? 0) : s
     ), 0)
     sendSuccess(res, { data, mrrTotal })
   } catch (e) { next(e) }

@@ -17,7 +17,18 @@ export const PRICED_FEATURES: string[] = ['POS', 'SERVICES']
 
 export type TenantFeatureRow = { feature: string; enabled: boolean; price?: number | null }
 
-export function buildFeatureMap(rows: TenantFeatureRow[]) {
+export function buildTrialFeatureMap(): Record<string, boolean> {
+  const map: Record<string, boolean> = {}
+  for (const f of ALL_FEATURES) map[f] = true
+  return map
+}
+
+export function buildFeatureMap(
+  rows: TenantFeatureRow[],
+  options?: { trialMode?: boolean },
+) {
+  if (options?.trialMode) return buildTrialFeatureMap()
+
   const map: Record<string, boolean> = {}
   for (const f of ALL_FEATURES) {
     if (OPT_IN_FEATURES.includes(f)) map[f] = false

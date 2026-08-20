@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { RELOAD_PROVIDER_IDS, type ReloadServiceType } from './reload-settings.util'
 import { normalizeDisabledFeatures } from '../../constants/plan-limits'
+import { isTenantFeatureEnabled } from '../../utils/tenant-feature.util'
 
 const PROVIDER_BY_SKU: Record<string, string> = {
   DIALOG: 'Dialog',
@@ -47,12 +48,15 @@ export async function createDailyReloadsFromSaleItems(
     cashierName: string
   },
 ): Promise<number> {
-  const feat = await tx.tenantFeature.findFirst({
-    where: { tenantId: opts.tenantId, feature: 'DAILY_RELOAD', enabled: true },
-  })
-  if (!feat) return 0
+  if (!(await isTenantFeatureEnabled(opts.tenantId, 'DAILY_RELOAD'))) return 0
 
-  if (opts.branchId) {
+  const tenant = await tx.tenant.findUnique({
+    where: { id: opts.tenantId },
+    select: { status: true },
+  })
+  const isTrial = tenant?.status === 'TRIAL'
+
+  if (!isTrial && opts.branchId) {
     const branch = await tx.branch.findFirst({
       where: { id: opts.branchId, tenantId: opts.tenantId },
       select: { disabledFeatures: true },

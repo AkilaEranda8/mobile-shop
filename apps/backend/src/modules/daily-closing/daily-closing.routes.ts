@@ -35,10 +35,9 @@ router.use(enforceModuleAccess('DAILY_CLOSING'))
 
 async function requireDailyClosingFeature(req: Request, _res: Response, next: NextFunction) {
   try {
-    const feat = await prisma.tenantFeature.findFirst({
-      where: { tenantId: req.tenantId!, feature: 'DAILY_CLOSING', enabled: true },
-    })
-    if (!feat) throw new AppError('Daily Closing is not enabled. Enable it in Settings → Shop Features.', 403)
+    if (!(await isTenantFeatureEnabled(req.tenantId!, 'DAILY_CLOSING'))) {
+      throw new AppError('Daily Closing is not enabled. Enable it in Settings → Shop Features.', 403)
+    }
     next()
   } catch (e) { next(e) }
 }

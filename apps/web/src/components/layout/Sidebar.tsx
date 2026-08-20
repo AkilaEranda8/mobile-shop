@@ -276,7 +276,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [plan, setPlan]         = useState('')
   const [logo, setLogo]         = useState('')
   const [suggestionUnreadCount, setSuggestionUnreadCount] = useState(0)
-  const { features }          = useTenantFeatures()
+  const { features, trialMode }          = useTenantFeatures()
   const activeBranchId        = useActiveBranchId()
   const { canView, canEdit }    = useRolePermissions()
   const { openPos, posOpen }    = usePos()
@@ -287,6 +287,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       activeBranchId,
       branchScope: user?.branchScope,
       branches: user?.branches,
+      trialMode,
     })
 
   const allowsNavAccess = (permission?: string, requiresEdit?: boolean) => {

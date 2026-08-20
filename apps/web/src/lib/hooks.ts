@@ -36,6 +36,7 @@ const FEATURES_CACHE_TTL = 5 * 1000
 type FeaturesCache = {
   features: Record<string, boolean>
   prices: Record<string, number | null>
+  trialMode?: boolean
 }
 
 function readCache(): FeaturesCache | null {
@@ -45,29 +46,33 @@ function readCache(): FeaturesCache | null {
     const { data, ts } = JSON.parse(cached)
     if (Date.now() - ts >= FEATURES_CACHE_TTL) return null
     if (data?.features) return data as FeaturesCache
-    return { features: data as Record<string, boolean>, prices: {} }
+    return { features: data as Record<string, boolean>, prices: {}, trialMode: false }
   } catch {
     return null
   }
 }
 
 export function useTenantFeatures() {
-  const [features, setFeatures] = useState<Record<string, boolean>>(() => readCache()?.features ?? {})
-  const [featurePrices, setFeaturePrices] = useState<Record<string, number | null>>(() => readCache()?.prices ?? {})
+  const cached = readCache()
+  const [features, setFeatures] = useState<Record<string, boolean>>(() => cached?.features ?? {})
+  const [featurePrices, setFeaturePrices] = useState<Record<string, number | null>>(() => cached?.prices ?? {})
+  const [trialMode, setTrialMode] = useState(() => cached?.trialMode ?? false)
   // Avoid false "disabled" flashes / notFound() before /tenants/my-features returns
-  const [loading, setLoading] = useState(() => readCache() == null)
+  const [loading, setLoading] = useState(() => cached == null)
 
   const loadFeatures = useCallback(() => {
     return tenantApi.myFeatures().then((res: any) => {
       const raw = res?.data ?? res
       const feat = raw?.features && typeof raw.features === 'object' ? raw.features : raw
       const prices = raw?.prices && typeof raw.prices === 'object' ? raw.prices : {}
+      const isTrial = raw?.trialMode === true
       if (feat && typeof feat === 'object') {
         setFeatures(feat)
         setFeaturePrices(prices)
+        setTrialMode(isTrial)
         try {
           localStorage.setItem(FEATURES_CACHE_KEY, JSON.stringify({
-            data: { features: feat, prices },
+            data: { features: feat, prices, trialMode: isTrial },
             ts: Date.now(),
           }))
         } catch { /* noop */ }
@@ -102,11 +107,11 @@ export function useTenantFeatures() {
     return loadFeatures().catch(() => {})
   }, [loadFeatures])
 
-  return { features, featurePrices, hasFeature, refetchFeatures, loading }
+  return { features, featurePrices, hasFeature, refetchFeatures, loading, trialMode }
 }
 
 export function useFeatureFlag(feature: string): boolean {
-  const { features } = useTenantFeatures()
+  const { features, trialMode } = useTenantFeatures()
   const activeBranchId = useActiveBranchId()
   const [userTick, setUserTick] = useState(0)
   useEffect(() => {
@@ -120,6 +125,7 @@ export function useFeatureFlag(feature: string): boolean {
     activeBranchId,
     branchScope: user?.branchScope,
     branches: user?.branches,
+    trialMode,
   })
 }
 

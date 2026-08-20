@@ -259,7 +259,7 @@ export default function TenantsPage() {
                   </td>
                   <td className="td"><span className={PLAN_BADGE[t.plan] ?? 'badge-gray'}>{t.plan}</span></td>
                   <td className="td"><span className={STATUS_BADGE[t.status] ?? 'badge-gray'}>{t.status}</span></td>
-                  <td className="td text-right font-semibold text-xs text-gray-800">{fmtMRR(t.mrr ?? 0)}</td>
+                  <td className="td text-right font-semibold text-xs text-gray-800">{fmtMRR(t.status === 'TRIAL' ? 0 : (t.mrr ?? 0))}</td>
                   <td className="td text-right text-xs text-gray-600">{t._count?.sales?.toLocaleString() ?? '—'}</td>
                   <td className="td text-right text-xs text-gray-600">{t._count?.users ?? '—'}</td>
                   <td className="td text-xs text-gray-500 whitespace-nowrap">{fmtDate(t.createdAt)}</td>

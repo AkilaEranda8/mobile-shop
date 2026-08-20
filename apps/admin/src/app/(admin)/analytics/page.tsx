@@ -88,7 +88,7 @@ export default function AnalyticsPage() {
   const topByMrr = [...(d?.topTenantsByRevenue ?? [])].slice(0, 8)
 
   const totalMrr = (d?.topTenantsByRevenue ?? []).reduce((s, t) => (
-    t.status === 'SUSPENDED' || t.status === 'CANCELLED' ? s : s + (t.mrr ?? 0)
+    t.status === 'ACTIVE' ? s + (t.mrr ?? 0) : s
   ), 0)
 
   return (

@@ -52,8 +52,10 @@ export function isFeatureEnabledForActiveBranch(
     activeBranchId?: string | null
     branchScope?: string | null
     branches?: BranchMeta[]
+    trialMode?: boolean
   },
 ): boolean {
+  if (opts?.trialMode) return isFeatureEnabled(features, feature)
   if (!isFeatureEnabled(features, feature)) return false
 
   const isOptOut =
