@@ -1,6 +1,7 @@
 'use client'
 
 import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
 import { LogOut } from 'lucide-react'
 
 type Props = {
@@ -8,13 +9,24 @@ type Props = {
 }
 
 export function QuestAbandonButton({ onAbandon }: Props) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const ui = (
-    <button type="button" className="shop-quest-abandon" onClick={onAbandon}>
+    <button
+      type="button"
+      className="shop-quest-abandon"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onAbandon()
+      }}
+    >
       <LogOut size={14} />
       Abandon quest
     </button>
   )
 
-  if (typeof document === 'undefined') return null
+  if (!mounted) return null
   return createPortal(ui, document.body)
 }

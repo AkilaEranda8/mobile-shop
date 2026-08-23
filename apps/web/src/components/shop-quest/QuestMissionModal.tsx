@@ -1,6 +1,7 @@
 'use client'
 
 import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
 import {
   Building2, ChevronLeft, ChevronRight, LayoutDashboard, Lightbulb,
   Map, Package, Settings, ShoppingCart, Wrench,
@@ -36,12 +37,24 @@ export function QuestMissionModal({
   onSkipMission,
   canGoBack,
 }: Props) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const Icon = ICONS[mission.icon]
   const human = index + 1
 
   const ui = (
-    <div className="shop-quest-mission-wrap" role="dialog" aria-modal="true" aria-labelledby="shop-quest-mission-title">
-      <div className="shop-quest-card shop-quest-mission">
+    <div
+      className="shop-quest-mission-wrap"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shop-quest-mission-title"
+    >
+      <div
+        className="shop-quest-card shop-quest-mission"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <div className="shop-quest-mission-head">
           <span className="shop-quest-pill">Mission {human}</span>
           <span className="shop-quest-muted">{human} / {total}</span>
@@ -62,22 +75,42 @@ export function QuestMissionModal({
           <button
             type="button"
             className="shop-quest-btn shop-quest-btn-secondary"
-            onClick={onBack}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onBack()
+            }}
             disabled={!canGoBack}
           >
             <ChevronLeft size={16} /> Back
           </button>
-          <button type="button" className="shop-quest-btn shop-quest-btn-primary" onClick={onContinue}>
+          <button
+            type="button"
+            className="shop-quest-btn shop-quest-btn-primary"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onContinue()
+            }}
+          >
             Continue <ChevronRight size={16} />
           </button>
         </div>
-        <button type="button" className="shop-quest-text-link" onClick={onSkipMission}>
+        <button
+          type="button"
+          className="shop-quest-text-link"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onSkipMission()
+          }}
+        >
           Skip this mission
         </button>
       </div>
     </div>
   )
 
-  if (typeof document === 'undefined') return null
+  if (!mounted) return null
   return createPortal(ui, document.body)
 }

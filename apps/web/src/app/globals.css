@@ -1314,8 +1314,7 @@ html:not(.dark) [data-modal="dark"] .bg-violet-500 { background-color: var(--bra
 }
 
 /* ── Shop Quest (Driver.js spotlight + custom mission UI) ── */
-/* Driver spotlight must never steal clicks from Shop Quest mission cards
-   (overlay is appended to body and can sit above React stacking contexts). */
+/* Driver leftovers (if any) — never block quest UI */
 body.driver-active .driver-overlay,
 body.driver-active .driver-overlay path {
   pointer-events: none !important;
@@ -1328,39 +1327,50 @@ body.driver-active .driver-overlay path {
 }
 
 .shop-quest-dim {
-  position: fixed;
-  inset: 0;
-  z-index: 9990;
-  pointer-events: none;
-  background: transparent;
+  display: none;
 }
 
 .shop-quest-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10050;
+  z-index: 20000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   background: rgba(8, 12, 22, 0.72);
+  pointer-events: auto;
 }
 
 .shop-quest-mission-wrap {
   position: fixed;
   inset: 0;
-  z-index: 10050;
+  z-index: 20000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  pointer-events: none;
+  pointer-events: auto;
+  background: rgba(8, 12, 22, 0.55);
 }
 
 .shop-quest-mission-wrap .shop-quest-card {
   pointer-events: auto;
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  cursor: default;
+}
+
+/* Spotlight ring on nav target (no Driver.js) */
+.shop-quest-spotlight {
+  outline: 3px solid var(--brand-primary, #7c3aed) !important;
+  outline-offset: 3px !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--brand-primary, #7c3aed) 35%, transparent),
+    0 0 24px color-mix(in srgb, var(--brand-primary, #7c3aed) 45%, transparent) !important;
+  position: relative;
+  z-index: 19990 !important;
 }
 
 .shop-quest-card {
@@ -1791,7 +1801,7 @@ html.dark .shop-quest-btn-secondary,
   position: fixed;
   right: 1rem;
   bottom: 1rem;
-  z-index: 10060;
+  z-index: 20010;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -1912,13 +1922,4 @@ html.dark .shop-quest-btn-secondary,
   border-radius: inherit;
 }
 
-/* Driver.js stage ring — brand accent */
-.driver-active-element {
-  outline: 2px solid var(--brand-primary) !important;
-  outline-offset: 3px;
-}
-
-#driver-highlighted-element-stage,
-.driver-stage {
-  border-radius: 12px !important;
-}
+/* Spotlight ring handled by .shop-quest-spotlight */

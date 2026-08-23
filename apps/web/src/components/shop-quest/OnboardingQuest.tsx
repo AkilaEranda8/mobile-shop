@@ -1,8 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { driver, type Driver } from 'driver.js'
-import 'driver.js/dist/driver.css'
 import toast from 'react-hot-toast'
 import { authStorage } from '@/lib/auth'
 import { tenantApi } from '@/lib/api'
@@ -28,6 +26,8 @@ import { QuestAbandonButton } from './QuestAbandonButton'
 
 type Phase = 'idle' | 'welcome' | 'mission' | 'complete' | 'victory'
 
+const SPOTLIGHT_CLASS = 'shop-quest-spotlight'
+
 export function OnboardingQuest() {
   const user = authStorage.getUser()
   const userId = user?.id
@@ -45,41 +45,25 @@ export function OnboardingQuest() {
   const [index, setIndex] = useState(0)
   const [xp, setXp] = useState(0)
   const [autoProgress, setAutoProgress] = useState(0)
-  const driverRef = useRef<Driver | null>(null)
   const autoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const replayOnlyRef = useRef(false)
 
-  const destroyDriver = useCallback(() => {
-    try {
-      driverRef.current?.destroy()
-    } catch { /* noop */ }
-    driverRef.current = null
+  const clearSpotlight = useCallback(() => {
+    document.querySelectorAll(`.${SPOTLIGHT_CLASS}`).forEach((el) => {
+      el.classList.remove(SPOTLIGHT_CLASS)
+    })
   }, [])
 
+  /** CSS ring only — no Driver.js (its overlay stole Continue clicks). */
   const highlight = useCallback((selector: string) => {
-    destroyDriver()
+    clearSpotlight()
     const el = document.querySelector(selector)
     if (!el) return
-    const d = driver({
-      popoverClass: 'shop-quest-driver-hidden',
-      stagePadding: 8,
-      stageRadius: 12,
-      overlayOpacity: 0.55,
-      allowClose: false,
-      animate: true,
-      showButtons: [],
-    })
-    driverRef.current = d
-    d.highlight({ element: selector })
-    // Ensure overlay never blocks Continue / Skip (body portal + stacking)
-    requestAnimationFrame(() => {
-      document.querySelectorAll<SVGElement>('.driver-overlay').forEach((svg) => {
-        svg.style.pointerEvents = 'none'
-        const path = svg.querySelector('path')
-        if (path) path.style.pointerEvents = 'none'
-      })
-    })
-  }, [destroyDriver])
+    el.classList.add(SPOTLIGHT_CLASS)
+    try {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+    } catch { /* noop */ }
+  }, [clearSpotlight])
 
   const persistSkipOrDone = useCallback((status: 'done' | 'skipped', finalXp: number) => {
     if (!userId) return
@@ -91,7 +75,7 @@ export function OnboardingQuest() {
   }, [userId])
 
   const finishFullAccess = useCallback((status: 'done' | 'skipped', finalXp: number) => {
-    destroyDriver()
+    clearSpotlight()
     if (autoTimerRef.current) clearInterval(autoTimerRef.current)
     unlockAll()
     setQuestActive(false)
@@ -100,7 +84,7 @@ export function OnboardingQuest() {
     persistSkipOrDone(status, finalXp)
     setPhase('idle')
     replayOnlyRef.current = false
-  }, [destroyDriver, unlockAll, setQuestActive, setQuestUiOpen, setProgress, persistSkipOrDone])
+  }, [clearSpotlight, unlockAll, setQuestActive, setQuestUiOpen, setProgress, persistSkipOrDone])
 
   const syncProgress = useCallback((i: number, list: QuestMission[], currentXp: number) => {
     setProgress({
@@ -133,7 +117,7 @@ export function OnboardingQuest() {
 
   const goMission = useCallback((nextIndex: number, list: QuestMission[], currentXp: number) => {
     if (nextIndex >= list.length) {
-      destroyDriver()
+      clearSpotlight()
       setXp(currentXp + QUEST_VICTORY_XP)
       setPhase('victory')
       return
@@ -143,12 +127,12 @@ export function OnboardingQuest() {
     setPhase('mission')
     const m = list[nextIndex]
     requestAnimationFrame(() => highlight(m.spotlight))
-  }, [destroyDriver, highlight, syncProgress])
+  }, [clearSpotlight, highlight, syncProgress])
 
   const onMissionContinue = useCallback(() => {
     const m = missions[index]
     if (!m) return
-    destroyDriver()
+    clearSpotlight()
     if (!replayOnlyRef.current) {
       unlock(m.unlock)
     }
@@ -167,7 +151,7 @@ export function OnboardingQuest() {
         goMission(index + 1, missions, nextXp)
       }
     }, 50)
-  }, [missions, index, xp, destroyDriver, unlock, syncProgress, goMission])
+  }, [missions, index, xp, clearSpotlight, unlock, syncProgress, goMission])
 
   const onCompleteContinue = useCallback(() => {
     if (autoTimerRef.current) clearInterval(autoTimerRef.current)
@@ -191,7 +175,7 @@ export function OnboardingQuest() {
   const onClaimVictory = useCallback(() => {
     const finalXp = Math.max(xp, QUEST_TOTAL_XP)
     if (replayOnlyRef.current) {
-      destroyDriver()
+      clearSpotlight()
       setPhase('idle')
       setQuestUiOpen(false)
       replayOnlyRef.current = false
@@ -199,7 +183,7 @@ export function OnboardingQuest() {
     }
     finishFullAccess('done', finalXp)
     toast.success('Shop Ready — badge claimed!')
-  }, [xp, finishFullAccess, destroyDriver, setQuestUiOpen])
+  }, [xp, finishFullAccess, clearSpotlight, setQuestUiOpen])
 
   const onShare = useCallback(async () => {
     const text = `I completed Hexalyte Shop Quest and unlocked my shop! ${QUEST_TOTAL_XP} XP 🏆`
@@ -217,17 +201,15 @@ export function OnboardingQuest() {
     setIndex(0)
     setXp(0)
     replayOnlyRef.current = true
-    // Do not lock UI on replay
     setQuestActive(false)
     setPhase('welcome')
   }, [setQuestActive])
 
-  // Keep competing popups (e.g. What's New) closed while any quest screen is open
   useEffect(() => {
     setQuestUiOpen(phase !== 'idle')
-  }, [phase, setQuestUiOpen])
+    if (phase !== 'mission') clearSpotlight()
+  }, [phase, setQuestUiOpen, clearSpotlight])
 
-  // Auto-start only for TRIAL tenants — ACTIVE shops skip onboard
   useEffect(() => {
     if (!userId) return
     let cancelled = false
@@ -247,7 +229,6 @@ export function OnboardingQuest() {
         const tenant = r?.data ?? r
         isTrial = String(tenant?.status ?? '').toUpperCase() === 'TRIAL'
       } catch {
-        // If status is unknown, do not lock an established shop
         isTrial = false
       }
       if (cancelled) return
@@ -262,7 +243,6 @@ export function OnboardingQuest() {
         return
       }
 
-      // Wait for chrome + release notes
       welcomeTimer = window.setTimeout(() => {
         if (cancelled) return
         if (getQuestSaved(userId)) return
@@ -276,7 +256,6 @@ export function OnboardingQuest() {
     }
   }, [userId, unlockAll, setQuestActive])
 
-  // Replay event from User Manual
   useEffect(() => {
     const onReplay = () => {
       if (!userId) return
@@ -287,11 +266,10 @@ export function OnboardingQuest() {
   }, [userId, startReplay])
 
   useEffect(() => () => {
-    destroyDriver()
+    clearSpotlight()
     if (autoTimerRef.current) clearInterval(autoTimerRef.current)
-  }, [destroyDriver])
+  }, [clearSpotlight])
 
-  // Expose skip for sidebar card via custom event
   useEffect(() => {
     const onSkip = () => skipEntirely()
     window.addEventListener(QUEST_SKIP_EVENT, onSkip)
@@ -333,7 +311,6 @@ export function OnboardingQuest() {
 
       {phase === 'mission' && mission && (
         <>
-          <div className="shop-quest-dim" aria-hidden />
           <QuestMissionModal
             mission={mission}
             index={index}
