@@ -5,6 +5,7 @@ import { driver, type Driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import toast from 'react-hot-toast'
 import { authStorage } from '@/lib/auth'
+import { tenantApi } from '@/lib/api'
 import {
   getQuestSaved,
   INITIAL_UNLOCKS,
@@ -210,25 +211,52 @@ export function OnboardingQuest() {
     setPhase('welcome')
   }, [setQuestActive])
 
-  // Auto-start for new users
+  // Auto-start only for TRIAL tenants — ACTIVE shops skip onboard
   useEffect(() => {
     if (!userId) return
     let cancelled = false
+    let welcomeTimer: ReturnType<typeof setTimeout> | undefined
+
     const saved = getQuestSaved(userId)
     if (saved) {
       unlockAll()
       setQuestActive(false)
       return
     }
-    // Wait for chrome + release notes
-    const t = window.setTimeout(() => {
+
+    ;(async () => {
+      let isTrial = false
+      try {
+        const r: any = await tenantApi.me()
+        const tenant = r?.data ?? r
+        isTrial = String(tenant?.status ?? '').toUpperCase() === 'TRIAL'
+      } catch {
+        // If status is unknown, do not lock an established shop
+        isTrial = false
+      }
       if (cancelled) return
-      if (getQuestSaved(userId)) return
-      setPhase('welcome')
-    }, 900)
+
+      if (!isTrial) {
+        saveQuest(userId, {
+          status: 'skipped',
+          completedAt: new Date().toISOString(),
+        })
+        unlockAll()
+        setQuestActive(false)
+        return
+      }
+
+      // Wait for chrome + release notes
+      welcomeTimer = window.setTimeout(() => {
+        if (cancelled) return
+        if (getQuestSaved(userId)) return
+        setPhase('welcome')
+      }, 900)
+    })()
+
     return () => {
       cancelled = true
-      window.clearTimeout(t)
+      if (welcomeTimer) window.clearTimeout(welcomeTimer)
     }
   }, [userId, unlockAll, setQuestActive])
 
