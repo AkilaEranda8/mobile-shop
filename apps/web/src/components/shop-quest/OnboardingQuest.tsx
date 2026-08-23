@@ -191,7 +191,7 @@ export function OnboardingQuest() {
     }
     finishFullAccess('done', finalXp)
     toast.success('Shop Ready — badge claimed!')
-  }, [xp, finishFullAccess, destroyDriver])
+  }, [xp, finishFullAccess, destroyDriver, setQuestUiOpen])
 
   const onShare = useCallback(async () => {
     const text = `I completed Hexalyte Shop Quest and unlocked my shop! ${QUEST_TOTAL_XP} XP 🏆`
@@ -223,7 +223,7 @@ export function OnboardingQuest() {
   useEffect(() => {
     if (!userId) return
     let cancelled = false
-    let welcomeTimer: ReturnType<typeof setTimeout> | undefined
+    let welcomeTimer: ReturnType<typeof window.setTimeout> | undefined
 
     const saved = getQuestSaved(userId)
     if (saved) {
