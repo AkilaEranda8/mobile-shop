@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, X, ArrowRight } from 'lucide-react'
 import { releaseNotesApi, type ReleasePopup } from '@/lib/api'
+import { useShopQuestUnlock } from '@/lib/shop-quest-unlock'
 
 const SESSION_KEY = 'release_popup_dismissed'
 
 export function ReleaseNotesPopup() {
   const router = useRouter()
   const [release, setRelease] = useState<ReleasePopup | null>(null)
+  const { isQuestUiOpen } = useShopQuestUnlock()
 
   const load = useCallback(() => {
     releaseNotesApi.unreadPopup()
@@ -25,7 +27,8 @@ export function ReleaseNotesPopup() {
 
   useEffect(() => { load() }, [load])
 
-  if (!release) return null
+  // Don't stack What's New on top of Shop Quest (looks like a glassed double-modal)
+  if (!release || isQuestUiOpen) return null
 
   function handleLater() {
     sessionStorage.setItem(`${SESSION_KEY}_${release!.id}`, '1')

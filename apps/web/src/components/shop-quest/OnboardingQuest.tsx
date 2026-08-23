@@ -33,6 +33,7 @@ export function OnboardingQuest() {
   const userId = user?.id
   const {
     setQuestActive,
+    setQuestUiOpen,
     setProgress,
     unlock,
     unlockAll,
@@ -86,11 +87,12 @@ export function OnboardingQuest() {
     if (autoTimerRef.current) clearInterval(autoTimerRef.current)
     unlockAll()
     setQuestActive(false)
+    setQuestUiOpen(false)
     setProgress({ xp: 0, missionIndex: 0, missionTotal: 0 })
     persistSkipOrDone(status, finalXp)
     setPhase('idle')
     replayOnlyRef.current = false
-  }, [destroyDriver, unlockAll, setQuestActive, setProgress, persistSkipOrDone])
+  }, [destroyDriver, unlockAll, setQuestActive, setQuestUiOpen, setProgress, persistSkipOrDone])
 
   const syncProgress = useCallback((i: number, list: QuestMission[], currentXp: number) => {
     setProgress({
@@ -183,6 +185,7 @@ export function OnboardingQuest() {
     if (replayOnlyRef.current) {
       destroyDriver()
       setPhase('idle')
+      setQuestUiOpen(false)
       replayOnlyRef.current = false
       return
     }
@@ -210,6 +213,11 @@ export function OnboardingQuest() {
     setQuestActive(false)
     setPhase('welcome')
   }, [setQuestActive])
+
+  // Keep competing popups (e.g. What's New) closed while any quest screen is open
+  useEffect(() => {
+    setQuestUiOpen(phase !== 'idle')
+  }, [phase, setQuestUiOpen])
 
   // Auto-start only for TRIAL tenants — ACTIVE shops skip onboard
   useEffect(() => {

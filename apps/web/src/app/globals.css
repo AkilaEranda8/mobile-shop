@@ -1335,8 +1335,7 @@ html:not(.dark) [data-modal="dark"] .bg-violet-500 { background-color: var(--bra
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: color-mix(in srgb, #0f0a1a 55%, transparent);
-  backdrop-filter: blur(2px);
+  background: rgba(8, 12, 22, 0.72);
 }
 
 .shop-quest-mission-wrap {
@@ -1358,14 +1357,25 @@ html:not(.dark) [data-modal="dark"] .bg-violet-500 { background-color: var(--bra
   width: min(100%, 420px);
   border-radius: 1.25rem;
   padding: 1.5rem 1.35rem 1.25rem;
-  background: var(--bg-secondary, var(--card));
-  border: 1px solid color-mix(in srgb, var(--brand-primary) 22%, var(--border-subtle));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--brand-primary) 12%, transparent),
-    0 24px 48px -12px color-mix(in srgb, #000 45%, transparent);
+  background: var(--bg-card, #ffffff);
   color: var(--text-primary);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.45);
   text-align: center;
   animation: shop-quest-pop 0.28s ease-out;
+  isolation: isolate;
+  opacity: 1;
+}
+
+html.dark .shop-quest-card,
+.dark .shop-quest-card {
+  background: #0f1623;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+html:not(.dark) .shop-quest-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
 }
 
 @keyframes shop-quest-pop {
@@ -1402,13 +1412,18 @@ html:not(.dark) [data-modal="dark"] .bg-violet-500 { background-color: var(--bra
 }
 
 .shop-quest-btn-secondary {
-  background: transparent;
+  background: var(--bg-subtle, #f1f5f9);
   color: var(--text-primary);
   border: 1px solid var(--border-default, var(--border-subtle));
 }
 
+html.dark .shop-quest-btn-secondary,
+.dark .shop-quest-btn-secondary {
+  background: #141b2d;
+}
+
 .shop-quest-btn-secondary:hover {
-  background: color-mix(in srgb, var(--brand-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--brand-primary) 10%, var(--bg-subtle, #f1f5f9));
 }
 
 .shop-quest-text-link {

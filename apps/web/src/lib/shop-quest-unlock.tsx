@@ -16,11 +16,14 @@ import {
 
 type ShopQuestUnlockContextValue = {
   isQuestActive: boolean
+  /** True while any Shop Quest screen is open (welcome / mission / etc.) — hides competing popups */
+  isQuestUiOpen: boolean
   unlocked: Set<QuestUnlockId>
   xp: number
   missionIndex: number
   missionTotal: number
   setQuestActive: (active: boolean) => void
+  setQuestUiOpen: (open: boolean) => void
   setProgress: (opts: { xp: number; missionIndex: number; missionTotal: number }) => void
   unlock: (id: QuestUnlockId) => void
   unlockMany: (ids: QuestUnlockId[]) => void
@@ -35,6 +38,7 @@ const ShopQuestUnlockContext = createContext<ShopQuestUnlockContextValue | null>
 
 export function ShopQuestUnlockProvider({ children }: { children: ReactNode }) {
   const [isQuestActive, setQuestActive] = useState(false)
+  const [isQuestUiOpen, setQuestUiOpen] = useState(false)
   const [unlocked, setUnlocked] = useState<Set<QuestUnlockId>>(() => new Set(ALL_UNLOCK_IDS))
   const [xp, setXp] = useState(0)
   const [missionIndex, setMissionIndex] = useState(0)
@@ -95,11 +99,13 @@ export function ShopQuestUnlockProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       isQuestActive,
+      isQuestUiOpen,
       unlocked,
       xp,
       missionIndex,
       missionTotal,
       setQuestActive,
+      setQuestUiOpen,
       setProgress,
       unlock,
       unlockMany,
@@ -110,6 +116,7 @@ export function ShopQuestUnlockProvider({ children }: { children: ReactNode }) {
     }),
     [
       isQuestActive,
+      isQuestUiOpen,
       unlocked,
       xp,
       missionIndex,
@@ -136,11 +143,13 @@ export function useShopQuestUnlock() {
   if (!ctx) {
     return {
       isQuestActive: false,
+      isQuestUiOpen: false,
       unlocked: new Set(ALL_UNLOCK_IDS),
       xp: 0,
       missionIndex: 0,
       missionTotal: 0,
       setQuestActive: () => {},
+      setQuestUiOpen: () => {},
       setProgress: () => {},
       unlock: () => {},
       unlockMany: () => {},
