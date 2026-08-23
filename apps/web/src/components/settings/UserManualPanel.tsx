@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import {
-  BookOpen, ChevronRight, CreditCard, FileText, HelpCircle, Keyboard,
+  BookOpen, Calendar, ChevronRight, CreditCard, FileText, HelpCircle, Keyboard,
   LogIn, MessageSquare, Package, Phone, RotateCcw, Search, Shield,
   ShoppingCart, Sparkles, UserCheck, Users, Workflow, Wrench, ExternalLink,
 } from 'lucide-react'
@@ -14,6 +14,7 @@ import {
   USER_MANUAL_WORKFLOW_SI,
   type ManualLang,
   type ManualSection,
+  type ManualStepGroup,
 } from './userManualContent'
 import { replayShopQuestFromUi } from '@/lib/onboarding-quest'
 
@@ -25,6 +26,7 @@ const LANG_OPTIONS: { key: ManualLang; label: string }[] = [
 
 const SECTION_ICONS: Record<string, LucideIcon> = {
   start: LogIn,
+  'sidebar-guide': Workflow,
   pos: ShoppingCart,
   'pos-keys': Keyboard,
   inventory: Package,
@@ -33,6 +35,8 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
   repairs: Wrench,
   warranty: Shield,
   finance: CreditCard,
+  'hire-purchase': Calendar,
+  accounting: BookOpen,
   'invoice-settings': FileText,
   whatsapp: MessageSquare,
   roles: UserCheck,
@@ -47,13 +51,16 @@ interface UserManualPanelProps {
 export default function UserManualPanel({ embedded = false }: UserManualPanelProps) {
   const [lang, setLang] = useState<ManualLang>('both')
   const [query, setQuery] = useState('')
-  const [activeId, setActiveId] = useState('pos')
+  const [activeId, setActiveId] = useState('sidebar-guide')
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return USER_MANUAL_SECTIONS
     return USER_MANUAL_SECTIONS.filter(s => {
-      const blob = [s.titleEn, s.titleSi, ...s.itemsEn, ...s.itemsSi].join(' ').toLowerCase()
+      const stepBlob = (s.stepGroups ?? []).flatMap(g => [
+        g.titleEn, g.titleSi, ...g.stepsEn, ...g.stepsSi,
+      ]).join(' ')
+      const blob = [s.titleEn, s.titleSi, ...s.itemsEn, ...s.itemsSi, stepBlob].join(' ').toLowerCase()
       return blob.includes(q)
     })
   }, [query])
@@ -286,6 +293,7 @@ function WorkflowCard({ lang }: { lang: ManualLang }) {
 
 function SectionDetail({ section, lang }: { section: ManualSection; lang: ManualLang }) {
   const Icon = SECTION_ICONS[section.id] ?? BookOpen
+  const hasSteps = (section.stepGroups?.length ?? 0) > 0
 
   return (
     <div className="card p-5 hover:border-violet-500/20 transition-colors">
@@ -303,13 +311,77 @@ function SectionDetail({ section, lang }: { section: ManualSection; lang: Manual
         </div>
       </div>
 
-      <div className={`grid gap-6 ${lang === 'both' ? 'md:grid-cols-2' : ''}`}>
-        {(lang === 'en' || lang === 'both') && (
-          <SectionList label={lang === 'both' ? 'English' : undefined} items={section.itemsEn} />
-        )}
-        {(lang === 'si' || lang === 'both') && (
-          <SectionList label={lang === 'both' ? 'සිංහල' : undefined} items={section.itemsSi} />
-        )}
+      {hasSteps && (
+        <div className="space-y-6 mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">
+            Setup step by step
+          </p>
+          {section.stepGroups!.map((group, gi) => (
+            <StepGroupBlock key={gi} group={group} lang={lang} />
+          ))}
+        </div>
+      )}
+
+      {(section.itemsEn.length > 0 || section.itemsSi.length > 0) && (
+        <>
+          {hasSteps && (
+            <p className="text-xs font-semibold uppercase tracking-wider text-violet-500 mb-4">
+              Quick reference
+            </p>
+          )}
+          <div className={`grid gap-6 ${lang === 'both' ? 'md:grid-cols-2' : ''}`}>
+            {(lang === 'en' || lang === 'both') && section.itemsEn.length > 0 && (
+              <SectionList label={lang === 'both' ? 'English' : undefined} items={section.itemsEn} />
+            )}
+            {(lang === 'si' || lang === 'both') && section.itemsSi.length > 0 && (
+              <SectionList label={lang === 'both' ? 'සිංහල' : undefined} items={section.itemsSi} />
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function StepGroupBlock({ group, lang }: { group: ManualStepGroup; lang: ManualLang }) {
+  const columns =
+    lang === 'si'
+      ? [{ label: 'සිංහල', title: group.titleSi, steps: group.stepsSi }]
+      : lang === 'en'
+        ? [{ label: 'English', title: group.titleEn, steps: group.stepsEn }]
+        : [
+            { label: 'English', title: group.titleEn, steps: group.stepsEn },
+            { label: 'සිංහල', title: group.titleSi, steps: group.stepsSi },
+          ]
+
+  return (
+    <div
+      className="rounded-xl border p-4"
+      style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
+    >
+      <div className={`grid gap-5 ${columns.length > 1 ? 'md:grid-cols-2' : ''}`}>
+        {columns.map(col => (
+          <div key={col.label}>
+            {lang === 'both' && (
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+                {col.label}
+              </p>
+            )}
+            <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+              {col.title}
+            </p>
+            <ol className="space-y-2.5">
+              {col.steps.map((step, i) => (
+                <li key={i} className="flex gap-3 text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-[11px] font-bold flex items-center justify-center">
+                    {i + 1}
+                  </span>
+                  <span className="pt-0.5">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
       </div>
     </div>
   )
