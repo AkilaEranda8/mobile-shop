@@ -1,5 +1,6 @@
 'use client'
 
+import { createPortal } from 'react-dom'
 import {
   Building2, ChevronLeft, ChevronRight, LayoutDashboard, Lightbulb,
   Map, Package, Settings, ShoppingCart, Wrench,
@@ -38,7 +39,7 @@ export function QuestMissionModal({
   const Icon = ICONS[mission.icon]
   const human = index + 1
 
-  return (
+  const ui = (
     <div className="shop-quest-mission-wrap" role="dialog" aria-modal="true" aria-labelledby="shop-quest-mission-title">
       <div className="shop-quest-card shop-quest-mission">
         <div className="shop-quest-mission-head">
@@ -76,4 +77,7 @@ export function QuestMissionModal({
       </div>
     </div>
   )
+
+  if (typeof document === 'undefined') return null
+  return createPortal(ui, document.body)
 }

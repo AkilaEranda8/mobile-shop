@@ -1314,9 +1314,17 @@ html:not(.dark) [data-modal="dark"] .bg-violet-500 { background-color: var(--bra
 }
 
 /* ── Shop Quest (Driver.js spotlight + custom mission UI) ── */
+/* Driver spotlight must never steal clicks from Shop Quest mission cards
+   (overlay is appended to body and can sit above React stacking contexts). */
+body.driver-active .driver-overlay,
+body.driver-active .driver-overlay path {
+  pointer-events: none !important;
+}
+
 .shop-quest-driver-hidden .driver-popover,
 .driver-popover.shop-quest-driver-hidden {
   display: none !important;
+  pointer-events: none !important;
 }
 
 .shop-quest-dim {
@@ -1349,8 +1357,10 @@ html:not(.dark) [data-modal="dark"] .bg-violet-500 { background-color: var(--bra
   pointer-events: none;
 }
 
-.shop-quest-mission-wrap > * {
+.shop-quest-mission-wrap .shop-quest-card {
   pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .shop-quest-card {
@@ -1790,9 +1800,10 @@ html.dark .shop-quest-btn-secondary,
   font-size: 0.75rem;
   font-weight: 600;
   color: #e2e8f0;
-  background: color-mix(in srgb, #0f172a 92%, transparent);
+  background: #0f172a;
   border: 1px solid color-mix(in srgb, #64748b 40%, transparent);
   cursor: pointer;
+  pointer-events: auto;
   box-shadow: 0 8px 24px color-mix(in srgb, #000 40%, transparent);
 }
 

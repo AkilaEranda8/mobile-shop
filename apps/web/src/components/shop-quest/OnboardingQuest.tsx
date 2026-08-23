@@ -71,6 +71,14 @@ export function OnboardingQuest() {
     })
     driverRef.current = d
     d.highlight({ element: selector })
+    // Ensure overlay never blocks Continue / Skip (body portal + stacking)
+    requestAnimationFrame(() => {
+      document.querySelectorAll<SVGElement>('.driver-overlay').forEach((svg) => {
+        svg.style.pointerEvents = 'none'
+        const path = svg.querySelector('path')
+        if (path) path.style.pointerEvents = 'none'
+      })
+    })
   }, [destroyDriver])
 
   const persistSkipOrDone = useCallback((status: 'done' | 'skipped', finalXp: number) => {
