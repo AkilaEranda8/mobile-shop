@@ -223,7 +223,7 @@ export function OnboardingQuest() {
   useEffect(() => {
     if (!userId) return
     let cancelled = false
-    let welcomeTimer: ReturnType<typeof window.setTimeout> | undefined
+    let welcomeTimer: number | undefined
 
     const saved = getQuestSaved(userId)
     if (saved) {
@@ -259,12 +259,12 @@ export function OnboardingQuest() {
         if (cancelled) return
         if (getQuestSaved(userId)) return
         setPhase('welcome')
-      }, 900)
+      }, 900) as unknown as number
     })()
 
     return () => {
       cancelled = true
-      if (welcomeTimer) window.clearTimeout(welcomeTimer)
+      if (welcomeTimer !== undefined) window.clearTimeout(welcomeTimer)
     }
   }, [userId, unlockAll, setQuestActive])
 
