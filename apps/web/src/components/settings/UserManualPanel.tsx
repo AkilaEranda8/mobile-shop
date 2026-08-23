@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import {
   BookOpen, ChevronRight, CreditCard, FileText, HelpCircle, Keyboard,
   LogIn, MessageSquare, Package, Phone, RotateCcw, Search, Shield,
-  ShoppingCart, UserCheck, Users, Workflow, Wrench, ExternalLink,
+  ShoppingCart, Sparkles, UserCheck, Users, Workflow, Wrench, ExternalLink,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -15,6 +15,7 @@ import {
   type ManualLang,
   type ManualSection,
 } from './userManualContent'
+import { replayShopQuestFromUi } from '@/lib/onboarding-quest'
 
 const LANG_OPTIONS: { key: ManualLang; label: string }[] = [
   { key: 'both', label: 'English + සිංහල' },
@@ -142,6 +143,7 @@ export default function UserManualPanel({ embedded = false }: UserManualPanelPro
 
         {/* Main content */}
         <div className="space-y-5 min-w-0">
+          <ShopQuestReplayCard />
           {active && <WorkflowCard lang={lang} />}
 
           {active ? (
@@ -200,6 +202,42 @@ function ManualToolbar({
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+function ShopQuestReplayCard() {
+  return (
+    <div
+      className="card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
+      style={{ borderColor: 'color-mix(in srgb, var(--brand-primary) 25%, var(--border-subtle))' }}
+    >
+      <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{
+            background: 'color-mix(in srgb, var(--brand-primary) 14%, transparent)',
+            color: 'var(--brand-primary)',
+          }}
+        >
+          <Sparkles size={16} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Shop Quest
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Replay the highlight tour — your unlocked features stay open.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="btn-accent text-xs font-semibold px-3 py-2 rounded-xl shrink-0"
+        onClick={() => replayShopQuestFromUi()}
+      >
+        Start shop quest
+      </button>
     </div>
   )
 }

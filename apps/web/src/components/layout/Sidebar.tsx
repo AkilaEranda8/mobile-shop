@@ -19,6 +19,9 @@ import { getActiveBranchId, getBranchLabel, getVisibleBranches } from '@/lib/act
 import { isFeatureEnabledForActiveBranch } from '@/lib/tenant-features'
 import type { RolePermissionModuleKey } from '@/lib/role-permissions'
 import type { LucideIcon } from 'lucide-react'
+import { questUnlockForHref, useShopQuestUnlock } from '@/lib/shop-quest-unlock'
+import { QuestSidebarCard } from '@/components/shop-quest/QuestSidebarCard'
+import type { QuestUnlockId } from '@/lib/onboarding-quest'
 
 type NavSubItem = {
   href: string
@@ -260,6 +263,15 @@ const PLAN_STYLE: Record<string, { text: string; bg: string; border: string; dot
 const SHOW_NEW_BADGES = false
 const shouldShowBadge = (badge?: string) => !!badge && (badge !== 'NEW' || SHOW_NEW_BADGES)
 
+function tourAttrForNav(href: string, openPos?: boolean): string | undefined {
+  if (openPos || href.includes('/pos')) return 'nav-pos'
+  if (href === '/dashboard' || href === '/dashboard/') return 'nav-dashboard'
+  if (href === '/inventory' || href.startsWith('/inventory') || href.includes('/inventory')) return 'nav-inventory'
+  if (href.includes('/repairs')) return 'nav-repairs'
+  if (href.includes('/settings') && !href.includes('accounting')) return 'nav-settings'
+  return undefined
+}
+
 function isInventoryListPath(path: string) {
   return path === '/inventory' || path === '/dashboard/inventory'
 }
@@ -280,7 +292,11 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const activeBranchId        = useActiveBranchId()
   const { canView, canEdit }    = useRolePermissions()
   const { openPos, posOpen }    = usePos()
+  const { isNavLocked, isQuestActive } = useShopQuestUnlock()
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
+
+  const navLocked = (href: string, openPosFlag?: boolean) =>
+    isNavLocked(questUnlockForHref(href, openPosFlag) as QuestUnlockId | undefined)
 
   const hasFeature = (feature: string) =>
     isFeatureEnabledForActiveBranch(features, feature, {
@@ -462,7 +478,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const planStyle = PLAN_STYLE[plan] ?? PLAN_STYLE.STARTER
 
   return (
-    <aside className={cn(
+    <aside
+      data-tour="sidebar"
+      className={cn(
       'flex flex-col h-full border-r transition-all duration-300 relative',
       collapsed ? 'w-16' : 'w-56 xl:w-64'
     )}
@@ -558,6 +576,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             {collapsed && <div className="my-1 h-px mx-2" style={{ background: 'var(--border-subtle)' }} />}
             <div className="space-y-0.5">
               {visibleItems.map((item) => {
+                const locked = navLocked(item.href, 'openPos' in item && !!item.openPos)
+                const tourId = tourAttrForNav(item.href, 'openPos' in item && !!item.openPos)
+
                 if (item.submenu?.length) {
                   const menuKey = item.label.toLowerCase().replace(/\s+/g, '-')
                   const open = expandedMenus[menuKey] ?? false
@@ -580,10 +601,23 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     || isActive(item.href)
 
                   if (collapsed) {
+                    if (locked) {
+                      return (
+                        <div
+                          key={item.href}
+                          data-tour={tourId}
+                          className="sidebar-item group justify-center px-2 opacity-45 pointer-events-none"
+                          title={`${item.label} (locked)`}
+                        >
+                          <item.icon size={17} className="flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+                        </div>
+                      )
+                    }
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
+                        data-tour={tourId}
                         className={cn(
                           'sidebar-item group justify-center px-2',
                           sectionActive && 'sidebar-item-active',
@@ -596,29 +630,36 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   }
 
                   return (
-                    <div key={item.href}>
+                    <div key={item.href} data-tour={tourId}>
                       <button
                         type="button"
-                        onClick={() => toggleMenu(menuKey)}
-                        className="sidebar-item group w-full text-left"
+                        onClick={() => { if (!locked) toggleMenu(menuKey) }}
+                        disabled={locked}
+                        className={cn('sidebar-item group w-full text-left', locked && 'opacity-45')}
                       >
                         <item.icon size={17} className={cn('flex-shrink-0 transition-colors', open || sectionActive ? 'accent-text' : '')} style={open || sectionActive ? undefined : { color: 'var(--text-muted)' }} />
                         <span className="text-sm font-semibold flex-1 truncate text-left" style={{ color: 'inherit' }}>{item.label}</span>
-                        {shouldShowBadge(item.badge) && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25">
-                            {item.badge}
-                          </span>
+                        {locked ? (
+                          <Lock size={12} className="flex-shrink-0 opacity-70" style={{ color: 'var(--text-muted)' }} />
+                        ) : (
+                          <>
+                            {shouldShowBadge(item.badge) && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25">
+                                {item.badge}
+                              </span>
+                            )}
+                            <ChevronDown
+                              size={14}
+                              className={cn(
+                                'flex-shrink-0 transition-transform duration-200',
+                                open && 'rotate-180',
+                              )}
+                              style={{ color: 'var(--text-muted)' }}
+                            />
+                          </>
                         )}
-                        <ChevronDown
-                          size={14}
-                          className={cn(
-                            'flex-shrink-0 transition-transform duration-200',
-                            open && 'rotate-180',
-                          )}
-                          style={{ color: 'var(--text-muted)' }}
-                        />
                       </button>
-                      {open && (
+                      {open && !locked && (
                         <div className="ml-3 pl-3 space-y-0.5 my-0.5 border-l" style={{ borderColor: 'var(--border-subtle)' }}>
                           {visibleSubmenu.map(sub => {
                             const subActive = isActive(sub.href)
@@ -654,30 +695,52 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     {!collapsed && (
                       <>
                         <span className="text-sm font-semibold flex-1 truncate">{item.label}</span>
-                        {item.href === '/dashboard/feature-suggestions' && suggestionUnreadCount > 0 && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
-                            {suggestionUnreadCount > 9 ? '9+' : suggestionUnreadCount} NEW
-                          </span>
-                        )}
-                        {'badge' in item && shouldShowBadge(item.badge) && (
-                          <span className={cn(
-                            'text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0',
-                            item.badge === 'NEW'
-                              ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25'
-                              : 'accent-badge'
-                          )}>
-                            {item.badge}
-                          </span>
+                        {locked ? (
+                          <Lock size={12} className="flex-shrink-0 opacity-70" style={{ color: 'var(--text-muted)' }} />
+                        ) : (
+                          <>
+                            {item.href === '/dashboard/feature-suggestions' && suggestionUnreadCount > 0 && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                                {suggestionUnreadCount > 9 ? '9+' : suggestionUnreadCount} NEW
+                              </span>
+                            )}
+                            {'badge' in item && shouldShowBadge(item.badge) && (
+                              <span className={cn(
+                                'text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0',
+                                item.badge === 'NEW'
+                                  ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25'
+                                  : 'accent-badge'
+                              )}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </>
                         )}
                       </>
                     )}
                   </>
                 )
+                if (locked) {
+                  return (
+                    <div
+                      key={item.href}
+                      data-tour={tourId}
+                      className={cn(
+                        'sidebar-item group opacity-45 pointer-events-none',
+                        collapsed && 'justify-center px-2',
+                      )}
+                      title={collapsed ? `${item.label} (locked)` : undefined}
+                    >
+                      {inner}
+                    </div>
+                  )
+                }
                 if ('openPos' in item && item.openPos) {
                   return (
                     <button
                       key={item.href}
                       type="button"
+                      data-tour={tourId}
                       onClick={() => openPos()}
                       className={cn(
                         'sidebar-item group w-full text-left',
@@ -694,6 +757,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    data-tour={tourId}
                     className={cn(
                       'sidebar-item group',
                       active && 'sidebar-item-active',
@@ -710,6 +774,12 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           )
         })}
       </nav>
+
+      {!collapsed && isQuestActive && (
+        <div className="px-2 pb-2">
+          <QuestSidebarCard />
+        </div>
+      )}
 
       {/* User section — no avatar */}
       <div className={cn('border-t p-3', collapsed && 'flex justify-center')} style={{ borderColor: 'var(--border-subtle)' }}>

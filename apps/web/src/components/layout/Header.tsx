@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Bell, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp, BriefcaseBusiness } from 'lucide-react'
+import { Bell, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp, BriefcaseBusiness, Lock } from 'lucide-react'
 import { usePos } from '@/lib/use-pos'
 import { useTheme } from 'next-themes'
 import { useRouter } from 'next/navigation'
@@ -14,6 +14,8 @@ import { applyAccentToDocument, getStoredAppearance } from '@/lib/appearance'
 import GlobalSearch from '@/components/layout/GlobalSearch'
 import { BranchControl } from '@/components/layout/BranchControl'
 import { viewOnlyToast } from '@/lib/module-access'
+import { QuestHeaderChip } from '@/components/shop-quest/QuestHeaderChip'
+import { useShopQuestUnlock } from '@/lib/shop-quest-unlock'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -36,8 +38,11 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
   const router = useRouter()
   const { openPos, hasPos } = usePos()
   const { canEdit } = useRolePermissions()
+  const { isNavLocked } = useShopQuestUnlock()
   const user = authStorage.getUser()
   const canOpenPos = hasPos && canEdit('POS')
+  const posLocked = isNavLocked('pos')
+  const branchLocked = isNavLocked('branch')
 
   const { data: dashData } = useAnalyticsDashboard()
   const dash = dashData as any
@@ -97,7 +102,13 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
       </div>
 
       <div className="flex items-center gap-1.5 xl:gap-2 ml-auto shrink-0">
-        <BranchControl />
+        <QuestHeaderChip />
+        <div data-tour="header-branch" className={branchLocked ? 'opacity-45 pointer-events-none' : undefined}>
+          <BranchControl />
+          {branchLocked && (
+            <span className="sr-only">Branch locked during Shop Quest</span>
+          )}
+        </div>
 
         {/* Business Services */}
         <Link
@@ -117,16 +128,19 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
         {/* POS Terminal — requires POS Edit (feature flag alone is not enough) */}
         {canOpenPos && (
           <button
+            data-tour="header-pos"
             onClick={() => {
+              if (posLocked) return
               if (!canEdit('POS')) { viewOnlyToast('POS'); return }
               openPos()
             }}
-            title="Open POS (F2)"
-            className="btn-accent flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+            disabled={posLocked}
+            title={posLocked ? 'POS locked — complete Shop Quest mission' : 'Open POS (F2)'}
+            className="btn-accent flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm disabled:opacity-45 disabled:pointer-events-none"
           >
-            <ShoppingCart size={14} />
+            {posLocked ? <Lock size={14} /> : <ShoppingCart size={14} />}
             <span className="hidden xl:inline">POS Terminal</span>
-            <kbd className="hidden 2xl:inline text-[9px] opacity-60 font-mono ml-0.5">F2</kbd>
+            {!posLocked && <kbd className="hidden 2xl:inline text-[9px] opacity-60 font-mono ml-0.5">F2</kbd>}
           </button>
         )}
 

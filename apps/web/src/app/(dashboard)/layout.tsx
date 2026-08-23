@@ -16,6 +16,8 @@ import { SessionBranchBootstrap } from '@/components/layout/SessionBranchBootstr
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { PaymentDueBanner } from '@/components/layout/PaymentDueBanner'
 import { RoleAccessGuard } from '@/components/layout/RoleAccessGuard'
+import { ShopQuestUnlockProvider } from '@/lib/shop-quest-unlock'
+import { OnboardingQuest } from '@/components/shop-quest/OnboardingQuest'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -47,6 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!checked) return null
 
   return (
+    <ShopQuestUnlockProvider>
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
       {/* Mobile overlay */}
       {mobileSidebarOpen && (
@@ -82,6 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SessionBranchBootstrap />
         <AnnouncementBanners />
         <ReleaseNotesPopup />
+        <OnboardingQuest />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
         <main className="flex-1 overflow-y-auto" style={{ color: 'var(--text-primary)', padding: 'var(--main-pad)' }}>
           <HexTableProvider>
@@ -93,5 +97,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <PosGlobalShortcuts />
       <POSOverlay />
     </div>
+    </ShopQuestUnlockProvider>
   )
 }
