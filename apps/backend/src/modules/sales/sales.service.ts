@@ -8,7 +8,6 @@ import { assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/a
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { emitSaleAccounting } from '../accounting/integration/accounting-events.service'
-import { notifySaleSms } from '../sms/sms-notify.service'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { resolveSaleItemUnitCost } from '../../utils/sale-item-cost.util'
 import { applySaleStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
@@ -387,30 +386,6 @@ export const salesService = {
       }
     } catch (e) { console.error('Finance transaction creation failed:', e) }
     void emitSaleAccounting(tenantId, sale.id, branchId)
-    void (async () => {
-      try {
-        let phone = String(body.customerPhone ?? sale.customerPhone ?? '').trim()
-        if (!phone && body.customerId) {
-          const c = await prisma.customer.findFirst({
-            where: { id: body.customerId, tenantId },
-            select: { phone: true, name: true },
-          })
-          phone = String(c?.phone ?? '').trim()
-        }
-        await notifySaleSms({
-          tenantId,
-          customerPhone: phone,
-          customerName: body.customerName ?? sale.customerName,
-          invoiceNumber,
-          total: Number(body.total),
-          paidAmount: Number(body.paidAmount),
-          dueAmount: Number(body.dueAmount ?? 0),
-          branchId,
-        })
-      } catch (err) {
-        console.error('Sale SMS failed:', err)
-      }
-    })()
     return { ...sale, warranties }
   },
 }

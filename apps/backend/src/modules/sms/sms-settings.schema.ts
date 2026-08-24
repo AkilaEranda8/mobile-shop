@@ -35,6 +35,11 @@ export const sendSmsMessageSchema = z.object({
   customerName: z.string().max(120).optional(),
 })
 
+export const sendSaleSmsSchema = z.object({
+  saleId: z.string().min(1).max(64),
+  phone: z.string().min(9).max(20).optional(),
+})
+
 export const SMS_EVENT_LABELS: Record<(typeof SMS_EVENT_TYPES)[number], string> = {
   sale: 'New sale',
   repair: 'Repair complete',

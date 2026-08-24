@@ -94,7 +94,7 @@ export const SMS_EVENT_META: Record<SmsEventType, { title: string; titleSi: stri
   sale: {
     title: 'New sale',
     titleSi: 'නව විකිණීම',
-    description: 'Sent after every POS sale when customer phone is saved',
+    description: 'Sent from POS after sale when you tap Send SMS (customer phone required)',
     defaultBody: DEFAULT_SMS_SALE_BODY,
   },
   repair: {
@@ -207,6 +207,8 @@ export const smsApi = {
     api.post<{ data: { to: string; messageId?: string; segments: number } }>(`${BASE}/test-message`, { phone, message }),
   sendMessage:       (body: { phone: string; message: string; customerName?: string }) =>
     api.post<{ data: { to: string; messageId?: string; segments: number } }>(`${BASE}/send-message`, body),
+  sendSaleSms:       (body: { saleId: string; phone?: string }) =>
+    api.post<{ data: { to: string; messageId?: string; segments: number } }>(`${BASE}/send-sale`, body),
   getStats:          () => api.get<{ data: SmsStats }>(`${BASE}/stats`),
   getHistory:        () => api.get<{ data: SmsHistoryItem[] }>(`${BASE}/history`),
   getRecentMessages: () => api.get<{ data: SmsRecentMessage[] }>(`${BASE}/messages/recent`),

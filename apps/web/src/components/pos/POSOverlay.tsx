@@ -11,7 +11,7 @@ import {
   FileText, FilePlus2, Calculator, SlidersHorizontal, Package, Tablet,
   Headphones, Wrench, PackageSearch, ShoppingBag, User, CheckCircle2, Shield,
   Menu, ShoppingCart, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
-  Grid3X3, List as ListIcon, MessageCircle, Star, RefreshCw, RotateCcw,
+  Grid3X3, List as ListIcon, MessageCircle, MessageSquare, Star, RefreshCw, RotateCcw,
   LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle, Lock, AlertTriangle, Calendar,
 } from 'lucide-react'
 import { HexaPosLayout, categoryIcon } from './HexaPosLayout'
@@ -56,6 +56,7 @@ import InvoiceA4View from '@/components/invoice/InvoiceA4View'
 import { printThermalReceipt, openReceiptPrintWindow } from '@/components/invoice/ThermalReceipt'
 import { printStockFormInvoice } from '@/components/invoice/StockFormInvoice'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
+import { smsApi } from '@/lib/sms-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { Switch } from '@/components/ui/Switch'
 import { resolveCatalogPrice, type PriceMode } from '@/lib/productPrice'
@@ -1361,6 +1362,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [activeNavId, setActiveNavId]             = useState('products')
   const [waSending, setWaSending]                 = useState(false)
+  const [smsSending, setSmsSending]               = useState(false)
+  const [saleSmsSent, setSaleSmsSent]             = useState(false)
   const [waSendPdf, setWaSendPdf]                 = useState(false)
   const [cartView, setCartView]                       = useState<'items' | 'checkout'>('items')
   const [manualTotalMode, setManualTotalMode]     = useState(false)
@@ -3174,6 +3177,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const handleNewSale = () => {
     setCart([]); setCompletedSale(null); setSearch('')
+    setSaleSmsSent(false)
     setBillDate(businessToday())
     setDiscountPct(0); setDiscountFlat(0); setSelectedCustomer(null); setCheckoutError('')
     setMobileView('products')
@@ -3325,6 +3329,29 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setWaSending(false)
     }
   }, [completedSale, selectedCustomer, saleTotal, invoiceSettings, storeName, waSendPdf])
+
+  const posSalePhone = useMemo(() => {
+    const raw = String(completedSale?.customerPhone ?? selectedCustomer?.phone ?? '').replace(/\D/g, '')
+    return raw.length >= 9 ? raw : ''
+  }, [completedSale, selectedCustomer])
+
+  const sendPosSaleSms = useCallback(async () => {
+    if (!completedSale?.id || completedSale.offline) return
+    if (!posSalePhone) {
+      toast.error('Customer phone required for SMS')
+      return
+    }
+    setSmsSending(true)
+    try {
+      await smsApi.sendSaleSms({ saleId: completedSale.id, phone: posSalePhone })
+      setSaleSmsSent(true)
+      toast.success('Sale SMS sent')
+    } catch (e: any) {
+      toast.error(e.message || 'SMS send failed — check SMS → Connection settings')
+    } finally {
+      setSmsSending(false)
+    }
+  }, [completedSale, posSalePhone])
 
   const finishCustomerRegister = useCallback((c: any) => {
     handleCustomerCreated(c)
@@ -3868,6 +3895,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     style={{ borderColor: `${POS_THEME.green}40`, background: `${POS_THEME.green}10`, color: POS_THEME.green }}>
                     {waSending ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
                     {waSending ? 'Sending…' : waSendPdf ? 'Send WhatsApp Invoice (PDF)' : 'Send WhatsApp Invoice'}
+                  </button>
+                )}
+                {posSalePhone && !completedSale.offline && (
+                  <button type="button" onClick={sendPosSaleSms} disabled={smsSending || saleSmsSent}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl border transition-colors disabled:opacity-50"
+                    style={{ borderColor: 'rgba(59,130,246,.35)', background: 'rgba(59,130,246,.08)', color: '#60a5fa' }}>
+                    {smsSending ? <Loader2 size={13} className="animate-spin" /> : saleSmsSent ? <Check size={13} /> : <MessageSquare size={13} />}
+                    {smsSending ? 'Sending…' : saleSmsSent ? 'SMS Sent' : 'Send SMS to Customer'}
                   </button>
                 )}
                 <button onClick={handleNewSale} className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[.99]" style={{ background: 'var(--brand-gradient)', boxShadow: '0 4px 20px var(--brand-glow)' }}>+ New Sale (F10)</button>

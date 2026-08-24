@@ -11,6 +11,7 @@ import {
   sendSmsTest,
   updateSmsSettingsForClient,
 } from './sms.service'
+import { sendSaleSmsForPos } from './sms-notify.service'
 
 export const smsController = {
   async getStatus(req: Request, res: Response, next: NextFunction) {
@@ -54,6 +55,18 @@ export const smsController = {
         req.body.customerName,
       )
       sendSuccess(res, data, 'SMS sent')
+    } catch (e) { next(e) }
+  },
+
+  async sendSaleSms(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await sendSaleSmsForPos({
+        tenantId: req.tenantId!,
+        saleId: req.body.saleId,
+        phone: req.body.phone,
+        branchId: effectiveBranchId(req),
+      })
+      sendSuccess(res, data, 'Sale SMS sent')
     } catch (e) { next(e) }
   },
 
