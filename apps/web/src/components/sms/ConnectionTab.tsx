@@ -157,7 +157,9 @@ export default function ConnectionTab({ canEdit, status, config, onStatusChange,
                 ? 'Account SID'
                 : form.provider === 'dialog'
                   ? 'URL Message Key / Username'
-                  : 'User ID / API Key'}
+                  : form.provider === 'hexalyte'
+                    ? 'User ID'
+                    : 'User ID / API Key'}
             </label>
             <input className="input-field w-full" value={form.apiKey} disabled={!canEdit}
               onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))} />
@@ -168,7 +170,9 @@ export default function ConnectionTab({ canEdit, status, config, onStatusChange,
                 ? 'Auth Token'
                 : form.provider === 'dialog'
                   ? 'Password (optional for esmsqk)'
-                  : 'Password / API Secret'}
+                  : form.provider === 'hexalyte'
+                    ? 'API Key'
+                    : 'Password / API Secret'}
             </label>
             <div className="relative">
               <input className="input-field w-full pr-10" type={showSecret ? 'text' : 'password'}

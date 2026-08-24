@@ -42,8 +42,8 @@ async function getSmsSettingsForSend(tenantId: string, allowDisabled = false): P
     throw new AppError('SMS gateway is disabled — enable it in SMS settings', 400)
   }
   if (!settings.apiKey.trim()) throw new AppError('SMS API Key / User ID is missing', 400)
-  // Dialog URL Message Key (esmsqk) path does not need a password
-  if (!settings.apiSecret.trim() && settings.provider !== 'dialog') {
+  // Hexalyte / Dialog URL-key path can work with a single credential
+  if (!settings.apiSecret.trim() && settings.provider !== 'dialog' && settings.provider !== 'hexalyte') {
     throw new AppError('SMS API Secret / Password is missing', 400)
   }
   if (!settings.senderId.trim() && settings.provider !== 'generic') {
@@ -77,6 +77,78 @@ function parseProviderError(text: string, status: number): string | null {
 }
 
 const DIALOG_ESMS_BASE = 'https://esms.dialog.lk'
+/** Hexalyte SMS Portal — https://smsgateway.hexalyte.com (Notify.lk-compatible HTTP API) */
+const HEXALYTE_SMS_BASE = 'https://api.smsgateway.lk'
+
+async function sendViaHexalyte(
+  settings: SmsSettings,
+  to: string,
+  message: string,
+): Promise<{ providerRef?: string }> {
+  const userId = settings.apiKey.trim()
+  const apiKey = settings.apiSecret.trim() || settings.apiKey.trim()
+  if (!apiKey) throw new AppError('Hexalyte SMS API key is missing', 400)
+
+  const payload: Record<string, string> = {
+    api_key: apiKey,
+    to,
+    message,
+  }
+  // Portal usually issues user_id + api_key (Notify.lk-compatible)
+  if (userId && userId !== apiKey) payload.user_id = userId
+  if (settings.senderId.trim()) payload.sender_id = settings.senderId.trim()
+
+  const res = await fetch(`${HEXALYTE_SMS_BASE}/v1/send`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'X-API-Key': apiKey,
+    },
+    body: JSON.stringify(payload),
+  })
+  const text = await res.text()
+  let json: {
+    status?: string
+    status_code?: number | string
+    error?: string
+    message?: string
+    data?: unknown
+    id?: string
+    message_id?: string
+    ref?: string
+  } = {}
+  try { json = JSON.parse(text) } catch { /* plain text */ }
+
+  const statusCode = Number(json.status_code)
+  const errMsg = String(json.error || json.message || '').trim()
+  const status = String(json.status || '').toLowerCase()
+  const failed =
+    status === 'error' ||
+    status === 'failed' ||
+    (errMsg.length > 0 && status !== 'success') ||
+    (Number.isFinite(statusCode) && statusCode !== 0 && statusCode !== 1 && statusCode !== 200)
+
+  if (failed) {
+    throw new AppError(
+      `Hexalyte SMS failed: ${errMsg || stripHtmlSnippet(text) || `status ${json.status_code ?? res.status}`}`,
+      502,
+    )
+  }
+  if (!res.ok) {
+    throw new AppError(`Hexalyte SMS failed: ${errMsg || stripHtmlSnippet(text) || `HTTP ${res.status}`}`, 502)
+  }
+
+  const ref =
+    json.message_id ||
+    json.id ||
+    json.ref ||
+    (typeof json.data === 'object' && json.data && 'id' in (json.data as object)
+      ? String((json.data as { id?: unknown }).id ?? '')
+      : '') ||
+    text.slice(0, 80)
+  return { providerRef: ref || undefined }
+}
 
 /** Dialog eSMS: prefer URL Message Key (esmsqk); fall back to username/password v2 API. */
 async function sendViaDialog(
@@ -171,6 +243,8 @@ async function sendViaProvider(
   message: string,
 ): Promise<{ providerRef?: string }> {
   switch (settings.provider) {
+    case 'hexalyte':
+      return sendViaHexalyte(settings, to, message)
     case 'twilio': {
       const toE164 = to.startsWith('+') ? to : `+${to}`
       const auth = Buffer.from(`${settings.apiKey}:${settings.apiSecret}`).toString('base64')

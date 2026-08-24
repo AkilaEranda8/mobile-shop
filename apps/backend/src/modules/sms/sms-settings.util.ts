@@ -5,7 +5,7 @@ import {
   DEFAULT_SMS_SALE_BODY,
 } from './sms-template.util'
 
-export const SMS_PROVIDER_IDS = ['twilio', 'dialog', 'mobitel', 'hutch', 'generic'] as const
+export const SMS_PROVIDER_IDS = ['hexalyte', 'twilio', 'dialog', 'mobitel', 'hutch', 'generic'] as const
 export type SmsProviderId = (typeof SMS_PROVIDER_IDS)[number]
 
 export const SMS_EVENT_TYPES = ['sale', 'repair', 'hpReminder', 'delivery'] as const
@@ -60,6 +60,7 @@ const LEGACY_TEMPLATE_KEYS: Record<string, SmsEventType> = {
 
 function pickProvider(raw: unknown): SmsProviderId {
   const p = String(raw ?? '').toLowerCase()
+  if (p === 'hexalyte' || p === 'smsgateway' || p === 'sms gateway' || p === 'hexalyte sms') return 'hexalyte'
   if (p === 'twilio') return 'twilio'
   if (p === 'mobitel') return 'mobitel'
   if (p === 'hutch') return 'hutch'

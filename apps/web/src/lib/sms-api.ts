@@ -1,6 +1,6 @@
 import { api } from './api'
 
-export type SmsProviderId = 'twilio' | 'dialog' | 'mobitel' | 'hutch' | 'generic'
+export type SmsProviderId = 'hexalyte' | 'twilio' | 'dialog' | 'mobitel' | 'hutch' | 'generic'
 export type SmsEventType = 'sale' | 'repair' | 'hpReminder' | 'delivery'
 export type SmsGatewayStatus = 'connected' | 'disabled' | 'not_configured'
 
@@ -119,7 +119,7 @@ export const SMS_EVENT_META: Record<SmsEventType, { title: string; titleSi: stri
 
 export const DEFAULT_SMS_CONFIG: SmsConfig = {
   enabled: false,
-  provider: 'dialog',
+  provider: 'hexalyte',
   apiKey: '',
   apiSecret: '',
   senderId: '',
@@ -135,6 +135,11 @@ export const DEFAULT_SMS_CONFIG: SmsConfig = {
 }
 
 export const SMS_PROVIDER_OPTIONS: { id: SmsProviderId; label: string; hint: string }[] = [
+  {
+    id: 'hexalyte',
+    label: 'Hexalyte SMS Gateway',
+    hint: 'From smsgateway.hexalyte.com → API credentials: User ID + API Key + approved Sender ID (mask)',
+  },
   { id: 'dialog', label: 'Dialog Axiata (ESMS)', hint: 'Paste URL Message Key (esmsqk) as API Key — password optional. Or use portal username + password. Sender ID = approved mask.' },
   { id: 'mobitel', label: 'Mobitel Bulk SMS', hint: 'Username + Password from Mobitel bulk SMS' },
   { id: 'hutch', label: 'Hutch SMS', hint: 'API Key + Secret from Hutch business SMS' },
