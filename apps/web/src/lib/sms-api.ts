@@ -135,7 +135,7 @@ export const DEFAULT_SMS_CONFIG: SmsConfig = {
 }
 
 export const SMS_PROVIDER_OPTIONS: { id: SmsProviderId; label: string; hint: string }[] = [
-  { id: 'dialog', label: 'Dialog Axiata (ESMS)', hint: 'User ID + Password from Dialog ESMS portal' },
+  { id: 'dialog', label: 'Dialog Axiata (ESMS)', hint: 'Paste URL Message Key (esmsqk) as API Key — password optional. Or use portal username + password. Sender ID = approved mask.' },
   { id: 'mobitel', label: 'Mobitel Bulk SMS', hint: 'Username + Password from Mobitel bulk SMS' },
   { id: 'hutch', label: 'Hutch SMS', hint: 'API Key + Secret from Hutch business SMS' },
   { id: 'twilio', label: 'Twilio', hint: 'Account SID + Auth Token' },

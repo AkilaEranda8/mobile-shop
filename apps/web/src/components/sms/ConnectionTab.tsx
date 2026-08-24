@@ -152,14 +152,23 @@ export default function ConnectionTab({ canEdit, status, config, onStatusChange,
           </div>
           <div>
             <label className="block text-xs font-medium mb-1.5 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-              <Key size={11} /> {form.provider === 'twilio' ? 'Account SID' : 'User ID / API Key'}
+              <Key size={11} />{' '}
+              {form.provider === 'twilio'
+                ? 'Account SID'
+                : form.provider === 'dialog'
+                  ? 'URL Message Key / Username'
+                  : 'User ID / API Key'}
             </label>
             <input className="input-field w-full" value={form.apiKey} disabled={!canEdit}
               onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))} />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-              {form.provider === 'twilio' ? 'Auth Token' : 'Password / API Secret'}
+              {form.provider === 'twilio'
+                ? 'Auth Token'
+                : form.provider === 'dialog'
+                  ? 'Password (optional for esmsqk)'
+                  : 'Password / API Secret'}
             </label>
             <div className="relative">
               <input className="input-field w-full pr-10" type={showSecret ? 'text' : 'password'}

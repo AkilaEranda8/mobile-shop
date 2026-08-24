@@ -42,7 +42,10 @@ async function getSmsSettingsForSend(tenantId: string, allowDisabled = false): P
     throw new AppError('SMS gateway is disabled — enable it in SMS settings', 400)
   }
   if (!settings.apiKey.trim()) throw new AppError('SMS API Key / User ID is missing', 400)
-  if (!settings.apiSecret.trim()) throw new AppError('SMS API Secret / Password is missing', 400)
+  // Dialog URL Message Key (esmsqk) path does not need a password
+  if (!settings.apiSecret.trim() && settings.provider !== 'dialog') {
+    throw new AppError('SMS API Secret / Password is missing', 400)
+  }
   if (!settings.senderId.trim() && settings.provider !== 'generic') {
     throw new AppError('SMS Sender ID / Mask is missing', 400)
   }
@@ -52,15 +55,114 @@ async function getSmsSettingsForSend(tenantId: string, allowDisabled = false): P
   return settings
 }
 
+function stripHtmlSnippet(text: string): string {
+  return text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 220)
+}
+
 function parseProviderError(text: string, status: number): string | null {
-  if (status >= 400) return text.slice(0, 300) || `HTTP ${status}`
-  const lower = text.toLowerCase()
+  const cleaned = stripHtmlSnippet(text)
+  if (status >= 400) return cleaned || `HTTP ${status}`
+  const lower = cleaned.toLowerCase()
+  if (lower.includes('cannot get') || lower.includes('cannot post')) return cleaned
   if (lower.includes('error') && !lower.includes('0 error')) {
     if (lower.includes('invalid') || lower.includes('failed') || lower.includes('denied')) {
-      return text.slice(0, 300)
+      return cleaned
     }
   }
   return null
+}
+
+const DIALOG_ESMS_BASE = 'https://esms.dialog.lk'
+
+/** Dialog eSMS: prefer URL Message Key (esmsqk); fall back to username/password v2 API. */
+async function sendViaDialog(
+  settings: SmsSettings,
+  to: string,
+  message: string,
+): Promise<{ providerRef?: string }> {
+  const apiKey = settings.apiKey.trim()
+  const apiSecret = settings.apiSecret.trim()
+  const sourceAddress = settings.senderId.trim()
+
+  // Path A — URL Message Key (most shops): GET /api/v1/message-via-url/create/url-campaign
+  // When password is empty OR looks like an esmsqk-only setup, use this first.
+  const tryEsmsqk = async (): Promise<{ providerRef?: string }> => {
+    const params = new URLSearchParams({
+      esmsqk: apiKey,
+      list: to,
+      message,
+    })
+    if (sourceAddress) params.set('source_address', sourceAddress)
+    const res = await fetch(`${DIALOG_ESMS_BASE}/api/v1/message-via-url/create/url-campaign?${params}`)
+    const text = (await res.text()).trim()
+    const code = Number(text)
+    // Dialog returns plain "1" on success; other numbers are error codes (e.g. 2007 invalid key)
+    if (code === 1) return { providerRef: text }
+    if (Number.isFinite(code) && code !== 1) {
+      throw new AppError(`Dialog SMS failed: error code ${code}`, 502)
+    }
+    const err = parseProviderError(text, res.status)
+    if (err || !res.ok) throw new AppError(`Dialog SMS failed: ${err ?? text.slice(0, 200)}`, 502)
+    return { providerRef: text.slice(0, 120) || undefined }
+  }
+
+  // Path B — username + password login then POST /api/v2/sms
+  const tryV2 = async (): Promise<{ providerRef?: string }> => {
+    const loginRes = await fetch(`${DIALOG_ESMS_BASE}/api/v2/user/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: apiKey, password: apiSecret }),
+    })
+    const loginText = await loginRes.text()
+    let loginJson: { status?: string; token?: string; comment?: string; errCode?: unknown } = {}
+    try { loginJson = JSON.parse(loginText) } catch { /* ignore */ }
+    if (!loginRes.ok || loginJson.status !== 'success' || !loginJson.token) {
+      throw new AppError(
+        `Dialog login failed: ${loginJson.comment || stripHtmlSnippet(loginText) || `HTTP ${loginRes.status}`}`,
+        502,
+      )
+    }
+    const body: Record<string, unknown> = {
+      msisdn: [{ mobile: to }],
+      message,
+      transaction_id: `hx_${Date.now()}`,
+    }
+    if (sourceAddress) body.sourceAddress = sourceAddress
+    const sendRes = await fetch(`${DIALOG_ESMS_BASE}/api/v2/sms`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${loginJson.token}`,
+      },
+      body: JSON.stringify(body),
+    })
+    const sendText = await sendRes.text()
+    let sendJson: { status?: string; comment?: string; data?: { campaignId?: number }; errCode?: unknown } = {}
+    try { sendJson = JSON.parse(sendText) } catch { /* ignore */ }
+    if (!sendRes.ok || sendJson.status !== 'success') {
+      throw new AppError(
+        `Dialog SMS failed: ${sendJson.comment || stripHtmlSnippet(sendText) || `HTTP ${sendRes.status}`}`,
+        502,
+      )
+    }
+    return { providerRef: String(sendJson.data?.campaignId ?? sendText.slice(0, 80)) }
+  }
+
+  // Prefer esmsqk when password blank; otherwise try v2 then esmsqk
+  if (!apiSecret) return tryEsmsqk()
+  try {
+    return await tryV2()
+  } catch (v2Err) {
+    try {
+      return await tryEsmsqk()
+    } catch {
+      throw v2Err
+    }
+  }
 }
 
 async function sendViaProvider(
@@ -95,20 +197,8 @@ async function sendViaProvider(
         return {}
       }
     }
-    case 'dialog': {
-      const params = new URLSearchParams({
-        list: to,
-        message,
-        mask: settings.senderId,
-        username: settings.apiKey,
-        password: settings.apiSecret,
-      })
-      const res = await fetch(`https://esms.dialog.lk/api/v1/message-via-url/create/?${params.toString()}`)
-      const text = await res.text()
-      const err = parseProviderError(text, res.status)
-      if (err) throw new AppError(`Dialog SMS failed: ${err}`, 502)
-      return { providerRef: text.slice(0, 120) || undefined }
-    }
+    case 'dialog':
+      return sendViaDialog(settings, to, message)
     case 'mobitel': {
       const res = await fetch('https://bulksms.mobitel.lk/api/send', {
         method: 'POST',
