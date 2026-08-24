@@ -583,6 +583,21 @@ function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDat
   )
   const totals = useMemo(() => aggregateRepairStatement(deliveredRows), [deliveredRows])
   const dailyData = useMemo(() => groupDeliveredByDay(deliveredRows), [deliveredRows])
+  const jobWiseData = useMemo(() => {
+    const rows = [...deliveredRows]
+      .sort((a, b) => {
+        const ad = new Date(a.repair.completedAt ?? a.repair.createdAt).getTime()
+        const bd = new Date(b.repair.completedAt ?? b.repair.createdAt).getTime()
+        return bd - ad
+      })
+      .slice(0, 15) // keep x-axis readable
+    return rows.map((r) => ({
+      label: r.repair.ticketNumber,
+      amount: r.report.customerRevenue,
+      cost: r.report.partsBuyTotal,
+      profit: r.report.netProfit,
+    }))
+  }, [deliveredRows])
 
   const pieData = receivedBreakdown.map((r, i) => ({
     name: STATUS_LABEL[r.status] ?? r.status,
@@ -712,6 +727,66 @@ function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDat
             </ResponsiveContainer>
           )}
         </div>
+      </div>
+
+      <div className="card p-5">
+        <SectionTitle
+          title="Repair Cost Report — Job Wise"
+          sub={`Top ${jobWiseData.length} delivered jobs · ${periodLabel}`}
+        />
+        {jobWiseData.length === 0 ? (
+          <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>
+            No delivered jobs in this period
+          </div>
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-3 gap-3 mb-4">
+              <div className="rounded-xl border p-3" style={{ borderColor: 'rgba(59,130,246,.25)', background: 'rgba(59,130,246,.06)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(59,130,246,.95)' }}>
+                  Total Amount
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.customerRevenue)}</p>
+              </div>
+              <div className="rounded-xl border p-3" style={{ borderColor: 'rgba(180,83,9,.25)', background: 'rgba(180,83,9,.06)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(180,83,9,.95)' }}>
+                  Total Cost
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.partsBuyTotal)}</p>
+              </div>
+              <div className="rounded-xl border p-3" style={{ borderColor: 'rgba(22,163,74,.25)', background: 'rgba(22,163,74,.06)' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(22,163,74,.95)' }}>
+                  Profit
+                </p>
+                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(totals.totalProfit)}</p>
+              </div>
+            </div>
+
+            <ResponsiveContainer width="100%" height={260}>
+              <ComposedChart data={jobWiseData} margin={{ top: 8, right: 10, left: 0, bottom: 18 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+                <XAxis
+                  dataKey="label"
+                  interval={0}
+                  tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                  tickLine={false}
+                  angle={-35}
+                  textAnchor="end"
+                  height={65}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                  tickFormatter={(v: any) => formatCurrency(v)}
+                  width={80}
+                />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => formatCurrency(v)} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="amount" name="Amount" fill="var(--brand-primary-light)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="cost" name="Cost" fill="#b45309" radius={[4, 4, 0, 0]} />
+                <Line type="monotone" dataKey="profit" name="Profit" stroke="#16a34a" strokeWidth={2} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </>
+        )}
       </div>
 
       <div className="card p-5 space-y-4">
