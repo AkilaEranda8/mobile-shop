@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, Check, FileText, Smartphone, ChevronRight, BookOpen,
-  Package, Tag, Wallet, Copy, Monitor,
+  Package, Tag, Wallet, Copy, Monitor, MessageSquare,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -48,6 +48,7 @@ import {
 import { ImageIcon, Trash2 as TrashIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import UserManualPanel from '@/components/settings/UserManualPanel'
+import SmsSettingsPanel from '@/components/settings/SmsSettingsPanel'
 import BillingSubscriptionPanel from '@/components/settings/BillingSubscriptionPanel'
 import {
   DEFAULT_PAYMENT_METHODS,
@@ -83,6 +84,7 @@ const tabs = [
   { key: 'payments',      label: 'Payment Methods', icon: Wallet     },
   { key: 'profile',       label: 'Profile',         icon: User       },
   { key: 'notifications', label: 'Notifications',   icon: Bell       },
+  { key: 'sms',           label: 'SMS Gateway',     icon: MessageSquare },
   { key: 'security',      label: 'Security',        icon: Shield     },
   { key: 'appearance',    label: 'Appearance',      icon: Palette    },
   { key: 'billing',       label: 'Billing',         icon: CreditCard },
@@ -1494,6 +1496,9 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+
+          {/* ── SMS GATEWAY ── */}
+          {activeTab === 'sms' && <SmsSettingsPanel />}
 
           {/* ── SECURITY ── */}
           {activeTab === 'security' && (

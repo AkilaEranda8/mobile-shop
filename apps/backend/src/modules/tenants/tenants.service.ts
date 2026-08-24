@@ -8,6 +8,7 @@ import {
   listConfigDomains,
   setTenantConfig,
 } from '../configuration-engine/configuration-engine.service'
+import { getSmsSettingsForClient } from '../sms/sms.service'
 import { normalizeRolePermissions } from './role-permissions.util'
 import { ensureBranchCashAccounts } from '../accounting/accounting-init.service'
 import { invalidateRolePermissionCache } from '../../middleware/module-access.middleware'
@@ -185,6 +186,15 @@ export const tenantsService = {
 
   async updatePosUiSettings(tenantId: string, body: Record<string, unknown>) {
     return setTenantConfig(tenantId, 'posUi', body)
+  },
+
+  async getSmsSettings(tenantId: string) {
+    return getSmsSettingsForClient(tenantId)
+  },
+
+  async updateSmsSettings(tenantId: string, body: Record<string, unknown>) {
+    await setTenantConfig(tenantId, 'sms', body)
+    return getSmsSettingsForClient(tenantId)
   },
 
   async getRolePermissions(tenantId: string) {

@@ -10,6 +10,7 @@ import {
 import { peekProductCodes } from '../../utils/counters'
 import { normalizeInvoiceSettings } from '../tenants/invoice-settings.util'
 import { normalizePosUiSettings } from '../tenants/pos-ui-settings.util'
+import { normalizeSmsSettings } from '../sms/sms-settings.util'
 import { cacheGet, cacheInvalidate, cacheSet } from './configuration-engine.cache'
 import { CONFIG_DOMAIN_META, type ConfigDomain } from './configuration-engine.types'
 
@@ -74,6 +75,7 @@ export async function getTenantConfig<T = unknown>(
       productVariantSettings: true,
       productCodeSettings: true,
       posUiSettings: true,
+      smsSettings: true,
     },
   })
   if (!t) throw new AppError('Tenant not found', 404)
@@ -101,6 +103,9 @@ export async function getTenantConfig<T = unknown>(
     case 'posUi':
       value = normalizePosUiSettings(t.posUiSettings)
       break
+    case 'sms':
+      value = normalizeSmsSettings(t.smsSettings)
+      break
   }
 
   cacheSet(tenantId, domain, value, opts?.ttlMs ?? DEFAULT_TTL_MS)
@@ -127,6 +132,7 @@ export async function setTenantConfig(
       productVariantSettings: true,
       productCodeSettings: true,
       posUiSettings: true,
+      smsSettings: true,
     },
   })
   if (!existing) throw new AppError('Tenant not found', 404)
@@ -167,6 +173,27 @@ export async function setTenantConfig(
           ? (existing.posUiSettings as Record<string, unknown>)
           : {}
       normalized = normalizePosUiSettings(deepMergePatch(prev, patch))
+      break
+    }
+    case 'sms': {
+      column = 'smsSettings'
+      const prev = normalizeSmsSettings(existing.smsSettings)
+      const patchObj = patch && typeof patch === 'object' ? patch : {}
+      const patchTemplates = patchObj.templates && typeof patchObj.templates === 'object'
+        ? (patchObj.templates as Record<string, unknown>)
+        : {}
+      const mergedTemplates: Record<string, unknown> = { ...prev.templates }
+      for (const [key, val] of Object.entries(patchTemplates)) {
+        if (val && typeof val === 'object') {
+          mergedTemplates[key] = {
+            ...(mergedTemplates[key] && typeof mergedTemplates[key] === 'object'
+              ? mergedTemplates[key] as Record<string, unknown>
+              : {}),
+            ...val as Record<string, unknown>,
+          }
+        }
+      }
+      normalized = normalizeSmsSettings({ ...prev, ...patchObj, templates: mergedTemplates }, prev)
       break
     }
   }

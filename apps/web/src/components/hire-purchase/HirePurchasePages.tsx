@@ -1749,6 +1749,7 @@ export function HpSettingsPage() {
                       }))}
                     >
                       <option value="WHATSAPP">WhatsApp</option>
+                      <option value="SMS">SMS</option>
                       <option value="EMAIL">Email</option>
                     </select>
                   </div>

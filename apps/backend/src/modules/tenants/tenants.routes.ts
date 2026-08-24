@@ -4,6 +4,7 @@ import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { requireModuleAccess } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { updateInvoiceSettingsSchema } from './invoice-settings.schema'
+import { updateSmsSettingsSchema } from '../sms/sms-settings.schema'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { OPT_IN_FEATURES, buildFeatureMap, buildPriceMap } from './tenant-features'
@@ -97,6 +98,8 @@ router.get('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'M
 router.patch('/:id/product-code-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), requireModuleAccess('SETTINGS', 'edit'), tenantsController.updateProductCodeSettings)
 router.get('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), tenantsController.getPosUiSettings)
 router.patch('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), requireModuleAccess('SETTINGS', 'edit'), tenantsController.updatePosUiSettings)
+router.get('/:id/sms-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), requireModuleAccess('SETTINGS', 'view'), tenantsController.getSmsSettings)
+router.patch('/:id/sms-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), requireModuleAccess('SETTINGS', 'edit'), validate(updateSmsSettingsSchema), tenantsController.updateSmsSettings)
 router.get('/:id/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), tenantsController.getRolePermissions)
 router.patch('/:id/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.updateRolePermissions)
 

@@ -43,6 +43,7 @@ import featureSuggestionsRoutes from './modules/feature-suggestions/feature-sugg
 import notificationsRoutes from './modules/feature-suggestions/notifications.routes'
 import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
 import hirePurchaseRoutes from './modules/hire-purchase/hire-purchase.routes'
+import smsRoutes from './modules/sms/sms.routes'
 
 const app = express()
 
@@ -196,6 +197,7 @@ app.use(`${API}/suppliers`, suppliersRoutes)
 app.use(`${API}/finance`, financeRoutes)
 app.use(`${API}/analytics`, analyticsRoutes)
 app.use(`${API}/whatsapp`, whatsappRoutes)
+app.use(`${API}/sms`, smsRoutes)
 app.use(`${API}/services`, servicesRoutes)
 app.use(`${API}/daily-reloads`, dailyReloadRoutes)
 app.use(`${API}/daily-closing`, dailyClosingRoutes)

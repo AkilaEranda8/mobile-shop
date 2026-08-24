@@ -282,6 +282,9 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
   if (pathname.startsWith('/dashboard/whatsapp') || pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')) {
     return 'WHATSAPP'
   }
+  if (pathname.startsWith('/dashboard/sms') || pathname === '/sms' || pathname.startsWith('/sms/')) {
+    return 'SETTINGS'
+  }
   if (pathname.startsWith('/dashboard/daily-reload') || pathname === '/daily-reload' || pathname.startsWith('/daily-reload/')) {
     return 'DAILY_RELOAD'
   }

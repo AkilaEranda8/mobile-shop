@@ -12,6 +12,7 @@ import { generateInvoiceNumber } from '../../utils/counters'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { calculateEarlySettlement, calculateHirePurchase } from './hp-calc.util'
 import { whatsappService } from '../whatsapp/whatsapp.service'
+import { notifyHpReminderSms } from '../sms/sms-notify.service'
 import { sendMail } from '../../utils/mailer'
 import {
   emitHirePurchaseAgreementAccounting,
@@ -848,8 +849,17 @@ router.post('/reminders/send', requireModuleAccess('HIRE_PURCHASE', 'edit'), asy
           await sendMail(agreement.customer.email, `Payment reminder — ${agreement.agreementNumber}`, `<p>${text}</p>`)
         } else if (channel === 'WHATSAPP') {
           await whatsappService.sendTextMessage(req.tenantId!, agreement.customer.phone, text)
+        } else if (channel === 'SMS') {
+          await notifyHpReminderSms({
+            tenantId: req.tenantId!,
+            customerPhone: agreement.customer.phone,
+            customerName: agreement.customer.name,
+            agreementNumber: agreement.agreementNumber,
+            dueAmount: agreement.outstandingBalance,
+            branchId: agreement.branchId,
+          })
         } else {
-          throw new Error('SMS provider is not configured')
+          throw new Error(`Unsupported reminder channel: ${channel}`)
         }
         await prisma.hirePurchaseLog.create({ data: { tenantId: req.tenantId!, branchId: agreement.branchId, agreementId: agreement.id, action: 'REMINDER_SENT', actorId: req.user?.userId, actorEmail: req.user?.email, metadata: { channel, recipient: channel === 'EMAIL' ? agreement.customer.email : agreement.customer.phone } } })
         results.push({ agreementId: agreement.id, sent: true })

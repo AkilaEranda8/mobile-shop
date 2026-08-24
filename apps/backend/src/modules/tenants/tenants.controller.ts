@@ -112,6 +112,12 @@ export const tenantsController = {
   async updatePosUiSettings(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updatePosUiSettings(req.params.id, req.body)) } catch (e) { next(e) }
   },
+  async getSmsSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getSmsSettings(req.params.id)) } catch (e) { next(e) }
+  },
+  async updateSmsSettings(req: Request, res: Response, next: NextFunction) {
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updateSmsSettings(req.params.id, req.body)) } catch (e) { next(e) }
+  },
   async getRolePermissions(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getRolePermissions(req.params.id)) } catch (e) { next(e) }
   },

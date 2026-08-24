@@ -1,7 +1,7 @@
 import type { Prisma, UserNotificationType } from '@prisma/client'
 import type { SendInvoiceInput } from '../whatsapp/whatsapp.schema'
 
-export type NotificationChannel = 'whatsapp' | 'in_app'
+export type NotificationChannel = 'whatsapp' | 'sms' | 'in_app'
 
 export type NotificationEventType =
   | 'SALE_INVOICE'

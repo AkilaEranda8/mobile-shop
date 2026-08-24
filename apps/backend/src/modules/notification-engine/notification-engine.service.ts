@@ -4,6 +4,7 @@ import {
   dispatchWhatsAppSaleInvoice,
   dispatchWhatsAppText,
 } from './notification-engine.adapter.whatsapp'
+import { dispatchSmsText } from './notification-engine.adapter.sms'
 import type {
   ChannelDispatchResult,
   DispatchNotificationInput,
@@ -36,6 +37,21 @@ export async function dispatchNotification(
         continue
       }
       results.push(await dispatchWhatsAppText(input.tenantId, phone, message))
+      continue
+    }
+
+    if (channel === 'sms') {
+      const phone = input.recipient.phone?.trim()
+      const message = input.message?.trim()
+      if (!phone || !message) {
+        results.push({
+          channel: 'sms',
+          ok: false,
+          error: 'SMS requires recipient.phone and message',
+        })
+        continue
+      }
+      results.push(await dispatchSmsText(input.tenantId, phone, message))
       continue
     }
 

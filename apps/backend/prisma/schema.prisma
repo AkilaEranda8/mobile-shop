@@ -207,6 +207,8 @@ model Tenant {
   productCodeSettings    Json?
   paymentMethodSettings  Json?
   posUiSettings          Json?
+  /// SMS gateway credentials (provider, apiKey, apiSecret, senderId)
+  smsSettings            Json?
   /// Owner-managed role x module access: hide | view | edit
   rolePermissions        Json?
   /// Demo catalog installed from templates (not permanent business data)
@@ -233,6 +235,7 @@ model Tenant {
   transactions                Transaction[]
   dailySummaries              DailySummary[]
   whatsAppConfig              WhatsAppConfig?
+  smsMessages                 SmsMessage[]
   couriers                    Courier[]
   deliveryOrders              DeliveryOrder[]
   supportNotes                SupportNote[]
@@ -1410,6 +1413,34 @@ model WhatsAppMessage {
   @@index([tenantId])
   @@index([tenantId, branchId])
   @@index([configId])
+}
+
+// ─────────────── SMS Gateway ───────────────
+
+model SmsMessage {
+  id           String   @id @default(cuid())
+  tenantId     String
+  branchId     String?
+  referenceId  String?
+  to           String
+  customerName String?
+  eventType    String
+  preview      String
+  body         String?
+  status       String   @default("sent")
+  provider     String?
+  providerRef  String?
+  errorMessage String?
+  amount       Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, eventType])
+  @@index([tenantId, createdAt])
 }
 
 // ─────────────── Delivery / Courier / Tracking ───────────────

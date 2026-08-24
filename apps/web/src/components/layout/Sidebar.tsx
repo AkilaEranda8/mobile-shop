@@ -206,6 +206,7 @@ const navItems: NavGroup[] = [
     label: 'Messaging',
     items: [
       { href: '/dashboard/whatsapp', icon: MessageSquare, label: 'WhatsApp', feature: 'WHATSAPP', permission: 'WHATSAPP' },
+      { href: '/dashboard/sms', icon: MessageSquare, label: 'SMS Gateway', permission: 'SETTINGS' },
     ],
   },
   {
