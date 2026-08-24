@@ -19,6 +19,7 @@ Actions taken in the app repo and what you must still do on the server / Keycloa
 2. For a **zero-downtime first migrate**, keep the **same** DB/Redis passwords the live volume already uses, then schedule a later rotation.
 3. Prefer rotating **`JWT_SECRET`** and **`KC_CLIENT_SECRET`** soon (Keycloak Admin → Clients → `hexalyte-backend` → Credentials → regenerate, then update `.env`).
 4. After updating `.env`: `docker compose up -d --force-recreate`.
+5. **SSL auto-renew:** keep Cloudflare token at `/etc/cloudflare/credentials.ini` and run `bash scripts/ssl-auto-renew-setup.sh` (see `docs/SSL_AUTO_RENEW.md`).
 
 ## Manual VirusTotal / brand trust
 

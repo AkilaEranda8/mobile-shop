@@ -13,10 +13,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo " Hexalyte Domain & SSL Setup"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 1. Install nginx & certbot
+# 1. Install nginx & certbot (+ Cloudflare DNS plugin for wildcards)
 echo "--- Installing nginx and certbot ---"
 apt-get update -qq
-apt-get install -y nginx certbot python3-certbot-nginx
+apt-get install -y nginx certbot python3-certbot-nginx python3-certbot-dns-cloudflare
 
 # 2. Copy nginx config
 echo "--- Deploying nginx config ---"
@@ -45,23 +45,35 @@ for domain in "${DOMAINS[@]}"; do
 done
 
 # 5. Wildcard cert for tenant subdomains (*.app.hexalyte.com)
-# Requires DNS API credentials — skip if cert already exists from migration.
-if [ ! -f /etc/letsencrypt/live/app.hexalyte.com-0001/fullchain.pem ]; then
-  echo "--- Obtaining wildcard cert for *.app.hexalyte.com (DNS challenge) ---"
-  certbot certonly --manual --preferred-challenges dns \
-    -d '*.app.hexalyte.com' -d app.hexalyte.com \
-    --email "$EMAIL" --agree-tos --non-interactive \
-    --cert-name app.hexalyte.com-0001 || echo "WARN: wildcard cert skipped — add manually or copy from backup"
+# Requires Cloudflare DNS API token at /etc/cloudflare/credentials.ini
+CF_CREDS="/etc/cloudflare/credentials.ini"
+WILDCARD_LIVE="/etc/letsencrypt/live/wildcard-rsa.app.hexalyte.com/fullchain.pem"
+if [ ! -f "$WILDCARD_LIVE" ]; then
+  if [ -f "$CF_CREDS" ]; then
+    echo "--- Obtaining wildcard cert for *.app.hexalyte.com (Cloudflare DNS) ---"
+    certbot certonly \
+      --dns-cloudflare \
+      --dns-cloudflare-credentials "$CF_CREDS" \
+      -d '*.app.hexalyte.com' \
+      --email "$EMAIL" --agree-tos --non-interactive \
+      --cert-name wildcard-rsa.app.hexalyte.com \
+      --key-type rsa \
+      || echo "WARN: wildcard cert failed — check Cloudflare token permissions"
+  else
+    echo "WARN: $CF_CREDS missing — skip wildcard. See scripts/ssl/cloudflare.credentials.example.ini"
+  fi
 fi
 
 # 6. Swap to final config (with SSL + tenant subdomains)
 echo "--- Activating SSL config ---"
 rm -f /etc/nginx/sites-enabled/hexalyte-temp
+cp "$APP_DIR/nginx/hexalyte.conf" /etc/nginx/sites-available/hexalyte
+ln -sf /etc/nginx/sites-available/hexalyte /etc/nginx/sites-enabled/hexalyte
 nginx -t && systemctl reload nginx
 
-# 7. Auto-renew cron
-echo "--- Setting up auto-renew ---"
-(crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet && systemctl reload nginx") | crontab -
+# 7. Auto-renew (systemd timer + nginx reload hook) — preferred over cron alone
+echo "--- Setting up SSL auto-renew ---"
+bash "$APP_DIR/scripts/ssl-auto-renew-setup.sh"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -69,4 +81,5 @@ echo " Done! Services are live at:"
 echo "  Web   → https://app.hexalyte.com"
 echo "  API   → https://api.shop.hexalyte.com"
 echo "  Admin → https://admin2.hexalyte.com"
+echo "  Tenants → https://{slug}.app.hexalyte.com"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
