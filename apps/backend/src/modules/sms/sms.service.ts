@@ -92,7 +92,7 @@ async function sendViaHexalyte(
   // Portal HTTP API is Notify/Textlocal-compatible. Auth works with api_key;
   // recipient must be under `numbers` (and aliases) — `to` alone returns "No contact numbers".
   const local = to.startsWith('94') && to.length >= 11 ? `0${to.slice(2)}` : to
-  const payload: Record<string, string> = {
+  const payload: Record<string, unknown> = {
     api_key: apiKey,
     message,
     // Primary (Textlocal-style) + aliases used by local LK gateways
@@ -101,7 +101,7 @@ async function sendViaHexalyte(
     to,
     mobile: to,
     contact: to,
-    // Also send local 07… form some validators accept only this
+    contacts: [to, local],
     phone: local,
   }
   if (userId && userId !== apiKey) payload.user_id = userId
