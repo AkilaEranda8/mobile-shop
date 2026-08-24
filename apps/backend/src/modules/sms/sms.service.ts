@@ -77,7 +77,7 @@ function parseProviderError(text: string, status: number): string | null {
 }
 
 const DIALOG_ESMS_BASE = 'https://esms.dialog.lk'
-/** Hexalyte SMS Portal — https://smsgateway.hexalyte.com (Notify.lk-compatible HTTP API) */
+/** Hexalyte SMS Portal — https://smsgateway.hexalyte.com (Spark/oZone-style HTTP API) */
 const HEXALYTE_SMS_BASE = 'https://api.smsgateway.lk'
 
 async function sendViaHexalyte(
@@ -89,34 +89,20 @@ async function sendViaHexalyte(
   const apiKey = settings.apiSecret.trim() || settings.apiKey.trim()
   if (!apiKey) throw new AppError('Hexalyte SMS API key is missing', 400)
 
-  // Portal HTTP API is Notify/Textlocal-compatible. Auth works with api_key;
-  // recipient must be under `numbers` (and aliases) — `to` alone returns "No contact numbers".
-  const local = to.startsWith('94') && to.length >= 11 ? `0${to.slice(2)}` : to
+  // Hexalyte / smsgateway.lk uses the Spark/oZone-style HTTP API:
+  // POST /v1/send with recipient_contact_no (not `to` / `numbers`).
+  // Gateway status_code 204 = successfully sent (same family as balance 204).
   const payload: Record<string, unknown> = {
     api_key: apiKey,
     message,
-    // Primary (Textlocal-style) + aliases used by local LK gateways
-    numbers: to,
-    number: to,
-    to,
-    mobile: to,
-    contact: to,
-    contacts: [to, local],
-    phone: local,
+    recipient_contact_no: to,
   }
   if (userId && userId !== apiKey) payload.user_id = userId
-  if (settings.senderId.trim()) {
-    payload.sender_id = settings.senderId.trim()
-    payload.sender = settings.senderId.trim()
-  }
+  if (settings.senderId.trim()) payload.sender_id = settings.senderId.trim()
 
   const res = await fetch(`${HEXALYTE_SMS_BASE}/v1/send`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'X-API-Key': apiKey,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   const text = await res.text()
@@ -128,6 +114,7 @@ async function sendViaHexalyte(
     data?: unknown
     id?: string
     message_id?: string
+    msg_id?: string
     ref?: string
   } = {}
   try { json = JSON.parse(text) } catch { /* plain text */ }
@@ -135,16 +122,19 @@ async function sendViaHexalyte(
   const statusCode = Number(json.status_code)
   const errMsg = String(json.error || json.message || '').trim()
   const status = String(json.status || '').toLowerCase()
+  const successCodes = new Set([0, 1, 200, 204])
   const failed =
     status === 'error' ||
     status === 'failed' ||
-    (errMsg.length > 0 && status !== 'success') ||
-    (Number.isFinite(statusCode) && statusCode !== 0 && statusCode !== 1 && statusCode !== 200)
+    (errMsg.length > 0 && status !== 'success' && !successCodes.has(statusCode)) ||
+    (Number.isFinite(statusCode) && !successCodes.has(statusCode))
 
   if (failed) {
+    // Provider business errors (207 no contacts, 208 balance, 211 mask, …) → 400
+    const httpStatus = Number.isFinite(statusCode) && statusCode >= 201 && statusCode <= 213 ? 400 : 502
     throw new AppError(
       `Hexalyte SMS failed: ${errMsg || stripHtmlSnippet(text) || `status ${json.status_code ?? res.status}`}`,
-      502,
+      httpStatus,
     )
   }
   if (!res.ok) {
@@ -152,6 +142,7 @@ async function sendViaHexalyte(
   }
 
   const ref =
+    json.msg_id ||
     json.message_id ||
     json.id ||
     json.ref ||
