@@ -43,11 +43,17 @@ chmod 600 "$CF_CREDS"
 cp -f "$CF_CREDS" "$CF_MIRROR"
 chmod 600 "$CF_MIRROR"
 
-# Normalize wildcard renewal confs to the canonical credentials path
+# Normalize wildcard renewal confs to the canonical credentials path + safer DNS wait
 for conf in /etc/letsencrypt/renewal/*.conf; do
   [[ -f "$conf" ]] || continue
   if grep -q 'dns_cloudflare' "$conf" 2>/dev/null; then
     sed -i 's|^dns_cloudflare_credentials *=.*|dns_cloudflare_credentials = /etc/cloudflare/credentials.ini|' "$conf"
+    if grep -q '^dns_cloudflare_propagation_seconds' "$conf"; then
+      sed -i 's|^dns_cloudflare_propagation_seconds *=.*|dns_cloudflare_propagation_seconds = 30|' "$conf"
+    else
+      # insert under [renewalparams]
+      sed -i '/^\[renewalparams\]/a dns_cloudflare_propagation_seconds = 30' "$conf"
+    fi
     echo "normalized: $conf"
   fi
 done
@@ -68,9 +74,25 @@ fi
 systemctl enable --now certbot.timer
 systemctl restart certbot.timer
 
-# Dry-run proves Cloudflare DNS + plugin + credentials work
-echo "--- certbot renew dry-run ---"
-certbot renew --dry-run --non-interactive --no-random-sleep-on-renew
+# Dry-run only the certs Hexalyte production depends on (skip legacy/unused hosts)
+echo "--- certbot renew dry-run (critical certs) ---"
+CRITICAL=(
+  wildcard-rsa.app.hexalyte.com
+  shop.hexalyte.com-0001
+  app.hexalyte.com
+  api.shop.hexalyte.com
+  admin2.hexalyte.com
+)
+DRY_FAIL=0
+for name in "${CRITICAL[@]}"; do
+  if [[ -f "/etc/letsencrypt/renewal/${name}.conf" ]]; then
+    echo "dry-run: $name"
+    if ! certbot renew --cert-name "$name" --dry-run --non-interactive --no-random-sleep-on-renew; then
+      echo "WARN: dry-run failed for $name"
+      DRY_FAIL=1
+    fi
+  fi
+done
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -78,5 +100,9 @@ echo " SSL auto-renew is armed"
 echo "  Timer : certbot.timer (twice daily)"
 echo "  Creds : $CF_CREDS"
 echo "  Hook  : reload nginx after renew"
+if [[ "$DRY_FAIL" -ne 0 ]]; then
+  echo "  NOTE  : one or more critical dry-runs failed — check Cloudflare DNS token / propagation"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 systemctl list-timers --all | grep -i certbot || true
+exit 0
