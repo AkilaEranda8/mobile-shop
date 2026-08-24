@@ -89,14 +89,26 @@ async function sendViaHexalyte(
   const apiKey = settings.apiSecret.trim() || settings.apiKey.trim()
   if (!apiKey) throw new AppError('Hexalyte SMS API key is missing', 400)
 
+  // Portal HTTP API is Notify/Textlocal-compatible. Auth works with api_key;
+  // recipient must be under `numbers` (and aliases) — `to` alone returns "No contact numbers".
+  const local = to.startsWith('94') && to.length >= 11 ? `0${to.slice(2)}` : to
   const payload: Record<string, string> = {
     api_key: apiKey,
-    to,
     message,
+    // Primary (Textlocal-style) + aliases used by local LK gateways
+    numbers: to,
+    number: to,
+    to,
+    mobile: to,
+    contact: to,
+    // Also send local 07… form some validators accept only this
+    phone: local,
   }
-  // Portal usually issues user_id + api_key (Notify.lk-compatible)
   if (userId && userId !== apiKey) payload.user_id = userId
-  if (settings.senderId.trim()) payload.sender_id = settings.senderId.trim()
+  if (settings.senderId.trim()) {
+    payload.sender_id = settings.senderId.trim()
+    payload.sender = settings.senderId.trim()
+  }
 
   const res = await fetch(`${HEXALYTE_SMS_BASE}/v1/send`, {
     method: 'POST',
