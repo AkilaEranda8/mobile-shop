@@ -2,7 +2,7 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { getTenantConfig } from '../configuration-engine/configuration-engine.service'
 import type { InvoiceSettings } from '../tenants/invoice-settings.util'
-import { DEFAULT_SMS_SALE_BODY } from './sms-template.util'
+import { DEFAULT_SMS_SALE_BODY, DEFAULT_SMS_REPAIR_BODY } from './sms-template.util'
 import type { SmsSettings } from './sms-settings.util'
 import { formatLkr, renderAndSendTemplatedSms, renderSmsTemplate, sendSms } from './sms.service'
 
@@ -189,5 +189,70 @@ export async function sendSaleSmsForPos(opts: {
     branchId: opts.branchId ?? sale.branchId ?? undefined,
     customerName: sale.customerName ?? undefined,
     amount: Number(sale.total),
+  })
+}
+
+/** Repair ticket manual send — uses repair SMS template. */
+export async function sendRepairSmsForTicket(opts: {
+  tenantId: string
+  repairId: string
+  phone?: string
+  branchId?: string
+}): Promise<{ to: string; messageId?: string; segments: number }> {
+  const ticket = await prisma.repairTicket.findFirst({
+    where: { id: opts.repairId, tenantId: opts.tenantId },
+    select: {
+      id: true,
+      ticketNumber: true,
+      customerName: true,
+      customerPhone: true,
+      customerId: true,
+      estimatedCost: true,
+      actualCost: true,
+      paidAmount: true,
+      dueAmount: true,
+      branchId: true,
+    },
+  })
+  if (!ticket) throw new AppError('Repair ticket not found', 404)
+
+  let phone = String(opts.phone ?? ticket.customerPhone ?? '').trim()
+  if (!phone && ticket.customerId) {
+    const c = await prisma.customer.findFirst({
+      where: { id: ticket.customerId, tenantId: opts.tenantId },
+      select: { phone: true },
+    })
+    phone = String(c?.phone ?? '').trim()
+  }
+  if (!phone) throw new AppError('Customer phone required for SMS', 400)
+
+  const settings = await getTenantConfig<SmsSettings>(opts.tenantId, 'sms', { bypassCache: true })
+  if (!settings.enabled) throw new AppError('SMS gateway is disabled — enable it in SMS settings', 400)
+  const tpl = settings.templates?.repair
+  if (!tpl?.enabled) throw new AppError('Repair SMS template is disabled in SMS settings', 400)
+
+  const shopName = await shopNameForTenant(opts.tenantId)
+  const total = Number(ticket.actualCost ?? ticket.estimatedCost ?? 0)
+  const paidAmount = Number(ticket.paidAmount ?? 0)
+  const dueAmount = Number(ticket.dueAmount ?? 0)
+  const vars = {
+    shopName,
+    customerName: ticket.customerName?.trim() || 'Customer',
+    invoiceNumber: ticket.ticketNumber,
+    ticketNumber: ticket.ticketNumber,
+    referenceId: ticket.ticketNumber,
+    totalAmount: formatLkr(total),
+    paidAmount: formatLkr(paidAmount),
+    dueAmount: formatLkr(dueAmount),
+  }
+  const message = renderSmsTemplate(tpl.body || DEFAULT_SMS_REPAIR_BODY, vars)
+  if (!message.trim()) throw new AppError('Repair SMS template is empty', 400)
+
+  return sendSms(opts.tenantId, phone, message, {
+    eventType: 'repair',
+    referenceId: ticket.ticketNumber,
+    branchId: opts.branchId ?? ticket.branchId ?? undefined,
+    customerName: ticket.customerName ?? undefined,
+    amount: total,
   })
 }

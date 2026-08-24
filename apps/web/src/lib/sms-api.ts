@@ -100,7 +100,7 @@ export const SMS_EVENT_META: Record<SmsEventType, { title: string; titleSi: stri
   repair: {
     title: 'Repair complete',
     titleSi: 'Repair අවසන්',
-    description: 'Sent when repair payment is collected / job delivered',
+    description: 'Sent from the repair ticket when you tap Send SMS (customer phone required)',
     defaultBody: DEFAULT_SMS_REPAIR_BODY,
   },
   hpReminder: {
@@ -209,6 +209,8 @@ export const smsApi = {
     api.post<{ data: { to: string; messageId?: string; segments: number } }>(`${BASE}/send-message`, body),
   sendSaleSms:       (body: { saleId: string; phone?: string }) =>
     api.post<{ data: { to: string; messageId?: string; segments: number } }>(`${BASE}/send-sale`, body),
+  sendRepairSms:     (body: { repairId: string; phone?: string }) =>
+    api.post<{ data: { to: string; messageId?: string; segments: number } }>(`${BASE}/send-repair`, body),
   getStats:          () => api.get<{ data: SmsStats }>(`${BASE}/stats`),
   getHistory:        () => api.get<{ data: SmsHistoryItem[] }>(`${BASE}/history`),
   getRecentMessages: () => api.get<{ data: SmsRecentMessage[] }>(`${BASE}/messages/recent`),

@@ -12,6 +12,7 @@ import { repairsApi, uploadApi } from '@/lib/api'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
+import { smsApi } from '@/lib/sms-api'
 import { captureElementAsPdfBase64 } from '@/lib/invoice-pdf'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
@@ -168,6 +169,8 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
   const notesSectionRef = useRef<HTMLDivElement>(null)
   const [downloading,   setDownloading]   = useState(false)
   const [waSending,     setWaSending]     = useState<'quote' | 'invoice' | null>(null)
+  const [smsSending,    setSmsSending]    = useState(false)
+  const [repairSmsSent, setRepairSmsSent] = useState(false)
   const [waSendPdf,     setWaSendPdf]     = useState(false)
   const [invSettings, setInvSettings]   = useState<InvoiceSettings>(() => getInvoiceSettings())
   const [showPartsOnInvoice, setShowPartsOnInvoice] = useState(
@@ -203,6 +206,10 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       .catch(() => {})
     return () => window.removeEventListener('invoice-settings-updated', load)
   }, [])
+
+  useEffect(() => {
+    setRepairSmsSent(false)
+  }, [repair.id])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onBack() }
@@ -371,6 +378,22 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
       toast.error(err?.message ?? 'Failed to send invoice — connect WhatsApp in Settings first')
     } finally {
       setWaSending(null)
+    }
+  }
+
+  const sendRepairSms = async () => {
+    if (!canEdit) { viewOnlyToast('repairs'); return }
+    const phone = String(repair.customerPhone ?? '').replace(/\D/g, '')
+    if (phone.length < 9) { toast.error('Customer phone required to send SMS'); return }
+    setSmsSending(true)
+    try {
+      await smsApi.sendRepairSms({ repairId: repair.id, phone })
+      setRepairSmsSent(true)
+      toast.success('Repair SMS sent')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'SMS send failed — check SMS → Connection settings')
+    } finally {
+      setSmsSending(false)
     }
   }
 
@@ -719,6 +742,17 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             {waSending === 'invoice' ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
             {waSending === 'invoice' ? 'Sending…' : waSendPdf ? 'Invoice PDF' : 'Invoice'}
           </button>
+          {repair.customerPhone && (
+            <button
+              type="button"
+              onClick={sendRepairSms}
+              disabled={smsSending || repairSmsSent}
+              className="px-4 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {smsSending ? <Loader2 size={14} className="animate-spin" /> : repairSmsSent ? <Check size={14} /> : <MessageSquare size={14} />}
+              {smsSending ? 'Sending…' : repairSmsSent ? 'SMS Sent' : 'Send SMS'}
+            </button>
+          )}
         </>
       )}
     </div>
@@ -1326,6 +1360,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   ...(canEdit ? [
                     { icon: MessageSquare, label: 'Quote WhatsApp', action: sendQuoteWhatsApp, disabled: waSending !== null },
                     { icon: Phone, label: 'Invoice WhatsApp', action: sendInvoiceWhatsApp, disabled: waSending !== null },
+                    { icon: MessageSquare, label: repairSmsSent ? 'SMS Sent' : 'Send SMS', action: sendRepairSms, disabled: smsSending || repairSmsSent || !repair.customerPhone },
                   ] : []),
                   { icon: Package,       label: 'Print Intake',    action: handlePrintIntake },
                   { icon: Printer,       label: 'Print Ticket',    action: handlePrintTicket },
@@ -1497,9 +1532,14 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                       <a href={`tel:${repair.customerPhone}`} className="text-sm font-semibold hover:text-violet-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{repair.customerPhone}</a>
                     </div>
                     {canEdit && (
-                      <button onClick={sendInvoiceWhatsApp} className="w-7 h-7 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-                        <MessageSquare size={12} className="text-green-600" />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button type="button" onClick={sendInvoiceWhatsApp} className="w-7 h-7 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                          <MessageSquare size={12} className="text-green-600" />
+                        </button>
+                        <button type="button" onClick={sendRepairSms} disabled={smsSending || repairSmsSent} className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center disabled:opacity-50">
+                          {smsSending ? <Loader2 size={12} className="animate-spin text-blue-600" /> : <MessageSquare size={12} className="text-blue-600" />}
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

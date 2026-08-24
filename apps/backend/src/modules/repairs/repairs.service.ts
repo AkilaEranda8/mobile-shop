@@ -7,7 +7,6 @@ import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
-import { notifyRepairSms } from '../sms/sms-notify.service'
 import { formatRepairServiceItemName } from '../../utils/repair-item-label'
 import { applyRepairSparePartsStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { assertRepairTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
@@ -511,16 +510,6 @@ export const repairsService = {
 
     const ticket = await prisma.repairTicket.findUnique({ where: { id }, include: { notes: true, spareParts: true, history: true } })
     void emitRepairAccounting(tenantId, id, r.branchId, body.cashierName)
-    void notifyRepairSms({
-      tenantId,
-      customerPhone: r.customerPhone,
-      customerName: r.customerName,
-      ticketNumber: r.ticketNumber,
-      total,
-      paidAmount,
-      dueAmount,
-      branchId: r.branchId,
-    }).catch(err => console.error('Repair credit SMS failed:', err))
     return serializeRepair(ticket!)
   },
 }

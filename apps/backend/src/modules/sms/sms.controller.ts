@@ -11,7 +11,7 @@ import {
   sendSmsTest,
   updateSmsSettingsForClient,
 } from './sms.service'
-import { sendSaleSmsForPos } from './sms-notify.service'
+import { sendSaleSmsForPos, sendRepairSmsForTicket } from './sms-notify.service'
 
 export const smsController = {
   async getStatus(req: Request, res: Response, next: NextFunction) {
@@ -67,6 +67,18 @@ export const smsController = {
         branchId: effectiveBranchId(req),
       })
       sendSuccess(res, data, 'Sale SMS sent')
+    } catch (e) { next(e) }
+  },
+
+  async sendRepairSms(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await sendRepairSmsForTicket({
+        tenantId: req.tenantId!,
+        repairId: req.body.repairId,
+        phone: req.body.phone,
+        branchId: effectiveBranchId(req),
+      })
+      sendSuccess(res, data, 'Repair SMS sent')
     } catch (e) { next(e) }
   },
 
