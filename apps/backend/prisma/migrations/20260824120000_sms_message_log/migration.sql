@@ -23,6 +23,13 @@ CREATE INDEX IF NOT EXISTS "SmsMessage_tenantId_branchId_idx" ON "SmsMessage"("t
 CREATE INDEX IF NOT EXISTS "SmsMessage_tenantId_eventType_idx" ON "SmsMessage"("tenantId", "eventType");
 CREATE INDEX IF NOT EXISTS "SmsMessage_tenantId_createdAt_idx" ON "SmsMessage"("tenantId", "createdAt");
 
-ALTER TABLE "SmsMessage"
-  ADD CONSTRAINT "SmsMessage_tenantId_fkey"
-  FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'SmsMessage_tenantId_fkey'
+  ) THEN
+    ALTER TABLE "SmsMessage"
+      ADD CONSTRAINT "SmsMessage_tenantId_fkey"
+      FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
