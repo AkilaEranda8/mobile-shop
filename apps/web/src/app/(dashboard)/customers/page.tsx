@@ -14,7 +14,7 @@ import { useCustomers, useFeatureFlag } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
-import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { useCanEditModule, useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
@@ -22,6 +22,7 @@ import { usePos } from '@/lib/use-pos'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-date'
+import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
@@ -548,10 +549,13 @@ function CreditPaymentModal({ customerId, customerName, customerPhone, outstandi
 function CustomerDetailModal({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const { openPos } = usePos()
   const { canEdit } = useModuleAccess()
+  const hasWhatsApp = useFeatureFlag('WHATSAPP')
+  const canEditWhatsApp = useCanEditModule('WHATSAPP')
   const [customer, setCustomer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [detailTab, setDetailTab] = useState<'overview' | 'hirePurchase'>('overview')
+  const [waReminderSending, setWaReminderSending] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -572,6 +576,48 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
       .then((r: any) => setCustomer(r.data ?? r))
       .catch(() => {})
   }
+
+  const sendCreditWhatsAppReminder = useCallback(async () => {
+    if (!hasWhatsApp || !canEditWhatsApp) return
+    if (!customer) return
+    const phone = formatWhatsAppPhone(customer.phone ?? '')
+    const due = Number(customer.totalDue ?? 0)
+    if (!phone) { toast.error('Customer phone required for WhatsApp reminder'); return }
+    if (!due || due <= 0) { toast.error('No outstanding balance'); return }
+
+    setWaReminderSending(true)
+    try {
+      const st: any = await whatsappApi.getStatus()
+      const wa = st?.data ?? st
+      if (wa?.status !== 'connected') {
+        toast.error('WhatsApp not connected — open WhatsApp → Connection and scan QR code')
+        return
+      }
+      if (wa?.enabled === false) {
+        toast.error('WhatsApp is disabled — turn on the switch in WhatsApp → Connection')
+        return
+      }
+
+      const custName = customer?.name ? String(customer.name) : 'Customer'
+      const message =
+        `Dear ${custName}, this is a reminder about your outstanding balance of LKR ${formatCurrency(due)}. ` +
+        'Please settle at your earliest. Thank you.'
+
+      await whatsappApi.sendMessage({
+        phone,
+        message,
+        customerName: custName,
+        referenceId: `OUTSTANDING-${customer?.id ?? customerId}`,
+        type: 'custom',
+        amount: due,
+      })
+      toast.success('WhatsApp reminder sent')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'WhatsApp reminder send failed')
+    } finally {
+      setWaReminderSending(false)
+    }
+  }, [canEditWhatsApp, customer, customerId, hasWhatsApp])
 
   const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
   const sales = customer?.sales ?? []
@@ -1035,6 +1081,18 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                 >
                   <Wallet size={14} />
                   Pay Outstanding
+                </button>
+              )}
+              {canEdit && hasDue && hasWhatsApp && canEditWhatsApp && customer?.phone && (
+                <button
+                  type="button"
+                  onClick={sendCreditWhatsAppReminder}
+                  disabled={waReminderSending}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold disabled:opacity-50"
+                  style={{ borderColor: 'rgba(59,130,246,.35)', background: 'rgba(59,130,246,.08)', color: '#60a5fa' }}
+                >
+                  {waReminderSending ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+                  {waReminderSending ? 'Sending…' : 'Send WhatsApp Reminder'}
                 </button>
               )}
               <button
