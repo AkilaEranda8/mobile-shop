@@ -40,7 +40,10 @@ export default function LoginPage() {
   useEffect(() => {
     const fromHost = getTenantSlugFromHost()
     setHostSlug(fromHost)
-    setShowPinOption(canUsePinLoginOnHost())
+    const pinOk = canUsePinLoginOnHost()
+    setShowPinOption(pinOk)
+    // Shop / test hosts: open on PIN by default; password is a secondary link
+    if (pinOk) setMode('pin')
     if (fromHost) {
       setShopSlug(fromHost)
     } else {
@@ -163,36 +166,11 @@ export default function LoginPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Welcome back</h1>
             <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-              {mode === 'pin'
-                ? (hostSlug ? `PIN login · ${hostSlug}` : 'Sign in with your PIN')
+              {mode === 'pin' && showPinOption
+                ? (hostSlug ? `Enter PIN · ${hostSlug}` : 'Enter your shop PIN')
                 : 'Sign in to your dashboard'}
             </p>
           </div>
-
-          {showPinOption && (
-            <div className="mb-5 grid grid-cols-2 gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <button
-                type="button"
-                onClick={() => { setMode('password'); setError(''); setPin('') }}
-                className="py-2 rounded-lg text-xs font-semibold transition-colors"
-                style={mode === 'password'
-                  ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
-                  : { color: '#64748b' }}
-              >
-                Password
-              </button>
-              <button
-                type="button"
-                onClick={() => { setMode('pin'); setError(''); setPin('') }}
-                className="py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
-                style={mode === 'pin'
-                  ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
-                  : { color: '#64748b' }}
-              >
-                <KeyRound size={12} /> PIN
-              </button>
-            </div>
-          )}
 
           {maintenance?.enabled && (
             <div className="mb-5 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm">
@@ -241,8 +219,19 @@ export default function LoginPage() {
                 loading={loading || !!maintenance?.enabled}
                 disabled={!!maintenance?.enabled}
                 autoFocus={!!hostSlug || !!shopSlug}
-                subtitle={hostSlug ? `Shop detected: ${hostSlug}` : 'Type PIN on keyboard or keypad'}
+                subtitle={hostSlug ? undefined : 'Type PIN on keyboard or keypad'}
               />
+
+              <p className="text-center text-xs pt-1" style={{ color: '#64748b' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('password'); setError(''); setPin('') }}
+                  className="underline-offset-2 hover:underline transition-colors"
+                  style={{ color: '#94a3b8' }}
+                >
+                  Password login
+                </button>
+              </p>
             </div>
           ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -311,6 +300,19 @@ export default function LoginPage() {
                 : <><span>Sign in</span><ArrowRight size={15} /></>
               }
             </button>
+
+            {showPinOption && (
+              <p className="text-center text-xs" style={{ color: '#64748b' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('pin'); setError('') }}
+                  className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline transition-colors"
+                  style={{ color: '#94a3b8' }}
+                >
+                  <KeyRound size={12} /> PIN login
+                </button>
+              </p>
+            )}
           </form>
           )}
 
