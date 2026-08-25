@@ -1430,7 +1430,7 @@ export default function SettingsPage() {
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-widest text-blue-500">POS Quick PIN</p>
                       <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                        Turn PIN login on or off for this shop. When off, staff use password only.
+                        Turn PIN login on or off for this shop. When on, Owner / Manager / Cashier / Technician can each use their own PIN. When off, password only.
                       </p>
                     </div>
                     <button

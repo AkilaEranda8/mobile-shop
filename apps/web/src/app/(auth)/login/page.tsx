@@ -5,11 +5,11 @@ import Link from 'next/link'
 import {
   Eye, EyeOff, ArrowRight, AlertCircle, AlertTriangle, ShoppingCart,
   Wrench, BarChart3, Shield, Users, Package, KeyRound, Lock, Store,
-  ChevronDown, Headset,
+  Headset,
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
-import { authStorage } from '@/lib/auth'
-import { initializeSessionBranch } from '@/lib/active-branch'
+import { authStorage, type AuthUser, type BranchSummary } from '@/lib/auth'
+import { initializeSessionBranch, setActiveBranchId } from '@/lib/active-branch'
 import { canUsePinLoginOnHost, getTenantSlugFromHost, resolvePinShopSlug } from '@/lib/tenant-url'
 import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
 import { applyPosPinSession } from '@/components/pos/PosPinGate'
@@ -27,17 +27,32 @@ const SHOP_SLUG_KEY = 'hx_pin_shop_slug'
 const BLUE = '#2563EB'
 const BLUE_DARK = '#1D4ED8'
 
+/** Branches this staff member may open after PIN login (any shop role). */
+function selectableBranchesForUser(user: AuthUser): BranchSummary[] {
+  const all = (user.branches ?? []).filter(b => b.isActive !== false)
+  if (user.role === 'OWNER') return all
+  const allowed = new Set(user.branchIds ?? [])
+  if (!allowed.size) return all
+  return all.filter(b => allowed.has(b.id))
+}
+
+function goDashboard() {
+  window.location.href = '/dashboard'
+}
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState('')
   const [maintenance, setMaintenance]   = useState<{ enabled: boolean; message: string } | null>(null)
   const [form, setForm]                 = useState({ email: '', password: '' })
-  const [mode, setMode]                 = useState<'password' | 'pin'>('password')
+  const [mode, setMode]                 = useState<'password' | 'pin' | 'branch'>('password')
   const [pin, setPin]                   = useState('')
   const [hostSlug, setHostSlug]         = useState<string | null>(null)
   const [shopSlug, setShopSlug]         = useState('')
   const [showPinOption, setShowPinOption] = useState(false)
+  const [branchOptions, setBranchOptions] = useState<BranchSummary[]>([])
+  const [pinUserName, setPinUserName] = useState('')
   const pinLength = 6 as const
 
   useEffect(() => {
@@ -63,7 +78,23 @@ export default function LoginPage() {
       const slug = (user?.tenantSlug || loginUser?.tenantSlug || '').trim().toLowerCase()
       if (slug && slug !== 'platform') localStorage.setItem(SHOP_SLUG_KEY, slug)
     } catch { /* noop */ }
-    window.location.href = '/dashboard'
+    goDashboard()
+  }
+
+  const finishPinSession = (user: AuthUser) => {
+    const options = selectableBranchesForUser(user)
+    if (options.length > 1) {
+      setBranchOptions(options)
+      setPinUserName(user.name || user.email)
+      setMode('branch')
+      setPin('')
+      setLoading(false)
+      return
+    }
+    if (options.length === 1) {
+      setActiveBranchId(options[0].id, 'assigned')
+    }
+    goDashboard()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,13 +123,18 @@ export default function LoginPage() {
         try { localStorage.setItem(SHOP_SLUG_KEY, shopSlug.trim().toLowerCase()) } catch { /* noop */ }
       }
       const res = await authApi.posPinLogin(pin, effectiveSlug)
-      applyPosPinSession(res.data)
-      window.location.href = '/dashboard'
+      const user = applyPosPinSession(res.data)
+      finishPinSession(user)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid PIN')
       setPin('')
       setLoading(false)
     }
+  }
+
+  const handlePickBranch = (branchId: string) => {
+    setActiveBranchId(branchId, 'assigned')
+    goDashboard()
   }
 
   useEffect(() => {
@@ -107,6 +143,73 @@ export default function LoginPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, mode])
+
+  // ── After PIN: pick branch when staff has 2+ assigned branches ────────────
+  if (mode === 'branch' && showPinOption) {
+    return (
+      <div className="min-h-screen bg-[#07090f] flex">
+        <div className="flex-1 flex items-center justify-center px-5 py-10 relative" style={{ background: '#0c1120' }}>
+          <div className="relative w-full max-w-[400px] px-2">
+            <div className="flex flex-col items-center text-center mb-8">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
+                style={{
+                  background: `linear-gradient(145deg, ${BLUE}, ${BLUE_DARK})`,
+                  boxShadow: `0 10px 24px ${BLUE}44`,
+                }}
+              >
+                <Store size={22} style={{ color: '#ffffff' }} strokeWidth={2.25} />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Select branch</h1>
+              <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>
+                {pinUserName ? `${pinUserName} — choose where to work` : 'Choose where to work today'}
+              </p>
+              {effectiveSlug ? (
+                <p className="mt-3 text-xs" style={{ color: '#ffffff' }}>Shop: {effectiveSlug}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2.5">
+              {branchOptions.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => handlePickBranch(b.id)}
+                  className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3.5 text-left transition-opacity hover:opacity-90"
+                  style={{
+                    border: '1px solid rgba(255,255,255,0.22)',
+                    background: 'transparent',
+                    color: '#ffffff',
+                  }}
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <Store size={16} style={{ color: '#ffffff' }} className="shrink-0" />
+                    <span className="font-semibold truncate">{b.name}</span>
+                  </span>
+                  <ArrowRight size={16} style={{ color: '#ffffff' }} className="shrink-0" />
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode('pin')
+                setBranchOptions([])
+                setPinUserName('')
+                setError('')
+                authStorage.clear()
+              }}
+              className="mt-6 w-full text-center text-sm font-semibold"
+              style={{ color: '#ffffff' }}
+            >
+              Back to PIN
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // ── PIN login — same split shell as password, white+blue form panel ───────
   if (mode === 'pin' && showPinOption) {
@@ -132,7 +235,7 @@ export default function LoginPage() {
               from one place
             </h2>
             <p className="mt-4 text-sm leading-relaxed max-w-sm" style={{ color: '#94a3b8' }}>
-              Fast PIN unlock for cashiers — same Hexalyte security, built for the counter.
+              Fast PIN unlock for every shop role — Owner, Manager, Cashier, Technician.
             </p>
           </div>
 
@@ -180,7 +283,7 @@ export default function LoginPage() {
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
                 <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>
-                  Enter your PIN to open the shop
+                  Staff PIN for Owner, Manager, Cashier & Technician
                 </p>
 
                 {effectiveSlug ? (

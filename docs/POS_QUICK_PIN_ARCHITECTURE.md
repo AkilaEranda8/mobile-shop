@@ -211,8 +211,16 @@ Uniqueness enforced on **enabled** PINs only (`pinEnabled=true` AND `pinHash IS 
 ### Branch after PIN login
 
 1. Build session via existing `buildUserSession` (branchIds, suggestedBranchId).
-2. Client keeps / sets `x-active-branch-id` using existing active-branch helpers.
-3. Middleware `resolveActiveBranch` still runs — PIN cannot select a branch outside `UserBranch` (OWNER sees all active branches per existing rules).
+2. **Cold PIN login UI:** if the user has **2+ assigned branches**, show a **Select branch** step before dashboard; if 1 branch, auto-select it.
+3. Client sets `x-active-branch-id` using existing active-branch helpers (`setActiveBranchId` / `initializeSessionBranch`).
+4. Middleware `resolveActiveBranch` still runs — PIN cannot select a branch outside `UserBranch` (OWNER sees all active branches per existing rules).
+
+PIN identifies the **person** (tenant-scoped). Branch is chosen **after** identity — never encoded in the PIN.
+
+### Roles after PIN login
+
+Any active shop role with a PIN may cold-login: **OWNER, MANAGER, CASHIER, TECHNICIAN**.  
+`PLATFORM_ADMIN` is excluded. Permissions after login still come from `User.role` + `rolePermissions` — PIN does not elevate access.
 4. Sales continue to pass `cashierId` from `req.user.userId`.
 
 ---
