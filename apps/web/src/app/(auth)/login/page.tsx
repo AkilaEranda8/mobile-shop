@@ -193,36 +193,25 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {!shopAutoDetected && !hostSlug && (
-                <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>Shop code</label>
-                  <input
-                    type="text"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    placeholder="e.g. hello-mobile"
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all border"
-                    style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
-                    value={shopSlug}
-                    onChange={e => setShopSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())}
-                  />
-                  <p className="text-[11px] mt-1.5" style={{ color: '#64748b' }}>
-                    From your shop URL: <span style={{ color: '#94a3b8' }}>shopcode</span>.app.hexalyte.com
+              {effectiveSlug ? (
+                <PosPinKeypad
+                  value={pin}
+                  maxLength={pinLength}
+                  onChange={setPin}
+                  onSubmit={handlePinLogin}
+                  loading={loading || !!maintenance?.enabled}
+                  disabled={!!maintenance?.enabled}
+                  autoFocus
+                  subtitle={`Shop: ${effectiveSlug}`}
+                />
+              ) : (
+                <div className="rounded-xl border px-4 py-4 text-center space-y-2" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                  <p className="text-sm" style={{ color: '#e2e8f0' }}>Open your shop link to use PIN</p>
+                  <p className="text-[11px]" style={{ color: '#64748b' }}>
+                    Example: <span style={{ color: '#94a3b8' }}>yourshop.app.hexalyte.com</span>
                   </p>
                 </div>
               )}
-
-              <PosPinKeypad
-                value={pin}
-                maxLength={pinLength}
-                onChange={setPin}
-                onSubmit={handlePinLogin}
-                loading={loading || !!maintenance?.enabled}
-                disabled={!!maintenance?.enabled}
-                autoFocus={!!effectiveSlug}
-                subtitle={effectiveSlug ? `Shop: ${effectiveSlug}` : 'Type PIN on keyboard or keypad'}
-              />
 
               <p className="text-center text-xs pt-1" style={{ color: '#64748b' }}>
                 <button
