@@ -34,7 +34,6 @@ export default function LoginPage() {
   const [pin, setPin]                   = useState('')
   const [hostSlug, setHostSlug]         = useState<string | null>(null)
   const [shopSlug, setShopSlug]         = useState('')
-  const [shopAutoDetected, setShopAutoDetected] = useState(false)
   const [showPinOption, setShowPinOption] = useState(false)
   const pinLength = 6 as const
 
@@ -46,10 +45,7 @@ export default function LoginPage() {
     // Shop / test hosts: open on PIN by default; password is a secondary link
     if (pinOk) setMode('pin')
     const resolved = resolvePinShopSlug()
-    if (resolved.slug) {
-      setShopSlug(resolved.slug)
-      setShopAutoDetected(resolved.autoDetected)
-    }
+    if (resolved.slug) setShopSlug(resolved.slug)
     fetchPlatformStatus()
       .then(s => setMaintenance(s.maintenance))
       .catch(() => {})
@@ -84,7 +80,7 @@ export default function LoginPage() {
   const handlePinLogin = async () => {
     if (pin.length !== pinLength || loading) return
     if (!effectiveSlug) {
-      setError('Enter shop code first')
+      setError('Open your shop URL to use PIN login')
       return
     }
     setLoading(true)
@@ -166,12 +162,21 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Welcome back</h1>
-            <p className="text-sm mt-1" style={{ color: '#64748b' }}>
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
+            <p className="text-sm mt-1.5" style={{ color: '#64748b' }}>
               {mode === 'pin' && showPinOption
-                ? (hostSlug ? `Enter PIN · ${hostSlug}` : 'Enter your shop PIN')
+                ? 'Enter your PIN to open the shop'
                 : 'Sign in to your dashboard'}
             </p>
+            {mode === 'pin' && showPinOption && effectiveSlug && (
+              <p
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                style={{ background: 'rgba(139,92,246,0.12)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.25)' }}
+              >
+                <KeyRound size={11} />
+                {effectiveSlug}
+              </p>
+            )}
           </div>
 
           {maintenance?.enabled && (
@@ -202,7 +207,7 @@ export default function LoginPage() {
                   loading={loading || !!maintenance?.enabled}
                   disabled={!!maintenance?.enabled}
                   autoFocus
-                  subtitle={`Shop: ${effectiveSlug}`}
+                  showSubmit={false}
                 />
               ) : (
                 <div className="rounded-xl border px-4 py-4 text-center space-y-2" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
