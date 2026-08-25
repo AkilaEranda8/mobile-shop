@@ -155,12 +155,25 @@ export const authApi = {
   resetPassword: (token: string, newPassword: string) =>
     api.post('/auth/reset-password', { token, newPassword }),
 
-  /** Cold POS PIN login (tenant slug via host / x-tenant-id). */
-  posPinLogin: (pin: string) =>
-    api.post<{ data: { accessToken: string; refreshToken: string; user: import('./auth').AuthUser } }>(
-      '/auth/pos-pin/login',
-      { pin },
-    ),
+  /** Cold POS PIN login. Pass shopSlug when not on a tenant subdomain. */
+  posPinLogin: (pin: string, shopSlug?: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const slug = (shopSlug || getTenantSlugFromHost() || '').trim().toLowerCase()
+    if (slug) headers['x-tenant-id'] = slug
+    return fetch(`${getApiBaseUrl()}/auth/pos-pin/login`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ pin }),
+    }).then(async (res) => {
+      const { json, text } = await parseResponseBody(res)
+      if (!res.ok) {
+        const err: any = new Error(responseErrorMessage(json, text, 'PIN login failed'))
+        err.status = res.status
+        throw err
+      }
+      return json as { data: { accessToken: string; refreshToken: string; user: import('./auth').AuthUser } }
+    })
+  },
 
   posPinSwitch: (pin: string) =>
     api.post<{ data: { accessToken: string; refreshToken: string; user: import('./auth').AuthUser } }>(
