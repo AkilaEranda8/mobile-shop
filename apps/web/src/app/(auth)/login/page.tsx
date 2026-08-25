@@ -168,10 +168,11 @@ export default function LoginPage() {
             </div>
 
             <div
-              className="rounded-2xl px-6 py-8 sm:px-8 sm:py-9 border bg-white"
+              className="rounded-2xl px-6 py-8 sm:px-8 sm:py-9 border"
               style={{
-                borderColor: '#E2E8F0',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.45), 0 0 40px rgba(37,99,235,0.12)',
+                background: '#0c1120',
+                borderColor: 'rgba(255,255,255,0.08)',
+                boxShadow: 'none',
               }}
             >
               <div className="flex flex-col items-center text-center mb-6">
@@ -184,39 +185,39 @@ export default function LoginPage() {
                 >
                   <Lock size={22} className="text-white" strokeWidth={2.25} />
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</h1>
-                <p className="text-sm mt-1.5 text-slate-500">
+                <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
+                <p className="text-sm mt-1.5 text-white/70">
                   Enter your PIN to open the shop
                 </p>
 
                 {effectiveSlug ? (
                   <div
-                    className="mt-4 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-slate-700"
+                    className="mt-4 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-white"
                     style={{
-                      background: '#EFF6FF',
-                      border: `1px solid #BFDBFE`,
+                      background: 'rgba(37,99,235,0.18)',
+                      border: '1px solid rgba(37,99,235,0.4)',
                     }}
                   >
-                    <Store size={13} style={{ color: BLUE }} />
+                    <Store size={13} className="text-white" />
                     <span>Shop: {effectiveSlug}</span>
-                    <ChevronDown size={13} className="text-slate-400" />
+                    <ChevronDown size={13} className="text-white/60" />
                   </div>
                 ) : null}
               </div>
 
               {maintenance?.enabled && (
-                <div className="mb-4 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                  <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-500" />
+                <div className="mb-4 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-white text-sm">
+                  <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-400" />
                   <div>
-                    <p className="font-semibold text-red-600">Maintenance mode is active</p>
-                    <p className="text-xs mt-1 text-red-600/80">{maintenance.message}</p>
+                    <p className="font-semibold text-white">Maintenance mode is active</p>
+                    <p className="text-xs mt-1 text-white/70">{maintenance.message}</p>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="mb-4 flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
-                  <AlertCircle size={15} className="flex-shrink-0" />
+                <div className="mb-4 flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-white text-sm">
+                  <AlertCircle size={15} className="flex-shrink-0 text-red-400" />
                   <span>{error}</span>
                 </div>
               )}
@@ -235,40 +236,42 @@ export default function LoginPage() {
                   variant="login"
                 />
               ) : (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center space-y-2 mb-4">
-                  <p className="text-sm text-slate-700">Open your shop link to use PIN</p>
-                  <p className="text-[11px] text-slate-500">
-                    Example: <span className="text-slate-600">yourshop.app.hexalyte.com</span>
+                <div className="rounded-xl border px-4 py-4 text-center space-y-2 mb-4" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                  <p className="text-sm text-white">Open your shop link to use PIN</p>
+                  <p className="text-[11px] text-white/50">
+                    Example: <span className="text-white/70">yourshop.app.hexalyte.com</span>
                   </p>
                 </div>
               )}
 
               <div className="flex items-center gap-3 my-5">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-xs text-slate-400">or</span>
-                <div className="flex-1 h-px bg-slate-200" />
+                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
+                <span className="text-xs text-white/50">or</span>
+                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
               </div>
 
               <button
                 type="button"
                 onClick={() => { setMode('password'); setError(''); setPin('') }}
-                className="w-full flex items-center justify-center gap-2 text-sm font-semibold transition-opacity hover:opacity-80"
-                style={{ color: BLUE }}
+                className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-white transition-opacity hover:opacity-80"
               >
                 <Lock size={14} />
                 Password login
               </button>
 
-              <div className="mt-6 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[11px] text-slate-500 border border-slate-200 bg-slate-50">
+              <div
+                className="mt-6 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[11px] text-white/70 border"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}
+              >
                 <Headset size={13} className="shrink-0" />
                 <span>Having trouble? Contact your system administrator</span>
               </div>
             </div>
 
-            <p className="mt-5 text-center text-[11px]" style={{ color: '#94a3b8' }}>
-              <Link href="/privacy" className="font-medium hover:underline" style={{ color: '#60A5FA' }}>Privacy</Link>
-              <span className="mx-1.5" style={{ color: '#64748b' }}>·</span>
-              <Link href="/terms" className="font-medium hover:underline" style={{ color: '#60A5FA' }}>Terms</Link>
+            <p className="mt-5 text-center text-[11px] text-white/60">
+              <Link href="/privacy" className="font-medium text-white hover:underline">Privacy</Link>
+              <span className="mx-1.5 text-white/40">·</span>
+              <Link href="/terms" className="font-medium text-white hover:underline">Terms</Link>
             </p>
           </div>
         </div>

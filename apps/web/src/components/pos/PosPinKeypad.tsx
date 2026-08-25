@@ -22,17 +22,17 @@ type Props = {
   variant?: 'default' | 'login'
 }
 
-/** Light login theme — white surface, blue accents (system-aligned) */
+/** Dark login theme — same navy as page, white text only */
 const LOGIN = {
   blue: '#2563EB',
   blueDark: '#1D4ED8',
-  keyBg: '#FFFFFF',
-  keyBorder: '#E2E8F0',
-  keyHover: '#F8FAFC',
-  muted: '#64748B',
-  text: '#0F172A',
-  red: '#DC2626',
-  dotEmpty: '#CBD5E1',
+  keyBg: '#0c1120',
+  keyBorder: 'rgba(255,255,255,0.12)',
+  keyHover: 'rgba(255,255,255,0.04)',
+  muted: '#94a3b8',
+  text: '#ffffff',
+  red: '#F87171',
+  dotEmpty: 'rgba(255,255,255,0.28)',
 }
 
 export function PosPinKeypad({
@@ -219,12 +219,12 @@ export function PosPinKeypad({
                   else push(k)
                   inputRef.current?.focus()
                 }}
-                className="h-[52px] rounded-xl text-[17px] font-semibold transition-all active:scale-[0.96] disabled:opacity-45 select-none hover:brightness-[0.98]"
+                className="h-[52px] rounded-xl text-[17px] font-semibold transition-all active:scale-[0.96] disabled:opacity-45 select-none"
                 style={{
                   background: isLogin ? LOGIN.keyBg : 'rgba(255,255,255,0.05)',
                   border: `1px solid ${isLogin ? LOGIN.keyBorder : border}`,
                   color: isClear ? red : isBack ? muted : text,
-                  boxShadow: isLogin ? '0 1px 2px rgba(15,23,42,0.04)' : undefined,
+                  boxShadow: undefined,
                 }}
               >
                 {isBack ? <Delete size={17} className="mx-auto" strokeWidth={2.25} /> : k}
