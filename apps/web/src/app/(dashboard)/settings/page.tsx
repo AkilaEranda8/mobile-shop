@@ -1604,7 +1604,7 @@ export default function SettingsPage() {
                   <ol className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 space-y-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
                     <li><span className="font-semibold text-blue-400">1.</span> Enable PIN policy below (Owner/Manager) and Save.</li>
                     <li><span className="font-semibold text-blue-400">2.</span> Each staff sets their own PIN here, or Owner resets from Staff.</li>
-                    <li><span className="font-semibold text-blue-400">3.</span> Shop URL → PIN → pick branch (if 2+) → Cashier/Tech → POS · Owner/Manager → dashboard.</li>
+                    <li><span className="font-semibold text-blue-400">3.</span> Shop URL → PIN → branch auto (last used / default) → Cashier/Tech → POS · Owner/Manager → dashboard.</li>
                     <li><span className="font-semibold text-blue-400">4.</span> Password login stays available as a backup on the login page.</li>
                   </ol>
 

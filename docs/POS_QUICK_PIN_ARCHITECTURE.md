@@ -211,7 +211,7 @@ Uniqueness enforced on **enabled** PINs only (`pinEnabled=true` AND `pinHash IS 
 ### Branch after PIN login
 
 1. Build session via existing `buildUserSession` (branchIds, suggestedBranchId).
-2. **Cold PIN login UI:** if the user has **2+ assigned branches**, show a **Select branch** step before continuing; if 1 branch, auto-select it.
+2. **Cold PIN login UI:** auto-select branch from **last used** (localStorage) → suggested/default/HQ. Show **Select branch** only if auto-resolve fails.
 3. After branch: **CASHIER / TECHNICIAN** → `/dashboard/pos`; **OWNER / MANAGER** → `/dashboard`.
 4. Client sets `x-active-branch-id` using existing active-branch helpers (`setActiveBranchId` / `initializeSessionBranch`).
 5. Middleware `resolveActiveBranch` still runs — PIN cannot select a branch outside `UserBranch` (OWNER sees all active branches per existing rules).

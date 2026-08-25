@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage, type AuthUser, type BranchSummary } from '@/lib/auth'
-import { initializeSessionBranch, setActiveBranchId } from '@/lib/active-branch'
+import { initializeSessionBranch, resolveAutoBranchId, setActiveBranchId } from '@/lib/active-branch'
 import { canUsePinLoginOnHost, getTenantSlugFromHost, resolvePinShopSlug } from '@/lib/tenant-url'
 import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
 import { applyPosPinSession } from '@/components/pos/PosPinGate'
@@ -92,6 +92,13 @@ export default function LoginPage() {
 
   const finishPinSession = (user: AuthUser) => {
     const options = selectableBranchesForUser(user)
+    // Prefer last-used / suggested / default branch (same idea as shop-slug auto-detect).
+    const autoId = resolveAutoBranchId(user, options)
+    if (autoId) {
+      setActiveBranchId(autoId, 'assigned')
+      goAfterPinLogin(user)
+      return
+    }
     if (options.length > 1) {
       setBranchOptions(options)
       setPinUserName(user.name || user.email)
@@ -99,9 +106,6 @@ export default function LoginPage() {
       setPin('')
       setLoading(false)
       return
-    }
-    if (options.length === 1) {
-      setActiveBranchId(options[0].id, 'assigned')
     }
     goAfterPinLogin(user)
   }

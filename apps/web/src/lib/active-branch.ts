@@ -37,6 +37,32 @@ export function pickBranchId(
   return pool[0]?.id
 }
 
+/**
+ * PIN cold login: remember last branch for this user first, then suggested/default/HQ.
+ * Skips the branch picker whenever a valid branch can be resolved.
+ */
+export function resolveAutoBranchId(
+  user: AuthUser,
+  options?: BranchSummary[],
+): string | undefined {
+  const branches = (options ?? getVisibleBranches(user)).filter(b => b.isActive !== false)
+  if (!branches.length) return undefined
+  const assigned = branches.map(b => b.id)
+
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(lastBranchKey(user.id))
+      if (stored && assigned.includes(stored)) return stored
+    } catch { /* noop */ }
+  }
+
+  return pickBranchId(
+    branches,
+    assigned,
+    user.suggestedBranchId ?? user.activeBranchId,
+  )
+}
+
 export function getBranchScope(): BranchScope {
   const user = authStorage.getUser()
   return user?.branchScope ?? 'single'
