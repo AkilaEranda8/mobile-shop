@@ -22,8 +22,6 @@ const features = [
   { icon: Shield,       label: 'Warranty Tracking', desc: 'Full warranty lifecycle management' },
 ]
 
-const SHOP_SLUG_KEY = 'hx_pin_shop_slug'
-
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
@@ -33,26 +31,14 @@ export default function LoginPage() {
   const [mode, setMode]                 = useState<'password' | 'pin'>('password')
   const [pin, setPin]                   = useState('')
   const [hostSlug, setHostSlug]         = useState<string | null>(null)
-  const [shopSlug, setShopSlug]         = useState('')
   const pinLength = 6 as const
 
   useEffect(() => {
-    const fromHost = getTenantSlugFromHost()
-    setHostSlug(fromHost)
-    if (fromHost) {
-      setShopSlug(fromHost)
-    } else {
-      try {
-        const saved = localStorage.getItem(SHOP_SLUG_KEY) || ''
-        if (saved) setShopSlug(saved)
-      } catch { /* noop */ }
-    }
+    setHostSlug(getTenantSlugFromHost())
     fetchPlatformStatus()
       .then(s => setMaintenance(s.maintenance))
       .catch(() => {})
   }, [])
-
-  const effectiveShopSlug = (hostSlug || shopSlug).trim().toLowerCase()
 
   const finishLogin = (accessToken: string, refreshToken: string, user: any) => {
     const loginUser = initializeSessionBranch(user)
@@ -75,18 +61,11 @@ export default function LoginPage() {
   }
 
   const handlePinLogin = async () => {
-    if (pin.length !== pinLength || loading) return
-    if (!effectiveShopSlug) {
-      setError('Enter your shop code first')
-      return
-    }
+    if (pin.length !== pinLength || loading || !hostSlug) return
     setLoading(true)
     setError('')
     try {
-      if (!hostSlug && shopSlug.trim()) {
-        try { localStorage.setItem(SHOP_SLUG_KEY, shopSlug.trim().toLowerCase()) } catch { /* noop */ }
-      }
-      const res = await authApi.posPinLogin(pin, effectiveShopSlug)
+      const res = await authApi.posPinLogin(pin, hostSlug)
       applyPosPinSession(res.data)
       window.location.href = '/dashboard'
     } catch (err: unknown) {
@@ -102,6 +81,8 @@ export default function LoginPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, mode])
+
+  const showPinOption = !!hostSlug
 
   return (
     <div className="min-h-screen bg-[#07090f] flex">
@@ -161,32 +142,36 @@ export default function LoginPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Welcome back</h1>
             <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-              {mode === 'pin' ? 'Sign in with your PIN' : 'Sign in to your dashboard'}
+              {mode === 'pin' && hostSlug
+                ? `PIN login · ${hostSlug}`
+                : 'Sign in to your dashboard'}
             </p>
           </div>
 
-          <div className="mb-5 grid grid-cols-2 gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <button
-              type="button"
-              onClick={() => { setMode('password'); setError(''); setPin('') }}
-              className="py-2 rounded-lg text-xs font-semibold transition-colors"
-              style={mode === 'password'
-                ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
-                : { color: '#64748b' }}
-            >
-              Password
-            </button>
-            <button
-              type="button"
-              onClick={() => { setMode('pin'); setError('') }}
-              className="py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
-              style={mode === 'pin'
-                ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
-                : { color: '#64748b' }}
-            >
-              <KeyRound size={12} /> PIN
-            </button>
-          </div>
+          {showPinOption && (
+            <div className="mb-5 grid grid-cols-2 gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                type="button"
+                onClick={() => { setMode('password'); setError(''); setPin('') }}
+                className="py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={mode === 'password'
+                  ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
+                  : { color: '#64748b' }}
+              >
+                Password
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('pin'); setError(''); setPin('') }}
+                className="py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                style={mode === 'pin'
+                  ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
+                  : { color: '#64748b' }}
+              >
+                <KeyRound size={12} /> PIN
+              </button>
+            </div>
+          )}
 
           {maintenance?.enabled && (
             <div className="mb-5 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm">
@@ -198,7 +183,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {mode === 'pin' ? (
+          {mode === 'pin' && showPinOption ? (
             <div className="space-y-4">
               {error && (
                 <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
@@ -206,27 +191,6 @@ export default function LoginPage() {
                   <span>{error}</span>
                 </div>
               )}
-
-              {!hostSlug && (
-                <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>Shop code</label>
-                  <input
-                    type="text"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    placeholder="your-shop (from yourshop.app.hexalyte.com)"
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all border"
-                    style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
-                    value={shopSlug}
-                    onChange={e => setShopSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())}
-                  />
-                  <p className="text-[11px] mt-1.5" style={{ color: '#64748b' }}>
-                    Example: for <span style={{ color: '#94a3b8' }}>paradise.app.hexalyte.com</span> use <span style={{ color: '#94a3b8' }}>paradise</span>
-                  </p>
-                </div>
-              )}
-
               <PosPinKeypad
                 value={pin}
                 maxLength={pinLength}
@@ -234,7 +198,8 @@ export default function LoginPage() {
                 onSubmit={handlePinLogin}
                 loading={loading || !!maintenance?.enabled}
                 disabled={!!maintenance?.enabled}
-                subtitle={hostSlug ? `Shop: ${hostSlug}` : 'Enter 6-digit staff PIN'}
+                autoFocus
+                subtitle={`Shop detected: ${hostSlug}`}
               />
             </div>
           ) : (
