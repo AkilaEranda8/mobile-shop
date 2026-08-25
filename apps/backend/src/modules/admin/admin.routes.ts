@@ -357,7 +357,7 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
             where: { id: req.params.id },
             data: {
               ...data,
-              ...(invPatch ? { invoiceSettings: invPatch } : {}),
+              ...(invPatch ? { invoiceSettings: invPatch as any } : {}),
             },
           })
         : await tx.tenant.findUniqueOrThrow({ where: { id: req.params.id } })

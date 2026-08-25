@@ -4,3 +4,5 @@ dist
 *.log
 .env
 .env.*
+src/database/_*.ts
+src/database/merge-*.ts
