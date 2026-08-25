@@ -1,1 +1,7 @@
-export { getTenantSlugFromHost, getAppBaseDomain, tenantShopUrl } from './tenant-url'
+export {
+  getTenantSlugFromHost,
+  getAppBaseDomain,
+  tenantShopUrl,
+  isSharedAppHost,
+  canUsePinLoginOnHost,
+} from './tenant-url'

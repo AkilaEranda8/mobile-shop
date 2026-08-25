@@ -11,6 +11,28 @@ export function getTenantSlugFromHost(hostname?: string): string | null {
   return null
 }
 
+/** Shared app host — `app.hexalyte.com` or `test.app.hexalyte.com` (not a shop subdomain). */
+export function isSharedAppHost(hostname?: string): boolean {
+  const host = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase()
+  return (
+    host === 'app.hexalyte.com'
+    || host === 'test.app.hexalyte.com'
+    || host === 'localhost'
+    || host === '127.0.0.1'
+  )
+}
+
+/**
+ * PIN login UI is available on shop subdomains always,
+ * and on the shared test host / localhost (shop code required there).
+ * Production shared host `app.hexalyte.com` stays password-only.
+ */
+export function canUsePinLoginOnHost(hostname?: string): boolean {
+  if (getTenantSlugFromHost(hostname)) return true
+  const host = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase()
+  return host === 'test.app.hexalyte.com' || host === 'localhost' || host === '127.0.0.1'
+}
+
 /** Shared app host — `app.hexalyte.com` or `test.app.hexalyte.com`. */
 export function getAppBaseDomain(hostname?: string): string {
   const host = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase()

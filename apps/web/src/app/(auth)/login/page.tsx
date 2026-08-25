@@ -9,7 +9,7 @@ import {
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { initializeSessionBranch } from '@/lib/active-branch'
-import { getTenantSlugFromHost } from '@/lib/tenant-url'
+import { canUsePinLoginOnHost, getTenantSlugFromHost } from '@/lib/tenant-url'
 import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
 import { applyPosPinSession } from '@/components/pos/PosPinGate'
 
@@ -22,6 +22,8 @@ const features = [
   { icon: Shield,       label: 'Warranty Tracking', desc: 'Full warranty lifecycle management' },
 ]
 
+const SHOP_SLUG_KEY = 'hx_pin_shop_slug'
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
@@ -31,14 +33,28 @@ export default function LoginPage() {
   const [mode, setMode]                 = useState<'password' | 'pin'>('password')
   const [pin, setPin]                   = useState('')
   const [hostSlug, setHostSlug]         = useState<string | null>(null)
+  const [shopSlug, setShopSlug]         = useState('')
+  const [showPinOption, setShowPinOption] = useState(false)
   const pinLength = 6 as const
 
   useEffect(() => {
-    setHostSlug(getTenantSlugFromHost())
+    const fromHost = getTenantSlugFromHost()
+    setHostSlug(fromHost)
+    setShowPinOption(canUsePinLoginOnHost())
+    if (fromHost) {
+      setShopSlug(fromHost)
+    } else {
+      try {
+        const saved = localStorage.getItem(SHOP_SLUG_KEY) || ''
+        if (saved) setShopSlug(saved)
+      } catch { /* noop */ }
+    }
     fetchPlatformStatus()
       .then(s => setMaintenance(s.maintenance))
       .catch(() => {})
   }, [])
+
+  const effectiveSlug = (hostSlug || shopSlug).trim().toLowerCase()
 
   const finishLogin = (accessToken: string, refreshToken: string, user: any) => {
     const loginUser = initializeSessionBranch(user)
@@ -61,11 +77,18 @@ export default function LoginPage() {
   }
 
   const handlePinLogin = async () => {
-    if (pin.length !== pinLength || loading || !hostSlug) return
+    if (pin.length !== pinLength || loading) return
+    if (!effectiveSlug) {
+      setError('Enter shop code first')
+      return
+    }
     setLoading(true)
     setError('')
     try {
-      const res = await authApi.posPinLogin(pin, hostSlug)
+      if (!hostSlug && shopSlug.trim()) {
+        try { localStorage.setItem(SHOP_SLUG_KEY, shopSlug.trim().toLowerCase()) } catch { /* noop */ }
+      }
+      const res = await authApi.posPinLogin(pin, effectiveSlug)
       applyPosPinSession(res.data)
       window.location.href = '/dashboard'
     } catch (err: unknown) {
@@ -81,8 +104,6 @@ export default function LoginPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, mode])
-
-  const showPinOption = !!hostSlug
 
   return (
     <div className="min-h-screen bg-[#07090f] flex">
@@ -142,8 +163,8 @@ export default function LoginPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Welcome back</h1>
             <p className="text-sm mt-1" style={{ color: '#64748b' }}>
-              {mode === 'pin' && hostSlug
-                ? `PIN login · ${hostSlug}`
+              {mode === 'pin'
+                ? (hostSlug ? `PIN login · ${hostSlug}` : 'Sign in with your PIN')
                 : 'Sign in to your dashboard'}
             </p>
           </div>
@@ -191,6 +212,27 @@ export default function LoginPage() {
                   <span>{error}</span>
                 </div>
               )}
+
+              {!hostSlug && (
+                <div>
+                  <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>Shop code</label>
+                  <input
+                    type="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="e.g. hello-mobile"
+                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all border"
+                    style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
+                    value={shopSlug}
+                    onChange={e => setShopSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())}
+                  />
+                  <p className="text-[11px] mt-1.5" style={{ color: '#64748b' }}>
+                    From your shop URL: <span style={{ color: '#94a3b8' }}>shopcode</span>.app.hexalyte.com
+                  </p>
+                </div>
+              )}
+
               <PosPinKeypad
                 value={pin}
                 maxLength={pinLength}
@@ -198,8 +240,8 @@ export default function LoginPage() {
                 onSubmit={handlePinLogin}
                 loading={loading || !!maintenance?.enabled}
                 disabled={!!maintenance?.enabled}
-                autoFocus
-                subtitle={`Shop detected: ${hostSlug}`}
+                autoFocus={!!hostSlug || !!shopSlug}
+                subtitle={hostSlug ? `Shop detected: ${hostSlug}` : 'Type PIN on keyboard or keypad'}
               />
             </div>
           ) : (
