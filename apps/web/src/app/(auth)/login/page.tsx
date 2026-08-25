@@ -161,7 +161,7 @@ export default function LoginPage() {
             <img src="/logo.png" alt="Hexalyte Innovation" className="h-12 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
           </div>
 
-          <div className="mb-8">
+          <div className="mb-6 text-center lg:text-left">
             <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
             <p className="text-sm mt-1.5" style={{ color: '#64748b' }}>
               {mode === 'pin' && showPinOption
@@ -190,9 +190,9 @@ export default function LoginPage() {
           )}
 
           {mode === 'pin' && showPinOption ? (
-            <div className="space-y-4">
+            <div className="flex flex-col items-center gap-5">
               {error && (
-                <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
+                <div className="w-full max-w-[300px] flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
                   <AlertCircle size={15} className="flex-shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -207,10 +207,11 @@ export default function LoginPage() {
                   loading={loading || !!maintenance?.enabled}
                   disabled={!!maintenance?.enabled}
                   autoFocus
-                  showSubmit={false}
+                  showKeypad
+                  showSubmit
                 />
               ) : (
-                <div className="rounded-xl border px-4 py-4 text-center space-y-2" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                <div className="w-full rounded-xl border px-4 py-4 text-center space-y-2" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
                   <p className="text-sm" style={{ color: '#e2e8f0' }}>Open your shop link to use PIN</p>
                   <p className="text-[11px]" style={{ color: '#64748b' }}>
                     Example: <span style={{ color: '#94a3b8' }}>yourshop.app.hexalyte.com</span>
@@ -218,16 +219,14 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <p className="text-center text-xs pt-1" style={{ color: '#64748b' }}>
-                <button
-                  type="button"
-                  onClick={() => { setMode('password'); setError(''); setPin('') }}
-                  className="underline-offset-2 hover:underline transition-colors"
-                  style={{ color: '#94a3b8' }}
-                >
-                  Password login
-                </button>
-              </p>
+              <button
+                type="button"
+                onClick={() => { setMode('password'); setError(''); setPin('') }}
+                className="text-xs underline-offset-2 hover:underline transition-colors"
+                style={{ color: '#94a3b8' }}
+              >
+                Password login
+              </button>
             </div>
           ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
