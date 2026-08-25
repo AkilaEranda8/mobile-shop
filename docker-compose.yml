@@ -57,12 +57,13 @@ services:
   backend:
     build:
       context: ./apps/backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     container_name: hexalyte_backend
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: production
       PORT: ${PORT:-3001}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
@@ -91,7 +92,6 @@ services:
     networks:
       - hexalyte-network
     volumes:
-      - ./apps/backend/src:/app/src
       - uploads_data:/app/uploads
       - whatsapp_sessions:/app/data/whatsapp-sessions
 
