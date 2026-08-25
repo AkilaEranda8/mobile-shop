@@ -156,17 +156,22 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-5 py-10 relative" style={{ background: '#F1F5F9' }}>
+        <div className="flex-1 flex items-center justify-center px-5 py-10 relative" style={{ background: '#0c1120' }}>
+          <div className="absolute inset-0 lg:border-l border-white/5 pointer-events-none" />
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -top-24 -right-16 w-[360px] h-[360px] rounded-full blur-3xl bg-blue-600/15" />
+            <div className="absolute bottom-0 left-0 w-[280px] h-[280px] rounded-full blur-3xl bg-cyan-600/10" />
+          </div>
           <div className="relative w-full max-w-[400px]">
             <div className="flex lg:hidden justify-center mb-6">
-              <img src="/logo.png" alt="Hexalyte Innovation" className="h-10 w-auto object-contain" />
+              <img src="/logo.png" alt="Hexalyte Innovation" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
             </div>
 
             <div
               className="rounded-2xl px-6 py-8 sm:px-8 sm:py-9 border bg-white"
               style={{
                 borderColor: '#E2E8F0',
-                boxShadow: '0 20px 50px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.04)',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.45), 0 0 40px rgba(37,99,235,0.12)',
               }}
             >
               <div className="flex flex-col items-center text-center mb-6">
@@ -260,10 +265,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <p className="mt-5 text-center text-[11px] text-slate-500">
-              <Link href="/privacy" className="font-medium hover:underline" style={{ color: BLUE }}>Privacy</Link>
-              <span className="mx-1.5 text-slate-400">·</span>
-              <Link href="/terms" className="font-medium hover:underline" style={{ color: BLUE }}>Terms</Link>
+            <p className="mt-5 text-center text-[11px]" style={{ color: '#94a3b8' }}>
+              <Link href="/privacy" className="font-medium hover:underline" style={{ color: '#60A5FA' }}>Privacy</Link>
+              <span className="mx-1.5" style={{ color: '#64748b' }}>·</span>
+              <Link href="/terms" className="font-medium hover:underline" style={{ color: '#60A5FA' }}>Terms</Link>
             </p>
           </div>
         </div>
