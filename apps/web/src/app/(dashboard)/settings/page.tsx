@@ -1425,12 +1425,12 @@ export default function SettingsPage() {
               )}
 
               {hasQuickPin && (
-                <section className="space-y-3 pt-4 border-t border-white/5">
+                <section className="space-y-4 pt-4 border-t border-white/5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-400">POS Quick PIN</p>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-blue-500">POS Quick PIN</p>
                       <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                        Idle lock, lockout, and cold PIN login policy for this shop
+                        Turn PIN login on or off for this shop. When off, staff use password only.
                       </p>
                     </div>
                     <button
@@ -1443,51 +1443,88 @@ export default function SettingsPage() {
                       Save PIN Policy
                     </button>
                   </div>
+
                   {posPinLoading ? (
                     <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
                       <Loader2 size={14} className="animate-spin" /> Loading…
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                        <input type="checkbox" checked={posPinForm.enabled} onChange={e => setPosPinForm(p => ({ ...p, enabled: e.target.checked }))} />
-                        Enable PIN login / switch
-                      </label>
-                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                        <input type="checkbox" checked={posPinForm.allowColdPinLogin} onChange={e => setPosPinForm(p => ({ ...p, allowColdPinLogin: e.target.checked }))} />
-                        Allow cold PIN login
-                      </label>
-                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                        <input type="checkbox" checked={posPinForm.requirePasswordAfterLock} onChange={e => setPosPinForm(p => ({ ...p, requirePasswordAfterLock: e.target.checked }))} />
-                        Require password after idle lock
-                      </label>
-                      <div>
-                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>PIN length</label>
-                        <select className="input-field h-10" value={posPinForm.pinLength}
-                          onChange={e => setPosPinForm(p => ({ ...p, pinLength: Number(e.target.value) === 4 ? 4 : 6 }))}>
-                          <option value={6}>6 digits</option>
-                          <option value={4}>4 digits</option>
-                        </select>
+                    <>
+                      <div
+                        className="rounded-xl border px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                        style={{
+                          borderColor: posPinForm.enabled ? 'rgba(37,99,235,0.35)' : 'rgba(148,163,184,0.25)',
+                          background: posPinForm.enabled ? 'rgba(37,99,235,0.08)' : 'rgba(148,163,184,0.06)',
+                        }}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            {posPinForm.enabled ? 'PIN login is enabled' : 'PIN login is disabled'}
+                          </p>
+                          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                            {posPinForm.enabled
+                              ? 'Cashiers can use PIN on shop login, switch, and idle unlock.'
+                              : 'Shop login falls back to password. POS switch / idle PIN stays off.'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={posPinForm.enabled}
+                          disabled={!canEdit}
+                          onClick={() => setPosPinForm(p => ({ ...p, enabled: !p.enabled }))}
+                          className="relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-50"
+                          style={{ background: posPinForm.enabled ? '#2563EB' : 'rgba(100,116,139,0.45)' }}
+                        >
+                          <span
+                            className="absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow transition-transform"
+                            style={{ transform: posPinForm.enabled ? 'translateX(1.5rem)' : 'translateX(0)' }}
+                          />
+                        </button>
                       </div>
-                      <div>
-                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Max failed attempts</label>
-                        <input type="number" min={3} max={20} className="input-field h-10"
-                          value={posPinForm.maxFailedAttempts}
-                          onChange={e => setPosPinForm(p => ({ ...p, maxFailedAttempts: Number(e.target.value) || 5 }))} />
+
+                      <div className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 ${!posPinForm.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                          <input type="checkbox" checked={posPinForm.allowColdPinLogin} onChange={e => setPosPinForm(p => ({ ...p, allowColdPinLogin: e.target.checked }))} />
+                          Allow cold PIN login (login page)
+                        </label>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                          <input type="checkbox" checked={posPinForm.requirePasswordAfterLock} onChange={e => setPosPinForm(p => ({ ...p, requirePasswordAfterLock: e.target.checked }))} />
+                          Require password after idle lock
+                        </label>
+                        <div>
+                          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>PIN length</label>
+                          <select className="input-field h-10" value={posPinForm.pinLength}
+                            onChange={e => setPosPinForm(p => ({ ...p, pinLength: Number(e.target.value) === 4 ? 4 : 6 }))}>
+                            <option value={6}>6 digits</option>
+                            <option value={4}>4 digits</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Max failed attempts</label>
+                          <input type="number" min={3} max={20} className="input-field h-10"
+                            value={posPinForm.maxFailedAttempts}
+                            onChange={e => setPosPinForm(p => ({ ...p, maxFailedAttempts: Number(e.target.value) || 5 }))} />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Lockout (seconds)</label>
+                          <input type="number" min={60} max={86400} className="input-field h-10"
+                            value={posPinForm.lockoutSeconds}
+                            onChange={e => setPosPinForm(p => ({ ...p, lockoutSeconds: Number(e.target.value) || 900 }))} />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Idle lock (seconds, 0 = off)</label>
+                          <input type="number" min={0} max={3600} className="input-field h-10"
+                            value={posPinForm.idleTimeoutSeconds}
+                            onChange={e => setPosPinForm(p => ({ ...p, idleTimeoutSeconds: Number(e.target.value) || 0 }))} />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Lockout (seconds)</label>
-                        <input type="number" min={60} max={86400} className="input-field h-10"
-                          value={posPinForm.lockoutSeconds}
-                          onChange={e => setPosPinForm(p => ({ ...p, lockoutSeconds: Number(e.target.value) || 900 }))} />
-                      </div>
-                      <div>
-                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Idle lock (seconds, 0 = off)</label>
-                        <input type="number" min={0} max={3600} className="input-field h-10"
-                          value={posPinForm.idleTimeoutSeconds}
-                          onChange={e => setPosPinForm(p => ({ ...p, idleTimeoutSeconds: Number(e.target.value) || 0 }))} />
-                      </div>
-                    </div>
+                      {!posPinForm.enabled && (
+                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                          Turn the switch on and click <span className="font-semibold">Save PIN Policy</span> to enable PIN again.
+                        </p>
+                      )}
+                    </>
                   )}
                 </section>
               )}

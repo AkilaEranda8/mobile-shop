@@ -24,7 +24,8 @@ const features = [
 ]
 
 const SHOP_SLUG_KEY = 'hx_pin_shop_slug'
-const PURPLE = '#7C3AED'
+const BLUE = '#2563EB'
+const BLUE_DARK = '#1D4ED8'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -107,127 +108,164 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, mode])
 
-  // ── PIN login card (matches shop POS design) ──────────────────────────────
+  // ── PIN login — same split shell as password, white+blue form panel ───────
   if (mode === 'pin' && showPinOption) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center px-4 py-10 relative overflow-hidden"
-        style={{ background: '#07090f' }}
-      >
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full blur-3xl" style={{ background: `${PURPLE}18` }} />
+      <div className="min-h-screen bg-[#07090f] flex">
+        <div className="hidden lg:flex flex-col w-[52%] relative overflow-hidden px-14 py-12">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-blue-700/20 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-cyan-600/10 rounded-full blur-3xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-950/20 via-transparent to-transparent" />
+          </div>
+
+          <div className="relative flex items-center mb-auto">
+            <img src="/logo.png" alt="Hexalyte Innovation" className="h-14 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
+          </div>
+
+          <div className="relative mt-16 mb-10">
+            <h2 className="text-4xl font-bold leading-tight" style={{ color: '#f1f5f9' }}>
+              Run your entire<br />
+              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                mobile shop
+              </span><br />
+              from one place
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed max-w-sm" style={{ color: '#94a3b8' }}>
+              Fast PIN unlock for cashiers — same Hexalyte security, built for the counter.
+            </p>
+          </div>
+
+          <div className="relative grid grid-cols-2 gap-3 mb-auto">
+            {features.map(({ icon: Icon, label, desc }) => (
+              <div key={label} className="flex items-start gap-3 p-3 rounded-xl border hover:border-blue-500/30 transition-colors" style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <Icon size={14} className="text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: '#e2e8f0' }}>{label}</p>
+                  <p className="text-[11px] mt-0.5 leading-snug" style={{ color: '#64748b' }}>{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="relative mt-8 flex items-center gap-2 text-xs" style={{ color: '#475569' }}>
+            <Shield size={12} />
+            <span>256-bit encryption · JWT RS256 · Multi-branch support</span>
+          </div>
         </div>
 
-        <div
-          className="relative w-full max-w-[380px] rounded-[28px] px-6 py-8 sm:px-8 sm:py-9"
-          style={{
-            background: 'linear-gradient(180deg, #12161f 0%, #0c1018 100%)',
-            border: `1px solid ${PURPLE}55`,
-            boxShadow: `0 0 0 1px ${PURPLE}22, 0 24px 80px rgba(0,0,0,0.55), 0 0 60px ${PURPLE}22`,
-          }}
-        >
-          <div className="flex flex-col items-center text-center mb-6">
+        <div className="flex-1 flex items-center justify-center px-5 py-10 relative" style={{ background: '#F1F5F9' }}>
+          <div className="relative w-full max-w-[400px]">
+            <div className="flex lg:hidden justify-center mb-6">
+              <img src="/logo.png" alt="Hexalyte Innovation" className="h-10 w-auto object-contain" />
+            </div>
+
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
+              className="rounded-2xl px-6 py-8 sm:px-8 sm:py-9 border bg-white"
               style={{
-                background: `linear-gradient(145deg, ${PURPLE}, #5B21B6)`,
-                boxShadow: `0 0 28px ${PURPLE}66`,
+                borderColor: '#E2E8F0',
+                boxShadow: '0 20px 50px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.04)',
               }}
             >
-              <Lock size={22} className="text-white" strokeWidth={2.25} />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
-            <p className="text-sm mt-1.5" style={{ color: '#94a3b8' }}>
-              Enter your PIN to open the shop
-            </p>
+              <div className="flex flex-col items-center text-center mb-6">
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
+                  style={{
+                    background: `linear-gradient(145deg, ${BLUE}, ${BLUE_DARK})`,
+                    boxShadow: `0 10px 24px ${BLUE}44`,
+                  }}
+                >
+                  <Lock size={22} className="text-white" strokeWidth={2.25} />
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</h1>
+                <p className="text-sm mt-1.5 text-slate-500">
+                  Enter your PIN to open the shop
+                </p>
 
-            {effectiveSlug ? (
-              <div
-                className="mt-4 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-white"
-                style={{
-                  background: 'rgba(124,58,237,0.12)',
-                  border: `1px solid ${PURPLE}66`,
-                }}
+                {effectiveSlug ? (
+                  <div
+                    className="mt-4 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-slate-700"
+                    style={{
+                      background: '#EFF6FF',
+                      border: `1px solid #BFDBFE`,
+                    }}
+                  >
+                    <Store size={13} style={{ color: BLUE }} />
+                    <span>Shop: {effectiveSlug}</span>
+                    <ChevronDown size={13} className="text-slate-400" />
+                  </div>
+                ) : null}
+              </div>
+
+              {maintenance?.enabled && (
+                <div className="mb-4 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                  <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-500" />
+                  <div>
+                    <p className="font-semibold text-red-600">Maintenance mode is active</p>
+                    <p className="text-xs mt-1 text-red-600/80">{maintenance.message}</p>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="mb-4 flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+                  <AlertCircle size={15} className="flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {effectiveSlug ? (
+                <PosPinKeypad
+                  value={pin}
+                  maxLength={pinLength}
+                  onChange={setPin}
+                  onSubmit={handlePinLogin}
+                  loading={loading || !!maintenance?.enabled}
+                  disabled={!!maintenance?.enabled}
+                  autoFocus
+                  showKeypad
+                  showSubmit
+                  variant="login"
+                />
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center space-y-2 mb-4">
+                  <p className="text-sm text-slate-700">Open your shop link to use PIN</p>
+                  <p className="text-[11px] text-slate-500">
+                    Example: <span className="text-slate-600">yourshop.app.hexalyte.com</span>
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400">or</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => { setMode('password'); setError(''); setPin('') }}
+                className="w-full flex items-center justify-center gap-2 text-sm font-semibold transition-opacity hover:opacity-80"
+                style={{ color: BLUE }}
               >
-                <Store size={13} style={{ color: '#c4b5fd' }} />
-                <span>Shop: {effectiveSlug}</span>
-                <ChevronDown size={13} style={{ color: '#94a3b8' }} />
-              </div>
-            ) : null}
-          </div>
+                <Lock size={14} />
+                Password login
+              </button>
 
-          {maintenance?.enabled && (
-            <div className="mb-4 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm">
-              <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-400" />
-              <div>
-                <p className="font-semibold text-red-400">Maintenance mode is active</p>
-                <p className="text-xs mt-1 text-red-200/80">{maintenance.message}</p>
+              <div className="mt-6 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[11px] text-slate-500 border border-slate-200 bg-slate-50">
+                <Headset size={13} className="shrink-0" />
+                <span>Having trouble? Contact your system administrator</span>
               </div>
             </div>
-          )}
 
-          {error && (
-            <div className="mb-4 flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
-              <AlertCircle size={15} className="flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {effectiveSlug ? (
-            <PosPinKeypad
-              value={pin}
-              maxLength={pinLength}
-              onChange={setPin}
-              onSubmit={handlePinLogin}
-              loading={loading || !!maintenance?.enabled}
-              disabled={!!maintenance?.enabled}
-              autoFocus
-              showKeypad
-              showSubmit
-              variant="login"
-            />
-          ) : (
-            <div className="rounded-xl border px-4 py-4 text-center space-y-2 mb-4" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
-              <p className="text-sm text-slate-200">Open your shop link to use PIN</p>
-              <p className="text-[11px] text-slate-500">
-                Example: <span className="text-slate-400">yourshop.app.hexalyte.com</span>
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px" style={{ background: 'rgba(148,163,184,0.2)' }} />
-            <span className="text-xs" style={{ color: '#64748b' }}>or</span>
-            <div className="flex-1 h-px" style={{ background: 'rgba(148,163,184,0.2)' }} />
+            <p className="mt-5 text-center text-[11px] text-slate-500">
+              <Link href="/privacy" className="font-medium hover:underline" style={{ color: BLUE }}>Privacy</Link>
+              <span className="mx-1.5 text-slate-400">·</span>
+              <Link href="/terms" className="font-medium hover:underline" style={{ color: BLUE }}>Terms</Link>
+            </p>
           </div>
-
-          <button
-            type="button"
-            onClick={() => { setMode('password'); setError(''); setPin('') }}
-            className="w-full flex items-center justify-center gap-2 text-sm font-medium transition-opacity hover:opacity-80"
-            style={{ color: PURPLE }}
-          >
-            <Lock size={14} />
-            Password login
-          </button>
-
-          <div
-            className="mt-6 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[11px]"
-            style={{
-              border: '1px solid rgba(148,163,184,0.18)',
-              color: '#94a3b8',
-              background: 'rgba(255,255,255,0.02)',
-            }}
-          >
-            <Headset size={13} className="shrink-0" />
-            <span>Having trouble? Contact your system administrator</span>
-          </div>
-
-          <p className="mt-4 text-center text-[11px]">
-            <Link href="/privacy" className="transition-colors hover:opacity-80" style={{ color: PURPLE }}>Privacy</Link>
-            <span className="mx-1.5" style={{ color: '#475569' }}>·</span>
-            <Link href="/terms" className="transition-colors hover:opacity-80" style={{ color: PURPLE }}>Terms</Link>
-          </p>
         </div>
       </div>
     )

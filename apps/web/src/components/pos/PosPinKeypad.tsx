@@ -18,18 +18,21 @@ type Props = {
   showSubmit?: boolean
   submitLabel?: string
   showKeypad?: boolean
-  /** Login card look (dots + purple-border keys) vs POS gate boxes */
+  /** Login card look (dots + accent keys) vs POS gate boxes */
   variant?: 'default' | 'login'
 }
 
+/** Light login theme — white surface, blue accents (system-aligned) */
 const LOGIN = {
-  purple: '#7C3AED',
-  purpleBorder: 'rgba(124, 58, 237, 0.45)',
-  keyBg: 'rgba(15, 18, 32, 0.9)',
-  keyBorder: 'rgba(124, 58, 237, 0.35)',
-  muted: '#94a3b8',
-  text: '#ffffff',
-  red: '#EF4444',
+  blue: '#2563EB',
+  blueDark: '#1D4ED8',
+  keyBg: '#FFFFFF',
+  keyBorder: '#E2E8F0',
+  keyHover: '#F8FAFC',
+  muted: '#64748B',
+  text: '#0F172A',
+  red: '#DC2626',
+  dotEmpty: '#CBD5E1',
 }
 
 export function PosPinKeypad({
@@ -52,7 +55,7 @@ export function PosPinKeypad({
   const valueRef = useRef(value)
   valueRef.current = value
   const isLogin = variant === 'login'
-  const purple = isLogin ? LOGIN.purple : POS_THEME.purple
+  const accent = isLogin ? LOGIN.blue : POS_THEME.purple
   const border = isLogin ? LOGIN.keyBorder : POS_THEME.border
   const text = isLogin ? LOGIN.text : POS_THEME.text
   const muted = isLogin ? LOGIN.muted : POS_THEME.muted
@@ -153,7 +156,6 @@ export function PosPinKeypad({
         </div>
       )}
 
-      {/* PIN indicators */}
       <div
         className={`flex justify-center mb-5 ${isLogin ? 'gap-3' : 'gap-2'}`}
         aria-label="PIN entry"
@@ -168,9 +170,9 @@ export function PosPinKeypad({
                 key={i}
                 className="h-3 w-3 rounded-full border-2 transition-all duration-150"
                 style={{
-                  borderColor: error ? red : filled ? purple : 'rgba(148,163,184,0.55)',
-                  background: filled ? purple : 'transparent',
-                  boxShadow: filled ? `0 0 10px ${purple}66` : undefined,
+                  borderColor: error ? red : filled ? accent : LOGIN.dotEmpty,
+                  background: filled ? accent : 'transparent',
+                  boxShadow: filled ? `0 0 8px ${accent}44` : undefined,
                 }}
               />
             )
@@ -181,15 +183,15 @@ export function PosPinKeypad({
               key={i}
               className="relative flex h-11 w-9 items-center justify-center rounded-lg border transition-all duration-150"
               style={{
-                borderColor: error ? `${red}88` : active ? purple : filled ? `${purple}55` : border,
-                background: filled ? `${purple}14` : 'rgba(255,255,255,0.03)',
-                boxShadow: active ? `0 0 0 2px ${purple}28` : undefined,
+                borderColor: error ? `${red}88` : active ? accent : filled ? `${accent}55` : border,
+                background: filled ? `${accent}14` : 'rgba(255,255,255,0.03)',
+                boxShadow: active ? `0 0 0 2px ${accent}28` : undefined,
               }}
             >
               {filled ? (
-                <span className="h-2 w-2 rounded-full" style={{ background: purple }} />
+                <span className="h-2 w-2 rounded-full" style={{ background: accent }} />
               ) : active ? (
-                <span className="h-3.5 w-0.5 rounded-full animate-pulse" style={{ background: purple }} />
+                <span className="h-3.5 w-0.5 rounded-full animate-pulse" style={{ background: accent }} />
               ) : null}
             </span>
           )
@@ -217,11 +219,12 @@ export function PosPinKeypad({
                   else push(k)
                   inputRef.current?.focus()
                 }}
-                className="h-[52px] rounded-xl text-[17px] font-semibold transition-transform active:scale-[0.96] disabled:opacity-45 select-none"
+                className="h-[52px] rounded-xl text-[17px] font-semibold transition-all active:scale-[0.96] disabled:opacity-45 select-none hover:brightness-[0.98]"
                 style={{
                   background: isLogin ? LOGIN.keyBg : 'rgba(255,255,255,0.05)',
                   border: `1px solid ${isLogin ? LOGIN.keyBorder : border}`,
                   color: isClear ? red : isBack ? muted : text,
+                  boxShadow: isLogin ? '0 1px 2px rgba(15,23,42,0.04)' : undefined,
                 }}
               >
                 {isBack ? <Delete size={17} className="mx-auto" strokeWidth={2.25} /> : k}
@@ -239,7 +242,7 @@ export function PosPinKeypad({
 
       {loading && !showSubmit && (
         <div className="flex justify-center py-2">
-          <Loader2 size={18} className="animate-spin" style={{ color: purple }} />
+          <Loader2 size={18} className="animate-spin" style={{ color: accent }} />
         </div>
       )}
 
@@ -253,8 +256,10 @@ export function PosPinKeypad({
           }}
           className="w-full h-12 rounded-xl text-sm font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
           style={{
-            background: purple,
-            boxShadow: isLogin ? `0 8px 24px ${purple}44` : undefined,
+            background: isLogin
+              ? `linear-gradient(135deg, ${LOGIN.blue}, ${LOGIN.blueDark})`
+              : accent,
+            boxShadow: isLogin ? `0 8px 20px ${LOGIN.blue}33` : undefined,
           }}
         >
           {loading ? (
