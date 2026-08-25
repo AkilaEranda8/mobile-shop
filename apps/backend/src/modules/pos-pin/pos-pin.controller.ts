@@ -6,6 +6,18 @@ import { resolveTenantSlugFromRequest } from '../../utils/tenant-slug'
 import { AppError } from '../../middleware/error.middleware'
 
 export const posPinController = {
+  async coldLoginAvailability(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantSlug = resolveTenantSlugFromRequest(req)
+      if (!tenantSlug) {
+        sendSuccess(res, { available: false, pinLength: 6 })
+        return
+      }
+      const data = await posPinService.getColdLoginAvailability(tenantSlug)
+      sendSuccess(res, data)
+    } catch (e) { next(e) }
+  },
+
   async login(req: Request, res: Response, next: NextFunction) {
     try {
       const tenantSlug = resolveTenantSlugFromRequest(req)

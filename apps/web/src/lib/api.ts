@@ -175,6 +175,24 @@ export const authApi = {
     })
   },
 
+  /** Public: whether shop shows PIN on login (Security policy). */
+  posPinAvailability: (shopSlug?: string) => {
+    const headers: Record<string, string> = {}
+    const slug = (shopSlug || getTenantSlugFromHost() || '').trim().toLowerCase()
+    if (slug) headers['x-tenant-id'] = slug
+    return fetch(`${getApiBaseUrl()}/auth/pos-pin/availability`, { headers }).then(async (res) => {
+      const { json, text } = await parseResponseBody(res)
+      if (!res.ok) {
+        throw new Error(responseErrorMessage(json, text, 'Failed to check PIN availability'))
+      }
+      const data = (json as any)?.data ?? json
+      return {
+        available: Boolean(data?.available),
+        pinLength: (Number(data?.pinLength) === 4 ? 4 : 6) as 4 | 6,
+      }
+    })
+  },
+
   posPinSwitch: (pin: string) =>
     api.post<{ data: { accessToken: string; refreshToken: string; user: import('./auth').AuthUser } }>(
       '/auth/pos-pin/switch',

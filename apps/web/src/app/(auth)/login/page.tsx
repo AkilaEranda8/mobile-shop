@@ -62,19 +62,48 @@ export default function LoginPage() {
   const [showPinOption, setShowPinOption] = useState(false)
   const [branchOptions, setBranchOptions] = useState<BranchSummary[]>([])
   const [pinUserName, setPinUserName] = useState('')
-  const pinLength = 6 as const
+  const [pinLength, setPinLength] = useState<4 | 6>(6)
 
   useEffect(() => {
     const fromHost = getTenantSlugFromHost()
     setHostSlug(fromHost)
-    const pinOk = canUsePinLoginOnHost()
-    setShowPinOption(pinOk)
-    if (pinOk) setMode('pin')
+    const hostAllowsPin = canUsePinLoginOnHost()
     const resolved = resolvePinShopSlug()
     if (resolved.slug) setShopSlug(resolved.slug)
+
     fetchPlatformStatus()
       .then(s => setMaintenance(s.maintenance))
       .catch(() => {})
+
+    // PIN UI only when host allows AND Security policy has PIN + cold login enabled.
+    if (!hostAllowsPin) {
+      setShowPinOption(false)
+      setMode('password')
+      return
+    }
+
+    const slug = (fromHost || resolved.slug || '').trim().toLowerCase()
+    if (!slug) {
+      setShowPinOption(false)
+      setMode('password')
+      return
+    }
+
+    let cancelled = false
+    authApi.posPinAvailability(slug)
+      .then(av => {
+        if (cancelled) return
+        setPinLength(av.pinLength)
+        setShowPinOption(av.available)
+        setMode(av.available ? 'pin' : 'password')
+      })
+      .catch(() => {
+        if (cancelled) return
+        setShowPinOption(false)
+        setMode('password')
+      })
+
+    return () => { cancelled = true }
   }, [])
 
   const effectiveSlug = (hostSlug || shopSlug).trim().toLowerCase()

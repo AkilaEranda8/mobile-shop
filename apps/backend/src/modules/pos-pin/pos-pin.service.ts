@@ -186,6 +186,35 @@ export const posPinService = {
     return loadPosPinSettings(tenantId)
   },
 
+  /**
+   * Public probe for login UI — no secrets.
+   * available only when feature + policy enabled + cold login allowed.
+   */
+  async getColdLoginAvailability(tenantSlug: string): Promise<{
+    available: boolean
+    pinLength: 4 | 6
+  }> {
+    const slug = tenantSlug.trim().toLowerCase()
+    if (!slug) return { available: false, pinLength: 6 }
+
+    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } })
+    if (!tenant) return { available: false, pinLength: 6 }
+
+    if (!(await isTenantFeatureEnabled(tenant.id, 'POS_QUICK_PIN'))) {
+      return { available: false, pinLength: 6 }
+    }
+
+    try {
+      await ensureTenantAccess(tenant.id)
+    } catch {
+      return { available: false, pinLength: 6 }
+    }
+
+    const settings = await loadPosPinSettings(tenant.id)
+    const available = settings.enabled && settings.allowColdPinLogin
+    return { available, pinLength: settings.pinLength }
+  },
+
   async updateSettings(tenantId: string, patch: Record<string, unknown>) {
     await assertPosPinFeature(tenantId)
     return setTenantConfig(tenantId, 'posPin', patch)

@@ -25,6 +25,7 @@ router.post('/impersonate-exchange', validate(impersonateExchangeSchema), authCo
 router.post('/session-exchange', validate(sessionExchangeSchema), authController.sessionExchange)
 
 // POS Quick PIN
+router.get('/pos-pin/availability', posPinController.coldLoginAvailability)
 router.post('/pos-pin/login', validate(posPinLoginSchema), posPinController.login)
 router.post('/pos-pin/switch', authenticate, validate(posPinSwitchSchema), posPinController.switchUser)
 router.post('/pos-pin/unlock', authenticate, validate(posPinUnlockSchema), posPinController.unlock)

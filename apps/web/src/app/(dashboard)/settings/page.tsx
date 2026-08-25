@@ -1628,7 +1628,7 @@ export default function SettingsPage() {
                           <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                             {posPinForm.enabled
                               ? 'Staff use PIN on shop login, cashier switch, and idle unlock.'
-                              : 'Shop login is password only until you enable PIN again.'}
+                              : 'Login page shows password only. PIN keypad is hidden until you enable again.'}
                           </p>
                         </div>
                         <button
