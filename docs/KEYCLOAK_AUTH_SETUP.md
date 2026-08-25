@@ -54,8 +54,10 @@ Required on client `hexalyte-backend` (realm `hexalyte`):
 2. Allow the client to exchange tokens for users that have attribute `db_user_id`
 3. Keep Direct Access Grants for normal email/password login
 
+If Token Exchange / subject impersonation is **not** available on your Keycloak version (Standard TE only rejects `requested_subject`), Hexalyte falls back to a short-lived **app JWT** with claim `posPinAuth: true` after the PIN is verified. Middleware accepts that claim the same way as admin impersonation. Prefer enabling legacy Token Exchange (`--features=token-exchange` + FGAP v1 permissions) when you can so PIN sessions are Keycloak-issued.
+
 Also set env `POS_PIN_PEPPER` (see `.env.example`).
 
-If Token Exchange is not configured, PIN login returns **503** when `KEYCLOAK_AUTH_ENABLED=true`. Local/dev with KC auth off uses app JWT via `issueLocalTokens` (same as password login fallback).
+Local/dev with KC auth off uses app JWT via `issueLocalTokens` (same as password login fallback).
 
 See `docs/POS_QUICK_PIN_ARCHITECTURE.md`.

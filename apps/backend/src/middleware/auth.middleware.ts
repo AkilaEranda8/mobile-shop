@@ -74,9 +74,9 @@ async function verifyKcToken(token: string): Promise<JwtPayload> {
 }
 
 async function resolveRequestUser(token: string): Promise<JwtPayload> {
-  // Support impersonation (HS256 app JWT) always allowed when claim is present
+  // Support impersonation + POS PIN sessions (HS256 app JWT) even when KC auth is on
   const appPayload = tryVerifyAppToken(token)
-  if (appPayload?.impersonation) return appPayload
+  if (appPayload?.impersonation || appPayload?.posPinAuth) return appPayload
 
   if (isKcAuthEnabled()) {
     try {

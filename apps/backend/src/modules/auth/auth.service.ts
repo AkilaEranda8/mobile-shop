@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import { prisma } from '../../config/database'
 import { redis } from '../../config/redis'
-import { signAccessToken, signRefreshToken, verifyToken } from '../../utils/jwt'
+import { signAccessToken, signRefreshToken, verifyToken, type JwtPayload } from '../../utils/jwt'
 import { AppError } from '../../middleware/error.middleware'
 import { env } from '../../config/env'
 import {
@@ -405,7 +405,22 @@ export const authService = {
         if (payload.impersonation) {
           return { accessToken: refreshTokenStr, refreshToken: refreshTokenStr }
         }
-      } catch { /* Keycloak refresh token */ }
+        if (payload.posPinAuth) {
+          const stored = await prisma.refreshToken.findUnique({
+            where: { token: refreshTokenStr },
+            include: { user: true },
+          })
+          if (!stored || stored.expiresAt < new Date()) throw new AppError('Invalid refresh token', 401)
+          if (!stored.user.isActive) throw new AppError('Account is inactive', 403)
+          await ensureTenantAccess(stored.user.tenantId)
+          const { iat: _iat, exp: _exp, ...claims } = payload as JwtPayload & { iat?: number; exp?: number }
+          const accessToken = signAccessToken(claims)
+          return { accessToken, refreshToken: refreshTokenStr }
+        }
+      } catch (e) {
+        if (e instanceof AppError) throw e
+        /* Keycloak refresh token */
+      }
 
       const raw = await authService.kcRefresh(refreshTokenStr) as KcTokenResponse
       return mapKcTokens(raw)

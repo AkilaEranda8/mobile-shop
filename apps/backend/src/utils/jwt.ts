@@ -8,6 +8,11 @@ export interface JwtPayload {
   email: string
   /** Support-session / admin impersonation only — not used for normal Keycloak logins */
   impersonation?: boolean
+  /**
+   * POS Quick PIN session when Keycloak subject Token Exchange is unavailable.
+   * Issued only after Hexalyte verifies the tenant-scoped PIN.
+   */
+  posPinAuth?: boolean
 }
 
 const PLATFORM_ADMIN_ACCESS_TTL = '30d'

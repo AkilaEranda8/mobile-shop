@@ -80,8 +80,14 @@ async function issueLocalTokens(user: {
   tenantId: string
   role: string
   email: string
-}) {
-  const payload = { userId: user.id, tenantId: user.tenantId, role: user.role, email: user.email }
+}, opts?: { posPinAuth?: boolean }) {
+  const payload = {
+    userId: user.id,
+    tenantId: user.tenantId,
+    role: user.role,
+    email: user.email,
+    ...(opts?.posPinAuth ? { posPinAuth: true as const } : {}),
+  }
   const accessToken = signAccessToken(payload)
   const refreshToken = signRefreshToken(payload)
   const days = user.role === 'PLATFORM_ADMIN' ? 30 : 7
@@ -110,11 +116,13 @@ async function issueTokensForUser(user: {
     try {
       tokens = await kcTokenExchangeForDbUser(user.id)
     } catch (e) {
-      console.error('[POS PIN] KC token exchange failed:', (e as Error).message)
-      throw new AppError(
-        'Authentication service unavailable for PIN login. Enable Keycloak Token Exchange or contact support.',
-        503,
+      // Production Keycloak may only have Standard Token Exchange (no requested_subject).
+      // After Hexalyte verifies the PIN, issue a scoped app JWT (same trust gate as TE).
+      console.warn(
+        '[POS PIN] KC token exchange unavailable, using posPinAuth session:',
+        (e as Error).message,
       )
+      tokens = await issueLocalTokens(user, { posPinAuth: true })
     }
   } else {
     tokens = await issueLocalTokens(user)
