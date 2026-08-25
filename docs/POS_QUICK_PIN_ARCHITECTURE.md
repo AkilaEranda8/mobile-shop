@@ -211,9 +211,11 @@ Uniqueness enforced on **enabled** PINs only (`pinEnabled=true` AND `pinHash IS 
 ### Branch after PIN login
 
 1. Build session via existing `buildUserSession` (branchIds, suggestedBranchId).
-2. **Cold PIN login UI:** if the user has **2+ assigned branches**, show a **Select branch** step before dashboard; if 1 branch, auto-select it.
-3. Client sets `x-active-branch-id` using existing active-branch helpers (`setActiveBranchId` / `initializeSessionBranch`).
-4. Middleware `resolveActiveBranch` still runs — PIN cannot select a branch outside `UserBranch` (OWNER sees all active branches per existing rules).
+2. **Cold PIN login UI:** if the user has **2+ assigned branches**, show a **Select branch** step before continuing; if 1 branch, auto-select it.
+3. After branch: **CASHIER / TECHNICIAN** → `/dashboard/pos`; **OWNER / MANAGER** → `/dashboard`.
+4. Client sets `x-active-branch-id` using existing active-branch helpers (`setActiveBranchId` / `initializeSessionBranch`).
+5. Middleware `resolveActiveBranch` still runs — PIN cannot select a branch outside `UserBranch` (OWNER sees all active branches per existing rules).
+6. Policy + “My staff PIN” live under **Settings → Security** (POS tab only links there).
 
 PIN identifies the **person** (tenant-scoped). Branch is chosen **after** identity — never encoded in the PIN.
 
@@ -386,7 +388,7 @@ Responses never include `pinHash` / digest.
 ### Settings UI
 
 - Staff card: enable PIN / set PIN / disable  
-- Settings → POS PIN: length, attempts, lock duration, idle timeout, require password to open shift (optional)
+- Settings → Security → POS Quick PIN: enable, length, attempts, lock duration, idle timeout, cold login, require password after lock; My staff PIN; Staff resets
 
 Use existing Tailwind / card patterns — no new UI framework.
 

@@ -40,6 +40,15 @@ function goDashboard() {
   window.location.href = '/dashboard'
 }
 
+/** After PIN + branch: counter roles open POS; owners/managers open dashboard. */
+function goAfterPinLogin(user: AuthUser) {
+  if (user.role === 'CASHIER' || user.role === 'TECHNICIAN') {
+    window.location.href = '/dashboard/pos'
+    return
+  }
+  goDashboard()
+}
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
@@ -94,7 +103,7 @@ export default function LoginPage() {
     if (options.length === 1) {
       setActiveBranchId(options[0].id, 'assigned')
     }
-    goDashboard()
+    goAfterPinLogin(user)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,7 +143,9 @@ export default function LoginPage() {
 
   const handlePickBranch = (branchId: string) => {
     setActiveBranchId(branchId, 'assigned')
-    goDashboard()
+    const user = authStorage.getUser()
+    if (user) goAfterPinLogin(user)
+    else goDashboard()
   }
 
   useEffect(() => {
@@ -162,7 +173,10 @@ export default function LoginPage() {
               </div>
               <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Select branch</h1>
               <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>
-                {pinUserName ? `${pinUserName} — choose where to work` : 'Choose where to work today'}
+                {pinUserName ? `${pinUserName} — choose branch to continue` : 'Choose branch to continue'}
+              </p>
+              <p className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Cashier / Technician open POS · Owner / Manager open dashboard
               </p>
               {effectiveSlug ? (
                 <p className="mt-3 text-xs" style={{ color: '#ffffff' }}>Shop: {effectiveSlug}</p>
@@ -283,7 +297,7 @@ export default function LoginPage() {
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
                 <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>
-                  Staff PIN for Owner, Manager, Cashier & Technician
+                  Enter PIN · then branch if needed · start work
                 </p>
 
                 {effectiveSlug ? (
