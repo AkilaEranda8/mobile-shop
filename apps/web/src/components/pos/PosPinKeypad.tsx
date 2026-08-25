@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Delete, Loader2 } from 'lucide-react'
+import { ArrowRight, Delete, Loader2 } from 'lucide-react'
 import { POS_THEME } from './pos-theme'
 
 type Props = {
@@ -17,8 +17,19 @@ type Props = {
   autoFocus?: boolean
   showSubmit?: boolean
   submitLabel?: string
-  /** On-screen number pad (default on for POS / shop login) */
   showKeypad?: boolean
+  /** Login card look (dots + purple-border keys) vs POS gate boxes */
+  variant?: 'default' | 'login'
+}
+
+const LOGIN = {
+  purple: '#7C3AED',
+  purpleBorder: 'rgba(124, 58, 237, 0.45)',
+  keyBg: 'rgba(15, 18, 32, 0.9)',
+  keyBorder: 'rgba(124, 58, 237, 0.35)',
+  muted: '#94a3b8',
+  text: '#ffffff',
+  red: '#EF4444',
 }
 
 export function PosPinKeypad({
@@ -35,11 +46,17 @@ export function PosPinKeypad({
   showSubmit = true,
   submitLabel = 'Continue',
   showKeypad = true,
+  variant = 'default',
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const valueRef = useRef(value)
   valueRef.current = value
-  const activeIndex = Math.min(value.length, maxLength - 1)
+  const isLogin = variant === 'login'
+  const purple = isLogin ? LOGIN.purple : POS_THEME.purple
+  const border = isLogin ? LOGIN.keyBorder : POS_THEME.border
+  const text = isLogin ? LOGIN.text : POS_THEME.text
+  const muted = isLogin ? LOGIN.muted : POS_THEME.muted
+  const red = isLogin ? LOGIN.red : POS_THEME.red
 
   const push = (d: string) => {
     if (disabled || loading) return
@@ -128,48 +145,51 @@ export function PosPinKeypad({
       {(title || subtitle) && (
         <div className="text-center mb-5">
           {title && (
-            <h3 className="text-base font-semibold tracking-tight" style={{ color: POS_THEME.text }}>
-              {title}
-            </h3>
+            <h3 className="text-base font-semibold tracking-tight" style={{ color: text }}>{title}</h3>
           )}
           {subtitle && (
-            <p className="text-xs mt-1.5" style={{ color: POS_THEME.muted }}>
-              {subtitle}
-            </p>
+            <p className="text-xs mt-1.5" style={{ color: muted }}>{subtitle}</p>
           )}
         </div>
       )}
 
-      {/* 1 — PIN slots */}
+      {/* PIN indicators */}
       <div
-        className="flex justify-center gap-2 mb-5"
+        className={`flex justify-center mb-5 ${isLogin ? 'gap-3' : 'gap-2'}`}
         aria-label="PIN entry"
         aria-live="polite"
         role="group"
       >
         {Array.from({ length: maxLength }).map((_, i) => {
           const filled = i < value.length
-          const active = !disabled && !loading && i === activeIndex && value.length < maxLength
+          if (isLogin) {
+            return (
+              <span
+                key={i}
+                className="h-3 w-3 rounded-full border-2 transition-all duration-150"
+                style={{
+                  borderColor: error ? red : filled ? purple : 'rgba(148,163,184,0.55)',
+                  background: filled ? purple : 'transparent',
+                  boxShadow: filled ? `0 0 10px ${purple}66` : undefined,
+                }}
+              />
+            )
+          }
+          const active = !disabled && !loading && i === Math.min(value.length, maxLength - 1) && value.length < maxLength
           return (
             <span
               key={i}
               className="relative flex h-11 w-9 items-center justify-center rounded-lg border transition-all duration-150"
               style={{
-                borderColor: error
-                  ? `${POS_THEME.red}88`
-                  : active
-                    ? POS_THEME.purple
-                    : filled
-                      ? `${POS_THEME.purple}55`
-                      : POS_THEME.border,
-                background: filled ? `${POS_THEME.purple}14` : 'rgba(255,255,255,0.03)',
-                boxShadow: active ? `0 0 0 2px ${POS_THEME.purple}28` : undefined,
+                borderColor: error ? `${red}88` : active ? purple : filled ? `${purple}55` : border,
+                background: filled ? `${purple}14` : 'rgba(255,255,255,0.03)',
+                boxShadow: active ? `0 0 0 2px ${purple}28` : undefined,
               }}
             >
               {filled ? (
-                <span className="h-2 w-2 rounded-full" style={{ background: POS_THEME.purple }} />
+                <span className="h-2 w-2 rounded-full" style={{ background: purple }} />
               ) : active ? (
-                <span className="h-3.5 w-0.5 rounded-full animate-pulse" style={{ background: POS_THEME.purple }} />
+                <span className="h-3.5 w-0.5 rounded-full animate-pulse" style={{ background: purple }} />
               ) : null}
             </span>
           )
@@ -177,14 +197,11 @@ export function PosPinKeypad({
       </div>
 
       {error && (
-        <p className="text-center text-xs mb-3 font-medium -mt-2" style={{ color: POS_THEME.red }}>
-          {error}
-        </p>
+        <p className="text-center text-xs mb-3 font-medium -mt-2" style={{ color: red }}>{error}</p>
       )}
 
-      {/* 2 — Keypad */}
       {showKeypad && (
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-3 gap-2.5 mb-4">
           {keys.map((k) => {
             const isClear = k === 'C'
             const isBack = k === '⌫'
@@ -202,9 +219,9 @@ export function PosPinKeypad({
                 }}
                 className="h-[52px] rounded-xl text-[17px] font-semibold transition-transform active:scale-[0.96] disabled:opacity-45 select-none"
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${POS_THEME.border}`,
-                  color: isClear ? POS_THEME.red : isBack ? POS_THEME.muted : POS_THEME.text,
+                  background: isLogin ? LOGIN.keyBg : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${isLogin ? LOGIN.keyBorder : border}`,
+                  color: isClear ? red : isBack ? muted : text,
                 }}
               >
                 {isBack ? <Delete size={17} className="mx-auto" strokeWidth={2.25} /> : k}
@@ -215,15 +232,14 @@ export function PosPinKeypad({
       )}
 
       {!showKeypad && (
-        <p className="text-center text-[11px] mb-4" style={{ color: POS_THEME.muted }}>
+        <p className="text-center text-[11px] mb-4" style={{ color: muted }}>
           Type your {maxLength}-digit PIN
         </p>
       )}
 
-      {/* 3 — Submit / loading */}
       {loading && !showSubmit && (
         <div className="flex justify-center py-2">
-          <Loader2 size={18} className="animate-spin" style={{ color: POS_THEME.purple }} />
+          <Loader2 size={18} className="animate-spin" style={{ color: purple }} />
         </div>
       )}
 
@@ -236,9 +252,19 @@ export function PosPinKeypad({
             onSubmit()
           }}
           className="w-full h-12 rounded-xl text-sm font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
-          style={{ background: POS_THEME.purple }}
+          style={{
+            background: purple,
+            boxShadow: isLogin ? `0 8px 24px ${purple}44` : undefined,
+          }}
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : submitLabel}
+          {loading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <>
+              <span>{submitLabel}</span>
+              {isLogin && <ArrowRight size={16} />}
+            </>
+          )}
         </button>
       )}
     </div>

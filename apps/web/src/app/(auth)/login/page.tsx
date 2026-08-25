@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Eye, EyeOff, ArrowRight, AlertCircle, AlertTriangle, ShoppingCart,
-  Wrench, BarChart3, Shield, Users, Package, KeyRound,
+  Wrench, BarChart3, Shield, Users, Package, KeyRound, Lock, Store,
+  ChevronDown, Headset,
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -23,6 +24,7 @@ const features = [
 ]
 
 const SHOP_SLUG_KEY = 'hx_pin_shop_slug'
+const PURPLE = '#7C3AED'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -42,7 +44,6 @@ export default function LoginPage() {
     setHostSlug(fromHost)
     const pinOk = canUsePinLoginOnHost()
     setShowPinOption(pinOk)
-    // Shop / test hosts: open on PIN by default; password is a secondary link
     if (pinOk) setMode('pin')
     const resolved = resolvePinShopSlug()
     if (resolved.slug) setShopSlug(resolved.slug)
@@ -106,6 +107,133 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, mode])
 
+  // ── PIN login card (matches shop POS design) ──────────────────────────────
+  if (mode === 'pin' && showPinOption) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4 py-10 relative overflow-hidden"
+        style={{ background: '#07090f' }}
+      >
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full blur-3xl" style={{ background: `${PURPLE}18` }} />
+        </div>
+
+        <div
+          className="relative w-full max-w-[380px] rounded-[28px] px-6 py-8 sm:px-8 sm:py-9"
+          style={{
+            background: 'linear-gradient(180deg, #12161f 0%, #0c1018 100%)',
+            border: `1px solid ${PURPLE}55`,
+            boxShadow: `0 0 0 1px ${PURPLE}22, 0 24px 80px rgba(0,0,0,0.55), 0 0 60px ${PURPLE}22`,
+          }}
+        >
+          <div className="flex flex-col items-center text-center mb-6">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
+              style={{
+                background: `linear-gradient(145deg, ${PURPLE}, #5B21B6)`,
+                boxShadow: `0 0 28px ${PURPLE}66`,
+              }}
+            >
+              <Lock size={22} className="text-white" strokeWidth={2.25} />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
+            <p className="text-sm mt-1.5" style={{ color: '#94a3b8' }}>
+              Enter your PIN to open the shop
+            </p>
+
+            {effectiveSlug ? (
+              <div
+                className="mt-4 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-white"
+                style={{
+                  background: 'rgba(124,58,237,0.12)',
+                  border: `1px solid ${PURPLE}66`,
+                }}
+              >
+                <Store size={13} style={{ color: '#c4b5fd' }} />
+                <span>Shop: {effectiveSlug}</span>
+                <ChevronDown size={13} style={{ color: '#94a3b8' }} />
+              </div>
+            ) : null}
+          </div>
+
+          {maintenance?.enabled && (
+            <div className="mb-4 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm">
+              <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-400" />
+              <div>
+                <p className="font-semibold text-red-400">Maintenance mode is active</p>
+                <p className="text-xs mt-1 text-red-200/80">{maintenance.message}</p>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
+              <AlertCircle size={15} className="flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {effectiveSlug ? (
+            <PosPinKeypad
+              value={pin}
+              maxLength={pinLength}
+              onChange={setPin}
+              onSubmit={handlePinLogin}
+              loading={loading || !!maintenance?.enabled}
+              disabled={!!maintenance?.enabled}
+              autoFocus
+              showKeypad
+              showSubmit
+              variant="login"
+            />
+          ) : (
+            <div className="rounded-xl border px-4 py-4 text-center space-y-2 mb-4" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+              <p className="text-sm text-slate-200">Open your shop link to use PIN</p>
+              <p className="text-[11px] text-slate-500">
+                Example: <span className="text-slate-400">yourshop.app.hexalyte.com</span>
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px" style={{ background: 'rgba(148,163,184,0.2)' }} />
+            <span className="text-xs" style={{ color: '#64748b' }}>or</span>
+            <div className="flex-1 h-px" style={{ background: 'rgba(148,163,184,0.2)' }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { setMode('password'); setError(''); setPin('') }}
+            className="w-full flex items-center justify-center gap-2 text-sm font-medium transition-opacity hover:opacity-80"
+            style={{ color: PURPLE }}
+          >
+            <Lock size={14} />
+            Password login
+          </button>
+
+          <div
+            className="mt-6 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[11px]"
+            style={{
+              border: '1px solid rgba(148,163,184,0.18)',
+              color: '#94a3b8',
+              background: 'rgba(255,255,255,0.02)',
+            }}
+          >
+            <Headset size={13} className="shrink-0" />
+            <span>Having trouble? Contact your system administrator</span>
+          </div>
+
+          <p className="mt-4 text-center text-[11px]">
+            <Link href="/privacy" className="transition-colors hover:opacity-80" style={{ color: PURPLE }}>Privacy</Link>
+            <span className="mx-1.5" style={{ color: '#475569' }}>·</span>
+            <Link href="/terms" className="transition-colors hover:opacity-80" style={{ color: PURPLE }}>Terms</Link>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Password login (split marketing layout) ───────────────────────────────
   return (
     <div className="min-h-screen bg-[#07090f] flex">
 
@@ -161,22 +289,9 @@ export default function LoginPage() {
             <img src="/logo.png" alt="Hexalyte Innovation" className="h-12 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
           </div>
 
-          <div className="mb-6 text-center lg:text-left">
-            <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
-            <p className="text-sm mt-1.5" style={{ color: '#64748b' }}>
-              {mode === 'pin' && showPinOption
-                ? 'Enter your PIN to open the shop'
-                : 'Sign in to your dashboard'}
-            </p>
-            {mode === 'pin' && showPinOption && effectiveSlug && (
-              <p
-                className="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
-                style={{ background: 'rgba(139,92,246,0.12)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.25)' }}
-              >
-                <KeyRound size={11} />
-                {effectiveSlug}
-              </p>
-            )}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
+            <p className="text-sm mt-1.5" style={{ color: '#64748b' }}>Sign in to your dashboard</p>
           </div>
 
           {maintenance?.enabled && (
@@ -189,46 +304,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {mode === 'pin' && showPinOption ? (
-            <div className="flex flex-col items-center gap-5">
-              {error && (
-                <div className="w-full max-w-[300px] flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
-                  <AlertCircle size={15} className="flex-shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {effectiveSlug ? (
-                <PosPinKeypad
-                  value={pin}
-                  maxLength={pinLength}
-                  onChange={setPin}
-                  onSubmit={handlePinLogin}
-                  loading={loading || !!maintenance?.enabled}
-                  disabled={!!maintenance?.enabled}
-                  autoFocus
-                  showKeypad
-                  showSubmit
-                />
-              ) : (
-                <div className="w-full rounded-xl border px-4 py-4 text-center space-y-2" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
-                  <p className="text-sm" style={{ color: '#e2e8f0' }}>Open your shop link to use PIN</p>
-                  <p className="text-[11px]" style={{ color: '#64748b' }}>
-                    Example: <span style={{ color: '#94a3b8' }}>yourshop.app.hexalyte.com</span>
-                  </p>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => { setMode('password'); setError(''); setPin('') }}
-                className="text-xs underline-offset-2 hover:underline transition-colors"
-                style={{ color: '#94a3b8' }}
-              >
-                Password login
-              </button>
-            </div>
-          ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
@@ -255,10 +330,7 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-medium" style={{ color: '#94a3b8' }}>Password</label>
-                <Link href="/forgot-password" className="text-xs transition-colors"
-                  style={{ color: '#7c6aee' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-light)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#7c6aee')}>
+                <Link href="/forgot-password" className="text-xs transition-colors" style={{ color: '#7c6aee' }}>
                   Forgot password?
                 </Link>
               </div>
@@ -277,7 +349,8 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#64748b' }}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: '#64748b' }}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -309,7 +382,6 @@ export default function LoginPage() {
               </p>
             )}
           </form>
-          )}
 
           <div className="mt-8 pt-6 text-center space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <p className="text-xs" style={{ color: '#475569' }}>
