@@ -366,7 +366,7 @@ export const authService = {
       }
     }
 
-    const sessionCode = createSessionExchangeCode({
+    const sessionCode = await createSessionExchangeCode({
       accessToken,
       refreshToken,
       user: userPayload,
@@ -393,7 +393,7 @@ export const authService = {
   },
 
   async sessionExchange(code: string) {
-    const payload = consumeSessionExchangeCode(code)
+    const payload = await consumeSessionExchangeCode(code)
     if (!payload) throw new AppError('Invalid or expired session code', 401)
     return payload
   },
@@ -456,7 +456,7 @@ export const authService = {
   },
 
   async impersonateExchange(code: string) {
-    const token = consumeImpersonationCode(code)
+    const token = await consumeImpersonationCode(code)
     if (!token) throw new AppError('Invalid or expired code', 401)
     let payload
     try {

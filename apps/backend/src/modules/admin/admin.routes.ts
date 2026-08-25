@@ -1805,7 +1805,7 @@ router.post('/support/impersonate/:tenantId', async (req: Request, res: Response
       userId: owner.id, tenantId: owner.tenantId,
       role: owner.role, email: owner.email,
     })
-    const code = createImpersonationCode(token)
+    const code = await createImpersonationCode(token)
     const base = (env.FRONTEND_URL || 'https://app.hexalyte.com').replace(/\/$/, '')
     const loginUrl = `${base}/support-session?code=${encodeURIComponent(code)}`
     sendSuccess(res, { loginUrl, ownerEmail: owner.email, tenantId: owner.tenantId })

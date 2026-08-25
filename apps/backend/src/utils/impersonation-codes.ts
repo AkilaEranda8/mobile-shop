@@ -1,29 +1,27 @@
 import crypto from 'crypto'
+import { redis } from '../config/redis'
 
-type Entry = { token: string; expiresAt: number }
+const KEY_PREFIX = 'auth:impersonate:'
+const DEFAULT_TTL_SEC = 10 * 60
 
-const store = new Map<string, Entry>()
-const TTL_MS = 10 * 60 * 1000
-
-function pruneExpired() {
-  const now = Date.now()
-  for (const [key, entry] of store) {
-    if (entry.expiresAt <= now) store.delete(key)
-  }
-}
-
-export function createImpersonationCode(token: string, ttlMs = TTL_MS): string {
-  pruneExpired()
+/**
+ * One-time support impersonation codes live in Redis with TTL —
+ * never accumulate in process memory.
+ */
+export async function createImpersonationCode(
+  token: string,
+  ttlMs = DEFAULT_TTL_SEC * 1000,
+): Promise<string> {
   const code = crypto.randomBytes(24).toString('base64url')
-  store.set(code, { token, expiresAt: Date.now() + ttlMs })
+  const ttlSec = Math.max(1, Math.ceil(ttlMs / 1000))
+  await redis.set(`${KEY_PREFIX}${code}`, token, 'EX', ttlSec)
   return code
 }
 
 /** Returns the JWT once, then invalidates the code. */
-export function consumeImpersonationCode(code: string): string | null {
-  const entry = store.get(code)
-  if (!entry) return null
-  store.delete(code)
-  if (Date.now() > entry.expiresAt) return null
-  return entry.token
+export async function consumeImpersonationCode(code: string): Promise<string | null> {
+  const key = `${KEY_PREFIX}${code}`
+  // GETDEL is atomic one-time consume (Redis 6.2+)
+  const token = await redis.getdel(key)
+  return token || null
 }

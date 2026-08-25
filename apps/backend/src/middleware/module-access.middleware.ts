@@ -20,8 +20,21 @@ declare global {
 
 const matrixCache = new Map<string, { at: number; matrix: RolePermissionMatrix }>()
 const CACHE_TTL_MS = 30_000
+const MAX_MATRIX_ENTRIES = 200
+
+function pruneMatrixCache() {
+  const now = Date.now()
+  for (const [id, hit] of matrixCache) {
+    if (now - hit.at >= CACHE_TTL_MS) matrixCache.delete(id)
+  }
+  if (matrixCache.size <= MAX_MATRIX_ENTRIES) return
+  const ranked = [...matrixCache.entries()].sort((a, b) => a[1].at - b[1].at)
+  const overflow = matrixCache.size - MAX_MATRIX_ENTRIES
+  for (let i = 0; i < overflow; i++) matrixCache.delete(ranked[i][0])
+}
 
 export async function loadRolePermissionMatrix(tenantId: string): Promise<RolePermissionMatrix> {
+  pruneMatrixCache()
   const hit = matrixCache.get(tenantId)
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.matrix
 
@@ -31,6 +44,7 @@ export async function loadRolePermissionMatrix(tenantId: string): Promise<RolePe
   })
   const matrix = normalizeRolePermissions(tenant?.rolePermissions)
   matrixCache.set(tenantId, { at: Date.now(), matrix })
+  pruneMatrixCache()
   return matrix
 }
 
