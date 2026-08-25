@@ -40,7 +40,11 @@ export function applyPosPinSession(data: {
 }): AuthUser {
   const loginUser = initializeSessionBranch(data.user as any)
   authStorage.save(data.accessToken, data.refreshToken, loginUser)
-  try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
+  try {
+    localStorage.removeItem('hx_tenant_features')
+    const slug = (loginUser.tenantSlug || '').trim().toLowerCase()
+    if (slug && slug !== 'platform') localStorage.setItem('hx_pin_shop_slug', slug)
+  } catch { /* noop */ }
   return loginUser
 }
 

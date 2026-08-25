@@ -23,8 +23,35 @@ export function isSharedAppHost(hostname?: string): boolean {
 }
 
 /**
+ * Resolve shop slug for PIN login without asking the user when possible.
+ * - Tenant subdomain → from host
+ * - test.app.hexalyte.com → "test"
+ * - Otherwise last used slug from localStorage
+ */
+export function resolvePinShopSlug(hostname?: string): {
+  slug: string | null
+  /** When true, UI should not ask for shop code */
+  autoDetected: boolean
+} {
+  const fromHost = getTenantSlugFromHost(hostname)
+  if (fromHost) return { slug: fromHost, autoDetected: true }
+
+  const host = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase()
+  if (host === 'test.app.hexalyte.com') return { slug: 'test', autoDetected: true }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('hx_pin_shop_slug')?.trim().toLowerCase()
+      if (saved) return { slug: saved, autoDetected: true }
+    } catch { /* noop */ }
+  }
+
+  return { slug: null, autoDetected: false }
+}
+
+/**
  * PIN login UI is available on shop subdomains always,
- * and on the shared test host / localhost (shop code required there).
+ * and on the shared test host / localhost.
  * Production shared host `app.hexalyte.com` stays password-only.
  */
 export function canUsePinLoginOnHost(hostname?: string): boolean {

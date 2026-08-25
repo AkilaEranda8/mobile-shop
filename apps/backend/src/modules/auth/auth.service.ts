@@ -142,12 +142,17 @@ async function buildUserSession(user: {
     : []
   const assignedBranches = tenantBranches.filter(b => branchIds.includes(b.id))
   const suggestedBranchId = pickDefaultBranchId(tenantBranches, branchIds)
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: user.tenantId },
+    select: { slug: true },
+  })
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
     tenantId: user.tenantId,
+    tenantSlug: tenant?.slug,
     branchIds,
     branches: assignedBranches,
     suggestedBranchId,

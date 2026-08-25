@@ -9,7 +9,7 @@ import {
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { initializeSessionBranch } from '@/lib/active-branch'
-import { canUsePinLoginOnHost, getTenantSlugFromHost } from '@/lib/tenant-url'
+import { canUsePinLoginOnHost, getTenantSlugFromHost, resolvePinShopSlug } from '@/lib/tenant-url'
 import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
 import { applyPosPinSession } from '@/components/pos/PosPinGate'
 
@@ -34,6 +34,7 @@ export default function LoginPage() {
   const [pin, setPin]                   = useState('')
   const [hostSlug, setHostSlug]         = useState<string | null>(null)
   const [shopSlug, setShopSlug]         = useState('')
+  const [shopAutoDetected, setShopAutoDetected] = useState(false)
   const [showPinOption, setShowPinOption] = useState(false)
   const pinLength = 6 as const
 
@@ -44,13 +45,10 @@ export default function LoginPage() {
     setShowPinOption(pinOk)
     // Shop / test hosts: open on PIN by default; password is a secondary link
     if (pinOk) setMode('pin')
-    if (fromHost) {
-      setShopSlug(fromHost)
-    } else {
-      try {
-        const saved = localStorage.getItem(SHOP_SLUG_KEY) || ''
-        if (saved) setShopSlug(saved)
-      } catch { /* noop */ }
+    const resolved = resolvePinShopSlug()
+    if (resolved.slug) {
+      setShopSlug(resolved.slug)
+      setShopAutoDetected(resolved.autoDetected)
     }
     fetchPlatformStatus()
       .then(s => setMaintenance(s.maintenance))
@@ -62,7 +60,11 @@ export default function LoginPage() {
   const finishLogin = (accessToken: string, refreshToken: string, user: any) => {
     const loginUser = initializeSessionBranch(user)
     authStorage.save(accessToken, refreshToken, loginUser)
-    try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
+    try {
+      localStorage.removeItem('hx_tenant_features')
+      const slug = (user?.tenantSlug || loginUser?.tenantSlug || '').trim().toLowerCase()
+      if (slug && slug !== 'platform') localStorage.setItem(SHOP_SLUG_KEY, slug)
+    } catch { /* noop */ }
     window.location.href = '/dashboard'
   }
 
@@ -191,7 +193,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {!hostSlug && (
+              {!shopAutoDetected && !hostSlug && (
                 <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>Shop code</label>
                   <input
@@ -218,8 +220,8 @@ export default function LoginPage() {
                 onSubmit={handlePinLogin}
                 loading={loading || !!maintenance?.enabled}
                 disabled={!!maintenance?.enabled}
-                autoFocus={!!hostSlug || !!shopSlug}
-                subtitle={hostSlug ? undefined : 'Type PIN on keyboard or keypad'}
+                autoFocus={!!effectiveSlug}
+                subtitle={effectiveSlug ? `Shop: ${effectiveSlug}` : 'Type PIN on keyboard or keypad'}
               />
 
               <p className="text-center text-xs pt-1" style={{ color: '#64748b' }}>

@@ -23,6 +23,8 @@ export interface AuthUser {
   name: string
   role: string
   tenantId: string
+  /** Shop subdomain slug — used to remember PIN login shop on shared test host */
+  tenantSlug?: string
   branchIds: string[]
   branches?: BranchSummary[]
   activeBranchId?: string
