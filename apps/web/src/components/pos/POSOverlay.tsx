@@ -13,10 +13,13 @@ import {
   Menu, ShoppingCart, Bell, Wifi, Cloud, TrendingUp, MoreHorizontal,
   Grid3X3, List as ListIcon, MessageCircle, MessageSquare, Star, RefreshCw, RotateCcw,
   LayoutGrid, Hash, Wallet, Users, PhoneCall, PlayCircle, Lock, AlertTriangle, Calendar,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { HexaPosLayout, categoryIcon } from './HexaPosLayout'
 import { StudioPosLayout } from './StudioPosLayout'
 import { POS_THEME, syncPosThemeRuntime } from './pos-theme'
+import { PosPinGate, type PosPinGateMode } from './PosPinGate'
+import { StaffPinModal } from '@/components/staff/StaffPinModal'
 import { PosReturnModal } from './PosReturnModal'
 import { PosReloadPanel, type ReloadProvider } from './PosReloadPanel'
 import type { CartItem } from './types'
@@ -1395,6 +1398,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const hasPosBillDate = useFeatureFlag('POS_BILL_DATE')
   const hasWarranty = useFeatureFlag('WARRANTY')
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
+  const hasQuickPin = useFeatureFlag('POS_QUICK_PIN')
+  const [sessionTick, setSessionTick] = useState(0)
+  const [pinLocked, setPinLocked] = useState(false)
+  const [pinGateMode, setPinGateMode] = useState<PosPinGateMode | null>(null)
+  const [pinLength, setPinLength] = useState<4 | 6>(6)
+  const [pinIdleSeconds, setPinIdleSeconds] = useState(180)
+  const [showMustChangePin, setShowMustChangePin] = useState(false)
+  const pinIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const effectivePriceMode: PriceMode =
     priceMode === 'wholesale' && hasWholesalePricing ? 'wholesale'
     : priceMode === 'credit' && hasCreditPricing ? 'credit'
@@ -2519,6 +2530,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     : 0
 
   const currentUser = authStorage.getUser()
+  void sessionTick
   const shopName = currentUser?.name?.split(' ')[0]
     ? `${currentUser.name.split(' ')[0]} Shop`
     : 'Our Shop'
@@ -2545,6 +2557,63 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('invoice-settings-updated', load)
     return () => window.removeEventListener('invoice-settings-updated', load)
   }, [currentUser?.tenantId, currentUser?.activeBranchId, currentUser?.branchIds?.[0]])
+
+  useEffect(() => {
+    if (!hasQuickPin || !currentUser?.tenantId) return
+    tenantApi.getPosPinSettings(currentUser.tenantId)
+      .then((res: any) => {
+        const s = res?.data ?? res
+        if (!s) return
+        setPinLength(s.pinLength === 4 ? 4 : 6)
+        setPinIdleSeconds(typeof s.idleTimeoutSeconds === 'number' ? s.idleTimeoutSeconds : 180)
+      })
+      .catch(() => {})
+    if (currentUser.pinMustChange) setShowMustChangePin(true)
+  }, [hasQuickPin, currentUser?.tenantId, currentUser?.pinMustChange, sessionTick])
+
+  useEffect(() => {
+    if (!hasQuickPin || pinIdleSeconds <= 0) return
+    const bump = () => {
+      if (pinLocked || pinGateMode) return
+      if (pinIdleTimerRef.current) clearTimeout(pinIdleTimerRef.current)
+      pinIdleTimerRef.current = setTimeout(() => {
+        setPinLocked(true)
+        setPinGateMode('unlock')
+      }, pinIdleSeconds * 1000)
+    }
+    bump()
+    const events: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'touchstart', 'mousemove']
+    for (const ev of events) window.addEventListener(ev, bump, { passive: true })
+    return () => {
+      if (pinIdleTimerRef.current) clearTimeout(pinIdleTimerRef.current)
+      for (const ev of events) window.removeEventListener(ev, bump)
+    }
+  }, [hasQuickPin, pinIdleSeconds, pinLocked, pinGateMode])
+
+  const openSwitchCashier = useCallback(() => {
+    if (!hasQuickPin) return
+    if (cart.length > 0 && !window.confirm('Cart has items. Clear cart and switch cashier?')) return
+    if (cart.length > 0) {
+      setCart([])
+      setSelectedCustomer(null)
+      setDiscountPct(0)
+      setDiscountFlat(0)
+    }
+    setPinGateMode('switch')
+  }, [hasQuickPin, cart.length])
+
+  const onPinUnlocked = useCallback(() => {
+    setPinLocked(false)
+    setPinGateMode(null)
+  }, [])
+
+  const onPinSwitched = useCallback((user: import('@/lib/auth').AuthUser) => {
+    setPinLocked(false)
+    setPinGateMode(null)
+    setSessionTick(t => t + 1)
+    if (user.pinMustChange) setShowMustChangePin(true)
+    toast.success(`Switched to ${user.name}`, { icon: '👤', duration: 2000 })
+  }, [])
 
   useEffect(() => {
     if (!selectedCustomer?.id) {
@@ -3559,6 +3628,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         ) : null}
         toolbarActions={(
           <>
+            {hasQuickPin && (
+              <button type="button" onClick={openSwitchCashier} title="Switch cashier"
+                className="h-9 px-2.5 rounded-xl border flex items-center justify-center gap-1.5 shrink-0 hover:bg-black/5 text-[11px] font-semibold"
+                style={{ borderColor: POS_THEME.border, background: POS_THEME.card, color: POS_THEME.text }}>
+                <ArrowLeftRight size={14} />
+                <span className="hidden sm:inline">Switch</span>
+              </button>
+            )}
             <button type="button" onClick={openRecentSales} title="Recent Sales"
               className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 hover:bg-black/5"
               style={{ borderColor: POS_THEME.border, background: POS_THEME.card, color: POS_THEME.text }}>
@@ -3571,6 +3648,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
             </button>
           </>
         )}
+        mainOverlay={(hasQuickPin && pinGateMode) ? (
+          <PosPinGate
+            mode={pinGateMode}
+            pinLength={pinLength}
+            cashierName={cashierName}
+            dismissible={pinGateMode === 'switch' && !pinLocked}
+            onClose={() => { if (!pinLocked) setPinGateMode(null) }}
+            onUnlocked={onPinUnlocked}
+            onSwitched={onPinSwitched}
+            onRequestSwitch={pinGateMode === 'unlock' ? () => setPinGateMode('switch') : undefined}
+          />
+        ) : null}
         imeiSlot={imeiSlot}
         customerSlot={customerSlot}
         categoryBar={(
@@ -4562,6 +4651,21 @@ function POSContent({ onClose }: { onClose: () => void }) {
             setMobileView('cart')
             refetchProducts()
             window.dispatchEvent(new CustomEvent('pos:sale-complete'))
+          }}
+        />
+      )}
+
+      {/* ── PIN must-change ── */}
+      {showMustChangePin && (
+        <StaffPinModal
+          mode="self-set"
+          pinLength={pinLength}
+          force
+          onClose={() => {}}
+          onDone={() => {
+            authStorage.updateUser({ pinMustChange: false })
+            setShowMustChangePin(false)
+            setSessionTick(t => t + 1)
           }}
         />
       )}

@@ -41,3 +41,21 @@ So every tenant user exists on both Hexalyte and `auth.hexalyte.com` before they
 ## Impersonation
 
 Admin “login as shop” still uses a short-lived **app JWT** with claim `impersonation: true`. Middleware accepts those in addition to Keycloak tokens.
+
+## POS Quick PIN (Token Exchange)
+
+POS PIN login does **not** use the staff password or set the PIN as a Keycloak password.
+
+After Hexalyte verifies the tenant-scoped PIN, the backend calls Keycloak **Token Exchange** (`kcTokenExchangeForDbUser`) so the access/refresh tokens are still Keycloak-issued.
+
+Required on client `hexalyte-backend` (realm `hexalyte`):
+
+1. Enable **Permissions** → token exchange (or realm “token-exchange” feature as applicable for your Keycloak version)
+2. Allow the client to exchange tokens for users that have attribute `db_user_id`
+3. Keep Direct Access Grants for normal email/password login
+
+Also set env `POS_PIN_PEPPER` (see `.env.example`).
+
+If Token Exchange is not configured, PIN login returns **503** when `KEYCLOAK_AUTH_ENABLED=true`. Local/dev with KC auth off uses app JWT via `issueLocalTokens` (same as password login fallback).
+
+See `docs/POS_QUICK_PIN_ARCHITECTURE.md`.

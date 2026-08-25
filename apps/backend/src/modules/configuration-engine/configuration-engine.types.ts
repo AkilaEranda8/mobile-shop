@@ -6,6 +6,7 @@ export type ConfigDomain =
   | 'productCode'
   | 'posUi'
   | 'sms'
+  | 'posPin'
 
 export type ConfigDomainMeta = {
   domain: ConfigDomain
@@ -22,4 +23,5 @@ export const CONFIG_DOMAIN_META: ConfigDomainMeta[] = [
   { domain: 'productCode', column: 'productCodeSettings', description: 'SKU / barcode generation' },
   { domain: 'posUi', column: 'posUiSettings', description: 'POS layout / theme / shortcuts / card display' },
   { domain: 'sms', column: 'smsSettings', description: 'SMS gateway provider and API credentials' },
+  { domain: 'posPin', column: 'posPinSettings', description: 'POS Quick PIN policy (length, lockout, idle)' },
 ]

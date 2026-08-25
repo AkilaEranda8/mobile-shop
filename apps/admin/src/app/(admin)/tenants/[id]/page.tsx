@@ -56,6 +56,7 @@ const FEATURE_DEFS = [
   { key: 'CREDIT_PRICING',    label: 'Credit Pricing',    desc: 'Credit product price + POS Retail|Credit toggle', optIn: true },
   { key: 'POS_PRICE_EDIT',    label: 'POS Price Edit',    desc: 'Edit sale price in popup before adding to cart (incl. variants)', optIn: true },
   { key: 'POS_BILL_DATE',     label: 'POS Bill Date',     desc: 'POS checkout calendar to pick bill date (works with or without Daily Closing)', optIn: true },
+  { key: 'POS_QUICK_PIN',     label: 'POS Quick PIN',     desc: 'Cashier PIN login, switch, and idle unlock (tenant-scoped; not Keycloak password)', optIn: true },
 ]
 const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',

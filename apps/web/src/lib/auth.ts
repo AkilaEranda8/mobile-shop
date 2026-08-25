@@ -29,6 +29,8 @@ export interface AuthUser {
   branchScope?: BranchScope
   suggestedBranchId?: string
   avatar?: string
+  /** Set after admin PIN reset — user must change PIN before continuing POS */
+  pinMustChange?: boolean
 }
 
 export const authStorage = {

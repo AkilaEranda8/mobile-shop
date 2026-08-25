@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Eye, EyeOff, ArrowRight, AlertCircle, AlertTriangle, ShoppingCart,
-  Wrench, BarChart3, Shield, Users, Package,
+  Wrench, BarChart3, Shield, Users, Package, KeyRound,
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { initializeSessionBranch } from '@/lib/active-branch'
+import { getTenantSlugFromHost } from '@/lib/tenant-url'
+import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
+import { applyPosPinSession } from '@/components/pos/PosPinGate'
 
 const features = [
   { icon: ShoppingCart, label: 'Point of Sale',    desc: 'Fast POS with invoice generation'   },
@@ -25,12 +28,24 @@ export default function LoginPage() {
   const [error, setError]               = useState('')
   const [maintenance, setMaintenance]   = useState<{ enabled: boolean; message: string } | null>(null)
   const [form, setForm]                 = useState({ email: '', password: '' })
+  const [mode, setMode]                 = useState<'password' | 'pin'>('password')
+  const [pin, setPin]                   = useState('')
+  const [tenantSlug, setTenantSlug]     = useState<string | null>(null)
+  const pinLength = 6 as const
 
   useEffect(() => {
+    setTenantSlug(getTenantSlugFromHost())
     fetchPlatformStatus()
       .then(s => setMaintenance(s.maintenance))
       .catch(() => {})
   }, [])
+
+  const finishLogin = (accessToken: string, refreshToken: string, user: any) => {
+    const loginUser = initializeSessionBranch(user)
+    authStorage.save(accessToken, refreshToken, loginUser)
+    try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
+    window.location.href = '/dashboard'
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,34 +53,49 @@ export default function LoginPage() {
     setError('')
     try {
       const res = await authApi.login(form.email, form.password)
-      const loginUser = initializeSessionBranch(res.data.user as any)
-      authStorage.save(res.data.accessToken, res.data.refreshToken, loginUser)
-      try { localStorage.removeItem('hx_tenant_features') } catch { /* noop */ }
-      window.location.href = '/dashboard'
+      finishLogin(res.data.accessToken, res.data.refreshToken, res.data.user)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid email or password')
       setLoading(false)
     }
   }
 
+  const handlePinLogin = async () => {
+    if (pin.length !== pinLength || loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await authApi.posPinLogin(pin)
+      applyPosPinSession(res.data)
+      window.location.href = '/dashboard'
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid PIN')
+      setPin('')
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (mode === 'pin' && pin.length === pinLength && !loading) {
+      void handlePinLogin()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin, mode])
+
   return (
     <div className="min-h-screen bg-[#07090f] flex">
 
-      {/* ── Left branding panel ── */}
       <div className="hidden lg:flex flex-col w-[52%] relative overflow-hidden px-14 py-12">
-        {/* background glows */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-violet-700/20 rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-cyan-600/10 rounded-full blur-3xl" />
           <div className="absolute inset-0 bg-gradient-to-br from-violet-950/20 via-transparent to-transparent" />
         </div>
 
-        {/* logo */}
         <div className="relative flex items-center mb-auto">
           <img src="/logo.png" alt="Hexalyte Innovation" className="h-14 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
         </div>
 
-        {/* headline */}
         <div className="relative mt-16 mb-10">
           <h2 className="text-4xl font-bold leading-tight" style={{ color: '#f1f5f9' }}>
             Run your entire<br />
@@ -79,7 +109,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* feature grid */}
         <div className="relative grid grid-cols-2 gap-3 mb-auto">
           {features.map(({ icon: Icon, label, desc }) => (
             <div key={label} className="flex items-start gap-3 p-3 rounded-xl border hover:border-violet-500/30 transition-colors" style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}>
@@ -94,27 +123,51 @@ export default function LoginPage() {
           ))}
         </div>
 
-        {/* trust line */}
         <div className="relative mt-8 flex items-center gap-2 text-xs" style={{ color: '#475569' }}>
           <Shield size={12} />
           <span>256-bit encryption · JWT RS256 · Multi-branch support</span>
         </div>
       </div>
 
-      {/* ── Right login panel ── */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 relative">
         <div className="absolute inset-0 lg:border-l border-white/5 pointer-events-none" style={{ background: '#0c1120' }} />
 
         <div className="relative w-full max-w-sm">
-          {/* mobile logo */}
           <div className="flex lg:hidden justify-center mb-8">
             <img src="/logo.png" alt="Hexalyte Innovation" className="h-12 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
           </div>
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold" style={{ color: '#ffffff' }}>Welcome back</h1>
-            <p className="text-sm mt-1" style={{ color: '#64748b' }}>Sign in to your dashboard</p>
+            <p className="text-sm mt-1" style={{ color: '#64748b' }}>
+              {mode === 'pin' ? 'Enter your POS PIN' : 'Sign in to your dashboard'}
+            </p>
           </div>
+
+          {tenantSlug && (
+            <div className="mb-5 grid grid-cols-2 gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                type="button"
+                onClick={() => { setMode('password'); setError(''); setPin('') }}
+                className="py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={mode === 'password'
+                  ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
+                  : { color: '#64748b' }}
+              >
+                Password
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('pin'); setError('') }}
+                className="py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                style={mode === 'pin'
+                  ? { background: 'rgba(139,92,246,0.25)', color: '#e9d5ff' }
+                  : { color: '#64748b' }}
+              >
+                <KeyRound size={12} /> PIN
+              </button>
+            </div>
+          )}
 
           {maintenance?.enabled && (
             <div className="mb-5 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm">
@@ -126,6 +179,25 @@ export default function LoginPage() {
             </div>
           )}
 
+          {mode === 'pin' && tenantSlug ? (
+            <div className="space-y-4">
+              {error && (
+                <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
+                  <AlertCircle size={15} className="flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+              <PosPinKeypad
+                value={pin}
+                maxLength={pinLength}
+                onChange={setPin}
+                onSubmit={handlePinLogin}
+                loading={loading || !!maintenance?.enabled}
+                disabled={!!maintenance?.enabled}
+                subtitle="Shop PIN · no username needed"
+              />
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-sm">
@@ -193,6 +265,7 @@ export default function LoginPage() {
               }
             </button>
           </form>
+          )}
 
           <div className="mt-8 pt-6 text-center space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <p className="text-xs" style={{ color: '#475569' }}>

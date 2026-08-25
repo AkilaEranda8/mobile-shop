@@ -3,6 +3,7 @@ import { authService } from './auth.service'
 import { sendSuccess } from '../../utils/response'
 import { AppError } from '../../middleware/error.middleware'
 import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
+import { resolveTenantSlugFromRequest } from '../../utils/tenant-slug'
 
 async function logLoginAttempt(
   req: Request,
@@ -53,16 +54,7 @@ export const authController = {
   async login(req: Request, res: Response, next: NextFunction) {
     const email = String(req.body?.email ?? '').trim().toLowerCase() || 'unknown'
     try {
-      let tenantSlug = String(req.header('x-tenant-id') ?? req.header('x-tenant-slug') ?? '').trim()
-      if (!tenantSlug) {
-        const host = String(req.headers.host ?? '').toLowerCase().split(':')[0]
-        const testMatch = host.match(/^([a-z0-9-]+)\.test\.app\.hexalyte\.com$/)
-        if (testMatch) tenantSlug = testMatch[1]
-        const appMatch = host.match(/^([a-z0-9-]+)\.app\.hexalyte\.com$/)
-        if (!tenantSlug && appMatch && appMatch[1] !== 'app' && appMatch[1] !== 'test') tenantSlug = appMatch[1]
-        const shopMatch = host.match(/^shop\.([^.]+)\.api\.hexalyte\.com$/)
-        if (shopMatch) tenantSlug = shopMatch[1]
-      }
+      const tenantSlug = resolveTenantSlugFromRequest(req)
       const result = await authService.login(req.body.email, req.body.password, tenantSlug || undefined)
       await logLoginAttempt(req, email, true, result)
       sendSuccess(res, result, 'Login successful')

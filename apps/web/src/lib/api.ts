@@ -154,6 +154,30 @@ export const authApi = {
 
   resetPassword: (token: string, newPassword: string) =>
     api.post('/auth/reset-password', { token, newPassword }),
+
+  /** Cold POS PIN login (tenant slug via host / x-tenant-id). */
+  posPinLogin: (pin: string) =>
+    api.post<{ data: { accessToken: string; refreshToken: string; user: import('./auth').AuthUser } }>(
+      '/auth/pos-pin/login',
+      { pin },
+    ),
+
+  posPinSwitch: (pin: string) =>
+    api.post<{ data: { accessToken: string; refreshToken: string; user: import('./auth').AuthUser } }>(
+      '/auth/pos-pin/switch',
+      { pin },
+    ),
+
+  posPinUnlock: (pin: string) =>
+    api.post<{ data: { unlocked: boolean; userId: string } }>('/auth/pos-pin/unlock', { pin }),
+
+  posPinMyStatus: () =>
+    api.get<{ data: { enabled: boolean; mustChange: boolean; updatedAt: string | null; locked: boolean; failedAttempts: number } }>(
+      '/auth/pos-pin/me/status',
+    ),
+
+  setOwnPosPin: (body: { pin: string; currentPin?: string; currentPassword?: string }) =>
+    api.post<{ data: { enabled: boolean } }>('/auth/pos-pin/me', body),
 }
 
 export const usersApi = {
@@ -163,6 +187,14 @@ export const usersApi = {
   create: (body: unknown) => api.post('/users', body),
   update: (id: string, body: unknown) => api.put(`/users/${id}`, body),
   remove: (id: string) => api.delete(`/users/${id}`),
+  posPinStatus: (id: string) =>
+    api.get<{ data: { enabled: boolean; mustChange: boolean; updatedAt: string | null; locked: boolean; failedAttempts: number } }>(
+      `/users/${id}/pos-pin`,
+    ),
+  resetPosPin: (id: string, body: { pin: string; mustChange?: boolean }) =>
+    api.post<{ data: { enabled: boolean; mustChange: boolean } }>(`/users/${id}/pos-pin/reset`, body),
+  disablePosPin: (id: string) =>
+    api.post<{ data: { enabled: boolean } }>(`/users/${id}/pos-pin/disable`, {}),
 }
 
 export const uploadApi = {
@@ -246,6 +278,8 @@ export const tenantApi = {
   updateProductCodeSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/product-code-settings`, body),
   getPosUiSettings: (id: string) => api.get(`/tenants/${id}/pos-ui-settings`),
   updatePosUiSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/pos-ui-settings`, body),
+  getPosPinSettings: (id: string) => api.get(`/tenants/${id}/pos-pin-settings`),
+  updatePosPinSettings: (id: string, body: unknown) => api.patch(`/tenants/${id}/pos-pin-settings`, body),
   getRolePermissions: (id: string) => api.get(`/tenants/${id}/role-permissions`),
   updateRolePermissions: (id: string, body: unknown) => api.patch(`/tenants/${id}/role-permissions`, body),
   myRolePermissions: () => api.get('/tenants/me/role-permissions'),

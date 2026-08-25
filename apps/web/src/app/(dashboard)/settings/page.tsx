@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, Check, FileText, Smartphone, ChevronRight, BookOpen,
-  Package, Tag, Wallet, Copy, Monitor, MessageSquare,
+  Package, Tag, Wallet, Copy, Monitor, MessageSquare, KeyRound,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -72,7 +72,8 @@ import {
   type PosUiSettings,
 } from '@/lib/posUiSettings'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
-import { useRolePermissions } from '@/lib/hooks'
+import { useRolePermissions, useFeatureFlag } from '@/lib/hooks'
+import { StaffPinModal } from '@/components/staff/StaffPinModal'
 
 const tabs = [
   { key: 'shop',          label: 'Shop Info',       icon: Building2  },
@@ -143,6 +144,19 @@ export default function SettingsPage() {
   }))
   const [posUiLoading, setPosUiLoading] = useState(false)
   const [posUiSaving, setPosUiSaving] = useState(false)
+  const hasQuickPin = useFeatureFlag('POS_QUICK_PIN')
+  const [showMyPinModal, setShowMyPinModal] = useState(false)
+  const [posPinForm, setPosPinForm] = useState({
+    enabled: true,
+    pinLength: 6 as 4 | 6,
+    maxFailedAttempts: 5,
+    lockoutSeconds: 900,
+    idleTimeoutSeconds: 180,
+    requirePasswordAfterLock: false,
+    allowColdPinLogin: true,
+  })
+  const [posPinLoading, setPosPinLoading] = useState(false)
+  const [posPinSaving, setPosPinSaving] = useState(false)
 
   useEffect(() => {
     if (activeTab !== 'pos') return
@@ -151,6 +165,27 @@ export default function SettingsPage() {
       .then(setPosUiForm)
       .finally(() => setPosUiLoading(false))
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'pos' || !hasQuickPin || !currentUser?.tenantId) return
+    setPosPinLoading(true)
+    tenantApi.getPosPinSettings(currentUser.tenantId)
+      .then((res: any) => {
+        const s = res?.data ?? res
+        if (!s) return
+        setPosPinForm({
+          enabled: s.enabled !== false,
+          pinLength: s.pinLength === 4 ? 4 : 6,
+          maxFailedAttempts: s.maxFailedAttempts ?? 5,
+          lockoutSeconds: s.lockoutSeconds ?? 900,
+          idleTimeoutSeconds: s.idleTimeoutSeconds ?? 180,
+          requirePasswordAfterLock: !!s.requirePasswordAfterLock,
+          allowColdPinLogin: s.allowColdPinLogin !== false,
+        })
+      })
+      .catch(() => {})
+      .finally(() => setPosPinLoading(false))
+  }, [activeTab, hasQuickPin, currentUser?.tenantId])
 
   const savePosUi = async () => {
     if (!canEdit) { viewOnlyToast('Settings'); return }
@@ -163,6 +198,29 @@ export default function SettingsPage() {
       toast.error(e?.message || 'Failed to save POS settings')
     } finally {
       setPosUiSaving(false)
+    }
+  }
+
+  const savePosPin = async () => {
+    if (!canEdit || !currentUser?.tenantId) { viewOnlyToast('Settings'); return }
+    setPosPinSaving(true)
+    try {
+      const res: any = await tenantApi.updatePosPinSettings(currentUser.tenantId, posPinForm)
+      const s = res?.data ?? res
+      if (s) setPosPinForm({
+        enabled: s.enabled !== false,
+        pinLength: s.pinLength === 4 ? 4 : 6,
+        maxFailedAttempts: s.maxFailedAttempts ?? 5,
+        lockoutSeconds: s.lockoutSeconds ?? 900,
+        idleTimeoutSeconds: s.idleTimeoutSeconds ?? 180,
+        requirePasswordAfterLock: !!s.requirePasswordAfterLock,
+        allowColdPinLogin: s.allowColdPinLogin !== false,
+      })
+      toast.success('POS PIN policy saved')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save PIN settings')
+    } finally {
+      setPosPinSaving(false)
     }
   }
 
@@ -1365,6 +1423,74 @@ export default function SettingsPage() {
                   </section>
                 </>
               )}
+
+              {hasQuickPin && (
+                <section className="space-y-3 pt-4 border-t border-white/5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-400">POS Quick PIN</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                        Idle lock, lockout, and cold PIN login policy for this shop
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={savePosPin}
+                      disabled={posPinSaving || posPinLoading || !canEdit}
+                      className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60 shrink-0"
+                    >
+                      {posPinSaving ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
+                      Save PIN Policy
+                    </button>
+                  </div>
+                  {posPinLoading ? (
+                    <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                      <Loader2 size={14} className="animate-spin" /> Loading…
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={posPinForm.enabled} onChange={e => setPosPinForm(p => ({ ...p, enabled: e.target.checked }))} />
+                        Enable PIN login / switch
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={posPinForm.allowColdPinLogin} onChange={e => setPosPinForm(p => ({ ...p, allowColdPinLogin: e.target.checked }))} />
+                        Allow cold PIN login
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={posPinForm.requirePasswordAfterLock} onChange={e => setPosPinForm(p => ({ ...p, requirePasswordAfterLock: e.target.checked }))} />
+                        Require password after idle lock
+                      </label>
+                      <div>
+                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>PIN length</label>
+                        <select className="input-field h-10" value={posPinForm.pinLength}
+                          onChange={e => setPosPinForm(p => ({ ...p, pinLength: Number(e.target.value) === 4 ? 4 : 6 }))}>
+                          <option value={6}>6 digits</option>
+                          <option value={4}>4 digits</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Max failed attempts</label>
+                        <input type="number" min={3} max={20} className="input-field h-10"
+                          value={posPinForm.maxFailedAttempts}
+                          onChange={e => setPosPinForm(p => ({ ...p, maxFailedAttempts: Number(e.target.value) || 5 }))} />
+                      </div>
+                      <div>
+                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Lockout (seconds)</label>
+                        <input type="number" min={60} max={86400} className="input-field h-10"
+                          value={posPinForm.lockoutSeconds}
+                          onChange={e => setPosPinForm(p => ({ ...p, lockoutSeconds: Number(e.target.value) || 900 }))} />
+                      </div>
+                      <div>
+                        <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Idle lock (seconds, 0 = off)</label>
+                        <input type="number" min={0} max={3600} className="input-field h-10"
+                          value={posPinForm.idleTimeoutSeconds}
+                          onChange={e => setPosPinForm(p => ({ ...p, idleTimeoutSeconds: Number(e.target.value) || 0 }))} />
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
           )}
 
@@ -1528,11 +1654,32 @@ export default function SettingsPage() {
                   {pwSaving ? <Loader2 size={13} className="animate-spin" /> : <Shield size={13} />}Update Password
                 </button>
               </form>
+
+              {hasQuickPin && (
+                <div className="pt-4 border-t border-white/5 max-w-sm space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-200">POS Quick PIN</h3>
+                  <p className="text-xs text-gray-500 dark:text-slate-500">
+                    Set or change your cashier PIN for POS login, switch, and idle unlock.
+                  </p>
+                  <button type="button" onClick={() => setShowMyPinModal(true)} className="btn-secondary text-sm flex items-center gap-2">
+                    <KeyRound size={13} /> Set / change my PIN
+                  </button>
+                </div>
+              )}
+
               <div className="pt-4 border-t border-white/5 max-w-sm">
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-200 mb-1">Logged-in Account</h3>
                 <p className="text-xs text-gray-500 dark:text-slate-500">{currentUser?.email}</p>
                 <p className="text-xs text-slate-600 mt-0.5">Role: {currentUser?.role}</p>
               </div>
+
+              {showMyPinModal && (
+                <StaffPinModal
+                  mode="self-set"
+                  pinLength={posPinForm.pinLength}
+                  onClose={() => setShowMyPinModal(false)}
+                />
+              )}
             </div>
           )}
 

@@ -5,6 +5,8 @@ import { requireModuleAccess } from '../../middleware/module-access.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { updateInvoiceSettingsSchema } from './invoice-settings.schema'
 import { updateSmsSettingsSchema } from '../sms/sms-settings.schema'
+import { updatePosPinSettingsSchema } from '../pos-pin/pos-pin.schema'
+import { posPinController } from '../pos-pin/pos-pin.controller'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
 import { OPT_IN_FEATURES, buildFeatureMap, buildPriceMap } from './tenant-features'
@@ -100,6 +102,8 @@ router.get('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER
 router.patch('/:id/pos-ui-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), requireModuleAccess('SETTINGS', 'edit'), tenantsController.updatePosUiSettings)
 router.get('/:id/sms-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), requireModuleAccess('SETTINGS', 'view'), tenantsController.getSmsSettings)
 router.patch('/:id/sms-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), requireModuleAccess('SETTINGS', 'edit'), validate(updateSmsSettingsSchema), tenantsController.updateSmsSettings)
+router.get('/:id/pos-pin-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'), requireModuleAccess('SETTINGS', 'view'), posPinController.getSettings)
+router.patch('/:id/pos-pin-settings', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER'), requireModuleAccess('SETTINGS', 'edit'), validate(updatePosPinSettingsSchema), posPinController.updateSettings)
 router.get('/:id/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), tenantsController.getRolePermissions)
 router.patch('/:id/role-permissions', authorize('PLATFORM_ADMIN', 'OWNER'), tenantsController.updateRolePermissions)
 

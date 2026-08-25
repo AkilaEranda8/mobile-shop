@@ -209,6 +209,8 @@ model Tenant {
   posUiSettings          Json?
   /// SMS gateway credentials (provider, apiKey, apiSecret, senderId)
   smsSettings            Json?
+  /// POS Quick PIN policy (length, lockout, idle timeout)
+  posPinSettings         Json?
   /// Owner-managed role x module access: hide | view | edit
   rolePermissions        Json?
   /// Demo catalog installed from templates (not permanent business data)
@@ -371,6 +373,15 @@ model User {
   role      UserRole @default(CASHIER)
   avatar    String?
   isActive  Boolean  @default(true)
+  /// HMAC digest for tenant-scoped unique PIN lookup (never reversible)
+  pinDigest          String?
+  /// bcrypt hash of POS Quick PIN (never returned via API)
+  pinHash            String?
+  pinEnabled         Boolean   @default(false)
+  pinFailedAttempts  Int       @default(0)
+  pinLockedUntil     DateTime?
+  pinUpdatedAt       DateTime?
+  pinMustChange      Boolean   @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -385,6 +396,7 @@ model User {
   hirePurchaseSales      HirePurchaseAgreement[] @relation("HpSalesPerson")
 
   @@unique([tenantId, email])
+  @@unique([tenantId, pinDigest])
 }
 
 model UserBranch {

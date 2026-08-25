@@ -11,6 +11,7 @@ import { peekProductCodes } from '../../utils/counters'
 import { normalizeInvoiceSettings } from '../tenants/invoice-settings.util'
 import { normalizePosUiSettings } from '../tenants/pos-ui-settings.util'
 import { normalizeSmsSettings } from '../sms/sms-settings.util'
+import { normalizePosPinSettings } from '../pos-pin/pos-pin-settings.util'
 import { cacheGet, cacheInvalidate, cacheSet } from './configuration-engine.cache'
 import { CONFIG_DOMAIN_META, type ConfigDomain } from './configuration-engine.types'
 
@@ -76,6 +77,7 @@ export async function getTenantConfig<T = unknown>(
       productCodeSettings: true,
       posUiSettings: true,
       smsSettings: true,
+      posPinSettings: true,
     },
   })
   if (!t) throw new AppError('Tenant not found', 404)
@@ -106,6 +108,9 @@ export async function getTenantConfig<T = unknown>(
     case 'sms':
       value = normalizeSmsSettings(t.smsSettings)
       break
+    case 'posPin':
+      value = normalizePosPinSettings(t.posPinSettings)
+      break
   }
 
   cacheSet(tenantId, domain, value, opts?.ttlMs ?? DEFAULT_TTL_MS)
@@ -133,6 +138,7 @@ export async function setTenantConfig(
       productCodeSettings: true,
       posUiSettings: true,
       smsSettings: true,
+      posPinSettings: true,
     },
   })
   if (!existing) throw new AppError('Tenant not found', 404)
@@ -194,6 +200,12 @@ export async function setTenantConfig(
         }
       }
       normalized = normalizeSmsSettings({ ...prev, ...patchObj, templates: mergedTemplates }, prev)
+      break
+    }
+    case 'posPin': {
+      column = 'posPinSettings'
+      const prev = normalizePosPinSettings(existing.posPinSettings)
+      normalized = normalizePosPinSettings({ ...prev, ...patch })
       break
     }
   }

@@ -303,3 +303,54 @@ export async function deleteKcUser(dbUserId: string): Promise<void> {
   if (!kcId) return
   await kc(`/users/${kcId}`, { method: 'DELETE' })
 }
+
+type KcTokenExchangeResponse = {
+  access_token?: string
+  refresh_token?: string
+  error?: string
+  error_description?: string
+}
+
+/**
+ * Obtain user tokens without the user's password (PIN / operator switch).
+ * Requires Keycloak Token Exchange permissions on client `hexalyte-backend`.
+ * See docs/KEYCLOAK_AUTH_SETUP.md and docs/POS_QUICK_PIN_ARCHITECTURE.md.
+ */
+export async function kcTokenExchangeForDbUser(dbUserId: string): Promise<{
+  accessToken: string
+  refreshToken: string
+}> {
+  if (!isKcConfigured()) throw new Error('Keycloak is not configured')
+
+  const kcUserId = await findKcUserByDbId(dbUserId)
+  if (!kcUserId) {
+    throw new Error('Keycloak user not found for Hexalyte user — re-sync staff user')
+  }
+
+  const subjectToken = await getAdminToken()
+  const url = `${kcBase()}/realms/${kcRealm()}/protocol/openid-connect/token`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      client_id: env.KC_CLIENT_ID!,
+      client_secret: env.KC_CLIENT_SECRET ?? '',
+      subject_token: subjectToken,
+      subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+      requested_token_type: 'urn:ietf:params:oauth:token-type:refresh_token',
+      requested_subject: kcUserId,
+      scope: 'openid profile email',
+    }),
+  })
+  const data = await res.json().catch(() => ({})) as KcTokenExchangeResponse
+  if (!res.ok || !data.access_token) {
+    const detail = data.error_description || data.error || `HTTP ${res.status}`
+    throw new Error(`Keycloak token exchange failed: ${detail}`)
+  }
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || data.access_token,
+  }
+}
+

@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { UserCheck, Plus, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2, Shield, BookOpen } from 'lucide-react'
+import { UserCheck, Plus, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle, Building2, Shield, BookOpen, KeyRound } from 'lucide-react'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
-import { useUsers } from '@/lib/hooks'
+import { useUsers, useFeatureFlag } from '@/lib/hooks'
 import { usersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getOperationalBranchId, getActiveBranchId, getVisibleBranches } from '@/lib/active-branch'
@@ -14,6 +14,7 @@ import { useActiveBranchId } from '@/lib/hooks'
 import toast from 'react-hot-toast'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { PermissionMatrixPanel } from '@/components/staff/PermissionMatrixPanel'
+import { StaffPinModal } from '@/components/staff/StaffPinModal'
 
 const roleConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   OWNER: { label: 'Owner', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
@@ -229,8 +230,10 @@ export default function StaffPage() {
   const [tab, setTab] = useState<'staff' | 'permissions'>('staff')
   const [showAdd, setShowAdd] = useState(false)
   const [editStaff, setEditStaff] = useState<any>(null)
+  const [pinStaff, setPinStaff] = useState<any>(null)
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const hasQuickPin = useFeatureFlag('POS_QUICK_PIN')
 
   useEffect(() => {
     if (searchParams.get('tab') === 'permissions') setTab('permissions')
@@ -309,6 +312,14 @@ export default function StaffPage() {
         />
       )}
       {deleteTarget && <DeleteConfirmModal name={deleteTarget.name} loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />}
+      {pinStaff && (
+        <StaffPinModal
+          mode="admin-reset"
+          userId={pinStaff.id}
+          userName={pinStaff.name}
+          onClose={() => setPinStaff(null)}
+        />
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex-1 min-w-0">
@@ -421,6 +432,9 @@ export default function StaffPage() {
                       <div className={`w-1.5 h-1.5 rounded-full mr-1 ${s.isActive ? 'bg-green-400' : 'bg-slate-500'}`} />
                       {canManageStaffRow && (
                         <>
+                          {hasQuickPin && (
+                            <button onClick={() => setPinStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors" title="POS PIN"><KeyRound size={13} /></button>
+                          )}
                           <button onClick={() => setEditStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-colors" title="Edit"><Edit2 size={13} /></button>
                           <button onClick={() => setDeleteTarget(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remove"><Trash2 size={13} /></button>
                         </>

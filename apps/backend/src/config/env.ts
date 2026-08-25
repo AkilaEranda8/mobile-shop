@@ -35,6 +35,8 @@ const envSchema = z.object({
   KC_CLIENT_ID: z.string().optional(),
   KC_CLIENT_SECRET: z.string().optional(),
   KEYCLOAK_AUTH_ENABLED: z.enum(['true', 'false']).optional(),
+  /** HMAC pepper for POS Quick PIN digests (min 16 chars). Falls back to derived JWT_SECRET hash if unset. */
+  POS_PIN_PEPPER: z.string().min(16).optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
