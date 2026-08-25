@@ -470,8 +470,8 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
-            <p className="text-sm mt-1.5" style={{ color: '#64748b' }}>Sign in to your dashboard</p>
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
+            <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>Sign in to your dashboard</p>
           </div>
 
           {maintenance?.enabled && (
