@@ -22,17 +22,17 @@ type Props = {
   variant?: 'default' | 'login'
 }
 
-/** Dark login theme — same navy as page, white text only */
+/** Dark login — white text/icons only */
 const LOGIN = {
   blue: '#2563EB',
   blueDark: '#1D4ED8',
-  keyBg: '#0c1120',
-  keyBorder: 'rgba(255,255,255,0.12)',
-  keyHover: 'rgba(255,255,255,0.04)',
-  muted: '#94a3b8',
+  keyBg: 'transparent',
+  keyBorder: 'rgba(255,255,255,0.22)',
+  muted: '#ffffff',
   text: '#ffffff',
-  red: '#F87171',
-  dotEmpty: 'rgba(255,255,255,0.28)',
+  red: '#ffffff',
+  dotEmpty: 'rgba(255,255,255,0.35)',
+  dotFilled: '#ffffff',
 }
 
 export function PosPinKeypad({
@@ -170,9 +170,8 @@ export function PosPinKeypad({
                 key={i}
                 className="h-3 w-3 rounded-full border-2 transition-all duration-150"
                 style={{
-                  borderColor: error ? red : filled ? accent : LOGIN.dotEmpty,
-                  background: filled ? accent : 'transparent',
-                  boxShadow: filled ? `0 0 8px ${accent}44` : undefined,
+                  borderColor: LOGIN.dotFilled,
+                  background: filled ? LOGIN.dotFilled : 'transparent',
                 }}
               />
             )
@@ -199,7 +198,9 @@ export function PosPinKeypad({
       </div>
 
       {error && (
-        <p className="text-center text-xs mb-3 font-medium -mt-2" style={{ color: red }}>{error}</p>
+        <p className="text-center text-xs mb-3 font-medium -mt-2" style={{ color: isLogin ? '#ffffff' : red }}>
+          {error}
+        </p>
       )}
 
       {showKeypad && (
@@ -223,11 +224,10 @@ export function PosPinKeypad({
                 style={{
                   background: isLogin ? LOGIN.keyBg : 'rgba(255,255,255,0.05)',
                   border: `1px solid ${isLogin ? LOGIN.keyBorder : border}`,
-                  color: isClear ? red : isBack ? muted : text,
-                  boxShadow: undefined,
+                  color: '#ffffff',
                 }}
               >
-                {isBack ? <Delete size={17} className="mx-auto" strokeWidth={2.25} /> : k}
+                {isBack ? <Delete size={17} className="mx-auto" strokeWidth={2.25} color="#ffffff" /> : k}
               </button>
             )
           })}
@@ -242,7 +242,7 @@ export function PosPinKeypad({
 
       {loading && !showSubmit && (
         <div className="flex justify-center py-2">
-          <Loader2 size={18} className="animate-spin" style={{ color: accent }} />
+          <Loader2 size={18} className="animate-spin" style={{ color: isLogin ? '#ffffff' : accent }} />
         </div>
       )}
 
@@ -254,20 +254,21 @@ export function PosPinKeypad({
             e.stopPropagation()
             onSubmit()
           }}
-          className="w-full h-12 rounded-xl text-sm font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
+          className="w-full h-12 rounded-xl text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
           style={{
             background: isLogin
               ? `linear-gradient(135deg, ${LOGIN.blue}, ${LOGIN.blueDark})`
               : accent,
+            color: '#ffffff',
             boxShadow: isLogin ? `0 8px 20px ${LOGIN.blue}33` : undefined,
           }}
         >
           {loading ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2 size={16} className="animate-spin" color="#ffffff" />
           ) : (
             <>
-              <span>{submitLabel}</span>
-              {isLogin && <ArrowRight size={16} />}
+              <span style={{ color: '#ffffff' }}>{submitLabel}</span>
+              {isLogin && <ArrowRight size={16} color="#ffffff" />}
             </>
           )}
         </button>

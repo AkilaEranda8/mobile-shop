@@ -167,14 +167,7 @@ export default function LoginPage() {
               <img src="/logo.png" alt="Hexalyte Innovation" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'screen' }} />
             </div>
 
-            <div
-              className="rounded-2xl px-6 py-8 sm:px-8 sm:py-9 border"
-              style={{
-                background: '#0c1120',
-                borderColor: 'rgba(255,255,255,0.08)',
-                boxShadow: 'none',
-              }}
-            >
+            <div className="px-2 py-2 sm:px-4">
               <div className="flex flex-col items-center text-center mb-6">
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
@@ -183,41 +176,34 @@ export default function LoginPage() {
                     boxShadow: `0 10px 24px ${BLUE}44`,
                   }}
                 >
-                  <Lock size={22} className="text-white" strokeWidth={2.25} />
+                  <Lock size={22} style={{ color: '#ffffff' }} strokeWidth={2.25} />
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
-                <p className="text-sm mt-1.5 text-white/70">
+                <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
+                <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>
                   Enter your PIN to open the shop
                 </p>
 
                 {effectiveSlug ? (
-                  <div
-                    className="mt-4 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-white"
-                    style={{
-                      background: 'rgba(37,99,235,0.18)',
-                      border: '1px solid rgba(37,99,235,0.4)',
-                    }}
-                  >
-                    <Store size={13} className="text-white" />
+                  <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium" style={{ color: '#ffffff' }}>
+                    <Store size={13} style={{ color: '#ffffff' }} />
                     <span>Shop: {effectiveSlug}</span>
-                    <ChevronDown size={13} className="text-white/60" />
-                  </div>
+                  </p>
                 ) : null}
               </div>
 
               {maintenance?.enabled && (
-                <div className="mb-4 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-white text-sm">
-                  <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-400" />
+                <div className="mb-4 flex items-start gap-2.5 px-1 py-2 text-sm" style={{ color: '#ffffff' }}>
+                  <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" style={{ color: '#ffffff' }} />
                   <div>
-                    <p className="font-semibold text-white">Maintenance mode is active</p>
-                    <p className="text-xs mt-1 text-white/70">{maintenance.message}</p>
+                    <p className="font-semibold" style={{ color: '#ffffff' }}>Maintenance mode is active</p>
+                    <p className="text-xs mt-1" style={{ color: '#ffffff' }}>{maintenance.message}</p>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="mb-4 flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-white text-sm">
-                  <AlertCircle size={15} className="flex-shrink-0 text-red-400" />
+                <div className="mb-4 flex items-center gap-2.5 px-1 py-2 text-sm" style={{ color: '#ffffff' }}>
+                  <AlertCircle size={15} className="flex-shrink-0" style={{ color: '#ffffff' }} />
                   <span>{error}</span>
                 </div>
               )}
@@ -236,42 +222,40 @@ export default function LoginPage() {
                   variant="login"
                 />
               ) : (
-                <div className="rounded-xl border px-4 py-4 text-center space-y-2 mb-4" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
-                  <p className="text-sm text-white">Open your shop link to use PIN</p>
-                  <p className="text-[11px] text-white/50">
-                    Example: <span className="text-white/70">yourshop.app.hexalyte.com</span>
+                <div className="px-1 py-4 text-center space-y-2 mb-4">
+                  <p className="text-sm" style={{ color: '#ffffff' }}>Open your shop link to use PIN</p>
+                  <p className="text-[11px]" style={{ color: '#ffffff' }}>
+                    Example: yourshop.app.hexalyte.com
                   </p>
                 </div>
               )}
 
               <div className="flex items-center gap-3 my-5">
-                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
-                <span className="text-xs text-white/50">or</span>
-                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.12)' }} />
+                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.2)' }} />
+                <span className="text-xs" style={{ color: '#ffffff' }}>or</span>
+                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.2)' }} />
               </div>
 
               <button
                 type="button"
                 onClick={() => { setMode('password'); setError(''); setPin('') }}
-                className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-white transition-opacity hover:opacity-80"
+                className="w-full flex items-center justify-center gap-2 text-sm font-semibold transition-opacity hover:opacity-80"
+                style={{ color: '#ffffff' }}
               >
-                <Lock size={14} />
+                <Lock size={14} style={{ color: '#ffffff' }} />
                 Password login
               </button>
 
-              <div
-                className="mt-6 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[11px] text-white/70 border"
-                style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}
-              >
-                <Headset size={13} className="shrink-0" />
+              <p className="mt-6 flex items-center justify-center gap-2 text-[11px]" style={{ color: '#ffffff' }}>
+                <Headset size={13} className="shrink-0" style={{ color: '#ffffff' }} />
                 <span>Having trouble? Contact your system administrator</span>
-              </div>
+              </p>
             </div>
 
-            <p className="mt-5 text-center text-[11px] text-white/60">
-              <Link href="/privacy" className="font-medium text-white hover:underline">Privacy</Link>
-              <span className="mx-1.5 text-white/40">·</span>
-              <Link href="/terms" className="font-medium text-white hover:underline">Terms</Link>
+            <p className="mt-5 text-center text-[11px]" style={{ color: '#ffffff' }}>
+              <Link href="/privacy" className="font-medium hover:underline" style={{ color: '#ffffff' }}>Privacy</Link>
+              <span className="mx-1.5" style={{ color: '#ffffff' }}>·</span>
+              <Link href="/terms" className="font-medium hover:underline" style={{ color: '#ffffff' }}>Terms</Link>
             </p>
           </div>
         </div>
