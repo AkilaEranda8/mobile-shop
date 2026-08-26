@@ -3,7 +3,7 @@
  * Source of truth for Phase 1 = existing `modules/hr` behavior.
  */
 
-export const HR_ENGINE_VERSION = '1.0.0-phase1'
+export const HR_ENGINE_VERSION = '1.4.0-phase4-7'
 
 export type EmploymentStatus =
   | 'CANDIDATE'
@@ -65,24 +65,6 @@ export type EmploymentChangePlan = {
     isActive?: boolean
   }
   engineVersion: string
-}
-
-/** Future Phase 2+ — declared for contract stability, not implemented. */
-export type AttendanceCalcInput = {
-  checkInAt: Date
-  checkOutAt: Date | null
-  shiftStartMinutes: number
-  shiftEndMinutes: number
-  graceMinutes?: number
-}
-
-export type AttendanceCalcResult = {
-  workedMinutes: number
-  lateMinutes: number
-  earlyLeaveMinutes: number
-  overtimeMinutes: number
-  isHalfDay: boolean
-  isAbsent: boolean
 }
 
 export type PayrollCalcLine = {

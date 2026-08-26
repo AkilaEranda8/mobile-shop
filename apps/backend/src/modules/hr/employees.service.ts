@@ -36,8 +36,19 @@ function parseDate(v: unknown): Date | null | undefined {
 
 function sanitizeEmployee(row: any) {
   if (!row) return row
-  const { user, ...rest } = row
-  return { ...rest, user: user ?? null }
+  const { user, events, ...rest } = row
+  const safeEvents = Array.isArray(events)
+    ? events.map((ev: any) => {
+        if (ev?.eventType !== 'SALARY_CHANGED') return ev
+        const strip = (j: unknown) => {
+          if (!j || typeof j !== 'object') return j
+          const { basicSalary: _b, ...restJson } = j as Record<string, unknown>
+          return restJson
+        }
+        return { ...ev, beforeJson: strip(ev.beforeJson), afterJson: strip(ev.afterJson) }
+      })
+    : events
+  return { ...rest, ...(events !== undefined ? { events: safeEvents } : {}), user: user ?? null }
 }
 
 export const employeesService = {

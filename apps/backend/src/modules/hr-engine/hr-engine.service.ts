@@ -10,11 +10,16 @@ export type {
   EmploymentStatusPlan,
   EmploymentChangePlan,
   PlannedEmploymentEvent,
-  AttendanceCalcInput,
-  AttendanceCalcResult,
   PayrollCalcLine,
   PayrollCalcResult,
 } from './hr-engine.types'
+
+export type {
+  AttendanceCalcInput,
+  AttendanceCalcResult,
+  AttendanceStatusResult,
+  ShiftWindow,
+} from './hr-engine.attendance'
 
 export {
   planEmploymentStatusChange,
@@ -24,22 +29,38 @@ export {
   planUserLinkEvents,
 } from './hr-engine.employment'
 
-/**
- * Future Phase 2–6 stubs — throw until domain models exist.
- * Keeps the API surface discoverable without inventing calculations.
- */
-export function calculateAttendanceResult(_input: unknown): never {
-  throw new Error('HR Engine: attendance calculation not implemented (Phase 2)')
-}
+export {
+  calculateAttendanceResult,
+  scheduledShiftMinutes,
+  validateShiftWindow,
+  minutesInColombo,
+  clampMinutes,
+} from './hr-engine.attendance'
 
-export function calculateLeaveResult(_input: unknown): never {
-  throw new Error('HR Engine: leave calculation not implemented (Phase 3)')
-}
+export {
+  calculateLeaveDays,
+  leaveRangesOverlap,
+  calculateLeaveResult,
+  leaveAvailable,
+  balanceAfterSubmit,
+  balanceAfterApprove,
+  balanceAfterRejectOrCancelPending,
+  balanceAfterCancelApproved,
+} from './hr-engine.leave'
 
-export function calculateCompensationResult(_input: unknown): never {
-  throw new Error('HR Engine: compensation calculation not implemented (Phase 4)')
-}
+export type { LeaveRange, LeaveBalanceSnapshot, LeaveCalcResult, LeaveDayPart } from './hr-engine.leave'
 
-export function calculatePayrollResult(_input: unknown): never {
-  throw new Error('HR Engine: payroll calculation not implemented (Phase 5–6)')
-}
+export {
+  calculateCompensationResult,
+  calculatePayrollResult,
+  calculateCommissionPreview,
+  resolveComponentAmount,
+  summarizePayrollLines,
+} from './hr-engine.compensation'
+
+export type {
+  CompComponentInput,
+  CompensationInput,
+  CommissionDoc,
+  CommissionRuleInput,
+} from './hr-engine.compensation'

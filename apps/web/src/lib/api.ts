@@ -1055,6 +1055,71 @@ export const hrApi = {
   updateEmployee: (id: string, body: unknown) => api.patch(`/hr/employees/${id}`, body),
   linkUser: (id: string, userId: string | null) =>
     api.post(`/hr/employees/${id}/link-user`, { userId }),
+  listShifts: (params?: Record<string, string>) =>
+    api.get(`/hr/shifts${params ? '?' + new URLSearchParams(params) : ''}`),
+  createShift: (body: unknown) => api.post('/hr/shifts', body),
+  updateShift: (id: string, body: unknown) => api.patch(`/hr/shifts/${id}`, body),
+  listShiftAssignments: (params?: Record<string, string>) =>
+    api.get(`/hr/shift-assignments${params ? '?' + new URLSearchParams(params) : ''}`),
+  assignShift: (body: unknown) => api.post('/hr/shift-assignments', body),
+  attendanceBoard: (params?: Record<string, string>) =>
+    api.get(`/hr/attendance/board${params ? '?' + new URLSearchParams(params) : ''}`),
+  attendanceMyToday: () => api.get('/hr/attendance/my-today'),
+  attendanceCheckIn: (body?: { employeeId?: string; note?: string }) =>
+    api.post('/hr/attendance/check-in', body ?? {}),
+  attendanceCheckOut: (body?: { employeeId?: string }) =>
+    api.post('/hr/attendance/check-out', body ?? {}),
+  attendanceCorrect: (body: unknown) => api.post('/hr/attendance/correct', body),
+  listLeaveTypes: () => api.get('/hr/leave/types'),
+  createLeaveType: (body: unknown) => api.post('/hr/leave/types', body),
+  updateLeaveType: (id: string, body: unknown) => api.patch(`/hr/leave/types/${id}`, body),
+  listLeaveBalances: (params?: Record<string, string>) =>
+    api.get(`/hr/leave/balances${params ? '?' + new URLSearchParams(params) : ''}`),
+  listLeaveRequests: (params?: Record<string, string>) =>
+    api.get(`/hr/leave/requests${params ? '?' + new URLSearchParams(params) : ''}`),
+  submitLeave: (body: unknown) => api.post('/hr/leave/requests', body),
+  approveLeave: (id: string, body?: { reviewerNote?: string | null }) =>
+    api.post(`/hr/leave/requests/${id}/approve`, body ?? {}),
+  rejectLeave: (id: string, body?: { reviewerNote?: string | null }) =>
+    api.post(`/hr/leave/requests/${id}/reject`, body ?? {}),
+  cancelLeave: (id: string) => api.post(`/hr/leave/requests/${id}/cancel`, {}),
+  listSalaryComponents: () => api.get('/hr/salary/components'),
+  createSalaryComponent: (body: unknown) => api.post('/hr/salary/components', body),
+  updateSalaryComponent: (id: string, body: unknown) => api.patch(`/hr/salary/components/${id}`, body),
+  listSalaryPackages: (params?: Record<string, string>) =>
+    api.get(`/hr/salary/packages${params ? '?' + new URLSearchParams(params) : ''}`),
+  upsertSalaryPackage: (body: unknown) => api.post('/hr/salary/packages', body),
+  previewSalaryPackage: (employeeId: string, asOf?: string) =>
+    api.get(`/hr/salary/packages/${employeeId}/preview${asOf ? `?asOf=${asOf}` : ''}`),
+  listCommissionRules: () => api.get('/hr/commission/rules'),
+  createCommissionRule: (body: unknown) => api.post('/hr/commission/rules', body),
+  updateCommissionRule: (id: string, body: unknown) => api.patch(`/hr/commission/rules/${id}`, body),
+  commissionPreview: (params: Record<string, string>) =>
+    api.get(`/hr/commission/preview?${new URLSearchParams(params)}`),
+  listPayrollPeriods: () => api.get('/hr/payroll/periods'),
+  createPayrollPeriod: (body: unknown) => api.post('/hr/payroll/periods', body),
+  listPayrollRuns: (params?: Record<string, string>) =>
+    api.get(`/hr/payroll/runs${params ? '?' + new URLSearchParams(params) : ''}`),
+  getPayrollRun: (id: string) => api.get(`/hr/payroll/runs/${id}`),
+  createPayrollRun: (body: unknown) => api.post('/hr/payroll/runs', body),
+  processPayrollRun: (id: string) => api.post(`/hr/payroll/runs/${id}/process`, {}),
+  approvePayrollRun: (id: string, body?: unknown) => api.post(`/hr/payroll/runs/${id}/approve`, body ?? {}),
+  payPayrollRun: (id: string, body: unknown) => api.post(`/hr/payroll/runs/${id}/pay`, body),
+  cancelPayrollRun: (id: string) => api.post(`/hr/payroll/runs/${id}/cancel`, {}),
+  listPayslips: (params?: Record<string, string>) =>
+    api.get(`/hr/payslips${params ? '?' + new URLSearchParams(params) : ''}`),
+  listAdvances: (params?: Record<string, string>) =>
+    api.get(`/hr/advances${params ? '?' + new URLSearchParams(params) : ''}`),
+  requestAdvance: (body: unknown) => api.post('/hr/advances', body),
+  approveAdvance: (id: string, body?: unknown) => api.post(`/hr/advances/${id}/approve`, body ?? {}),
+  rejectAdvance: (id: string, body?: unknown) => api.post(`/hr/advances/${id}/reject`, body ?? {}),
+  disburseAdvance: (id: string, body?: unknown) => api.post(`/hr/advances/${id}/disburse`, body ?? {}),
+  listLoans: (params?: Record<string, string>) =>
+    api.get(`/hr/loans${params ? '?' + new URLSearchParams(params) : ''}`),
+  requestLoan: (body: unknown) => api.post('/hr/loans', body),
+  approveLoan: (id: string, body?: unknown) => api.post(`/hr/loans/${id}/approve`, body ?? {}),
+  rejectLoan: (id: string, body?: unknown) => api.post(`/hr/loans/${id}/reject`, body ?? {}),
+  activateLoan: (id: string, body: unknown) => api.post(`/hr/loans/${id}/activate`, body),
 }
 
 export const notificationsApi = {

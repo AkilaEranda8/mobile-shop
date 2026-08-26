@@ -80,6 +80,14 @@ const hrSubmenu: NavSubItem[] = [
   { href: '/dashboard/hr/employees', icon: Users, label: 'Employees', feature: 'HR_PAYROLL', permission: 'HR' },
   { href: '/dashboard/hr/departments', icon: Building2, label: 'Departments', feature: 'HR_PAYROLL', permission: 'HR' },
   { href: '/dashboard/hr/designations', icon: Contact2, label: 'Designations', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/attendance', icon: Clock, label: 'Attendance', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/shifts', icon: Calendar, label: 'Shifts', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/leave', icon: Briefcase, label: 'Leave', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/salary', icon: DollarSign, label: 'Salary', feature: 'HR_PAYROLL', permission: 'HR_SALARY' },
+  { href: '/dashboard/hr/commission', icon: TrendingUp, label: 'Commission', feature: 'HR_PAYROLL', permission: 'HR_SALARY' },
+  { href: '/dashboard/hr/payroll', icon: Wallet, label: 'Payroll', feature: 'HR_PAYROLL', permission: 'HR_PAYROLL', requiresEdit: true },
+  { href: '/dashboard/hr/payslips', icon: Receipt, label: 'Payslips', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/advances', icon: CreditCard, label: 'Advances', feature: 'HR_PAYROLL', permission: 'HR' },
   { href: '/dashboard/hr/settings', icon: Settings, label: 'HR Settings', feature: 'HR_PAYROLL', permission: 'HR', requiresEdit: true },
 ]
 

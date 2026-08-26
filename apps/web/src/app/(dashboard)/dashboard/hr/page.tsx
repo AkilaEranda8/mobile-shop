@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Briefcase, Users, Building2, Contact2, Settings } from 'lucide-react'
+import { Briefcase, Users, Building2, Contact2, Settings, Clock, Calendar, Plane, DollarSign, TrendingUp, Wallet, Receipt, CreditCard } from 'lucide-react'
 import { hrApi } from '@/lib/api'
 import {
   HrFeatureGate,
@@ -76,10 +76,18 @@ export default function HrOverviewPage() {
               </div>
             )}
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <HrQuickLink href="/dashboard/hr/employees" icon={Users} label="Employees" description="Manage employee profiles" />
               <HrQuickLink href="/dashboard/hr/departments" icon={Building2} label="Departments" description="Organize teams" />
               <HrQuickLink href="/dashboard/hr/designations" icon={Contact2} label="Designations" description="Job titles & roles" />
+              <HrQuickLink href="/dashboard/hr/attendance" icon={Clock} label="Attendance" description="Daily check-in board" />
+              <HrQuickLink href="/dashboard/hr/shifts" icon={Calendar} label="Shifts" description="Shift windows & assignments" />
+              <HrQuickLink href="/dashboard/hr/leave" icon={Plane} label="Leave" description="Requests, balances & approval" />
+              <HrQuickLink href="/dashboard/hr/salary" icon={DollarSign} label="Salary" description="Packages & components" />
+              <HrQuickLink href="/dashboard/hr/commission" icon={TrendingUp} label="Commission" description="Sales/repair incentive preview" />
+              <HrQuickLink href="/dashboard/hr/payroll" icon={Wallet} label="Payroll" description="Runs draft → approve → pay" />
+              <HrQuickLink href="/dashboard/hr/payslips" icon={Receipt} label="Payslips" description="Processed slip snapshots" />
+              <HrQuickLink href="/dashboard/hr/advances" icon={CreditCard} label="Advances" description="Advances & loan recoveries" />
               <HrQuickLink href="/dashboard/hr/settings" icon={Settings} label="HR Settings" description="Policies & defaults" />
             </div>
           </>
