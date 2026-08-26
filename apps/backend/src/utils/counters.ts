@@ -78,6 +78,17 @@ export async function generateReturnNumber(tenantId: string): Promise<string> {
   return nextSeq(last?.returnNumber, prefix)
 }
 
+export async function generatePurchaseReturnNumber(tenantId: string): Promise<string> {
+  const today = new Date()
+  const prefix = `PR-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
+  const last = await prisma.purchaseReturn.findFirst({
+    where: { tenantId, returnNumber: { startsWith: prefix } },
+    orderBy: { returnNumber: 'desc' },
+    select: { returnNumber: true },
+  })
+  return nextSeq(last?.returnNumber, prefix)
+}
+
 export function generateWarrantyCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let code = 'WR-'

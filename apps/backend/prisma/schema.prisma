@@ -104,6 +104,7 @@ enum StockMovementType {
   REPAIR_USE
   RETURN
   EXCHANGE_IN
+  PURCHASE_RETURN
 }
 
 enum ImeiStatus {
@@ -242,6 +243,7 @@ model Tenant {
   deliveryOrders              DeliveryOrder[]
   supportNotes                SupportNote[]
   saleReturns                 SaleReturn[]
+  purchaseReturns             PurchaseReturn[]
   exchanges                   DeviceExchange[]
   features                    TenantFeature[]
   services                    Service[]
@@ -351,6 +353,7 @@ model Branch {
   sales                       Sale[]
   repairs                     RepairTicket[]
   purchaseOrders              PurchaseOrder[]
+  purchaseReturns             PurchaseReturn[]
   transactions                Transaction[]
   stockMovements              StockMovement[]
   dailySummaries              DailySummary[]
@@ -515,6 +518,7 @@ model Product {
   stockMovements         StockMovement[]
   saleItems              SaleItem[]
   returnItems            SaleReturnItem[]
+  purchaseReturnItems    PurchaseReturnItem[]
   repairParts            RepairSparePart[]
   poItems                POItem[]
   warranties             Warranty[]
@@ -1032,8 +1036,9 @@ model Supplier {
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch         Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  purchaseOrders PurchaseOrder[]
-  transactions   Transaction[]
+  purchaseOrders  PurchaseOrder[]
+  purchaseReturns PurchaseReturn[]
+  transactions    Transaction[]
 
   @@index([tenantId, branchId])
 }
@@ -1065,6 +1070,7 @@ model PurchaseOrder {
   imeiRecords        ImeiRecord[]
   transactions       Transaction[]
   paymentAllocations SupplierPaymentAllocation[]
+  purchaseReturns    PurchaseReturn[]
 
   @@unique([tenantId, poNumber])
 }
@@ -1082,8 +1088,60 @@ model POItem {
   colorName        String?
   sku              String?
 
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       Product?      @relation(fields: [productId], references: [id])
+  purchaseOrder       PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product             Product?             @relation(fields: [productId], references: [id])
+  purchaseReturnItems PurchaseReturnItem[]
+}
+
+model PurchaseReturn {
+  id                    String        @id @default(cuid())
+  tenantId              String
+  branchId              String
+  purchaseOrderId       String
+  supplierId            String
+  supplierName          String
+  returnNumber          String
+  reason                String
+  creditAmount          Float
+  /// CREDIT = reduce AP / supplier dues; CASH/BANK_TRANSFER/CARD/… = refund cash in
+  settlementMethod      PaymentMethod
+  /// Portion applied to reduce PO.dueAmount
+  apReduced             Float         @default(0)
+  /// Excess kept as supplier owes shop (reduces outstandingDues further)
+  supplierCreditCreated Float         @default(0)
+  processedBy           String
+  notes                 String?
+  createdAt             DateTime      @default(now())
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch                @relation(fields: [branchId], references: [id])
+  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
+  supplier      Supplier              @relation(fields: [supplierId], references: [id])
+  items         PurchaseReturnItem[]
+
+  @@unique([tenantId, returnNumber])
+  @@index([tenantId, purchaseOrderId])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, branchId, createdAt])
+}
+
+model PurchaseReturnItem {
+  id          String  @id @default(cuid())
+  returnId    String
+  poItemId    String?
+  productId   String?
+  productName String
+  sku         String?
+  storage     String?
+  colorName   String?
+  imei        String?
+  quantity    Int
+  unitCost    Float
+  total       Float
+
+  return  PurchaseReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  poItem  POItem?        @relation(fields: [poItemId], references: [id], onDelete: SetNull)
+  product Product?       @relation(fields: [productId], references: [id])
 }
 
 // ─────────────── Finance ───────────────

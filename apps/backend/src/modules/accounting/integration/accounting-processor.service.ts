@@ -6,6 +6,7 @@ import {
   postOpeningCustomerArJournal,
   postOpeningSupplierApJournal,
   postPurchaseJournal,
+  postPurchaseReturnJournal,
   postRepairCogsJournal,
   postRepairJournal,
   postSaleCogsJournal,
@@ -123,6 +124,8 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
         await postOpeningCustomerArJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'PURCHASE_RECEIVED' && item.sourceType === 'PurchaseOrder') {
         await postPurchaseJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'PURCHASE_RETURN_CREATED' && item.sourceType === 'PurchaseReturn') {
+        await postPurchaseReturnJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'DAILY_CLOSING_VARIANCE' && item.sourceType === 'DailyClosing') {
         await postDailyClosingVarianceJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'SALE_RETURN_CREATED' && item.sourceType === 'SaleReturn') {

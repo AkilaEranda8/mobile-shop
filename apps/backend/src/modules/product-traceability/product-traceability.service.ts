@@ -31,6 +31,7 @@ export function mapMovementLabel(type: StockMovementType, note?: string | null):
   if (n.includes('purchase return')) return 'Purchase Return'
   switch (type) {
     case 'PURCHASE': return 'Purchase'
+    case 'PURCHASE_RETURN': return 'Purchase Return'
     case 'SALE': return 'Sale'
     case 'RETURN': return 'Sales Return'
     case 'TRANSFER_IN':

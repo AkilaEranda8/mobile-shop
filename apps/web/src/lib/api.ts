@@ -559,6 +559,16 @@ export const suppliersApi = {
   unpaidPurchaseOrders: (supplierId: string) => api.get(`/suppliers/${supplierId}/unpaid-purchase-orders`),
   payments: (params?: Record<string, string>) =>
     api.get(`/suppliers/payments${params ? '?' + new URLSearchParams(params) : ''}`),
+  purchaseReturns: (params?: Record<string, string>) =>
+    api.get(`/suppliers/purchase-returns${params ? '?' + new URLSearchParams(params) : ''}`),
+  createPurchaseReturn: (body: {
+    purchaseOrderId: string
+    items: Array<{ poItemId: string; quantity: number; imei?: string | null }>
+    reason: string
+    settlementMethod?: string
+    notes?: string | null
+  }) => api.post('/suppliers/purchase-returns', body),
+  getPurchaseReturn: (id: string) => api.get(`/suppliers/purchase-returns/${id}`),
 }
 
 export const financeApi = {

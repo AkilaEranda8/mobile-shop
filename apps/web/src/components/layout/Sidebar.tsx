@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag, AlertTriangle, Clock, Briefcase, Contact2,
+  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag, AlertTriangle, Clock, Briefcase, Contact2, Undo2,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
@@ -59,6 +59,7 @@ const inventorySubmenu: NavSubItem[] = [
 const suppliersSubmenu: NavSubItem[] = [
   { href: '/dashboard/suppliers', icon: Truck, label: 'All Suppliers', permission: 'SUPPLIERS' },
   { href: '/dashboard/supplier-payments', icon: Wallet, label: 'Supplier Payments', badge: 'NEW', permission: 'SUPPLIERS', requiresEdit: true },
+  { href: '/dashboard/purchase-returns', icon: Undo2, label: 'Purchase Returns', badge: 'NEW', permission: 'SUPPLIERS', requiresEdit: true },
 ]
 
 const accountingSubmenu: NavSubItem[] = [
@@ -373,7 +374,8 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     }
     if (
       pathname.startsWith('/dashboard/suppliers') ||
-      pathname.startsWith('/dashboard/supplier-payments')
+      pathname.startsWith('/dashboard/supplier-payments') ||
+      pathname.startsWith('/dashboard/purchase-returns')
     ) {
       setExpandedMenus(prev => ({ ...prev, suppliers: true }))
     }

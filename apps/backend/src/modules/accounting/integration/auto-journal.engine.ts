@@ -7,6 +7,7 @@ import { readSaleForAccounting } from './source-readers/sale.reader'
 import { readExpenseTransaction } from './source-readers/expense.reader'
 import { readRepairForAccounting } from './source-readers/repair.reader'
 import { readPurchaseForAccounting } from './source-readers/purchase.reader'
+import { readPurchaseReturnForAccounting } from './source-readers/purchase-return.reader'
 import { readDailyClosingForAccounting } from './source-readers/daily-closing.reader'
 import { readSaleReturnForAccounting } from './source-readers/sale-return.reader'
 import {
@@ -411,6 +412,125 @@ export async function postPurchaseJournal(tenantId: string, purchaseOrderId: str
       sourceType: 'PurchaseOrder',
       sourceId: order.id,
       eventType: 'PURCHASE_RECEIVED',
+      journalEntryId: je.id,
+    },
+  })
+
+  return je
+}
+
+/** Reverse PO receive: Cr Inventory (+ VAT input), Dr AP and/or Cash. */
+export async function postPurchaseReturnJournal(tenantId: string, returnId: string, actorEmail?: string) {
+  const ret = await readPurchaseReturnForAccounting(tenantId, returnId)
+  if (!ret) throw new AppError('Purchase return not found', 404)
+
+  let mobileVal = 0
+  let accessoryVal = 0
+  let partsVal = 0
+  for (const item of ret.items) {
+    const amt = round2(Number(item.total))
+    const cat = item.product?.category?.name?.toLowerCase() ?? item.product?.category?.slug?.toLowerCase() ?? ''
+    if (cat.includes('part') || cat.includes('spare')) partsVal += amt
+    else if (item.product && isMobileProduct(item.product)) mobileVal += amt
+    else accessoryVal += amt
+  }
+  mobileVal = round2(mobileVal)
+  accessoryVal = round2(accessoryVal)
+  partsVal = round2(partsVal)
+  const inventoryTotal = round2(mobileVal + accessoryVal + partsVal)
+
+  const poSub = round2(Number(ret.purchaseOrder.subtotal ?? 0))
+  const poTax = round2(Math.max(0, Number(ret.purchaseOrder.tax ?? 0)))
+  const tax = poSub > 0 && poTax > 0
+    ? round2((inventoryTotal / poSub) * poTax)
+    : 0
+
+  const apDebit = round2(Number(ret.apReduced) + Number(ret.supplierCreditCreated))
+  const cashDebit = round2(Math.max(0, Number(ret.creditAmount) + tax - apDebit))
+  // Prefer balancing: inventory+tax credits = ap+cash debits
+  const creditSide = round2(inventoryTotal + tax)
+  const debitSide = round2(apDebit + cashDebit)
+  const cashAdj = round2(creditSide - apDebit) // ensure balance via cash/AP plug
+
+  if (creditSide <= 0) throw new AppError('Purchase return has no value to post', 400)
+
+  const lines: JournalDraftLine[] = []
+  if (mobileVal > 0) {
+    lines.push({
+      accountId: await resolveAccountIdByKey(tenantId, 'inventoryMobile'),
+      debit: 0,
+      credit: mobileVal,
+      description: 'Inventory return — Mobile',
+      metadata: { purchaseReturnId: ret.id, returnNumber: ret.returnNumber },
+    })
+  }
+  if (accessoryVal > 0) {
+    lines.push({
+      accountId: await resolveAccountIdByKey(tenantId, 'inventoryAccessory'),
+      debit: 0,
+      credit: accessoryVal,
+      description: 'Inventory return — Accessories',
+      metadata: { purchaseReturnId: ret.id, returnNumber: ret.returnNumber },
+    })
+  }
+  if (partsVal > 0) {
+    lines.push({
+      accountId: await resolveAccountIdByKey(tenantId, 'inventoryParts'),
+      debit: 0,
+      credit: partsVal,
+      description: 'Inventory return — Spare Parts',
+      metadata: { purchaseReturnId: ret.id, returnNumber: ret.returnNumber },
+    })
+  }
+  if (tax > 0) {
+    lines.push({
+      accountId: await resolveAccountIdByKey(tenantId, 'vatInput'),
+      debit: 0,
+      credit: tax,
+      description: 'VAT Input reverse',
+      metadata: { purchaseReturnId: ret.id, returnNumber: ret.returnNumber },
+    })
+  }
+  if (apDebit > 0.001) {
+    lines.push({
+      accountId: await resolveAccountIdByKey(tenantId, 'ap'),
+      debit: apDebit,
+      credit: 0,
+      description: 'AP / supplier credit',
+      supplierId: ret.supplierId,
+      metadata: { returnNumber: ret.returnNumber, poNumber: ret.purchaseOrder.poNumber },
+    })
+  }
+  const cashLine = round2(Math.max(0, cashAdj))
+  if (cashLine > 0.001) {
+    lines.push({
+      accountId: await resolveBranchCashGlAccountId(tenantId, ret.branchId),
+      debit: cashLine,
+      credit: 0,
+      description: 'Purchase return refund',
+      metadata: { returnNumber: ret.returnNumber },
+    })
+  }
+
+  const je = await createPostedJournalEntry({
+    tenantId,
+    branchId: ret.branchId,
+    entryDate: ret.createdAt,
+    sourceModule: 'PURCHASE',
+    sourceRefType: 'PurchaseReturn',
+    sourceRefId: ret.id,
+    sourceEvent: 'PURCHASE_RETURN_CREATED',
+    memo: `Purchase return ${ret.returnNumber} (PO ${ret.purchaseOrder.poNumber})`,
+    createdByEmail: actorEmail,
+    lines,
+  })
+
+  await prisma.integrationLink.create({
+    data: {
+      tenantId,
+      sourceType: 'PurchaseReturn',
+      sourceId: ret.id,
+      eventType: 'PURCHASE_RETURN_CREATED',
       journalEntryId: je.id,
     },
   })

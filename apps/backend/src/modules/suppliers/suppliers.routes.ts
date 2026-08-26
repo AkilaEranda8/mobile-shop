@@ -15,6 +15,7 @@ import { applyPurchaseOrderReceiveEffectsIfEnabled } from '../inventory-engine/i
 import { resolveQueryDateRange, parseOptionalPaymentAt, assertPaymentAtNotFuture } from '../../utils/date-range'
 import { redactPurchaseOrderCost, redactPurchaseOrderCostList } from '../../utils/product-cost-redact'
 import { recordSupplierPayment } from './supplier-payment.service'
+import { processPurchaseReturn, listPurchaseReturns } from './purchase-return.service'
 import { OPENING_BALANCE_SUPPLIER_PO_NOTES } from '../../constants/business-rules.constants'
 import { assertPurchaseOrderTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
 
@@ -485,7 +486,16 @@ router.get('/purchase-orders', async (req: Request, res: Response, next: NextFun
     const branchId = effectiveBranchId(req)
     const where: any = { tenantId: req.tenantId!, ...(status && { status }), ...(id && { id }), ...(branchId && { branchId }) }
     const [raw, total] = await Promise.all([
-      prisma.purchaseOrder.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true } }),
+      prisma.purchaseOrder.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: true,
+          ...(id ? { imeiRecords: { select: { imei: true, productId: true, status: true, poItemId: true } } } : {}),
+        },
+      }),
       prisma.purchaseOrder.count({ where }),
     ])
     const poIds = raw.map(p => p.id)
@@ -1096,6 +1106,58 @@ router.post('/:id/payments', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIA
       updatedPOs: result.updates.length,
       accounting: result.accounting,
     }, 'Payment recorded', 201)
+  } catch (e) { next(e) }
+})
+
+// ── Purchase Returns ──────────────────────────────────────────────────────────
+
+router.get('/purchase-returns', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req, res, next) => {
+  try {
+    const { page, limit, skip } = getPagination(req)
+    const branchId = effectiveBranchId(req)
+    const result = await listPurchaseReturns(req.tenantId!, {
+      branchId: branchId || undefined,
+      purchaseOrderId: req.query.purchaseOrderId ? String(req.query.purchaseOrderId) : undefined,
+      supplierId: req.query.supplierId ? String(req.query.supplierId) : undefined,
+      take: limit,
+      skip,
+    })
+    sendPaginated(res, result.data, result.total, page, limit)
+  } catch (e) { next(e) }
+})
+
+router.post('/purchase-returns', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req, res, next) => {
+  try {
+    const { purchaseOrderId, items, reason, settlementMethod, notes } = req.body ?? {}
+    if (!purchaseOrderId) throw new AppError('purchaseOrderId is required', 400)
+    const created = await processPurchaseReturn({
+      tenantId: req.tenantId!,
+      purchaseOrderId: String(purchaseOrderId),
+      performedBy: req.user?.email || req.user?.userId || 'system',
+      actorEmail: req.user?.email,
+      items: Array.isArray(items) ? items : [],
+      reason: String(reason || ''),
+      settlementMethod: String(settlementMethod || 'CREDIT'),
+      notes: notes ? String(notes) : null,
+      req,
+    })
+    sendSuccess(res, created, 'Purchase return processed', 201)
+  } catch (e) { next(e) }
+})
+
+router.get('/purchase-returns/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), async (req, res, next) => {
+  try {
+    const row = await prisma.purchaseReturn.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId! },
+      include: {
+        items: true,
+        purchaseOrder: { select: { id: true, poNumber: true, status: true, dueAmount: true, paidAmount: true } },
+        supplier: { select: { id: true, name: true, phone: true } },
+      },
+    })
+    if (!row) throw new AppError('Purchase return not found', 404)
+    assertBranchRecordAccess(req, row.branchId)
+    sendSuccess(res, row)
   } catch (e) { next(e) }
 })
 

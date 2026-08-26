@@ -96,6 +96,17 @@ export function emitPurchaseAccounting(tenantId: string, poId: string, branchId:
   ], actorEmail)
 }
 
+export function emitPurchaseReturnAccounting(
+  tenantId: string,
+  returnId: string,
+  branchId: string | null,
+  actorEmail?: string,
+) {
+  return emitAccountingEvents([
+    { tenantId, branchId, sourceType: 'PurchaseReturn', sourceId: returnId, eventType: 'PURCHASE_RETURN_CREATED' },
+  ], actorEmail)
+}
+
 export function emitOpeningSupplierApAccounting(
   tenantId: string,
   poId: string,
