@@ -9,7 +9,7 @@ import {
   isKcAuthEnabled,
   kcTokenExchangeForDbUser,
 } from '../../utils/keycloakAdmin'
-import { signAccessToken, signRefreshToken } from '../../utils/jwt'
+import { posPinAuthRefreshTtlMs, signAccessToken, signRefreshToken } from '../../utils/jwt'
 import { getTenantBranches, getUserBranchIds, pickDefaultBranchId } from '../../utils/active-branch'
 import { recordAuditEventSafe } from '../audit-engine/audit-engine.service'
 import { normalizePosPinSettings, type PosPinSettings } from './pos-pin-settings.util'
@@ -24,10 +24,36 @@ import {
   clearPinFail,
   getPinLockTtl,
   incrPinFail,
+  incrUnknownPinFail,
   isPinLocked,
   isPinRateLimited,
+  isUnknownPinThrottled,
   setPinLock,
 } from './pos-pin.lockout'
+
+async function revokeUserSessions(userId: string) {
+  await prisma.refreshToken.deleteMany({ where: { userId } })
+}
+
+async function registerUnknownFail(opts: {
+  tenantId: string
+  digest: string
+  settings: PosPinSettings
+  ip?: string
+}) {
+  const fails = await incrUnknownPinFail(opts.tenantId, opts.digest, opts.settings.lockoutSeconds)
+  await recordAuditEventSafe({
+    tenantId: opts.tenantId,
+    eventType: 'POS_PIN_LOGIN_FAILED',
+    entityType: 'PosPin',
+    entityId: 'unknown',
+    ip: opts.ip,
+    afterJson: { reason: 'no_match', attempts: fails },
+  })
+  if (fails >= opts.settings.maxFailedAttempts) {
+    throw new AppError('Too many PIN attempts. Try again later.', 429)
+  }
+}
 
 async function assertPosPinFeature(tenantId: string) {
   if (!(await isTenantFeatureEnabled(tenantId, 'POS_QUICK_PIN'))) {
@@ -90,8 +116,9 @@ async function issueLocalTokens(user: {
   }
   const accessToken = signAccessToken(payload)
   const refreshToken = signRefreshToken(payload)
-  const days = user.role === 'PLATFORM_ADMIN' ? 30 : 7
-  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+  const expiresAt = opts?.posPinAuth
+    ? new Date(Date.now() + posPinAuthRefreshTtlMs())
+    : new Date(Date.now() + (user.role === 'PLATFORM_ADMIN' ? 30 : 7) * 24 * 60 * 60 * 1000)
   await prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt } })
   return { accessToken, refreshToken }
 }
@@ -217,7 +244,37 @@ export const posPinService = {
 
   async updateSettings(tenantId: string, patch: Record<string, unknown>) {
     await assertPosPinFeature(tenantId)
-    return setTenantConfig(tenantId, 'posPin', patch)
+    const prev = await loadPosPinSettings(tenantId)
+    const next = await setTenantConfig(tenantId, 'posPin', patch)
+    const nextLen = Number((next as PosPinSettings)?.pinLength ?? prev.pinLength)
+    if (nextLen !== prev.pinLength) {
+      // Length change orphans old PINs — disable all so staff must be re-provisioned
+      const enabled = await prisma.user.findMany({
+        where: { tenantId, pinEnabled: true },
+        select: { id: true },
+      })
+      await prisma.user.updateMany({
+        where: { tenantId, pinEnabled: true },
+        data: {
+          pinEnabled: false,
+          pinHash: null,
+          pinDigest: null,
+          pinFailedAttempts: 0,
+          pinLockedUntil: null,
+          pinMustChange: false,
+          pinUpdatedAt: new Date(),
+        },
+      })
+      await Promise.all(enabled.map(u => revokeUserSessions(u.id)))
+      await recordAuditEventSafe({
+        tenantId,
+        eventType: 'POS_PIN_LENGTH_CHANGED',
+        entityType: 'PosPin',
+        entityId: tenantId,
+        afterJson: { from: prev.pinLength, to: nextLen, pinsDisabled: enabled.length },
+      })
+    }
+    return next
   },
 
   async loginByPin(opts: { tenantSlug: string; pin: string; ip?: string }) {
@@ -242,6 +299,10 @@ export const posPinService = {
     assertPinLength(pin, settings.pinLength)
     const digest = pinDigest(tenantId, pin)
 
+    if (await isUnknownPinThrottled(tenantId, digest, settings.maxFailedAttempts)) {
+      throw new AppError('Too many PIN attempts. Try again later.', 429)
+    }
+
     const user = await prisma.user.findFirst({
       where: { tenantId, pinDigest: digest, pinEnabled: true, isActive: true },
       include: { branches: { select: { branchId: true } } },
@@ -249,14 +310,7 @@ export const posPinService = {
 
     // Generic failure — do not reveal whether digest matched
     if (!user || !user.pinHash) {
-      await recordAuditEventSafe({
-        tenantId,
-        eventType: 'POS_PIN_LOGIN_FAILED',
-        entityType: 'PosPin',
-        entityId: 'unknown',
-        ip: opts.ip,
-        afterJson: { reason: 'no_match' },
-      })
+      await registerUnknownFail({ tenantId, digest, settings, ip: opts.ip })
       throw new AppError('Invalid PIN', 401)
     }
 
@@ -320,6 +374,10 @@ export const posPinService = {
     assertPinLength(pin, settings.pinLength)
     const digest = pinDigest(opts.tenantId, pin)
 
+    if (await isUnknownPinThrottled(opts.tenantId, digest, settings.maxFailedAttempts)) {
+      throw new AppError('Too many PIN attempts. Try again later.', 429)
+    }
+
     const user = await prisma.user.findFirst({
       where: {
         tenantId: opts.tenantId,
@@ -330,7 +388,15 @@ export const posPinService = {
       include: { branches: { select: { branchId: true } } },
     })
     // 403 (not 401): caller is already authenticated — wrong PIN must not look like "session expired"
-    if (!user?.pinHash) throw new AppError('Invalid PIN', 403)
+    if (!user?.pinHash) {
+      await registerUnknownFail({
+        tenantId: opts.tenantId,
+        digest,
+        settings,
+        ip: opts.ip,
+      })
+      throw new AppError('Invalid PIN', 403)
+    }
 
     if (await isPinLocked(opts.tenantId, user.id) || (user.pinLockedUntil && user.pinLockedUntil > new Date())) {
       throw new AppError('PIN locked. Try again later.', 403)
@@ -376,6 +442,7 @@ export const posPinService = {
   }) {
     await assertPosPinFeature(opts.tenantId)
     const settings = await loadPosPinSettings(opts.tenantId)
+    if (!settings.enabled) throw new AppError('POS PIN login is disabled', 403)
     if (settings.requirePasswordAfterLock) {
       throw new AppError('Password required to unlock — use full sign-in', 403)
     }
@@ -407,6 +474,16 @@ export const posPinService = {
     // Must be THIS user's PIN
     const digest = pinDigest(opts.tenantId, pin)
     if (user.pinDigest !== digest || !(await verifyPinHash(pin, user.pinHash))) {
+      const other = await prisma.user.findFirst({
+        where: {
+          tenantId: opts.tenantId,
+          pinDigest: digest,
+          pinEnabled: true,
+          isActive: true,
+          NOT: { id: user.id },
+        },
+        select: { id: true },
+      })
       await registerFail({
         tenantId: opts.tenantId,
         userId: user.id,
@@ -414,6 +491,9 @@ export const posPinService = {
         ip: opts.ip,
         actorEmail: user.email,
       })
+      if (other) {
+        throw new AppError('That PIN belongs to another cashier — use Switch', 403)
+      }
       throw new AppError('Invalid PIN', 403)
     }
 
@@ -553,6 +633,7 @@ export const posPinService = {
       },
     })
     await clearPinFail(opts.tenantId, target.id)
+    await revokeUserSessions(target.id)
 
     await recordAuditEventSafe({
       tenantId: opts.tenantId,
@@ -592,6 +673,7 @@ export const posPinService = {
       },
     })
     await clearPinFail(opts.tenantId, target.id)
+    await revokeUserSessions(target.id)
 
     await recordAuditEventSafe({
       tenantId: opts.tenantId,
@@ -616,11 +698,14 @@ export const posPinService = {
       },
     })
     if (!u) throw new AppError('User not found', 404)
+    const locked = !!(u.pinLockedUntil && u.pinLockedUntil > new Date())
+      || (await isPinLocked(tenantId, userId))
     return {
       enabled: u.pinEnabled,
       mustChange: u.pinMustChange,
       updatedAt: u.pinUpdatedAt,
       lockedUntil: u.pinLockedUntil,
+      locked,
       failedAttempts: u.pinFailedAttempts,
     }
   },

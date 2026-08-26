@@ -17,21 +17,30 @@ export interface JwtPayload {
 
 const PLATFORM_ADMIN_ACCESS_TTL = '30d'
 const PLATFORM_ADMIN_REFRESH_TTL = '30d'
+/** Short-lived when KC Token Exchange is unavailable — not a full-day bypass */
+const POS_PIN_AUTH_ACCESS_TTL = '2h'
+const POS_PIN_AUTH_REFRESH_TTL = '8h'
 
-function accessTtl(role?: string) {
+function accessTtl(role?: string, opts?: { posPinAuth?: boolean }) {
+  if (opts?.posPinAuth) return POS_PIN_AUTH_ACCESS_TTL
   return role === 'PLATFORM_ADMIN' ? PLATFORM_ADMIN_ACCESS_TTL : env.JWT_EXPIRES_IN
 }
 
-function refreshTtl(role?: string) {
+function refreshTtl(role?: string, opts?: { posPinAuth?: boolean }) {
+  if (opts?.posPinAuth) return POS_PIN_AUTH_REFRESH_TTL
   return role === 'PLATFORM_ADMIN' ? PLATFORM_ADMIN_REFRESH_TTL : env.JWT_REFRESH_EXPIRES_IN
 }
 
 export function signAccessToken(payload: JwtPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: accessTtl(payload.role) as any })
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: accessTtl(payload.role, { posPinAuth: !!payload.posPinAuth }) as any,
+  })
 }
 
 export function signRefreshToken(payload: JwtPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: refreshTtl(payload.role) as any })
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: refreshTtl(payload.role, { posPinAuth: !!payload.posPinAuth }) as any,
+  })
 }
 
 /** Short-lived HS256 token for admin → shop support session */
@@ -53,4 +62,8 @@ export function tryVerifyAppToken(token: string): JwtPayload | null {
   } catch {
     return null
   }
+}
+
+export function posPinAuthRefreshTtlMs(): number {
+  return 8 * 60 * 60 * 1000
 }

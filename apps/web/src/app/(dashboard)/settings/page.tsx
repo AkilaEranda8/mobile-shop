@@ -205,7 +205,11 @@ export default function SettingsPage() {
     if (!canEdit || !currentUser?.tenantId) { viewOnlyToast('Settings'); return }
     setPosPinSaving(true)
     try {
-      const res: any = await tenantApi.updatePosPinSettings(currentUser.tenantId, posPinForm)
+      const res: any = await tenantApi.updatePosPinSettings(currentUser.tenantId, {
+        ...posPinForm,
+        idleTimeoutSeconds: 0,
+        requirePasswordAfterLock: false,
+      })
       const s = res?.data ?? res
       if (s) setPosPinForm({
         enabled: s.enabled !== false,
@@ -213,7 +217,7 @@ export default function SettingsPage() {
         maxFailedAttempts: s.maxFailedAttempts ?? 5,
         lockoutSeconds: s.lockoutSeconds ?? 900,
         idleTimeoutSeconds: s.idleTimeoutSeconds ?? 0,
-        requirePasswordAfterLock: !!s.requirePasswordAfterLock,
+        requirePasswordAfterLock: false,
         allowColdPinLogin: s.allowColdPinLogin !== false,
       })
       toast.success('POS PIN policy saved')
@@ -1653,13 +1657,20 @@ export default function SettingsPage() {
                           Allow PIN on login page (main cold login)
                         </label>
                         <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                          <input type="checkbox" checked={posPinForm.requirePasswordAfterLock} onChange={e => setPosPinForm(p => ({ ...p, requirePasswordAfterLock: e.target.checked }))} disabled={!canEdit} />
-                          Require password after idle lock
+                          <input type="checkbox" checked={posPinForm.requirePasswordAfterLock} onChange={e => setPosPinForm(p => ({ ...p, requirePasswordAfterLock: e.target.checked }))} disabled />
+                          Require password after idle lock (off — idle lock disabled)
                         </label>
                         <div>
                           <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>PIN length</label>
                           <select className="input-field h-10" value={posPinForm.pinLength} disabled={!canEdit}
-                            onChange={e => setPosPinForm(p => ({ ...p, pinLength: Number(e.target.value) === 4 ? 4 : 6 }))}>
+                            onChange={e => {
+                              const next = Number(e.target.value) === 4 ? 4 : 6
+                              if (next === posPinForm.pinLength) return
+                              if (!window.confirm(
+                                `Changing PIN length to ${next} digits will disable all existing staff PINs. They must be reset. Continue?`,
+                              )) return
+                              setPosPinForm(p => ({ ...p, pinLength: next }))
+                            }}>
                             <option value={6}>6 digits</option>
                             <option value={4}>4 digits</option>
                           </select>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import {
   Eye, EyeOff, ArrowRight, AlertCircle, AlertTriangle, ShoppingCart,
@@ -63,6 +63,7 @@ export default function LoginPage() {
   const [branchOptions, setBranchOptions] = useState<BranchSummary[]>([])
   const [pinUserName, setPinUserName] = useState('')
   const [pinLength, setPinLength] = useState<4 | 6>(6)
+  const submittingPinRef = useRef(false)
 
   useEffect(() => {
     const fromHost = getTenantSlugFromHost()
@@ -153,11 +154,12 @@ export default function LoginPage() {
   }
 
   const handlePinLogin = async () => {
-    if (pin.length !== pinLength || loading) return
+    if (pin.length !== pinLength || loading || submittingPinRef.current) return
     if (!effectiveSlug) {
       setError('Open your shop URL to use PIN login')
       return
     }
+    submittingPinRef.current = true
     setLoading(true)
     setError('')
     try {
@@ -171,6 +173,7 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : 'Invalid PIN')
       setPin('')
       setLoading(false)
+      submittingPinRef.current = false
     }
   }
 

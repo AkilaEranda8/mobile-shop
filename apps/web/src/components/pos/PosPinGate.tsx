@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeftRight, Lock, X } from 'lucide-react'
 import { authApi } from '@/lib/api'
 import { authStorage, type AuthUser } from '@/lib/auth'
@@ -61,21 +61,24 @@ export function PosPinGate({
   const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     setPin('')
     setError('')
+    submittingRef.current = false
   }, [mode])
 
   useEffect(() => {
-    if (pin.length === pinLength && !loading) {
+    if (pin.length === pinLength && !loading && !submittingRef.current) {
       void submit()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, pinLength])
 
   const submit = async () => {
-    if (pin.length !== pinLength || loading) return
+    if (pin.length !== pinLength || loading || submittingRef.current) return
+    submittingRef.current = true
     setLoading(true)
     setError('')
     try {
@@ -89,10 +92,15 @@ export function PosPinGate({
       }
       setPin('')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Invalid PIN')
+      const msg = err instanceof Error ? err.message : 'Invalid PIN'
+      setError(msg)
       setPin('')
+      if (/another cashier|use Switch/i.test(msg)) {
+        onRequestSwitch?.()
+      }
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 

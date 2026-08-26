@@ -50,6 +50,21 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const uid = req.user?.userId
+    if (uid && req.tenantId) {
+      const pinUser = await prisma.user.findFirst({
+        where: { id: uid, tenantId: req.tenantId },
+        select: { pinMustChange: true, pinEnabled: true },
+      })
+      if (pinUser?.pinEnabled && pinUser.pinMustChange) {
+        return res.status(403).json({
+          success: false,
+          message: 'You must change your POS PIN before making sales',
+          code: 'PIN_MUST_CHANGE',
+        })
+      }
+    }
+
     const u = await prisma.user.findUnique({ where: { id: req.user!.userId }, select: { name: true } })
     const cashierName = u?.name || req.user!.email
     sendSuccess(

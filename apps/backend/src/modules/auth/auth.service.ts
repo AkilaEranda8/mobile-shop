@@ -133,6 +133,7 @@ async function buildUserSession(user: {
   tenantId: string
   avatar: string | null
   branches: Array<{ branchId: string }>
+  pinMustChange?: boolean
 }) {
   const branchIds = user.role === 'OWNER'
     ? (await getUserBranchIds(user.id, user.tenantId, user.role))
@@ -157,6 +158,7 @@ async function buildUserSession(user: {
     branches: assignedBranches,
     suggestedBranchId,
     avatar: user.avatar,
+    pinMustChange: !!user.pinMustChange,
   }
 }
 
@@ -412,9 +414,10 @@ export const authService = {
           })
           if (!stored || stored.expiresAt < new Date()) throw new AppError('Invalid refresh token', 401)
           if (!stored.user.isActive) throw new AppError('Account is inactive', 403)
+          if (!stored.user.pinEnabled) throw new AppError('POS PIN disabled — sign in again', 401)
           await ensureTenantAccess(stored.user.tenantId)
           const { iat: _iat, exp: _exp, ...claims } = payload as JwtPayload & { iat?: number; exp?: number }
-          const accessToken = signAccessToken(claims)
+          const accessToken = signAccessToken({ ...claims, posPinAuth: true })
           return { accessToken, refreshToken: refreshTokenStr }
         }
       } catch (e) {

@@ -85,7 +85,7 @@ async function request<T = unknown>(
       const peek = res.clone()
       const { json: peekJson, text: peekText } = await parseResponseBody(peek)
       const peekMsg = responseErrorMessage(peekJson, peekText, '')
-      if (/invalid pin|pin locked|too many pin/i.test(peekMsg)) {
+      if (/invalid pin|pin locked|too many pin|another cashier|use switch/i.test(peekMsg)) {
         const err: any = new Error(peekMsg || 'Invalid PIN')
         err.status = 401
         throw err

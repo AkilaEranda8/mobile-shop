@@ -1404,6 +1404,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [pinGateMode, setPinGateMode] = useState<PosPinGateMode | null>(null)
   const [pinLength, setPinLength] = useState<4 | 6>(6)
   const [pinIdleSeconds, setPinIdleSeconds] = useState(0)
+  const [pinPolicyEnabled, setPinPolicyEnabled] = useState(true)
   const [showMustChangePin, setShowMustChangePin] = useState(false)
   const pinIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const effectivePriceMode: PriceMode =
@@ -2566,13 +2567,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (!s) return
         setPinLength(s.pinLength === 4 ? 4 : 6)
         setPinIdleSeconds(typeof s.idleTimeoutSeconds === 'number' ? s.idleTimeoutSeconds : 0)
+        setPinPolicyEnabled(s.enabled !== false)
       })
       .catch(() => {})
     if (currentUser.pinMustChange) setShowMustChangePin(true)
   }, [hasQuickPin, currentUser?.tenantId, currentUser?.pinMustChange, sessionTick])
 
   useEffect(() => {
-    if (!hasQuickPin || pinIdleSeconds <= 0) return
+    if (!hasQuickPin || !pinPolicyEnabled || pinIdleSeconds <= 0) return
     const bump = () => {
       if (pinLocked || pinGateMode) return
       if (pinIdleTimerRef.current) clearTimeout(pinIdleTimerRef.current)
@@ -2588,10 +2590,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (pinIdleTimerRef.current) clearTimeout(pinIdleTimerRef.current)
       for (const ev of events) window.removeEventListener(ev, bump)
     }
-  }, [hasQuickPin, pinIdleSeconds, pinLocked, pinGateMode])
+  }, [hasQuickPin, pinPolicyEnabled, pinIdleSeconds, pinLocked, pinGateMode])
 
-  const openSwitchCashier = useCallback(() => {
-    if (!hasQuickPin) return
+  const openSwitchCashier = useCallback(async () => {
+    if (!hasQuickPin || !pinPolicyEnabled) return
+    try {
+      const { getQueueCount } = await import('@/lib/offline/db')
+      const pending = await getQueueCount()
+      if (pending > 0) {
+        toast.error(`Cannot switch: ${pending} offline sale(s) pending. Sync first.`)
+        return
+      }
+    } catch { /* offline db unavailable — allow switch */ }
     if (cart.length > 0 && !window.confirm('Cart has items. Clear cart and switch cashier?')) return
     if (cart.length > 0) {
       setCart([])
@@ -2600,7 +2610,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       setDiscountFlat(0)
     }
     setPinGateMode('switch')
-  }, [hasQuickPin, cart.length])
+  }, [hasQuickPin, pinPolicyEnabled, cart.length])
 
   const onPinUnlocked = useCallback(() => {
     setPinLocked(false)
@@ -3628,8 +3638,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
         ) : null}
         toolbarActions={(
           <>
-            {hasQuickPin && (
-              <button type="button" onClick={openSwitchCashier} title="Switch cashier"
+            {hasQuickPin && pinPolicyEnabled && (
+              <button type="button" onClick={() => void openSwitchCashier()} title="Switch cashier"
                 className="h-9 px-2.5 rounded-xl border flex items-center justify-center gap-1.5 shrink-0 hover:bg-black/5 text-[11px] font-semibold"
                 style={{ borderColor: POS_THEME.border, background: POS_THEME.card, color: POS_THEME.text }}>
                 <ArrowLeftRight size={14} />
@@ -3648,7 +3658,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
             </button>
           </>
         )}
-        mainOverlay={(hasQuickPin && pinGateMode) ? (
+        mainOverlay={(hasQuickPin && pinPolicyEnabled && pinGateMode) ? (
           <PosPinGate
             mode={pinGateMode}
             pinLength={pinLength}

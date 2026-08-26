@@ -18,6 +18,7 @@ import { PaymentDueBanner } from '@/components/layout/PaymentDueBanner'
 import { RoleAccessGuard } from '@/components/layout/RoleAccessGuard'
 import { ShopQuestUnlockProvider } from '@/lib/shop-quest-unlock'
 import { OnboardingQuest } from '@/components/shop-quest/OnboardingQuest'
+import { PinMustChangeGate } from '@/components/pos/PinMustChangeGate'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -86,6 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <AnnouncementBanners />
         <ReleaseNotesPopup />
         <OnboardingQuest />
+        <PinMustChangeGate />
         {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
         <main className="flex-1 overflow-y-auto" style={{ color: 'var(--text-primary)', padding: 'var(--main-pad)' }}>
           <HexTableProvider>

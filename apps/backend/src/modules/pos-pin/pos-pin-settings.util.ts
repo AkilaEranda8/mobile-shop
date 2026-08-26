@@ -47,7 +47,8 @@ export function normalizePosPinSettings(raw: unknown): PosPinSettings {
     lockoutSeconds: asInt(o.lockoutSeconds, DEFAULT_POS_PIN_SETTINGS.lockoutSeconds, 60, 24 * 60 * 60),
     // Idle auto-lock off — no timeout (stored values ignored until product re-enables)
     idleTimeoutSeconds: 0,
-    requirePasswordAfterLock: asBool(o.requirePasswordAfterLock, DEFAULT_POS_PIN_SETTINGS.requirePasswordAfterLock),
+    // Tied to idle lock — keep off while idle is product-disabled
+    requirePasswordAfterLock: false,
     allowColdPinLogin: asBool(o.allowColdPinLogin, DEFAULT_POS_PIN_SETTINGS.allowColdPinLogin),
   }
 }

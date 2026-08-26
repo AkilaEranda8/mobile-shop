@@ -7,7 +7,7 @@ import { UserCheck, Plus, X, Loader2, Mail, Clock, Edit2, Trash2, AlertTriangle,
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
 import { useUsers, useFeatureFlag } from '@/lib/hooks'
-import { usersApi } from '@/lib/api'
+import { usersApi, tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getOperationalBranchId, getActiveBranchId, getVisibleBranches } from '@/lib/active-branch'
 import { useActiveBranchId } from '@/lib/hooks'
@@ -234,6 +234,19 @@ export default function StaffPage() {
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const hasQuickPin = useFeatureFlag('POS_QUICK_PIN')
+  const [staffPinLength, setStaffPinLength] = useState<4 | 6>(6)
+
+  useEffect(() => {
+    if (!hasQuickPin) return
+    const tid = authStorage.getUser()?.tenantId
+    if (!tid) return
+    tenantApi.getPosPinSettings(tid)
+      .then((res: any) => {
+        const s = res?.data ?? res
+        setStaffPinLength(s?.pinLength === 4 ? 4 : 6)
+      })
+      .catch(() => {})
+  }, [hasQuickPin])
 
   useEffect(() => {
     if (searchParams.get('tab') === 'permissions') setTab('permissions')
@@ -317,6 +330,7 @@ export default function StaffPage() {
           mode="admin-reset"
           userId={pinStaff.id}
           userName={pinStaff.name}
+          pinLength={staffPinLength}
           onClose={() => setPinStaff(null)}
         />
       )}
