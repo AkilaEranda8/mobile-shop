@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag, AlertTriangle,
+  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag, AlertTriangle, Clock, Briefcase, Contact2,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
@@ -73,6 +73,14 @@ const accountingSubmenu: NavSubItem[] = [
   { href: '/dashboard/accounting/periods', icon: Calendar, label: 'Periods', permission: 'ACCOUNTING', requiresEdit: true },
   { href: '/dashboard/accounting/audit', icon: Shield, label: 'Audit Trail', permission: 'ACCOUNTING' },
   { href: '/dashboard/accounting/settings', icon: Settings, label: 'Settings', permission: 'ACCOUNTING', requiresEdit: true },
+]
+
+const hrSubmenu: NavSubItem[] = [
+  { href: '/dashboard/hr', icon: LayoutDashboard, label: 'Overview', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/employees', icon: Users, label: 'Employees', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/departments', icon: Building2, label: 'Departments', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/designations', icon: Contact2, label: 'Designations', feature: 'HR_PAYROLL', permission: 'HR' },
+  { href: '/dashboard/hr/settings', icon: Settings, label: 'HR Settings', feature: 'HR_PAYROLL', permission: 'HR', requiresEdit: true },
 ]
 
 const hirePurchaseSubmenu: NavSubItem[] = [
@@ -194,6 +202,15 @@ const navItems: NavGroup[] = [
     label: 'HR & Staff',
     items: [
       { href: '/dashboard/staff', icon: UserCheck, label: 'Staff & Roles', feature: 'STAFF', permission: 'STAFF' },
+      {
+        href: '/dashboard/hr',
+        icon: Briefcase,
+        label: 'HR',
+        badge: 'NEW',
+        feature: 'HR_PAYROLL',
+        permission: 'HR',
+        submenu: hrSubmenu,
+      },
     ],
   },
   {
@@ -334,6 +351,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   useEffect(() => {
     if (pathname.startsWith('/dashboard/accounting')) {
       setExpandedMenus(prev => ({ ...prev, accounting: true }))
+    }
+    if (pathname.startsWith('/dashboard/hr')) {
+      setExpandedMenus(prev => ({ ...prev, hr: true }))
     }
     if (
       pathname === '/inventory' ||

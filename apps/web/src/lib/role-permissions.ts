@@ -28,6 +28,9 @@ export const ROLE_PERMISSION_MODULES = [
   { key: 'HIRE_PURCHASE', label: 'Hire Purchase' },
   { key: 'REPORTS', label: 'Reports' },
   { key: 'STAFF', label: 'Staff & Roles' },
+  { key: 'HR', label: 'HR' },
+  { key: 'HR_SALARY', label: 'HR Salary' },
+  { key: 'HR_PAYROLL', label: 'HR Payroll' },
   { key: 'DELIVERY', label: 'Delivery' },
   { key: 'WHATSAPP', label: 'WhatsApp' },
   { key: 'DAILY_RELOAD', label: 'Daily Reload' },
@@ -61,6 +64,8 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     ACCOUNTING: 'view',
     HIRE_PURCHASE: 'edit',
     PRODUCT_COST: 'view',
+    HR_SALARY: 'view',
+    HR_PAYROLL: 'view',
   },
   CASHIER: {
     ...fill('hide'),
@@ -177,6 +182,7 @@ export const EDIT_ONLY_PATH_PREFIXES = [
   '/dashboard/accounting/settings',
   '/dashboard/hire-purchase/payments',
   '/dashboard/hire-purchase/settings',
+  '/dashboard/hr/settings',
 ] as const
 
 export function pathRequiresEdit(pathname: string): boolean {
@@ -275,6 +281,18 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
       : 'REPORTS'
   }
   if (pathname.startsWith('/dashboard/staff') || pathname === '/staff' || pathname.startsWith('/staff/')) return 'STAFF'
+  if (pathname.startsWith('/dashboard/hr/payroll') || pathname === '/hr/payroll') return 'HR_PAYROLL'
+  if (
+    pathname.startsWith('/dashboard/hr/salary') ||
+    pathname.startsWith('/dashboard/hr/commission') ||
+    pathname === '/hr/salary' ||
+    pathname.startsWith('/hr/salary/') ||
+    pathname === '/hr/commission' ||
+    pathname.startsWith('/hr/commission/')
+  ) {
+    return 'HR_SALARY'
+  }
+  if (pathname.startsWith('/dashboard/hr') || pathname === '/hr' || pathname.startsWith('/hr/')) return 'HR'
   if (pathname.startsWith('/dashboard/role-permissions')) return 'STAFF'
   if (pathname.startsWith('/dashboard/delivery') || pathname === '/delivery' || pathname.startsWith('/delivery/')) {
     return 'DELIVERY'

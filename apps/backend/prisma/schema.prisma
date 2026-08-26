@@ -275,6 +275,10 @@ model Tenant {
   hirePurchasePenalties       HirePurchasePenalty[]
   hirePurchaseSettings        HirePurchaseSettings[]
   hirePurchaseLogs            HirePurchaseLog[]
+  hrDepartments               HrDepartment[]
+  hrDesignations              HrDesignation[]
+  employees                   Employee[]
+  employmentEvents            EmploymentEvent[]
 }
 
 model TenantFeature {
@@ -362,6 +366,8 @@ model Branch {
   hirePurchasePenalties       HirePurchasePenalty[]
   hirePurchaseSettings        HirePurchaseSettings[]
   hirePurchaseLogs            HirePurchaseLog[]
+  employees                   Employee[]
+  employmentEvents            EmploymentEvent[]
 }
 
 model User {
@@ -394,6 +400,7 @@ model User {
   featureSuggestions     FeatureSuggestion[]
   userNotifications      UserNotification[]
   hirePurchaseSales      HirePurchaseAgreement[] @relation("HpSalesPerson")
+  employee               Employee?
 
   @@unique([tenantId, email])
   @@unique([tenantId, pinDigest])
@@ -2468,4 +2475,129 @@ model UserNotification {
   @@index([tenantId, userId, isRead, createdAt])
   @@index([userId, createdAt])
   @@index([relatedId])
+}
+
+// ─────────────── HR & Payroll (Phase 1) ───────────────
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  CASUAL
+}
+
+enum EmploymentStatus {
+  CANDIDATE
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+}
+
+enum EmploymentEventType {
+  JOINED
+  CONFIRMED
+  TRANSFERRED
+  PROMOTED
+  SALARY_CHANGED
+  BRANCH_CHANGED
+  STATUS_CHANGED
+  RESIGNED
+  TERMINATED
+  USER_LINKED
+  USER_UNLINKED
+  UPDATED
+}
+
+model HrDepartment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String?
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees Employee[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+model HrDesignation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String?
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees Employee[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+model Employee {
+  id               String           @id @default(cuid())
+  tenantId         String
+  employeeCode     String
+  userId           String?          @unique
+  departmentId     String?
+  designationId    String?
+  primaryBranchId  String
+  fullName         String
+  email            String?
+  phone            String?
+  emergencyName    String?
+  emergencyPhone   String?
+  employmentType   EmploymentType   @default(FULL_TIME)
+  status           EmploymentStatus @default(ACTIVE)
+  joinedAt         DateTime?
+  confirmedAt      DateTime?
+  leftAt           DateTime?
+  notes            String?
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department    HrDepartment?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designation   HrDesignation?  @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  primaryBranch Branch          @relation(fields: [primaryBranchId], references: [id], onDelete: Restrict)
+  events        EmploymentEvent[]
+
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId, status])
+  @@index([tenantId, primaryBranchId])
+  @@index([tenantId, fullName])
+}
+
+model EmploymentEvent {
+  id         String              @id @default(cuid())
+  tenantId   String
+  employeeId String
+  branchId   String?
+  eventType  EmploymentEventType
+  note       String?
+  beforeJson Json?
+  afterJson  Json?
+  actorEmail String?
+  createdAt  DateTime            @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branch   Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, employeeId, createdAt])
+  @@index([employeeId, createdAt])
 }

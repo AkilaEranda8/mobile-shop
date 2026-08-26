@@ -39,6 +39,7 @@ import profitAllocationRoutes from './modules/profit-allocation/profit-allocatio
 import inventoryRoutes from './modules/inventory/stock-transfer.routes'
 import releaseNotesRoutes from './modules/release-notes/release-notes.routes'
 import accountingRoutes from './modules/accounting/accounting.routes'
+import hrRoutes from './modules/hr/hr.routes'
 import featureSuggestionsRoutes from './modules/feature-suggestions/feature-suggestions.routes'
 import notificationsRoutes from './modules/feature-suggestions/notifications.routes'
 import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
@@ -207,6 +208,7 @@ app.use(`${API}/daily-closing`, dailyClosingRoutes)
 app.use(`${API}/profit-allocation`, profitAllocationRoutes)
 app.use(`${API}/hire-purchase`, hirePurchaseRoutes)
 app.use(`${API}/accounting`, accountingRoutes)
+app.use(`${API}/hr`, hrRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)
 app.use(`${API}/device-catalog`, deviceCatalogRoutes)
 app.use(`${API}/master-catalog`, masterCatalogRoutes)

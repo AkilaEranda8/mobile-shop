@@ -1040,6 +1040,23 @@ export const featureSuggestionsApi = {
     api.post<{ data: FeatureSuggestion }>('/feature-suggestions', body),
 }
 
+export const hrApi = {
+  overview: () => api.get('/hr/overview'),
+  listDepartments: () => api.get('/hr/departments'),
+  createDepartment: (body: unknown) => api.post('/hr/departments', body),
+  updateDepartment: (id: string, body: unknown) => api.patch(`/hr/departments/${id}`, body),
+  listDesignations: () => api.get('/hr/designations'),
+  createDesignation: (body: unknown) => api.post('/hr/designations', body),
+  updateDesignation: (id: string, body: unknown) => api.patch(`/hr/designations/${id}`, body),
+  listEmployees: (params?: Record<string, string>) =>
+    api.get(`/hr/employees${params ? '?' + new URLSearchParams(params) : ''}`),
+  getEmployee: (id: string) => api.get(`/hr/employees/${id}`),
+  createEmployee: (body: unknown) => api.post('/hr/employees', body),
+  updateEmployee: (id: string, body: unknown) => api.patch(`/hr/employees/${id}`, body),
+  linkUser: (id: string, userId: string | null) =>
+    api.post(`/hr/employees/${id}/link-user`, { userId }),
+}
+
 export const notificationsApi = {
   list: (params?: { page?: number; limit?: number }) => {
     const p = new URLSearchParams()

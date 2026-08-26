@@ -1,0 +1,90 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { Briefcase, Users, Building2, Contact2, Settings } from 'lucide-react'
+import { hrApi } from '@/lib/api'
+import {
+  HrFeatureGate,
+  HrPageShell,
+  HrKpiCard,
+  HrQuickLink,
+  HrLoading,
+  HrError,
+} from '@/components/hr/hr-ui'
+
+type HrOverview = {
+  total: number
+  active: number
+  candidate: number
+  onLeave: number
+  departments: number
+  designations: number
+  byBranch: Array<{ branchId: string; branchName: string; count: number }>
+}
+
+export default function HrOverviewPage() {
+  const [data, setData] = useState<HrOverview | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await hrApi.overview() as { data: HrOverview }
+      setData(res.data)
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? 'Failed to load HR overview')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void load() }, [load])
+
+  return (
+    <HrFeatureGate>
+      <HrPageShell
+        title="HR Overview"
+        subtitle="Employee records, departments, and designations"
+        icon={Briefcase}
+      >
+        {loading && <HrLoading />}
+        {!loading && error && <HrError message={error} />}
+        {!loading && !error && data && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <HrKpiCard label="Total employees" value={data.total} />
+              <HrKpiCard label="Active" value={data.active} />
+              <HrKpiCard label="Candidates" value={data.candidate} />
+              <HrKpiCard label="On leave" value={data.onLeave} />
+              <HrKpiCard label="Departments" value={data.departments} />
+              <HrKpiCard label="Designations" value={data.designations} />
+            </div>
+
+            {data.byBranch.length > 0 && (
+              <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Employees by branch</h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {data.byBranch.map(b => (
+                    <div key={b.branchId} className="flex justify-between text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{b.branchName}</span>
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{b.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <HrQuickLink href="/dashboard/hr/employees" icon={Users} label="Employees" description="Manage employee profiles" />
+              <HrQuickLink href="/dashboard/hr/departments" icon={Building2} label="Departments" description="Organize teams" />
+              <HrQuickLink href="/dashboard/hr/designations" icon={Contact2} label="Designations" description="Job titles & roles" />
+              <HrQuickLink href="/dashboard/hr/settings" icon={Settings} label="HR Settings" description="Policies & defaults" />
+            </div>
+          </>
+        )}
+      </HrPageShell>
+    </HrFeatureGate>
+  )
+}

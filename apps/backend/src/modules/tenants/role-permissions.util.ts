@@ -29,6 +29,9 @@ export const ROLE_PERMISSION_MODULES = [
   { key: 'HIRE_PURCHASE', label: 'Hire Purchase' },
   { key: 'REPORTS', label: 'Reports' },
   { key: 'STAFF', label: 'Staff & Roles' },
+  { key: 'HR', label: 'HR' },
+  { key: 'HR_SALARY', label: 'HR Salary' },
+  { key: 'HR_PAYROLL', label: 'HR Payroll' },
   { key: 'DELIVERY', label: 'Delivery' },
   { key: 'WHATSAPP', label: 'WhatsApp' },
   { key: 'DAILY_RELOAD', label: 'Daily Reload' },
@@ -63,6 +66,8 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     ACCOUNTING: 'view',
     HIRE_PURCHASE: 'edit',
     PRODUCT_COST: 'view',
+    HR_SALARY: 'view',
+    HR_PAYROLL: 'view',
   },
   CASHIER: {
     ...fill('hide'),
