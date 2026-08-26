@@ -1,7 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Undo2, Plus, Package, Truck, FileText, Loader2 } from 'lucide-react'
+import {
+  Undo2, Plus, Package, Truck, FileText, Loader2, X,
+  Calendar, Hash, Receipt, CreditCard, User, AlertTriangle, Banknote,
+} from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { suppliersApi } from '@/lib/api'
@@ -9,6 +12,7 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 
 type POItem = {
   id: string
@@ -41,10 +45,327 @@ type ReturnRow = {
   creditAmount: number
   settlementMethod: string
   apReduced: number
+  supplierCreditCreated?: number
   reason: string
+  notes?: string | null
   createdAt: string
-  purchaseOrder: { poNumber: string }
-  items: Array<{ productName: string; quantity: number; total: number }>
+  purchaseOrder: { poNumber: string; status?: string; dueAmount?: number; paidAmount?: number }
+  items: Array<{
+    id?: string
+    productName: string
+    quantity: number
+    unitCost?: number
+    total: number
+    sku?: string | null
+    imei?: string | null
+    storage?: string | null
+    colorName?: string | null
+  }>
+  supplier?: { id: string; name: string; phone?: string | null }
+}
+
+const settlementLabel = (m?: string) => {
+  const key = String(m || '').toUpperCase()
+  if (key === 'CREDIT') return 'Credit note (AP)'
+  if (key === 'BANK_TRANSFER') return 'Bank refund'
+  if (key === 'CASH') return 'Cash refund'
+  if (key === 'CARD') return 'Card refund'
+  return key.replace(/_/g, ' ') || '—'
+}
+
+/* ── Purchase Return Detail Modal (Sales Returns layout) ───────────────── */
+function PurchaseReturnDetailModal({
+  ret,
+  loading,
+  onClose,
+}: {
+  ret: ReturnRow | null
+  loading?: boolean
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  const safeText = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v))
+  const items = ret?.items ?? []
+  const itemCount = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0)
+  const po = ret?.purchaseOrder ?? { poNumber: '' }
+  const method = String(ret?.settlementMethod || '').toUpperCase()
+  const isCredit = method === 'CREDIT'
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
+        style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b sticky top-0 z-10"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-start gap-2">
+            <Undo2 size={16} className="text-violet-500 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Return Details ( Return No : <span className="font-mono">{safeText(ret?.returnNumber)}</span> )
+              </p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                {safeText(ret?.supplierName || ret?.supplier?.name)}
+                {po.poNumber ? ` · PO ${po.poNumber}` : ''}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/25">
+              {isCredit ? 'AP credit' : 'Refund'}
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25">
+              Completed
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {loading || !ret ? (
+          <div className="flex items-center justify-center py-24 gap-2" style={{ color: 'var(--text-muted)' }}>
+            <Loader2 size={18} className="animate-spin" />
+            <span className="text-sm">Loading return…</span>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <div className="space-y-1 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Date:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(formatDate(ret.createdAt))}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Hash size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Return No:</span>
+                  <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(ret.returnNumber)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Receipt size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>PO No:</span>
+                  <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{safeText(po.poNumber)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CreditCard size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Settlement:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{settlementLabel(ret.settlementMethod)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <User size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Supplier:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(ret.supplierName || ret.supplier?.name)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Package size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Items returned:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{itemCount || items.length}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>Reason:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(ret.reason)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Banknote size={13} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ color: 'var(--text-muted)' }}>AP reduced:</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(ret.apReduced ?? 0)}</span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
+                  <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>LKR</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Line items</span>
+                    <span className="font-medium">{items.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Qty returned</span>
+                    <span className="font-medium">{itemCount || items.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>AP reduced</span>
+                    <span className="font-medium">{formatCurrency(ret.apReduced ?? 0)}</span>
+                  </div>
+                  {Number(ret.supplierCreditCreated ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Supplier credit</span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(ret.supplierCreditCreated)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <span className="font-semibold">Return value</span>
+                    <span className="font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(ret.creditAmount ?? 0)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-4">
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-violet-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                    Returned products
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[720px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left w-10">#</th>
+                          <th className="px-3 py-2 text-left">Product</th>
+                          <th className="px-3 py-2 text-right">Quantity</th>
+                          <th className="px-3 py-2 text-right">Unit cost</th>
+                          <th className="px-3 py-2 text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item, idx) => {
+                          const qty = Number(item.quantity ?? 0)
+                          const unit = Number(item.unitCost ?? 0)
+                          const subtotal = Number(item.total ?? qty * unit)
+                          return (
+                            <tr key={item.id ?? idx} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                              <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                              <td className="px-3 py-2">
+                                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{safeText(item.productName)}</div>
+                                {(item.sku || item.imei || item.storage || item.colorName) && (
+                                  <div className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                                    {[item.sku, item.storage, item.colorName, item.imei ? `IMEI ${item.imei}` : null]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-right">{qty ? `${qty} Qty` : '—'}</td>
+                              <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(unit)}</td>
+                              <td className="px-3 py-2 text-right whitespace-nowrap font-semibold text-violet-600 dark:text-violet-400">
+                                {formatCurrency(subtotal)}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                        {items.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-3 py-6 text-center" style={{ color: 'var(--text-muted)' }}>No items</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="bg-violet-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                    Settlement info
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[560px] w-full text-[12px]">
+                      <thead className="border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)' }}>
+                          <th className="px-3 py-2 text-left w-10">#</th>
+                          <th className="px-3 py-2 text-left">Date</th>
+                          <th className="px-3 py-2 text-left">Reference No</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                          <th className="px-3 py-2 text-left">Settlement</th>
+                          <th className="px-3 py-2 text-left">Note</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>1</td>
+                          <td className="px-3 py-2">{safeText(formatDate(ret.createdAt))}</td>
+                          <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{safeText(ret.returnNumber)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap font-medium text-violet-600 dark:text-violet-400">
+                            {formatCurrency(ret.creditAmount ?? 0)}
+                          </td>
+                          <td className="px-3 py-2">{settlementLabel(ret.settlementMethod)}</td>
+                          <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{safeText(ret.notes)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Return reason:</p>
+                    <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(ret.reason)}</p>
+                  </div>
+                  <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Notes:</p>
+                    <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{safeText(ret.notes)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="rounded-lg border p-4 space-y-2" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Summary</p>
+                  <div className="flex justify-between text-[13px]">
+                    <span style={{ color: 'var(--text-muted)' }}>Return value</span>
+                    <span className="font-bold text-violet-600 dark:text-violet-400">{formatCurrency(ret.creditAmount ?? 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-[13px]">
+                    <span style={{ color: 'var(--text-muted)' }}>AP reduced</span>
+                    <span className="font-semibold">{formatCurrency(ret.apReduced ?? 0)}</span>
+                  </div>
+                  {Number(ret.supplierCreditCreated ?? 0) > 0 && (
+                    <div className="flex justify-between text-[13px]">
+                      <span style={{ color: 'var(--text-muted)' }}>Supplier credit</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(ret.supplierCreditCreated)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold transition-colors"
+                style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function PurchaseReturnsPage() {
@@ -60,6 +381,8 @@ export default function PurchaseReturnsPage() {
   const [notes, setNotes] = useState('')
   const [qtyByItem, setQtyByItem] = useState<Record<string, string>>({})
   const [imeiByItem, setImeiByItem] = useState<Record<string, string>>({})
+  const [detailRet, setDetailRet] = useState<ReturnRow | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -74,6 +397,20 @@ export default function PurchaseReturnsPage() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  const openDetail = useCallback(async (row: ReturnRow) => {
+    setDetailRet(row)
+    setDetailLoading(true)
+    try {
+      const res: any = await suppliersApi.getPurchaseReturn(row.id)
+      const full = (res?.data ?? res) as ReturnRow
+      if (full?.id) setDetailRet(full)
+    } catch {
+      /* keep list row */
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
 
   const openModal = async () => {
     if (!canEdit) {
@@ -138,7 +475,15 @@ export default function PurchaseReturnsPage() {
     {
       accessorKey: 'returnNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Return #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-semibold text-gray-900 dark:text-white">{row.original.returnNumber}</span>,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="font-mono text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+          onClick={() => void openDetail(row.original)}
+        >
+          {row.original.returnNumber}
+        </button>
+      ),
     },
     {
       id: 'po',
@@ -160,8 +505,8 @@ export default function PurchaseReturnsPage() {
       accessorKey: 'settlementMethod',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Settlement" />,
       cell: ({ row }) => (
-        <span className="text-xs px-2 py-0.5 rounded-full border border-slate-500/30 text-slate-300">
-          {row.original.settlementMethod}
+        <span className="text-xs px-2 py-0.5 rounded-full border border-slate-500/30 text-slate-600 dark:text-slate-300">
+          {settlementLabel(row.original.settlementMethod)}
         </span>
       ),
     },
@@ -170,7 +515,13 @@ export default function PurchaseReturnsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
       cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{formatDate(row.original.createdAt)}</span>,
     },
-  ], [])
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <TableActionsRow showAction={{ action: () => void openDetail(row.original) }} />
+      ),
+    },
+  ], [openDetail])
 
   const totalCredit = rows.reduce((s, r) => s + Number(r.creditAmount ?? 0), 0)
 
@@ -232,6 +583,14 @@ export default function PurchaseReturnsPage() {
         pageCount={Math.ceil((rows.length || 1) / 20)}
         searchableColumns={[]}
       />
+
+      {detailRet !== null && (
+        <PurchaseReturnDetailModal
+          ret={detailRet}
+          loading={detailLoading}
+          onClose={() => { setDetailRet(null); setDetailLoading(false) }}
+        />
+      )}
 
       {open && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)}>

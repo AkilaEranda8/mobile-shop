@@ -59,6 +59,10 @@ const inventorySubmenu: NavSubItem[] = [
 const suppliersSubmenu: NavSubItem[] = [
   { href: '/dashboard/suppliers', icon: Truck, label: 'All Suppliers', permission: 'SUPPLIERS' },
   { href: '/dashboard/supplier-payments', icon: Wallet, label: 'Supplier Payments', badge: 'NEW', permission: 'SUPPLIERS', requiresEdit: true },
+]
+
+const purchaseOrdersSubmenu: NavSubItem[] = [
+  { href: '/dashboard/purchase-orders', icon: ClipboardList, label: 'All Purchase Orders', permission: 'SUPPLIERS' },
   { href: '/dashboard/purchase-returns', icon: Undo2, label: 'Purchase Returns', badge: 'NEW', permission: 'SUPPLIERS', requiresEdit: true },
 ]
 
@@ -154,7 +158,14 @@ const navItems: NavGroup[] = [
         permission: 'SUPPLIERS',
         submenu: suppliersSubmenu,
       },
-      { href: '/dashboard/purchase-orders', icon: ClipboardList, label: 'Purchase Orders', feature: 'SUPPLIERS', permission: 'SUPPLIERS' },
+      {
+        href: '/dashboard/purchase-orders',
+        icon: ClipboardList,
+        label: 'Purchase Orders',
+        feature: 'SUPPLIERS',
+        permission: 'SUPPLIERS',
+        submenu: purchaseOrdersSubmenu,
+      },
       { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW', feature: 'IMEI', permission: 'IMEI' },
     ],
   },
@@ -374,10 +385,15 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     }
     if (
       pathname.startsWith('/dashboard/suppliers') ||
-      pathname.startsWith('/dashboard/supplier-payments') ||
-      pathname.startsWith('/dashboard/purchase-returns')
+      pathname.startsWith('/dashboard/supplier-payments')
     ) {
       setExpandedMenus(prev => ({ ...prev, suppliers: true }))
+    }
+    if (
+      pathname.startsWith('/dashboard/purchase-orders') ||
+      pathname.startsWith('/dashboard/purchase-returns')
+    ) {
+      setExpandedMenus(prev => ({ ...prev, 'purchase-orders': true }))
     }
     if (
       pathname.startsWith('/dashboard/reports') ||
