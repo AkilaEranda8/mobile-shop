@@ -1,12 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Briefcase, Users, Building2, Contact2, Settings, Clock, Calendar, Plane, DollarSign, TrendingUp, Wallet, Receipt, CreditCard } from 'lucide-react'
+import {
+  Briefcase, Users, Building2, Contact2, Settings, Clock, Calendar, Plane,
+  DollarSign, TrendingUp, Wallet, Receipt, CreditCard, UserCheck, UserPlus,
+} from 'lucide-react'
 import { hrApi } from '@/lib/api'
 import {
   HrFeatureGate,
   HrPageShell,
-  HrKpiCard,
+  HrStatCard,
   HrQuickLink,
   HrLoading,
   HrError,
@@ -53,23 +56,23 @@ export default function HrOverviewPage() {
         {!loading && error && <HrError message={error} />}
         {!loading && !error && data && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <HrKpiCard label="Total employees" value={data.total} />
-              <HrKpiCard label="Active" value={data.active} />
-              <HrKpiCard label="Candidates" value={data.candidate} />
-              <HrKpiCard label="On leave" value={data.onLeave} />
-              <HrKpiCard label="Departments" value={data.departments} />
-              <HrKpiCard label="Designations" value={data.designations} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <HrStatCard label="Total employees" value={data.total} icon={Users} color="violet" />
+              <HrStatCard label="Active" value={data.active} icon={UserCheck} color="emerald" />
+              <HrStatCard label="Candidates" value={data.candidate} icon={UserPlus} color="sky" />
+              <HrStatCard label="On leave" value={data.onLeave} icon={Plane} color="amber" />
+              <HrStatCard label="Departments" value={data.departments} icon={Building2} color="blue" />
+              <HrStatCard label="Designations" value={data.designations} icon={Contact2} color="slate" />
             </div>
 
             {data.byBranch.length > 0 && (
-              <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Employees by branch</h3>
+              <div className="card p-4">
+                <h3 className="text-sm font-semibold mb-3 text-gray-900 dark:text-white">Employees by branch</h3>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {data.byBranch.map(b => (
                     <div key={b.branchId} className="flex justify-between text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{b.branchName}</span>
-                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{b.count}</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">{b.count}</span>
                     </div>
                   ))}
                 </div>

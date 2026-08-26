@@ -1,18 +1,23 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Clock, Loader2, LogIn, LogOut, Edit2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Clock, Loader2, LogIn, LogOut, UserCheck, Timer, Moon, UserX, MoreHorizontal } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { useModuleAccess } from '@/lib/module-access'
 import { cn } from '@/lib/utils'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import {
   HrFeatureGate,
   HrPageShell,
-  HrLoading,
   HrError,
-  HrKpiCard,
+  HrStatCard,
   HrModal,
+  HrModalCancel,
+  HrModalSubmit,
   HrField,
 } from '@/components/hr/hr-ui'
 
@@ -87,7 +92,7 @@ export default function HrAttendancePage() {
       ])
       setSummary(board.data.summary)
       setRows(board.data.rows)
-      if (mine?.data) setMyToday(mine.data as any)
+      if (mine?.data) setMyToday(mine.data as typeof myToday)
     } catch (e: unknown) {
       setError((e as Error)?.message ?? 'Failed to load attendance')
     } finally {
@@ -147,6 +152,81 @@ export default function HrAttendancePage() {
 
   const mine = myToday?.attendance
 
+  const columns = useMemo<ColumnDef<BoardRow>[]>(() => {
+    const cols: ColumnDef<BoardRow>[] = [
+      {
+        id: 'employee',
+        accessorFn: r => r.employee.fullName,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+        cell: ({ row }) => (
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">{row.original.employee.fullName}</p>
+            <p className="text-xs font-mono text-gray-500 dark:text-slate-500">{row.original.employee.employeeCode}</p>
+          </div>
+        ),
+      },
+      {
+        id: 'branch',
+        accessorFn: r => r.employee.primaryBranch?.name ?? '',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Branch" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">{row.original.employee.primaryBranch?.name ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'shift',
+        accessorFn: r => r.attendance?.shift?.name ?? '',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Shift" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">{row.original.attendance?.shift?.name ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'inout',
+        accessorFn: r => r.attendance?.checkInAt ?? '',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="In / Out" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">
+            {fmtTime(row.original.attendance?.checkInAt)} / {fmtTime(row.original.attendance?.checkOutAt)}
+          </span>
+        ),
+      },
+      {
+        id: 'worked',
+        accessorFn: r => r.attendance?.workedMinutes ?? 0,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Worked" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">
+            {fmtMins(row.original.attendance?.workedMinutes ?? 0)}
+            {(row.original.attendance?.lateMinutes ?? 0) > 0 && (
+              <span className="text-amber-400 text-xs ml-1">+{row.original.attendance!.lateMinutes}m late</span>
+            )}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => (
+          <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_STYLE[row.original.status] ?? STATUS_STYLE.ABSENT)}>
+            {row.original.status}
+          </span>
+        ),
+      },
+    ]
+    if (canEdit) {
+      cols.push({
+        id: 'actions',
+        enableSorting: false,
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <TableActionsRow editAction={{ action: () => openCorrect(row.original) }} />
+        ),
+      })
+    }
+    return cols
+  }, [canEdit])
+
   return (
     <HrFeatureGate>
       <HrPageShell
@@ -182,81 +262,32 @@ export default function HrAttendancePage() {
         )}
       >
         {myToday && (
-          <div className="rounded-xl px-4 py-3 text-sm flex flex-wrap gap-4 items-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>My today ({myToday.employee.fullName}):</span>
+          <div className="card px-4 py-3 text-sm flex flex-wrap gap-4 items-center">
+            <span className="text-gray-500 dark:text-slate-500">My today ({myToday.employee.fullName}):</span>
             <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_STYLE[mine?.status ?? 'ABSENT'])}>
               {mine?.status ?? 'ABSENT'}
             </span>
-            <span style={{ color: 'var(--text-muted)' }}>In {fmtTime(mine?.checkInAt)} · Out {fmtTime(mine?.checkOutAt)}</span>
+            <span className="text-gray-500 dark:text-slate-500">In {fmtTime(mine?.checkInAt)} · Out {fmtTime(mine?.checkOutAt)}</span>
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <HrKpiCard label="Present" value={summary.present} />
-          <HrKpiCard label="Late" value={summary.late} />
-          <HrKpiCard label="Half day" value={summary.halfDay} />
-          <HrKpiCard label="Absent" value={summary.absent} />
-          <HrKpiCard label="Other" value={summary.other} />
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <HrStatCard label="Present" value={summary.present} icon={UserCheck} color="emerald" />
+          <HrStatCard label="Late" value={summary.late} icon={Timer} color="amber" />
+          <HrStatCard label="Half day" value={summary.halfDay} icon={Moon} color="sky" />
+          <HrStatCard label="Absent" value={summary.absent} icon={UserX} color="red" />
+          <HrStatCard label="Other" value={summary.other} icon={MoreHorizontal} color="slate" />
         </div>
 
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Employee</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Branch</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Shift</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>In / Out</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Worked</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
-                  {canEdit && <th className="px-4 py-3" />}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => (
-                  <tr key={row.employee.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{row.employee.fullName}</p>
-                      <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{row.employee.employeeCode}</p>
-                    </td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{row.employee.primaryBranch?.name ?? '—'}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{row.attendance?.shift?.name ?? '—'}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
-                      {fmtTime(row.attendance?.checkInAt)} / {fmtTime(row.attendance?.checkOutAt)}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
-                      {fmtMins(row.attendance?.workedMinutes ?? 0)}
-                      {(row.attendance?.lateMinutes ?? 0) > 0 && (
-                        <span className="text-amber-400 text-xs ml-1">+{row.attendance!.lateMinutes}m late</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_STYLE[row.status] ?? STATUS_STYLE.ABSENT)}>
-                        {row.status}
-                      </span>
-                    </td>
-                    {canEdit && (
-                      <td className="px-4 py-3 text-right">
-                        <button type="button" onClick={() => openCorrect(row)} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
-                          <Edit2 size={14} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {!rows.length && (
-                  <tr>
-                    <td colSpan={canEdit ? 7 : 6} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                      No active employees for this branch/date
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        {error && <HrError message={error} />}
+        {!error && (
+          <ClientSideTable
+            data={rows}
+            columns={columns}
+            isLoading={loading}
+            pageCount={Math.ceil((rows.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
       </HrPageShell>
 
@@ -268,16 +299,16 @@ export default function HrAttendancePage() {
           onClose={() => setCorrectRow(null)}
           footer={(
             <>
-              <button type="button" className="btn-secondary text-sm px-4" onClick={() => setCorrectRow(null)}>Cancel</button>
-              <button type="submit" form="hr-att-correct" disabled={correctLoading} className="btn-primary text-sm px-4 flex items-center gap-2">
-                {correctLoading && <Loader2 size={14} className="animate-spin" />} Save
-              </button>
+              <HrModalCancel onClick={() => setCorrectRow(null)} disabled={correctLoading} />
+              <HrModalSubmit form="hr-att-correct" loading={correctLoading}>
+                Save
+              </HrModalSubmit>
             </>
           )}
         >
           <form id="hr-att-correct" onSubmit={submitCorrect} className="space-y-3">
             <HrField label="Status">
-              <select className="input-field w-full" value={correctForm.status} onChange={e => setCorrectForm(p => ({ ...p, status: e.target.value }))}>
+              <select className="input-field h-11 w-full" value={correctForm.status} onChange={e => setCorrectForm(p => ({ ...p, status: e.target.value }))}>
                 {['PRESENT', 'LATE', 'HALF_DAY', 'ABSENT', 'ON_LEAVE', 'HOLIDAY'].map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -285,10 +316,10 @@ export default function HrAttendancePage() {
             </HrField>
             <div className="grid grid-cols-2 gap-3">
               <HrField label="Check in">
-                <input type="datetime-local" className="input-field w-full" value={correctForm.checkInAt} onChange={e => setCorrectForm(p => ({ ...p, checkInAt: e.target.value }))} />
+                <input type="datetime-local" className="input-field h-11 w-full" value={correctForm.checkInAt} onChange={e => setCorrectForm(p => ({ ...p, checkInAt: e.target.value }))} />
               </HrField>
               <HrField label="Check out">
-                <input type="datetime-local" className="input-field w-full" value={correctForm.checkOutAt} onChange={e => setCorrectForm(p => ({ ...p, checkOutAt: e.target.value }))} />
+                <input type="datetime-local" className="input-field h-11 w-full" value={correctForm.checkOutAt} onChange={e => setCorrectForm(p => ({ ...p, checkOutAt: e.target.value }))} />
               </HrField>
             </div>
             <HrField label="Note">

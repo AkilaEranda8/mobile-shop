@@ -62,12 +62,51 @@ export function HrPageShell({
   )
 }
 
+export function HrStatCard({
+  label,
+  value,
+  icon: Icon,
+  color = 'violet',
+}: {
+  label: string
+  value: string | number
+  icon?: LucideIcon
+  color?: 'violet' | 'blue' | 'emerald' | 'amber' | 'red' | 'yellow' | 'sky' | 'slate' | 'cyan'
+}) {
+  const tone: Record<string, { wrap: string; icon: string }> = {
+    violet: { wrap: 'bg-violet-500/10 border-violet-500/20', icon: 'text-violet-400' },
+    blue: { wrap: 'bg-blue-500/10 border-blue-500/20', icon: 'text-blue-400' },
+    emerald: { wrap: 'bg-emerald-500/10 border-emerald-500/20', icon: 'text-emerald-400' },
+    amber: { wrap: 'bg-amber-500/10 border-amber-500/20', icon: 'text-amber-400' },
+    red: { wrap: 'bg-red-500/10 border-red-500/20', icon: 'text-red-400' },
+    yellow: { wrap: 'bg-yellow-500/10 border-yellow-500/20', icon: 'text-yellow-400' },
+    sky: { wrap: 'bg-sky-500/10 border-sky-500/20', icon: 'text-sky-400' },
+    slate: { wrap: 'bg-slate-500/10 border-slate-500/20', icon: 'text-slate-400' },
+    cyan: { wrap: 'bg-cyan-500/10 border-cyan-500/20', icon: 'text-cyan-400' },
+  }
+  const t = tone[color] ?? tone.violet
+  return (
+    <div className="card p-4 flex items-center gap-3">
+      {Icon && (
+        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center border', t.wrap)}>
+          <Icon size={15} className={t.icon} />
+        </div>
+      )}
+      <div>
+        <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
+        <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
+      </div>
+    </div>
+  )
+}
+
+/** @deprecated Prefer HrStatCard (Customers-page card style). */
 export function HrKpiCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
-    <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-      <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{value}</p>
-      {hint && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{hint}</p>}
+    <div className="card p-4">
+      <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
+      <p className="text-lg font-bold text-gray-900 dark:text-white mt-0.5">{value}</p>
+      {hint && <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">{hint}</p>}
     </div>
   )
 }
@@ -76,16 +115,15 @@ export function HrQuickLink({ href, icon: Icon, label, description }: { href: st
   return (
     <Link
       href={href}
-      className="block rounded-xl p-4 transition-colors hover:bg-white/5"
-      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      className="card p-4 block transition-colors hover:bg-white/5"
     >
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-          <Icon size={16} className="text-violet-400" />
+        <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+          <Icon size={15} className="text-violet-400" />
         </div>
         <div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{description}</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">{label}</p>
+          <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">{description}</p>
         </div>
       </div>
     </Link>
@@ -160,7 +198,7 @@ export function HrModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -168,47 +206,95 @@ export function HrModal({
           'w-full max-h-[92vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden',
           wide ? 'max-w-3xl' : 'max-w-lg',
         )}
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Header — matches Customers / TableCraft modal chrome */}
         <div
-          className="shrink-0 flex items-start justify-between gap-3 px-5 py-4"
-          style={{ borderBottom: '1px solid var(--border-subtle)', background: 'linear-gradient(180deg, rgba(139,92,246,0.08), transparent)' }}
+          className="shrink-0 flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 border-b"
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
         >
           <div className="flex items-center gap-3 min-w-0">
             {Icon && (
-              <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
-                <Icon size={18} className="text-violet-400" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20 shrink-0">
+                <Icon size={18} className="text-violet-500" />
               </div>
             )}
             <div className="min-w-0">
-              <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+              <h3 className="text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>{title}</h3>
               {subtitle && (
-                <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
+                <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
               )}
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors shrink-0 hover:bg-white/5"
+            className="p-2 rounded-lg transition-colors shrink-0 hover:bg-red-500/10 hover:text-red-500"
             style={{ color: 'var(--text-muted)' }}
             aria-label="Close"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+
+        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">{children}</div>
+
         {footer && (
           <div
-            className="shrink-0 px-5 py-4 flex flex-wrap items-center justify-end gap-2"
-            style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}
+            className="shrink-0 px-5 sm:px-6 py-4 flex flex-wrap items-center gap-3 border-t"
+            style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}
           >
             {footer}
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+/** Customers-style Cancel button for modal footers */
+export function HrModalCancel({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="h-10 px-6 rounded-xl border text-sm font-semibold transition-colors disabled:opacity-60"
+      style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
+    >
+      Cancel
+    </button>
+  )
+}
+
+/** Customers-style primary submit for modal footers */
+export function HrModalSubmit({
+  children,
+  loading,
+  form,
+  type = 'submit',
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode
+  loading?: boolean
+  form?: string
+  type?: 'submit' | 'button'
+  onClick?: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type={type}
+      form={form}
+      onClick={onClick}
+      disabled={disabled || loading}
+      className="flex-1 h-10 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 min-w-[140px]"
+      style={{ background: 'var(--brand-gradient)' }}
+    >
+      {loading ? <Loader2 size={14} className="animate-spin" /> : children}
+    </button>
   )
 }
 
@@ -227,11 +313,14 @@ export function HrField({
 }) {
   return (
     <div className={className}>
-      <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
-        {label}{required ? ' *' : ''}
+      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
       </label>
       {children}
-      {hint && <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{hint}</p>}
+      {hint && (
+        <p className="mt-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>{hint}</p>
+      )}
     </div>
   )
 }

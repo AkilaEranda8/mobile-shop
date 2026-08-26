@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Users, Plus, Loader2, Edit2, Search, Filter,
   UserRound, Building2, Briefcase, Phone, Link2, StickyNote, Calendar,
+  UserCheck, Link as LinkIcon,
 } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -12,21 +14,27 @@ import { getOperationalBranchId, getVisibleBranches } from '@/lib/active-branch'
 import { useUsers } from '@/lib/hooks'
 import { useModuleAccess } from '@/lib/module-access'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
+import { ToolbarSearch } from '@/components/ui/toolbar-search'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { cn } from '@/lib/utils'
 import {
   HrFeatureGate,
   HrPageShell,
-  HrLoading,
   HrError,
   HrModal,
+  HrModalCancel,
+  HrModalSubmit,
   HrField,
   HrSection,
   HrChoicePills,
   HrAvatarBadge,
+  HrStatCard,
   EMPLOYMENT_STATUS_LABELS,
   EMPLOYMENT_TYPE_LABELS,
   EMPLOYMENT_STATUS_STYLE,
 } from '@/components/hr/hr-ui'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 
 type Employee = {
   id: string
@@ -234,18 +242,10 @@ function EmployeeModal({
       onClose={onClose}
       footer={(
         <>
-          <button type="button" onClick={onClose} className="btn-secondary text-sm px-4" disabled={loading}>
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="hr-employee-form"
-            disabled={loading || detailLoading}
-            className="btn-primary text-sm px-4 flex items-center gap-2 disabled:opacity-60"
-          >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : isEdit ? <Edit2 size={14} /> : <Plus size={14} />}
+          <HrModalCancel onClick={onClose} disabled={loading} />
+          <HrModalSubmit form="hr-employee-form" loading={loading || detailLoading}>
             {isEdit ? 'Save changes' : 'Create employee'}
-          </button>
+          </HrModalSubmit>
         </>
       )}
     >
@@ -550,6 +550,75 @@ export default function HrEmployeesPage() {
     return () => window.clearTimeout(t)
   }, [load])
 
+  const activeCount = rows.filter(r => r.status === 'ACTIVE').length
+  const linkedCount = rows.filter(r => !!r.user).length
+
+  const columns = useMemo<ColumnDef<Employee>[]>(() => {
+    const cols: ColumnDef<Employee>[] = [
+      {
+        accessorKey: 'fullName',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+        cell: ({ row }) => (
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">{row.original.fullName}</p>
+            <p className="text-xs font-mono text-gray-500 dark:text-slate-500">{row.original.employeeCode}</p>
+          </div>
+        ),
+      },
+      {
+        id: 'branch',
+        accessorFn: r => r.primaryBranch?.name ?? '',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Branch" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">{row.original.primaryBranch?.name ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'deptTitle',
+        accessorFn: r => [r.department?.name, r.designation?.name].filter(Boolean).join(' · '),
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Dept / Title" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">
+            {[row.original.department?.name, row.original.designation?.name].filter(Boolean).join(' · ') || '—'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => {
+          const tone = EMPLOYMENT_STATUS_STYLE[row.original.status]
+          return (
+            <span className={cn('text-xs px-2 py-0.5 rounded-full border', tone?.bg, tone?.text, tone?.border)}>
+              {EMPLOYMENT_STATUS_LABELS[row.original.status] ?? row.original.status}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'linkedUser',
+        accessorFn: r => r.user?.name ?? '',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Linked user" />,
+        cell: ({ row }) => (
+          <span className="text-xs text-gray-500 dark:text-slate-400">{row.original.user?.name ?? '—'}</span>
+        ),
+      },
+    ]
+    if (canEdit) {
+      cols.push({
+        id: 'actions',
+        enableSorting: false,
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <TableActionsRow editAction={{ action: () => setModal(row.original) }} />
+          </div>
+        ),
+      })
+    }
+    return cols
+  }, [canEdit])
+
   return (
     <HrFeatureGate>
       <HrPageShell
@@ -562,16 +631,20 @@ export default function HrEmployeesPage() {
           </button>
         )}
       >
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-            <input
-              className="input-field w-full pl-9"
-              placeholder="Search name, code, email…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Total" value={rows.length} icon={Users} color="violet" />
+          <HrStatCard label="Active" value={activeCount} icon={UserCheck} color="emerald" />
+          <HrStatCard label="Linked login" value={linkedCount} icon={LinkIcon} color="blue" />
+          <HrStatCard label="Departments" value={departments.length} icon={Building2} color="sky" />
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <ToolbarSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Search name, code, email…"
+            className="w-full sm:w-auto sm:min-w-[220px]"
+          />
           <FilterDropdown
             value={statusFilter}
             onChange={setStatusFilter}
@@ -583,62 +656,15 @@ export default function HrEmployeesPage() {
           />
         </div>
 
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Employee</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Branch</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Dept / Title</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Linked user</th>
-                  {canEdit && <th className="px-4 py-3" />}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => {
-                  const tone = EMPLOYMENT_STATUS_STYLE[row.status]
-                  return (
-                    <tr key={row.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="px-4 py-3">
-                        <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{row.fullName}</p>
-                        <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{row.employeeCode}</p>
-                      </td>
-                      <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{row.primaryBranch?.name ?? '—'}</td>
-                      <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
-                        {[row.department?.name, row.designation?.name].filter(Boolean).join(' · ') || '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={cn('text-xs px-2 py-0.5 rounded-full border', tone?.bg, tone?.text, tone?.border)}>
-                          {EMPLOYMENT_STATUS_LABELS[row.status] ?? row.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {row.user ? `${row.user.name}` : '—'}
-                      </td>
-                      {canEdit && (
-                        <td className="px-4 py-3 text-right">
-                          <button type="button" onClick={() => setModal(row)} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
-                            <Edit2 size={14} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  )
-                })}
-                {!rows.length && (
-                  <tr>
-                    <td colSpan={canEdit ? 6 : 5} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                      No employees found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        {error && <HrError message={error} />}
+        {!error && (
+          <ClientSideTable
+            data={rows}
+            columns={columns}
+            isLoading={loading}
+            pageCount={Math.ceil((rows.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
       </HrPageShell>
       {modal && (

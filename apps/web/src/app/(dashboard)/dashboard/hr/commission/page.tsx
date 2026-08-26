@@ -1,11 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { TrendingUp, Loader2, Plus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { TrendingUp, Plus, Users, ListChecks, Wallet } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { useModuleAccess } from '@/lib/module-access'
-import { HrFeatureGate, HrPageShell, HrLoading, HrError, HrModal, HrField, HrKpiCard } from '@/components/hr/hr-ui'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { HrFeatureGate, HrPageShell, HrError, HrModal, HrModalCancel, HrModalSubmit, HrField, HrStatCard } from '@/components/hr/hr-ui'
 
 type Rule = { id: string; name: string; source: string; ratePercent: number; flatPerUnit: number; isActive: boolean }
 type PreviewRow = {
@@ -63,6 +66,69 @@ export default function HrCommissionPage() {
     finally { setSaving(false) }
   }
 
+  const previewColumns = useMemo<ColumnDef<PreviewRow>[]>(() => [
+    {
+      id: 'employee',
+      accessorFn: r => r.employee.fullName,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.employee.fullName}</span>,
+    },
+    {
+      accessorKey: 'docCount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Docs" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.docCount}</span>,
+    },
+    {
+      id: 'sales',
+      accessorFn: r => r.bySource.SALES ?? 0,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sales" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{(row.original.bySource.SALES ?? 0).toLocaleString()}</span>,
+    },
+    {
+      id: 'repairs',
+      accessorFn: r => r.bySource.REPAIRS ?? 0,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Repairs" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{(row.original.bySource.REPAIRS ?? 0).toLocaleString()}</span>,
+    },
+    {
+      accessorKey: 'total',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Total" />,
+      cell: ({ row }) => <span className="font-semibold text-gray-900 dark:text-white">{row.original.total.toLocaleString()}</span>,
+    },
+  ], [])
+
+  const ruleColumns = useMemo<ColumnDef<Rule>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Rule" />,
+      cell: ({ row }) => <span className="font-medium text-gray-900 dark:text-white">{row.original.name}</span>,
+    },
+    {
+      accessorKey: 'source',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Source" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.source}</span>,
+    },
+    {
+      accessorKey: 'ratePercent',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Rate %" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.ratePercent}%</span>,
+    },
+    {
+      accessorKey: 'flatPerUnit',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Flat" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.flatPerUnit}</span>,
+    },
+    {
+      accessorKey: 'isActive',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-xs px-2 py-0.5 rounded-full ${row.original.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400'}`}>
+          {row.original.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+  ], [])
+
   return (
     <HrFeatureGate>
       <HrPageShell title="Commission" subtitle="Staff sales / repair incentive preview (calc only)" icon={TrendingUp}
@@ -72,10 +138,11 @@ export default function HrCommissionPage() {
           </button>
         ) : undefined}
       >
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <HrKpiCard label="Period total" value={Number(grandTotal.toFixed(0))} />
-          <HrKpiCard label="Staff with earnings" value={rows.filter(r => r.total > 0).length} />
-          <HrKpiCard label="Active rules" value={rules.filter(r => r.isActive).length} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Period total" value={Number(grandTotal.toFixed(0))} icon={Wallet} color="violet" />
+          <HrStatCard label="Staff with earnings" value={rows.filter(r => r.total > 0).length} icon={Users} color="emerald" />
+          <HrStatCard label="Active rules" value={rules.filter(r => r.isActive).length} icon={ListChecks} color="blue" />
+          <HrStatCard label="Preview rows" value={rows.length} icon={TrendingUp} color="sky" />
         </div>
         <div className="flex flex-wrap gap-2 items-end">
           <label className="text-xs" style={{ color: 'var(--text-muted)' }}>From
@@ -87,61 +154,49 @@ export default function HrCommissionPage() {
               className="block mt-1 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} />
           </label>
         </div>
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && (
+        {error && <HrError message={error} />}
+        {!error && (
           <>
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-              <table className="w-full text-sm">
-                <thead style={{ background: 'var(--bg-subtle)' }}>
-                  <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
-                    <th className="px-3 py-2">Employee</th>
-                    <th className="px-3 py-2">Docs</th>
-                    <th className="px-3 py-2">Sales</th>
-                    <th className="px-3 py-2">Repairs</th>
-                    <th className="px-3 py-2">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(r => (
-                    <tr key={r.employee.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{r.employee.fullName}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{r.docCount}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{(r.bySource.SALES ?? 0).toLocaleString()}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{(r.bySource.REPAIRS ?? 0).toLocaleString()}</td>
-                      <td className="px-3 py-2 font-semibold" style={{ color: 'var(--text-primary)' }}>{r.total.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                  {!rows.length && <tr><td colSpan={5} className="px-3 py-8 text-center" style={{ color: 'var(--text-muted)' }}>No linked employees with attribution</td></tr>}
-                </tbody>
-              </table>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {rules.map(r => (
-                <div key={r.id} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                  <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{r.name}</div>
-                  <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{r.source} · {r.ratePercent}% + {r.flatPerUnit} flat</div>
-                </div>
-              ))}
-            </div>
+            <ClientSideTable
+              data={rows}
+              columns={previewColumns}
+              isLoading={loading}
+              pageCount={Math.ceil((rows.length || 1) / 20)}
+              searchableColumns={[]}
+            />
+            <ClientSideTable
+              data={rules}
+              columns={ruleColumns}
+              isLoading={loading}
+              pageCount={Math.ceil((rules.length || 1) / 20)}
+              searchableColumns={[]}
+            />
           </>
         )}
       </HrPageShell>
       {open && (
-        <HrModal title="Commission rule" onClose={() => setOpen(false)}>
+        <HrModal
+          title="Commission rule"
+          onClose={() => setOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setOpen(false)} disabled={saving} />
+              <HrModalSubmit type="button" loading={saving} onClick={() => void save()}>
+                Save
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
-            <HrField label="Name"><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
+            <HrField label="Name"><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input-field h-11 w-full" /></HrField>
             <HrField label="Source">
-              <select value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+              <select value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} className="input-field h-11 w-full">
                 <option value="SALES">Sales</option>
                 <option value="REPAIRS">Repairs</option>
                 <option value="HIRE_PURCHASE">Hire purchase</option>
               </select>
             </HrField>
-            <HrField label="Rate %"><input type="number" value={form.ratePercent} onChange={e => setForm(f => ({ ...f, ratePercent: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <button type="button" disabled={saving} onClick={() => void save()} className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-              {saving && <Loader2 className="w-4 h-4 inline animate-spin mr-1" />} Save
-            </button>
+            <HrField label="Rate %"><input type="number" value={form.ratePercent} onChange={e => setForm(f => ({ ...f, ratePercent: e.target.value }))} className="input-field h-11 w-full" /></HrField>
           </div>
         </HrModal>
       )}

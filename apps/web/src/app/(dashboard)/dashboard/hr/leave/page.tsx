@@ -1,18 +1,22 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Briefcase, Check, Loader2, Plus, X } from 'lucide-react'
+import { Briefcase, Check, Loader2, Plus, X, Clock, CheckCircle2, Layers, CalendarDays } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { useModuleAccess } from '@/lib/module-access'
 import { cn } from '@/lib/utils'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import {
   HrFeatureGate,
   HrPageShell,
-  HrLoading,
   HrError,
-  HrKpiCard,
+  HrStatCard,
   HrModal,
+  HrModalCancel,
+  HrModalSubmit,
   HrField,
 } from '@/components/hr/hr-ui'
 
@@ -244,6 +248,142 @@ export default function HrLeavePage() {
     }
   }
 
+  const requestColumns = useMemo<ColumnDef<LeaveRequest>[]>(() => [
+    {
+      id: 'employee',
+      accessorFn: r => r.employee.fullName,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium text-gray-900 dark:text-white">{row.original.employee.fullName}</div>
+          <div className="text-xs text-gray-500 dark:text-slate-500">{row.original.employee.employeeCode}</div>
+        </div>
+      ),
+    },
+    {
+      id: 'type',
+      accessorFn: r => r.leaveType.name,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.leaveType.name}</span>,
+    },
+    {
+      id: 'dates',
+      accessorFn: r => r.startDate,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Dates" />,
+      cell: ({ row }) => {
+        const r = row.original
+        return (
+          <span className="text-gray-500 dark:text-slate-400">
+            {dateKey(r.startDate)}
+            {dateKey(r.endDate) !== dateKey(r.startDate) ? ` → ${dateKey(r.endDate)}` : ''}
+            {(r.startPart !== 'FULL' || r.endPart !== 'FULL') && (
+              <span className="ml-1 text-xs">({r.startPart}/{r.endPart})</span>
+            )}
+          </span>
+        )
+      },
+    },
+    {
+      accessorKey: 'days',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Days" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.days}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={cn('inline-flex px-2 py-0.5 rounded border text-xs', STATUS_STYLE[row.original.status] ?? STATUS_STYLE.DRAFT)}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      enableSorting: false,
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => {
+        const r = row.original
+        return (
+          <div className="flex flex-wrap gap-1 justify-end">
+            {canEdit && r.status === 'SUBMITTED' && (
+              <>
+                <button
+                  type="button"
+                  disabled={busyId === r.id}
+                  onClick={() => void review(r.id, 'approve')}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs"
+                  style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}
+                >
+                  {busyId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === r.id}
+                  onClick={() => void review(r.id, 'reject')}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5' }}
+                >
+                  <X className="w-3 h-3" /> Reject
+                </button>
+              </>
+            )}
+            {(r.status === 'SUBMITTED' || r.status === 'APPROVED') && (
+              <button
+                type="button"
+                disabled={busyId === r.id}
+                onClick={() => void review(r.id, 'cancel')}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs"
+                style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        )
+      },
+    },
+  ], [canEdit, busyId])
+
+  const balanceColumns = useMemo<ColumnDef<LeaveBalance>[]>(() => [
+    {
+      id: 'employee',
+      accessorFn: r => r.employee.fullName,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.employee.fullName}</span>,
+    },
+    {
+      id: 'type',
+      accessorFn: r => r.leaveType.name,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.leaveType.name}</span>,
+    },
+    {
+      accessorKey: 'entitled',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Entitled" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.entitled}</span>,
+    },
+    {
+      accessorKey: 'used',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Used" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.used}</span>,
+    },
+    {
+      accessorKey: 'pending',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Pending" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.pending}</span>,
+    },
+    {
+      id: 'available',
+      accessorFn: r => Math.max(0, r.entitled - r.used - r.pending),
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Available" />,
+      cell: ({ row }) => {
+        const available = Math.max(0, row.original.entitled - row.original.used - row.original.pending)
+        return <span className="font-semibold text-gray-900 dark:text-white">{available}</span>
+      },
+    },
+  ], [])
+
   return (
     <HrFeatureGate>
       <HrPageShell
@@ -261,11 +401,11 @@ export default function HrLeavePage() {
           </button>
         }
       >
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <HrKpiCard label="Pending approval" value={kpis.pending} />
-          <HrKpiCard label="Approved (list)" value={kpis.approved} />
-          <HrKpiCard label="Balance rows" value={kpis.balances} />
-          <HrKpiCard label="Days available" value={Number(kpis.available.toFixed(1))} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Pending approval" value={kpis.pending} icon={Clock} color="amber" />
+          <HrStatCard label="Approved (list)" value={kpis.approved} icon={CheckCircle2} color="emerald" />
+          <HrStatCard label="Balance rows" value={kpis.balances} icon={Layers} color="blue" />
+          <HrStatCard label="Days available" value={Number(kpis.available.toFixed(1))} icon={CalendarDays} color="violet" />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -289,10 +429,9 @@ export default function HrLeavePage() {
           ))}
         </div>
 
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
+        {error && <HrError message={error} />}
 
-        {!loading && !error && tab === 'requests' && (
+        {!error && tab === 'requests' && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2 items-center">
               <select
@@ -308,132 +447,27 @@ export default function HrLeavePage() {
                 <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-              <table className="w-full text-sm">
-                <thead style={{ background: 'var(--bg-subtle)' }}>
-                  <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
-                    <th className="px-3 py-2 font-medium">Employee</th>
-                    <th className="px-3 py-2 font-medium">Type</th>
-                    <th className="px-3 py-2 font-medium">Dates</th>
-                    <th className="px-3 py-2 font-medium">Days</th>
-                    <th className="px-3 py-2 font-medium">Status</th>
-                    <th className="px-3 py-2 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requests.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                        No leave requests
-                      </td>
-                    </tr>
-                  )}
-                  {requests.map(r => (
-                    <tr key={r.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>
-                        <div className="font-medium">{r.employee.fullName}</div>
-                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.employee.employeeCode}</div>
-                      </td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{r.leaveType.name}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>
-                        {dateKey(r.startDate)}
-                        {dateKey(r.endDate) !== dateKey(r.startDate) ? ` → ${dateKey(r.endDate)}` : ''}
-                        {(r.startPart !== 'FULL' || r.endPart !== 'FULL') && (
-                          <span className="ml-1 text-xs">({r.startPart}/{r.endPart})</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{r.days}</td>
-                      <td className="px-3 py-2">
-                        <span className={cn('inline-flex px-2 py-0.5 rounded border text-xs', STATUS_STYLE[r.status] ?? STATUS_STYLE.DRAFT)}>
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {canEdit && r.status === 'SUBMITTED' && (
-                            <>
-                              <button
-                                type="button"
-                                disabled={busyId === r.id}
-                                onClick={() => void review(r.id, 'approve')}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs"
-                                style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}
-                              >
-                                {busyId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                                Approve
-                              </button>
-                              <button
-                                type="button"
-                                disabled={busyId === r.id}
-                                onClick={() => void review(r.id, 'reject')}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs"
-                                style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5' }}
-                              >
-                                <X className="w-3 h-3" /> Reject
-                              </button>
-                            </>
-                          )}
-                          {(r.status === 'SUBMITTED' || r.status === 'APPROVED') && (
-                            <button
-                              type="button"
-                              disabled={busyId === r.id}
-                              onClick={() => void review(r.id, 'cancel')}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs"
-                              style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ClientSideTable
+              data={requests}
+              columns={requestColumns}
+              isLoading={loading}
+              pageCount={Math.ceil((requests.length || 1) / 20)}
+              searchableColumns={[]}
+            />
           </div>
         )}
 
-        {!loading && !error && tab === 'balances' && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
-                  <th className="px-3 py-2 font-medium">Employee</th>
-                  <th className="px-3 py-2 font-medium">Type</th>
-                  <th className="px-3 py-2 font-medium">Entitled</th>
-                  <th className="px-3 py-2 font-medium">Used</th>
-                  <th className="px-3 py-2 font-medium">Pending</th>
-                  <th className="px-3 py-2 font-medium">Available</th>
-                </tr>
-              </thead>
-              <tbody>
-                {balances.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-3 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                      No balances yet — link your user to an employee or open as manager
-                    </td>
-                  </tr>
-                )}
-                {balances.map(b => {
-                  const available = Math.max(0, b.entitled - b.used - b.pending)
-                  return (
-                    <tr key={b.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{b.employee.fullName}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{b.leaveType.name}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{b.entitled}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{b.used}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{b.pending}</td>
-                      <td className="px-3 py-2 font-semibold" style={{ color: 'var(--text-primary)' }}>{available}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+        {!error && tab === 'balances' && (
+          <ClientSideTable
+            data={balances}
+            columns={balanceColumns}
+            isLoading={loading}
+            pageCount={Math.ceil((balances.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
 
-        {!loading && !error && tab === 'types' && (
+        {!error && tab === 'types' && (
           <div className="space-y-3">
             {canEdit && (
               <button
@@ -452,16 +486,15 @@ export default function HrLeavePage() {
                   type="button"
                   disabled={!canEdit}
                   onClick={() => canEdit && openType(t)}
-                  className="text-left rounded-xl p-4"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+                  className="card text-left p-4"
                 >
                   <div className="flex justify-between gap-2">
-                    <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{t.name}</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">{t.name}</div>
                     <span className="text-xs" style={{ color: t.isActive ? '#6ee7b7' : 'var(--text-muted)' }}>
                       {t.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  <div className="text-xs mt-1 text-gray-500 dark:text-slate-500">
                     {t.code || '—'} · {t.annualAllowance} days · {t.isPaid ? 'Paid' : 'Unpaid'}
                   </div>
                 </button>
@@ -472,15 +505,25 @@ export default function HrLeavePage() {
       </HrPageShell>
 
       {submitOpen && (
-        <HrModal title="Request leave" onClose={() => setSubmitOpen(false)}>
+        <HrModal
+          title="Request leave"
+          onClose={() => setSubmitOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setSubmitOpen(false)} disabled={saving} />
+              <HrModalSubmit type="button" loading={saving} onClick={() => void submitLeave()}>
+                Submit
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
             {canEdit && employees.length > 0 && (
               <HrField label="Employee">
                 <select
                   value={form.employeeId}
                   onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                  style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                  className="input-field h-11 w-full"
                 >
                   <option value="">My linked employee</option>
                   {employees.map(e => (
@@ -493,8 +536,7 @@ export default function HrLeavePage() {
               <select
                 value={form.leaveTypeId}
                 onChange={e => setForm(f => ({ ...f, leaveTypeId: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                className="input-field h-11 w-full"
               >
                 {types.filter(t => t.isActive).map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
@@ -507,8 +549,7 @@ export default function HrLeavePage() {
                   type="date"
                   value={form.startDate}
                   onChange={e => setForm(f => ({ ...f, startDate: e.target.value, endDate: f.endDate < e.target.value ? e.target.value : f.endDate }))}
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                  style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                  className="input-field h-11 w-full"
                 />
               </HrField>
               <HrField label="End">
@@ -516,8 +557,7 @@ export default function HrLeavePage() {
                   type="date"
                   value={form.endDate}
                   onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                  style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                  className="input-field h-11 w-full"
                 />
               </HrField>
             </div>
@@ -526,8 +566,7 @@ export default function HrLeavePage() {
                 <select
                   value={form.startPart}
                   onChange={e => setForm(f => ({ ...f, startPart: e.target.value }))}
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                  style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                  className="input-field h-11 w-full"
                 >
                   <option value="FULL">Full day</option>
                   <option value="AM">AM</option>
@@ -538,8 +577,7 @@ export default function HrLeavePage() {
                 <select
                   value={form.endPart}
                   onChange={e => setForm(f => ({ ...f, endPart: e.target.value }))}
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                  style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                  className="input-field h-11 w-full"
                 >
                   <option value="FULL">Full day</option>
                   <option value="AM">AM</option>
@@ -552,41 +590,39 @@ export default function HrLeavePage() {
                 value={form.reason}
                 onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                 rows={3}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                className="input-field w-full min-h-[80px] resize-y"
               />
             </HrField>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void submitLeave()}
-              className="w-full inline-flex justify-center items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
-              style={{ background: 'var(--accent)', color: '#fff' }}
-            >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Submit
-            </button>
           </div>
         </HrModal>
       )}
 
       {typeModal && (
-        <HrModal title={typeModal === 'new' ? 'New leave type' : 'Edit leave type'} onClose={() => setTypeModal(null)}>
+        <HrModal
+          title={typeModal === 'new' ? 'New leave type' : 'Edit leave type'}
+          onClose={() => setTypeModal(null)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setTypeModal(null)} disabled={saving} />
+              <HrModalSubmit type="button" loading={saving} onClick={() => void saveType()}>
+                Save
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
             <HrField label="Name">
               <input
                 value={typeForm.name}
                 onChange={e => setTypeForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                className="input-field h-11 w-full"
               />
             </HrField>
             <HrField label="Code">
               <input
                 value={typeForm.code}
                 onChange={e => setTypeForm(f => ({ ...f, code: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                className="input-field h-11 w-full"
               />
             </HrField>
             <HrField label="Annual allowance">
@@ -595,8 +631,7 @@ export default function HrLeavePage() {
                 min={0}
                 value={typeForm.annualAllowance}
                 onChange={e => setTypeForm(f => ({ ...f, annualAllowance: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                className="input-field h-11 w-full"
               />
             </HrField>
             <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -615,16 +650,6 @@ export default function HrLeavePage() {
               <input type="checkbox" checked={typeForm.isActive} onChange={e => setTypeForm(f => ({ ...f, isActive: e.target.checked }))} />
               Active
             </label>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void saveType()}
-              className="w-full inline-flex justify-center items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
-              style={{ background: 'var(--accent)', color: '#fff' }}
-            >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Save
-            </button>
           </div>
         </HrModal>
       )}

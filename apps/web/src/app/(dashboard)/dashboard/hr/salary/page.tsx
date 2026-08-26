@@ -1,19 +1,22 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { DollarSign, Loader2, Plus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { DollarSign, Plus, Package as PackageIcon, Layers } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { useModuleAccess } from '@/lib/module-access'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import {
-  HrFeatureGate, HrPageShell, HrLoading, HrError, HrModal, HrField,
+  HrFeatureGate, HrPageShell, HrError, HrModal, HrModalCancel, HrModalSubmit, HrField, HrStatCard,
 } from '@/components/hr/hr-ui'
 
 type Component = {
   id: string; name: string; code: string; kind: string; calcType: string
   defaultAmount: number; isActive: boolean
 }
-type Package = {
+type SalaryPackage = {
   id: string; basicSalary: number; effectiveFrom: string; effectiveTo: string | null
   employee: { id: string; fullName: string; employeeCode: string }
   lines: Array<{ componentId: string; amount: number; component: Component }>
@@ -26,7 +29,7 @@ export default function HrSalaryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [components, setComponents] = useState<Component[]>([])
-  const [packages, setPackages] = useState<Package[]>([])
+  const [packages, setPackages] = useState<SalaryPackage[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [pkgOpen, setPkgOpen] = useState(false)
   const [compOpen, setCompOpen] = useState(false)
@@ -43,7 +46,7 @@ export default function HrSalaryPage() {
     try {
       const [c, p, e] = await Promise.all([
         hrApi.listSalaryComponents() as Promise<{ data: Component[] }>,
-        hrApi.listSalaryPackages() as Promise<{ data: Package[] }>,
+        hrApi.listSalaryPackages() as Promise<{ data: SalaryPackage[] }>,
         hrApi.listEmployees({ limit: '200' }) as Promise<{ data: { data: Employee[] } }>,
       ])
       setComponents(c.data ?? [])
@@ -85,6 +88,68 @@ export default function HrSalaryPage() {
     finally { setSaving(false) }
   }
 
+  const packageColumns = useMemo<ColumnDef<SalaryPackage>[]>(() => [
+    {
+      id: 'employee',
+      accessorFn: r => r.employee.fullName,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.employee.fullName}</span>,
+    },
+    {
+      accessorKey: 'basicSalary',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Basic" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.basicSalary.toLocaleString()}</span>,
+    },
+    {
+      accessorKey: 'effectiveFrom',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Effective" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.effectiveFrom.slice(0, 10)}</span>,
+    },
+    {
+      id: 'lines',
+      accessorFn: r => r.lines.length,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Lines" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.lines.length}</span>,
+    },
+  ], [])
+
+  const componentColumns = useMemo<ColumnDef<Component>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+      cell: ({ row }) => <span className="font-medium text-gray-900 dark:text-white">{row.original.name}</span>,
+    },
+    {
+      accessorKey: 'code',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
+      cell: ({ row }) => <span className="font-mono text-xs text-gray-500 dark:text-slate-400">{row.original.code}</span>,
+    },
+    {
+      accessorKey: 'kind',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Kind" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.kind}</span>,
+    },
+    {
+      accessorKey: 'calcType',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Calc" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.calcType}</span>,
+    },
+    {
+      accessorKey: 'defaultAmount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Default" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.defaultAmount}</span>,
+    },
+    {
+      accessorKey: 'isActive',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={`text-xs px-2 py-0.5 rounded-full ${row.original.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400'}`}>
+          {row.original.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+  ], [])
+
   return (
     <HrFeatureGate>
       <HrPageShell title="Salary" subtitle="Components and employee packages" icon={DollarSign}
@@ -100,88 +165,95 @@ export default function HrSalaryPage() {
           </div>
         ) : undefined}
       >
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Packages" value={packages.length} icon={PackageIcon} color="violet" />
+          <HrStatCard label="Components" value={components.length} icon={Layers} color="blue" />
+          <HrStatCard label="Active components" value={components.filter(c => c.isActive).length} icon={DollarSign} color="emerald" />
+          <HrStatCard label="Employees" value={employees.length} icon={PackageIcon} color="sky" />
+        </div>
+
         <div className="flex gap-2">
           {(['packages', 'components'] as const).map(t => (
             <button key={t} type="button" onClick={() => setTab(t)} className="px-3 py-1.5 rounded-lg text-sm capitalize"
               style={{ background: tab === t ? 'var(--bg-subtle)' : 'transparent', color: 'var(--text-muted)' }}>{t}</button>
           ))}
         </div>
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && tab === 'packages' && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
-                  <th className="px-3 py-2">Employee</th>
-                  <th className="px-3 py-2">Basic</th>
-                  <th className="px-3 py-2">Effective</th>
-                  <th className="px-3 py-2">Lines</th>
-                </tr>
-              </thead>
-              <tbody>
-                {packages.map(p => (
-                  <tr key={p.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{p.employee.fullName}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{p.basicSalary.toLocaleString()}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{p.effectiveFrom.slice(0, 10)}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{p.lines.length}</td>
-                  </tr>
-                ))}
-                {!packages.length && <tr><td colSpan={4} className="px-3 py-8 text-center" style={{ color: 'var(--text-muted)' }}>No packages yet</td></tr>}
-              </tbody>
-            </table>
-          </div>
+        {error && <HrError message={error} />}
+        {!error && tab === 'packages' && (
+          <ClientSideTable
+            data={packages}
+            columns={packageColumns}
+            isLoading={loading}
+            pageCount={Math.ceil((packages.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
-        {!loading && !error && tab === 'components' && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {components.map(c => (
-              <div key={c.id} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
-                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{c.code} · {c.kind} · {c.calcType} · {c.defaultAmount}</div>
-              </div>
-            ))}
-          </div>
+        {!error && tab === 'components' && (
+          <ClientSideTable
+            data={components}
+            columns={componentColumns}
+            isLoading={loading}
+            pageCount={Math.ceil((components.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
       </HrPageShell>
 
       {pkgOpen && (
-        <HrModal title="Set salary package" onClose={() => setPkgOpen(false)}>
+        <HrModal
+          title="Set salary package"
+          onClose={() => setPkgOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setPkgOpen(false)} disabled={saving} />
+              <HrModalSubmit type="button" loading={saving} onClick={() => void savePackage()}>
+                Save
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
             <HrField label="Employee">
               <select value={pkgForm.employeeId} onChange={e => setPkgForm(f => ({ ...f, employeeId: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+                className="input-field h-11 w-full">
                 {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
               </select>
             </HrField>
             <HrField label="Basic salary">
               <input type="number" value={pkgForm.basicSalary} onChange={e => setPkgForm(f => ({ ...f, basicSalary: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} />
+                className="input-field h-11 w-full" />
             </HrField>
             <HrField label="Effective from">
               <input type="date" value={pkgForm.effectiveFrom} onChange={e => setPkgForm(f => ({ ...f, effectiveFrom: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} />
+                className="input-field h-11 w-full" />
             </HrField>
-            <button type="button" disabled={saving} onClick={() => void savePackage()}
-              className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-              {saving && <Loader2 className="w-4 h-4 inline animate-spin mr-1" />} Save
-            </button>
           </div>
         </HrModal>
       )}
 
       {compOpen && (
-        <HrModal title="New component" onClose={() => setCompOpen(false)}>
+        <HrModal
+          title="New component"
+          onClose={() => setCompOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setCompOpen(false)} disabled={saving} />
+              <HrModalSubmit type="button" loading={saving} onClick={() => void saveComponent()}>
+                Save
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
             {(['name', 'code'] as const).map(k => (
               <HrField key={k} label={k}>
                 <input value={compForm[k]} onChange={e => setCompForm(f => ({ ...f, [k]: e.target.value }))}
-                  className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} />
+                  className="input-field h-11 w-full" />
               </HrField>
             ))}
             <HrField label="Kind">
               <select value={compForm.kind} onChange={e => setCompForm(f => ({ ...f, kind: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+                className="input-field h-11 w-full">
                 <option value="EARNING">Earning</option>
                 <option value="DEDUCTION">Deduction</option>
                 <option value="EMPLOYER">Employer</option>
@@ -189,10 +261,8 @@ export default function HrSalaryPage() {
             </HrField>
             <HrField label="Default amount / %">
               <input type="number" value={compForm.defaultAmount} onChange={e => setCompForm(f => ({ ...f, defaultAmount: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} />
+                className="input-field h-11 w-full" />
             </HrField>
-            <button type="button" disabled={saving} onClick={() => void saveComponent()}
-              className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Save</button>
           </div>
         </HrModal>
       )}

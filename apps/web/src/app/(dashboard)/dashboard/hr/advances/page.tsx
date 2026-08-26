@@ -1,11 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { CreditCard, Loader2, Plus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CreditCard, Loader2, Plus, Banknote, Landmark } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { useModuleAccess } from '@/lib/module-access'
-import { HrFeatureGate, HrPageShell, HrLoading, HrError, HrModal, HrField } from '@/components/hr/hr-ui'
+import { cn } from '@/lib/utils'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { HrFeatureGate, HrPageShell, HrError, HrModal, HrModalCancel, HrModalSubmit, HrField, HrStatCard } from '@/components/hr/hr-ui'
 
 type Advance = {
   id: string; amount: number; status: string; reason: string | null; recoveredAmount: number
@@ -16,6 +20,16 @@ type Loan = {
   employee: { id: string; fullName: string; employeeCode: string }
 }
 type Employee = { id: string; fullName: string; employeeCode: string }
+
+const STATUS_STYLE: Record<string, string> = {
+  REQUESTED: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  REJECTED: 'bg-red-500/15 text-red-300 border-red-500/30',
+  DISBURSED: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  ACTIVE: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  CLOSED: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+  RECOVERING: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+}
 
 export default function HrAdvancesPage() {
   const { canEdit } = useModuleAccess()
@@ -96,6 +110,116 @@ export default function HrAdvancesPage() {
     finally { setBusyId(null) }
   }
 
+  const advanceColumns = useMemo<ColumnDef<Advance>[]>(() => [
+    {
+      id: 'employee',
+      accessorFn: r => r.employee.fullName,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.employee.fullName}</span>,
+    },
+    {
+      accessorKey: 'amount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.amount.toLocaleString()}</span>,
+    },
+    {
+      accessorKey: 'recoveredAmount',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Recovered" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.recoveredAmount.toLocaleString()}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_STYLE[row.original.status] ?? STATUS_STYLE.REQUESTED)}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      enableSorting: false,
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => {
+        const a = row.original
+        return (
+          <div className="flex flex-wrap gap-1 justify-end">
+            {canEdit && a.status === 'REQUESTED' && (
+              <>
+                <button type="button" disabled={busyId === a.id} onClick={() => void advAct(a.id, 'approve')} className="px-2 py-1 rounded text-xs" style={{ color: '#6ee7b7' }}>Approve</button>
+                <button type="button" disabled={busyId === a.id} onClick={() => void advAct(a.id, 'reject')} className="px-2 py-1 rounded text-xs" style={{ color: '#fca5a5' }}>Reject</button>
+              </>
+            )}
+            {canEdit && a.status === 'APPROVED' && (
+              <button type="button" disabled={busyId === a.id} onClick={() => void advAct(a.id, 'disburse')} className="px-2 py-1 rounded text-xs" style={{ color: '#93c5fd' }}>
+                {busyId === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Disburse'}
+              </button>
+            )}
+          </div>
+        )
+      },
+    },
+  ], [canEdit, busyId])
+
+  const loanColumns = useMemo<ColumnDef<Loan>[]>(() => [
+    {
+      id: 'employee',
+      accessorFn: r => r.employee.fullName,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.employee.fullName}</span>,
+    },
+    {
+      accessorKey: 'principal',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Principal" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.principal.toLocaleString()}</span>,
+    },
+    {
+      accessorKey: 'outstanding',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Outstanding" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original.outstanding.toLocaleString()}</span>,
+    },
+    {
+      id: 'installments',
+      accessorFn: r => r.installmentCount,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Installments" />,
+      cell: ({ row }) => (
+        <span className="text-gray-500 dark:text-slate-400">
+          {row.original.installmentCount} × {row.original.installmentAmount.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_STYLE[row.original.status] ?? STATUS_STYLE.REQUESTED)}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      enableSorting: false,
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => {
+        const l = row.original
+        return (
+          <div className="flex flex-wrap gap-1 justify-end">
+            {canEdit && l.status === 'REQUESTED' && (
+              <>
+                <button type="button" onClick={() => void loanAct(l.id, 'approve')} className="px-2 py-1 rounded text-xs" style={{ color: '#6ee7b7' }}>Approve</button>
+                <button type="button" onClick={() => void loanAct(l.id, 'reject')} className="px-2 py-1 rounded text-xs" style={{ color: '#fca5a5' }}>Reject</button>
+              </>
+            )}
+            {canEdit && (l.status === 'APPROVED' || l.status === 'REQUESTED') && (
+              <button type="button" onClick={() => void loanAct(l.id, 'activate')} className="px-2 py-1 rounded text-xs" style={{ color: '#93c5fd' }}>Activate</button>
+            )}
+          </div>
+        )
+      },
+    },
+  ], [canEdit])
+
   return (
     <HrFeatureGate>
       <HrPageShell title="Advances & Loans" subtitle="Request, approve, disburse — recoveries hit payroll" icon={CreditCard}
@@ -110,125 +234,91 @@ export default function HrAdvancesPage() {
           </div>
         }
       >
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Advances" value={advances.length} icon={Banknote} color="violet" />
+          <HrStatCard label="Pending advances" value={advances.filter(a => a.status === 'REQUESTED').length} icon={CreditCard} color="amber" />
+          <HrStatCard label="Loans" value={loans.length} icon={Landmark} color="blue" />
+          <HrStatCard label="Active loans" value={loans.filter(l => l.status === 'ACTIVE' || l.status === 'APPROVED').length} icon={Landmark} color="emerald" />
+        </div>
+
         <div className="flex gap-2">
           {(['advances', 'loans'] as const).map(t => (
             <button key={t} type="button" onClick={() => setTab(t)} className="px-3 py-1.5 rounded-lg text-sm capitalize"
               style={{ background: tab === t ? 'var(--bg-subtle)' : 'transparent', color: 'var(--text-muted)' }}>{t}</button>
           ))}
         </div>
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && tab === 'advances' && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
-                  <th className="px-3 py-2">Employee</th>
-                  <th className="px-3 py-2">Amount</th>
-                  <th className="px-3 py-2">Recovered</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {advances.map(a => (
-                  <tr key={a.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{a.employee.fullName}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{a.amount.toLocaleString()}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{a.recoveredAmount.toLocaleString()}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{a.status}</td>
-                    <td className="px-3 py-2">
-                      {canEdit && a.status === 'REQUESTED' && (
-                        <>
-                          <button type="button" disabled={busyId === a.id} onClick={() => void advAct(a.id, 'approve')} className="px-2 py-1 rounded text-xs mr-1" style={{ color: '#6ee7b7' }}>Approve</button>
-                          <button type="button" disabled={busyId === a.id} onClick={() => void advAct(a.id, 'reject')} className="px-2 py-1 rounded text-xs" style={{ color: '#fca5a5' }}>Reject</button>
-                        </>
-                      )}
-                      {canEdit && a.status === 'APPROVED' && (
-                        <button type="button" disabled={busyId === a.id} onClick={() => void advAct(a.id, 'disburse')} className="px-2 py-1 rounded text-xs" style={{ color: '#93c5fd' }}>
-                          {busyId === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Disburse'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {!advances.length && <tr><td colSpan={5} className="px-3 py-8 text-center" style={{ color: 'var(--text-muted)' }}>No advances</td></tr>}
-              </tbody>
-            </table>
-          </div>
+        {error && <HrError message={error} />}
+        {!error && tab === 'advances' && (
+          <ClientSideTable
+            data={advances}
+            columns={advanceColumns}
+            isLoading={loading}
+            pageCount={Math.ceil((advances.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
-        {!loading && !error && tab === 'loans' && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
-                  <th className="px-3 py-2">Employee</th>
-                  <th className="px-3 py-2">Principal</th>
-                  <th className="px-3 py-2">Outstanding</th>
-                  <th className="px-3 py-2">Installments</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loans.map(l => (
-                  <tr key={l.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{l.employee.fullName}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{l.principal.toLocaleString()}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{l.outstanding.toLocaleString()}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{l.installmentCount} × {l.installmentAmount.toLocaleString()}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{l.status}</td>
-                    <td className="px-3 py-2">
-                      {canEdit && l.status === 'REQUESTED' && (
-                        <>
-                          <button type="button" onClick={() => void loanAct(l.id, 'approve')} className="px-2 py-1 rounded text-xs mr-1" style={{ color: '#6ee7b7' }}>Approve</button>
-                          <button type="button" onClick={() => void loanAct(l.id, 'reject')} className="px-2 py-1 rounded text-xs" style={{ color: '#fca5a5' }}>Reject</button>
-                        </>
-                      )}
-                      {canEdit && (l.status === 'APPROVED' || l.status === 'REQUESTED') && (
-                        <button type="button" onClick={() => void loanAct(l.id, 'activate')} className="px-2 py-1 rounded text-xs" style={{ color: '#93c5fd' }}>Activate</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {!loans.length && <tr><td colSpan={6} className="px-3 py-8 text-center" style={{ color: 'var(--text-muted)' }}>No loans</td></tr>}
-              </tbody>
-            </table>
-          </div>
+        {!error && tab === 'loans' && (
+          <ClientSideTable
+            data={loans}
+            columns={loanColumns}
+            isLoading={loading}
+            pageCount={Math.ceil((loans.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
       </HrPageShell>
 
       {advOpen && (
-        <HrModal title="Request advance" onClose={() => setAdvOpen(false)}>
+        <HrModal
+          title="Request advance"
+          onClose={() => setAdvOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setAdvOpen(false)} />
+              <HrModalSubmit type="button" onClick={() => void requestAdvance()}>
+                Submit
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
             {canEdit && employees.length > 0 && (
               <HrField label="Employee">
-                <select value={advForm.employeeId} onChange={e => setAdvForm(f => ({ ...f, employeeId: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+                <select value={advForm.employeeId} onChange={e => setAdvForm(f => ({ ...f, employeeId: e.target.value }))} className="input-field h-11 w-full">
                   <option value="">My linked employee</option>
                   {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
                 </select>
               </HrField>
             )}
-            <HrField label="Amount"><input type="number" value={advForm.amount} onChange={e => setAdvForm(f => ({ ...f, amount: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <HrField label="Reason"><input value={advForm.reason} onChange={e => setAdvForm(f => ({ ...f, reason: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <button type="button" onClick={() => void requestAdvance()} className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Submit</button>
+            <HrField label="Amount"><input type="number" value={advForm.amount} onChange={e => setAdvForm(f => ({ ...f, amount: e.target.value }))} className="input-field h-11 w-full" /></HrField>
+            <HrField label="Reason"><input value={advForm.reason} onChange={e => setAdvForm(f => ({ ...f, reason: e.target.value }))} className="input-field h-11 w-full" /></HrField>
           </div>
         </HrModal>
       )}
       {loanOpen && (
-        <HrModal title="Request loan" onClose={() => setLoanOpen(false)}>
+        <HrModal
+          title="Request loan"
+          onClose={() => setLoanOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setLoanOpen(false)} />
+              <HrModalSubmit type="button" onClick={() => void requestLoan()}>
+                Submit
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
             {canEdit && employees.length > 0 && (
               <HrField label="Employee">
-                <select value={loanForm.employeeId} onChange={e => setLoanForm(f => ({ ...f, employeeId: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+                <select value={loanForm.employeeId} onChange={e => setLoanForm(f => ({ ...f, employeeId: e.target.value }))} className="input-field h-11 w-full">
                   <option value="">My linked employee</option>
                   {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
                 </select>
               </HrField>
             )}
-            <HrField label="Principal"><input type="number" value={loanForm.principal} onChange={e => setLoanForm(f => ({ ...f, principal: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <HrField label="Installments"><input type="number" value={loanForm.installmentCount} onChange={e => setLoanForm(f => ({ ...f, installmentCount: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <button type="button" onClick={() => void requestLoan()} className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Submit</button>
+            <HrField label="Principal"><input type="number" value={loanForm.principal} onChange={e => setLoanForm(f => ({ ...f, principal: e.target.value }))} className="input-field h-11 w-full" /></HrField>
+            <HrField label="Installments"><input type="number" value={loanForm.installmentCount} onChange={e => setLoanForm(f => ({ ...f, installmentCount: e.target.value }))} className="input-field h-11 w-full" /></HrField>
           </div>
         </HrModal>
       )}

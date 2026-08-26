@@ -1,17 +1,23 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Building2, Plus, Loader2, Edit2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Building2, Plus, Users, CheckCircle2, XCircle } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { useModuleAccess } from '@/lib/module-access'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import {
   HrFeatureGate,
   HrPageShell,
-  HrLoading,
   HrError,
   HrModal,
+  HrModalCancel,
+  HrModalSubmit,
   HrField,
+  HrStatCard,
 } from '@/components/hr/hr-ui'
 
 type Department = {
@@ -82,24 +88,23 @@ function DeptModal({
       onClose={onClose}
       footer={(
         <>
-          <button type="button" onClick={onClose} className="btn-secondary text-sm px-4" disabled={loading}>Cancel</button>
-          <button type="submit" form="hr-dept-form" disabled={loading} className="btn-primary text-sm px-4 flex items-center gap-2 disabled:opacity-60">
-            {loading ? <Loader2 size={14} className="animate-spin" /> : isEdit ? <Edit2 size={14} /> : <Plus size={14} />}
+          <HrModalCancel onClick={onClose} disabled={loading} />
+          <HrModalSubmit form="hr-dept-form" loading={loading}>
             {isEdit ? 'Save changes' : 'Create department'}
-          </button>
+          </HrModalSubmit>
         </>
       )}
     >
       <form id="hr-dept-form" onSubmit={submit} className="space-y-3">
         <HrField label="Name" required>
-          <input required className="input-field w-full" placeholder="e.g. Sales Floor" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} autoFocus />
+          <input required className="input-field h-11 w-full" placeholder="e.g. Sales Floor" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} autoFocus />
         </HrField>
         <div className="grid grid-cols-2 gap-3">
           <HrField label="Code" hint="Optional short code">
-            <input className="input-field w-full font-mono" placeholder="SALES" value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value }))} />
+            <input className="input-field h-11 w-full font-mono" placeholder="SALES" value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value }))} />
           </HrField>
           <HrField label="Sort order">
-            <input type="number" min={0} className="input-field w-full" value={form.sortOrder} onChange={e => setForm(p => ({ ...p, sortOrder: e.target.value }))} />
+            <input type="number" min={0} className="input-field h-11 w-full" value={form.sortOrder} onChange={e => setForm(p => ({ ...p, sortOrder: e.target.value }))} />
           </HrField>
         </div>
         <HrField label="Description">
@@ -136,6 +141,56 @@ export default function HrDepartmentsPage() {
 
   useEffect(() => { void load() }, [load])
 
+  const activeCount = rows.filter(r => r.isActive).length
+  const employeeTotal = rows.reduce((s, r) => s + (r._count?.employees ?? 0), 0)
+
+  const columns = useMemo<ColumnDef<Department>[]>(() => {
+    const cols: ColumnDef<Department>[] = [
+      {
+        accessorKey: 'name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+        cell: ({ row }) => (
+          <span className="font-medium text-gray-900 dark:text-white">{row.original.name}</span>
+        ),
+      },
+      {
+        accessorKey: 'code',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">{row.original.code || '—'}</span>
+        ),
+      },
+      {
+        id: 'employees',
+        accessorFn: r => r._count?.employees ?? 0,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Employees" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">{row.original._count?.employees ?? 0}</span>
+        ),
+      },
+      {
+        accessorKey: 'isActive',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => (
+          <span className={`text-xs px-2 py-0.5 rounded-full ${row.original.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400'}`}>
+            {row.original.isActive ? 'Active' : 'Inactive'}
+          </span>
+        ),
+      },
+    ]
+    if (canEdit) {
+      cols.push({
+        id: 'actions',
+        enableSorting: false,
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <TableActionsRow editAction={{ action: () => setModal(row.original) }} />
+        ),
+      })
+    }
+    return cols
+  }, [canEdit])
+
   return (
     <HrFeatureGate>
       <HrPageShell
@@ -148,50 +203,22 @@ export default function HrDepartmentsPage() {
           </button>
         )}
       >
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Name</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Code</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Employees</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
-                  {canEdit && <th className="px-4 py-3" />}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => (
-                  <tr key={row.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{row.name}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{row.code || '—'}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{row._count?.employees ?? 0}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${row.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400'}`}>
-                        {row.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    {canEdit && (
-                      <td className="px-4 py-3 text-right">
-                        <button type="button" onClick={() => setModal(row)} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
-                          <Edit2 size={14} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {!rows.length && (
-                  <tr>
-                    <td colSpan={canEdit ? 5 : 4} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                      No departments yet
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Total" value={rows.length} icon={Building2} color="violet" />
+          <HrStatCard label="Active" value={activeCount} icon={CheckCircle2} color="emerald" />
+          <HrStatCard label="Inactive" value={rows.length - activeCount} icon={XCircle} color="slate" />
+          <HrStatCard label="Employees" value={employeeTotal} icon={Users} color="blue" />
+        </div>
+
+        {error && <HrError message={error} />}
+        {!error && (
+          <ClientSideTable
+            data={rows}
+            columns={columns}
+            isLoading={loading}
+            pageCount={Math.ceil((rows.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
       </HrPageShell>
       {modal && (

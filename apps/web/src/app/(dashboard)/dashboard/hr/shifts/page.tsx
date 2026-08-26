@@ -1,17 +1,23 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Calendar, Plus, Loader2, Edit2, UserPlus } from 'lucide-react'
+import { Calendar, Plus, UserPlus, CheckCircle2, Users } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { useModuleAccess } from '@/lib/module-access'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { TableActionsRow } from '@/components/table/table-actions-row'
 import {
   HrFeatureGate,
   HrPageShell,
-  HrLoading,
   HrError,
   HrModal,
+  HrModalCancel,
+  HrModalSubmit,
   HrField,
+  HrStatCard,
 } from '@/components/hr/hr-ui'
 
 type Shift = {
@@ -147,6 +153,79 @@ export default function HrShiftsPage() {
   }
 
   const empOptions = useMemo(() => employees, [employees])
+  const activeCount = rows.filter(r => r.isActive).length
+  const assignmentTotal = rows.reduce((s, r) => s + (r._count?.assignments ?? 0), 0)
+
+  const columns = useMemo<ColumnDef<Shift>[]>(() => {
+    const cols: ColumnDef<Shift>[] = [
+      {
+        accessorKey: 'name',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+        cell: ({ row }) => (
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">{row.original.name}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500">{row.original.code || '—'}</p>
+          </div>
+        ),
+      },
+      {
+        id: 'window',
+        accessorFn: r => r.startMinutes,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Window" />,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-gray-500 dark:text-slate-400">
+            {minsToLabel(row.original.startMinutes)} – {minsToLabel(row.original.endMinutes)}
+            {row.original.isOvernight ? ' (overnight)' : ''}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'graceMinutes',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Grace" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">{row.original.graceMinutes}m</span>
+        ),
+      },
+      {
+        id: 'assignments',
+        accessorFn: r => r._count?.assignments ?? 0,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Assignments" />,
+        cell: ({ row }) => (
+          <span className="text-gray-500 dark:text-slate-400">{row.original._count?.assignments ?? 0}</span>
+        ),
+      },
+      {
+        accessorKey: 'isActive',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => (
+          <span className={`text-xs px-2 py-0.5 rounded-full ${row.original.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400'}`}>
+            {row.original.isActive ? 'Active' : 'Inactive'}
+          </span>
+        ),
+      },
+    ]
+    if (canEdit) {
+      cols.push({
+        id: 'actions',
+        enableSorting: false,
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <button
+              type="button"
+              onClick={() => { setAssignFor(row.original); setAssignForm(p => ({ ...p, employeeId: empOptions[0]?.id ?? '' })) }}
+              className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 dark:text-slate-400"
+              title="Assign"
+            >
+              <UserPlus size={14} />
+            </button>
+            <TableActionsRow editAction={{ action: () => openEdit(row.original) }} />
+          </div>
+        ),
+      })
+    }
+    return cols
+  }, [canEdit, empOptions])
 
   return (
     <HrFeatureGate>
@@ -160,59 +239,22 @@ export default function HrShiftsPage() {
           </button>
         )}
       >
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Name</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Window</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Grace</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Assignments</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
-                  {canEdit && <th className="px-4 py-3" />}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => (
-                  <tr key={row.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{row.name}</p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{row.code || '—'}</p>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {minsToLabel(row.startMinutes)} – {minsToLabel(row.endMinutes)}
-                      {row.isOvernight ? ' (overnight)' : ''}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{row.graceMinutes}m</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{row._count?.assignments ?? 0}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${row.isActive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400'}`}>
-                        {row.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    {canEdit && (
-                      <td className="px-4 py-3 text-right space-x-1">
-                        <button type="button" onClick={() => { setAssignFor(row); setAssignForm(p => ({ ...p, employeeId: empOptions[0]?.id ?? '' })) }} className="p-1.5 rounded-lg hover:bg-white/5 inline-flex" style={{ color: 'var(--text-muted)' }} title="Assign">
-                          <UserPlus size={14} />
-                        </button>
-                        <button type="button" onClick={() => openEdit(row)} className="p-1.5 rounded-lg hover:bg-white/5 inline-flex" style={{ color: 'var(--text-muted)' }}>
-                          <Edit2 size={14} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {!rows.length && (
-                  <tr>
-                    <td colSpan={canEdit ? 6 : 5} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>No shifts yet</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Total shifts" value={rows.length} icon={Calendar} color="violet" />
+          <HrStatCard label="Active" value={activeCount} icon={CheckCircle2} color="emerald" />
+          <HrStatCard label="Assignments" value={assignmentTotal} icon={Users} color="blue" />
+          <HrStatCard label="Employees" value={employees.length} icon={UserPlus} color="sky" />
+        </div>
+
+        {error && <HrError message={error} />}
+        {!error && (
+          <ClientSideTable
+            data={rows}
+            columns={columns}
+            isLoading={loading}
+            pageCount={Math.ceil((rows.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
       </HrPageShell>
 
@@ -224,30 +266,30 @@ export default function HrShiftsPage() {
           onClose={() => setModal(null)}
           footer={(
             <>
-              <button type="button" className="btn-secondary text-sm px-4" onClick={() => setModal(null)}>Cancel</button>
-              <button type="submit" form="hr-shift-form" disabled={saving} className="btn-primary text-sm px-4 flex items-center gap-2">
-                {saving && <Loader2 size={14} className="animate-spin" />} Save
-              </button>
+              <HrModalCancel onClick={() => setModal(null)} disabled={saving} />
+              <HrModalSubmit form="hr-shift-form" loading={saving}>
+                Save
+              </HrModalSubmit>
             </>
           )}
         >
           <form id="hr-shift-form" onSubmit={saveShift} className="space-y-3">
             <HrField label="Name" required>
-              <input required className="input-field w-full" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+              <input required className="input-field h-11 w-full" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
             </HrField>
             <HrField label="Code">
-              <input className="input-field w-full font-mono" value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value }))} />
+              <input className="input-field h-11 w-full font-mono" value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value }))} />
             </HrField>
             <div className="grid grid-cols-2 gap-3">
               <HrField label="Start">
-                <input type="time" className="input-field w-full" value={form.start} onChange={e => setForm(p => ({ ...p, start: e.target.value }))} />
+                <input type="time" className="input-field h-11 w-full" value={form.start} onChange={e => setForm(p => ({ ...p, start: e.target.value }))} />
               </HrField>
               <HrField label="End">
-                <input type="time" className="input-field w-full" value={form.end} onChange={e => setForm(p => ({ ...p, end: e.target.value }))} />
+                <input type="time" className="input-field h-11 w-full" value={form.end} onChange={e => setForm(p => ({ ...p, end: e.target.value }))} />
               </HrField>
             </div>
             <HrField label="Grace (minutes)">
-              <input type="number" min={0} className="input-field w-full" value={form.graceMinutes} onChange={e => setForm(p => ({ ...p, graceMinutes: e.target.value }))} />
+              <input type="number" min={0} className="input-field h-11 w-full" value={form.graceMinutes} onChange={e => setForm(p => ({ ...p, graceMinutes: e.target.value }))} />
             </HrField>
             <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
               <input type="checkbox" checked={form.isOvernight} onChange={e => setForm(p => ({ ...p, isOvernight: e.target.checked }))} />
@@ -269,16 +311,16 @@ export default function HrShiftsPage() {
           onClose={() => setAssignFor(null)}
           footer={(
             <>
-              <button type="button" className="btn-secondary text-sm px-4" onClick={() => setAssignFor(null)}>Cancel</button>
-              <button type="submit" form="hr-assign-form" disabled={saving} className="btn-primary text-sm px-4 flex items-center gap-2">
-                {saving && <Loader2 size={14} className="animate-spin" />} Assign
-              </button>
+              <HrModalCancel onClick={() => setAssignFor(null)} disabled={saving} />
+              <HrModalSubmit form="hr-assign-form" loading={saving}>
+                Assign
+              </HrModalSubmit>
             </>
           )}
         >
           <form id="hr-assign-form" onSubmit={saveAssign} className="space-y-3">
             <HrField label="Employee" required>
-              <select required className="input-field w-full" value={assignForm.employeeId} onChange={e => setAssignForm(p => ({ ...p, employeeId: e.target.value }))}>
+              <select required className="input-field h-11 w-full" value={assignForm.employeeId} onChange={e => setAssignForm(p => ({ ...p, employeeId: e.target.value }))}>
                 <option value="">Select…</option>
                 {empOptions.map(e => (
                   <option key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</option>
@@ -286,7 +328,7 @@ export default function HrShiftsPage() {
               </select>
             </HrField>
             <HrField label="Effective from">
-              <input type="date" className="input-field w-full" value={assignForm.effectiveFrom} onChange={e => setAssignForm(p => ({ ...p, effectiveFrom: e.target.value }))} />
+              <input type="date" className="input-field h-11 w-full" value={assignForm.effectiveFrom} onChange={e => setAssignForm(p => ({ ...p, effectiveFrom: e.target.value }))} />
             </HrField>
           </form>
         </HrModal>

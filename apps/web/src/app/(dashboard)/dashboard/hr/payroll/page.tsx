@@ -1,12 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Wallet, Loader2, Plus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Wallet, Loader2, Plus, FileText, CheckCircle2 } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { useModuleAccess } from '@/lib/module-access'
-import { HrFeatureGate, HrPageShell, HrLoading, HrError, HrModal, HrField } from '@/components/hr/hr-ui'
+import { cn } from '@/lib/utils'
+import { ClientSideTable } from '@/components/table/client-side-table'
+import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
+import { HrFeatureGate, HrPageShell, HrError, HrModal, HrModalCancel, HrModalSubmit, HrField, HrStatCard } from '@/components/hr/hr-ui'
 
 type Period = { id: string; label: string; startDate: string; endDate: string; status: string }
 type Run = {
@@ -14,6 +18,14 @@ type Run = {
   period: { id: string; label: string }
   _count?: { lines: number; payslips: number }
   resultSnapshot?: { totalNet?: number; payslipCount?: number } | null
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  DRAFT: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+  REVIEW: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  PAID: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  CANCELLED: 'bg-red-500/15 text-red-300 border-red-500/30',
 }
 
 function monthDefaults() {
@@ -88,6 +100,69 @@ export default function HrPayrollPage() {
     finally { setBusyId(null) }
   }
 
+  const paidCount = runs.filter(r => r.status === 'PAID').length
+  const draftCount = runs.filter(r => r.status === 'DRAFT' || r.status === 'REVIEW').length
+
+  const columns = useMemo<ColumnDef<Run>[]>(() => [
+    {
+      id: 'period',
+      accessorFn: r => r.period.label,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Period" />,
+      cell: ({ row }) => <span className="text-gray-900 dark:text-white">{row.original.period.label}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => (
+        <span className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_STYLE[row.original.status] ?? STATUS_STYLE.DRAFT)}>
+          {row.original.status}
+        </span>
+      ),
+    },
+    {
+      id: 'payslips',
+      accessorFn: r => r._count?.payslips ?? 0,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Payslips" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{row.original._count?.payslips ?? 0}</span>,
+    },
+    {
+      id: 'net',
+      accessorFn: r => r.resultSnapshot?.totalNet ?? 0,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Net" />,
+      cell: ({ row }) => (
+        <span className="text-gray-900 dark:text-white">
+          {(row.original.resultSnapshot?.totalNet ?? 0).toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      enableSorting: false,
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => {
+        const r = row.original
+        return (
+          <div className="flex flex-wrap gap-1 justify-end">
+            {canEdit && (r.status === 'DRAFT' || r.status === 'REVIEW') && (
+              <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'process')} className="px-2 py-1 rounded text-xs" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
+                {busyId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Process'}
+              </button>
+            )}
+            {canEdit && r.status === 'REVIEW' && (
+              <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'approve')} className="px-2 py-1 rounded text-xs" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>Approve</button>
+            )}
+            {canEdit && r.status === 'APPROVED' && (
+              <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'pay')} className="px-2 py-1 rounded text-xs" style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }}>Pay</button>
+            )}
+            {canEdit && r.status !== 'PAID' && r.status !== 'CANCELLED' && (
+              <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'cancel')} className="px-2 py-1 rounded text-xs" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+            )}
+          </div>
+        )
+      },
+    },
+  ], [canEdit, busyId])
+
   return (
     <HrFeatureGate>
       <HrPageShell title="Payroll" subtitle="Periods → draft → process → approve → pay (GL via accounting)" icon={Wallet}
@@ -102,75 +177,64 @@ export default function HrPayrollPage() {
           </div>
         ) : undefined}
       >
-        {loading && <HrLoading />}
-        {!loading && error && <HrError message={error} />}
-        {!loading && !error && (
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--bg-subtle)' }}>
-                <tr className="text-left" style={{ color: 'var(--text-muted)' }}>
-                  <th className="px-3 py-2">Period</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Payslips</th>
-                  <th className="px-3 py-2">Net</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map(r => (
-                  <tr key={r.id} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{r.period.label}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{r.status}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{r._count?.payslips ?? 0}</td>
-                    <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>
-                      {(r.resultSnapshot?.totalNet ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {canEdit && (r.status === 'DRAFT' || r.status === 'REVIEW') && (
-                          <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'process')} className="px-2 py-1 rounded text-xs" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
-                            {busyId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Process'}
-                          </button>
-                        )}
-                        {canEdit && r.status === 'REVIEW' && (
-                          <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'approve')} className="px-2 py-1 rounded text-xs" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>Approve</button>
-                        )}
-                        {canEdit && r.status === 'APPROVED' && (
-                          <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'pay')} className="px-2 py-1 rounded text-xs" style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }}>Pay</button>
-                        )}
-                        {canEdit && r.status !== 'PAID' && r.status !== 'CANCELLED' && (
-                          <button type="button" disabled={busyId === r.id} onClick={() => void act(r.id, 'cancel')} className="px-2 py-1 rounded text-xs" style={{ color: 'var(--text-muted)' }}>Cancel</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!runs.length && <tr><td colSpan={5} className="px-3 py-8 text-center" style={{ color: 'var(--text-muted)' }}>No payroll runs yet</td></tr>}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <HrStatCard label="Runs" value={runs.length} icon={Wallet} color="violet" />
+          <HrStatCard label="In progress" value={draftCount} icon={FileText} color="amber" />
+          <HrStatCard label="Paid" value={paidCount} icon={CheckCircle2} color="emerald" />
+          <HrStatCard label="Periods" value={periods.length} icon={FileText} color="blue" />
+        </div>
+
+        {error && <HrError message={error} />}
+        {!error && (
+          <ClientSideTable
+            data={runs}
+            columns={columns}
+            isLoading={loading}
+            pageCount={Math.ceil((runs.length || 1) / 20)}
+            searchableColumns={[]}
+          />
         )}
       </HrPageShell>
 
       {periodOpen && (
-        <HrModal title="New payroll period" onClose={() => setPeriodOpen(false)}>
+        <HrModal
+          title="New payroll period"
+          onClose={() => setPeriodOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setPeriodOpen(false)} />
+              <HrModalSubmit type="button" onClick={() => void createPeriod()}>
+                Create
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
-            <HrField label="Label"><input value={periodForm.label} onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <HrField label="Start"><input type="date" value={periodForm.startDate} onChange={e => setPeriodForm(f => ({ ...f, startDate: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <HrField label="End"><input type="date" value={periodForm.endDate} onChange={e => setPeriodForm(f => ({ ...f, endDate: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }} /></HrField>
-            <button type="button" onClick={() => void createPeriod()} className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Create</button>
+            <HrField label="Label"><input value={periodForm.label} onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))} className="input-field h-11 w-full" /></HrField>
+            <HrField label="Start"><input type="date" value={periodForm.startDate} onChange={e => setPeriodForm(f => ({ ...f, startDate: e.target.value }))} className="input-field h-11 w-full" /></HrField>
+            <HrField label="End"><input type="date" value={periodForm.endDate} onChange={e => setPeriodForm(f => ({ ...f, endDate: e.target.value }))} className="input-field h-11 w-full" /></HrField>
           </div>
         </HrModal>
       )}
       {runOpen && (
-        <HrModal title="Draft payroll run" onClose={() => setRunOpen(false)}>
+        <HrModal
+          title="Draft payroll run"
+          onClose={() => setRunOpen(false)}
+          footer={(
+            <>
+              <HrModalCancel onClick={() => setRunOpen(false)} />
+              <HrModalSubmit type="button" onClick={() => void createRun()}>
+                Create draft
+              </HrModalSubmit>
+            </>
+          )}
+        >
           <div className="space-y-3">
             <HrField label="Period">
-              <select value={periodId} onChange={e => setPeriodId(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+              <select value={periodId} onChange={e => setPeriodId(e.target.value)} className="input-field h-11 w-full">
                 {periods.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </HrField>
-            <button type="button" onClick={() => void createRun()} className="w-full py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Create draft</button>
           </div>
         </HrModal>
       )}
