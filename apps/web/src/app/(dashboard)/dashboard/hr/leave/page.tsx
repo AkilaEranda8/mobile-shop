@@ -1,7 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Briefcase, Check, Loader2, Plus, X, Clock, CheckCircle2, Layers, CalendarDays } from 'lucide-react'
+import {
+  Briefcase, Check, Loader2, Plus, X, Clock, CheckCircle2, Layers, CalendarDays,
+  User, Tag, MessageSquare, CalendarRange,
+} from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
@@ -179,7 +182,8 @@ export default function HrLeavePage() {
     }
   }
 
-  const submitLeave = async () => {
+  const submitLeave = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (!form.leaveTypeId || !form.startDate) {
       toast.error('Leave type and start date required')
       return
@@ -193,19 +197,20 @@ export default function HrLeavePage() {
         endDate: form.endDate || form.startDate,
         startPart: form.startPart,
         endPart: form.endPart,
-        reason: form.reason || null,
+        reason: form.reason.trim() || null,
       })
       toast.success('Leave submitted')
       setSubmitOpen(false)
       await load()
-    } catch (e: unknown) {
-      toast.error((e as Error)?.message ?? 'Submit failed')
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? 'Submit failed')
     } finally {
       setSaving(false)
     }
   }
 
-  const saveType = async () => {
+  const saveType = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (!typeForm.name.trim()) {
       toast.error('Name required')
       return
@@ -505,150 +510,194 @@ export default function HrLeavePage() {
       {submitOpen && (
         <HrModal
           title="Request leave"
+          subtitle="Submit a leave request for approval"
+          icon={CalendarDays}
           onClose={() => setSubmitOpen(false)}
           footer={(
             <>
               <HrModalCancel onClick={() => setSubmitOpen(false)} disabled={saving} />
-              <HrModalSubmit type="button" loading={saving} onClick={() => void submitLeave()}>
-                Submit
+              <HrModalSubmit form="hr-leave-request-form" loading={saving}>
+                Submit request
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
+          <form id="hr-leave-request-form" onSubmit={e => void submitLeave(e)} className="space-y-5">
             {canEdit && employees.length > 0 && (
               <HrField label="Employee">
-                <select
-                  value={form.employeeId}
-                  onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
-                  className="input-field h-11 w-full"
-                >
-                  <option value="">My linked employee</option>
-                  {employees.map(e => (
-                    <option key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <select
+                    value={form.employeeId}
+                    onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
+                    className="input-field h-11 w-full pl-10"
+                  >
+                    <option value="">My linked employee</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.employeeCode})</option>
+                    ))}
+                  </select>
+                </div>
               </HrField>
             )}
-            <HrField label="Leave type">
-              <select
-                value={form.leaveTypeId}
-                onChange={e => setForm(f => ({ ...f, leaveTypeId: e.target.value }))}
-                className="input-field h-11 w-full"
-              >
-                {types.filter(t => t.isActive).map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+
+            <HrField label="Leave type" required>
+              <div className="relative">
+                <Tag size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <select
+                  required
+                  value={form.leaveTypeId}
+                  onChange={e => setForm(f => ({ ...f, leaveTypeId: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                >
+                  <option value="" disabled>Select leave type</option>
+                  {types.filter(t => t.isActive).map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}{t.allowHalfDay ? '' : ' · full day only'}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </HrField>
-            <div className="grid grid-cols-2 gap-3">
-              <HrField label="Start">
+
+            <div className="grid grid-cols-2 gap-4">
+              <HrField label="Start date" required>
                 <input
+                  required
                   type="date"
                   value={form.startDate}
-                  onChange={e => setForm(f => ({ ...f, startDate: e.target.value, endDate: f.endDate < e.target.value ? e.target.value : f.endDate }))}
+                  onChange={e => setForm(f => ({
+                    ...f,
+                    startDate: e.target.value,
+                    endDate: f.endDate < e.target.value ? e.target.value : f.endDate,
+                  }))}
                   className="input-field h-11 w-full"
                 />
               </HrField>
-              <HrField label="End">
+              <HrField label="End date" required>
                 <input
+                  required
                   type="date"
                   value={form.endDate}
+                  min={form.startDate}
                   onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                   className="input-field h-11 w-full"
                 />
               </HrField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <HrField label="Start part">
-                <select
-                  value={form.startPart}
-                  onChange={e => setForm(f => ({ ...f, startPart: e.target.value }))}
-                  className="input-field h-11 w-full"
-                >
-                  <option value="FULL">Full day</option>
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
+
+            <div className="grid grid-cols-2 gap-4">
+              <HrField label="Start part" hint="Half-day if allowed by leave type">
+                <div className="relative">
+                  <CalendarRange size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <select
+                    value={form.startPart}
+                    onChange={e => setForm(f => ({ ...f, startPart: e.target.value }))}
+                    className="input-field h-11 w-full pl-10"
+                  >
+                    <option value="FULL">Full day</option>
+                    <option value="AM">Morning (AM)</option>
+                    <option value="PM">Afternoon (PM)</option>
+                  </select>
+                </div>
               </HrField>
               <HrField label="End part">
-                <select
-                  value={form.endPart}
-                  onChange={e => setForm(f => ({ ...f, endPart: e.target.value }))}
-                  className="input-field h-11 w-full"
-                >
-                  <option value="FULL">Full day</option>
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
+                <div className="relative">
+                  <CalendarRange size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <select
+                    value={form.endPart}
+                    onChange={e => setForm(f => ({ ...f, endPart: e.target.value }))}
+                    className="input-field h-11 w-full pl-10"
+                  >
+                    <option value="FULL">Full day</option>
+                    <option value="AM">Morning (AM)</option>
+                    <option value="PM">Afternoon (PM)</option>
+                  </select>
+                </div>
               </HrField>
             </div>
-            <HrField label="Reason">
-              <textarea
-                value={form.reason}
-                onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-                rows={3}
-                className="input-field w-full min-h-[80px] resize-y"
-              />
+
+            <HrField label="Reason" hint="Optional — helps approvers review faster">
+              <div className="relative">
+                <MessageSquare size={14} className="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none" />
+                <textarea
+                  value={form.reason}
+                  onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+                  rows={3}
+                  placeholder="e.g. Family event, medical appointment…"
+                  className="input-field w-full min-h-[88px] resize-y pl-10 pt-3"
+                />
+              </div>
             </HrField>
-          </div>
+          </form>
         </HrModal>
       )}
 
       {typeModal && (
         <HrModal
-          title={typeModal === 'new' ? 'New leave type' : 'Edit leave type'}
+          title={typeModal === 'new' ? 'Add leave type' : 'Edit leave type'}
+          subtitle={typeModal === 'new' ? 'Create a leave category for this shop' : 'Update leave type settings'}
+          icon={Tag}
           onClose={() => setTypeModal(null)}
           footer={(
             <>
               <HrModalCancel onClick={() => setTypeModal(null)} disabled={saving} />
-              <HrModalSubmit type="button" loading={saving} onClick={() => void saveType()}>
-                Save
+              <HrModalSubmit form="hr-leave-type-form" loading={saving}>
+                {typeModal === 'new' ? 'Create leave type' : 'Save changes'}
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
-            <HrField label="Name">
+          <form id="hr-leave-type-form" onSubmit={e => void saveType(e)} className="space-y-5">
+            <HrField label="Name" required>
               <input
+                required
+                autoFocus
                 value={typeForm.name}
                 onChange={e => setTypeForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Annual Leave"
                 className="input-field h-11 w-full"
               />
             </HrField>
-            <HrField label="Code">
-              <input
-                value={typeForm.code}
-                onChange={e => setTypeForm(f => ({ ...f, code: e.target.value }))}
-                className="input-field h-11 w-full"
-              />
-            </HrField>
-            <HrField label="Annual allowance">
-              <input
-                type="number"
-                min={0}
-                value={typeForm.annualAllowance}
-                onChange={e => setTypeForm(f => ({ ...f, annualAllowance: e.target.value }))}
-                className="input-field h-11 w-full"
-              />
-            </HrField>
-            <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <input type="checkbox" checked={typeForm.isPaid} onChange={e => setTypeForm(f => ({ ...f, isPaid: e.target.checked }))} />
-              Paid leave
-            </label>
-            <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <input type="checkbox" checked={typeForm.requiresApproval} onChange={e => setTypeForm(f => ({ ...f, requiresApproval: e.target.checked }))} />
-              Requires approval
-            </label>
-            <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <input type="checkbox" checked={typeForm.allowHalfDay} onChange={e => setTypeForm(f => ({ ...f, allowHalfDay: e.target.checked }))} />
-              Allow half day
-            </label>
-            <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <input type="checkbox" checked={typeForm.isActive} onChange={e => setTypeForm(f => ({ ...f, isActive: e.target.checked }))} />
-              Active
-            </label>
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <HrField label="Code" hint="Optional short code">
+                <input
+                  value={typeForm.code}
+                  onChange={e => setTypeForm(f => ({ ...f, code: e.target.value }))}
+                  placeholder="AL"
+                  className="input-field h-11 w-full font-mono"
+                />
+              </HrField>
+              <HrField label="Annual allowance" required>
+                <input
+                  required
+                  type="number"
+                  min={0}
+                  value={typeForm.annualAllowance}
+                  onChange={e => setTypeForm(f => ({ ...f, annualAllowance: e.target.value }))}
+                  className="input-field h-11 w-full"
+                />
+              </HrField>
+            </div>
+            <div className="space-y-2.5 pt-1">
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                <input type="checkbox" checked={typeForm.isPaid} onChange={e => setTypeForm(f => ({ ...f, isPaid: e.target.checked }))} />
+                Paid leave
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                <input type="checkbox" checked={typeForm.requiresApproval} onChange={e => setTypeForm(f => ({ ...f, requiresApproval: e.target.checked }))} />
+                Requires approval
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                <input type="checkbox" checked={typeForm.allowHalfDay} onChange={e => setTypeForm(f => ({ ...f, allowHalfDay: e.target.checked }))} />
+                Allow half day
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                <input type="checkbox" checked={typeForm.isActive} onChange={e => setTypeForm(f => ({ ...f, isActive: e.target.checked }))} />
+                Active leave type
+              </label>
+            </div>
+          </form>
         </HrModal>
       )}
     </HrFeatureGate>
