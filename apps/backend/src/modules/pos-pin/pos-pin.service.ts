@@ -329,10 +329,11 @@ export const posPinService = {
       },
       include: { branches: { select: { branchId: true } } },
     })
-    if (!user?.pinHash) throw new AppError('Invalid PIN', 401)
+    // 403 (not 401): caller is already authenticated — wrong PIN must not look like "session expired"
+    if (!user?.pinHash) throw new AppError('Invalid PIN', 403)
 
     if (await isPinLocked(opts.tenantId, user.id) || (user.pinLockedUntil && user.pinLockedUntil > new Date())) {
-      throw new AppError('PIN locked. Try again later.', 401)
+      throw new AppError('PIN locked. Try again later.', 403)
     }
 
     const ok = await verifyPinHash(pin, user.pinHash)
@@ -344,7 +345,7 @@ export const posPinService = {
         ip: opts.ip,
         actorEmail: user.email,
       })
-      throw new AppError('Invalid PIN', 401)
+      throw new AppError('Invalid PIN', 403)
     }
 
     await clearPinFail(opts.tenantId, user.id)
@@ -396,10 +397,11 @@ export const posPinService = {
         pinLockedUntil: true,
       },
     })
-    if (!user?.pinHash) throw new AppError('Invalid PIN', 401)
+    // 403 (not 401): session is valid; wrong unlock PIN must not trigger client logout
+    if (!user?.pinHash) throw new AppError('Invalid PIN', 403)
 
     if (await isPinLocked(opts.tenantId, user.id) || (user.pinLockedUntil && user.pinLockedUntil > new Date())) {
-      throw new AppError('PIN locked. Try again later.', 401)
+      throw new AppError('PIN locked. Try again later.', 403)
     }
 
     // Must be THIS user's PIN
@@ -412,7 +414,7 @@ export const posPinService = {
         ip: opts.ip,
         actorEmail: user.email,
       })
-      throw new AppError('Invalid PIN', 401)
+      throw new AppError('Invalid PIN', 403)
     }
 
     await clearPinFail(opts.tenantId, user.id)

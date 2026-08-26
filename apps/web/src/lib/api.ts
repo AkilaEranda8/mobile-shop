@@ -77,6 +77,21 @@ async function request<T = unknown>(
   const res = await fetch(`${getApiBaseUrl()}${path}`, { ...options, headers })
 
   if (res.status === 401 && retry) {
+    // POS unlock/switch may historically return 401 for wrong PIN. That is NOT session expiry —
+    // refreshing then failing would clear tokens and dump the cashier on /login mid-shift.
+    const isPosPinGate =
+      path.includes('/auth/pos-pin/unlock') || path.includes('/auth/pos-pin/switch')
+    if (isPosPinGate) {
+      const peek = res.clone()
+      const { json: peekJson, text: peekText } = await parseResponseBody(peek)
+      const peekMsg = responseErrorMessage(peekJson, peekText, '')
+      if (/invalid pin|pin locked|too many pin/i.test(peekMsg)) {
+        const err: any = new Error(peekMsg || 'Invalid PIN')
+        err.status = 401
+        throw err
+      }
+    }
+
     const newToken = await refreshAccessToken()
     if (newToken) return request<T>(path, options, false)
     authStorage.clear()
