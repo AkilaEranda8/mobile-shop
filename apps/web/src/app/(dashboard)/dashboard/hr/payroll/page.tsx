@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Wallet, Loader2, Plus, FileText, CheckCircle2 } from 'lucide-react'
+import { Wallet, Loader2, Plus, FileText, CheckCircle2, CalendarDays, CalendarRange } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
@@ -52,6 +52,9 @@ export default function HrPayrollPage() {
   const [periodForm, setPeriodForm] = useState(monthDefaults)
   const [periodId, setPeriodId] = useState('')
 
+  const [periodSaving, setPeriodSaving] = useState(false)
+  const [runSaving, setRunSaving] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
@@ -68,19 +71,32 @@ export default function HrPayrollPage() {
 
   useEffect(() => { void load() }, [load])
 
-  const createPeriod = async () => {
+  const createPeriod = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!periodForm.label.trim() || !periodForm.startDate || !periodForm.endDate) {
+      toast.error('Label and dates are required')
+      return
+    }
+    setPeriodSaving(true)
     try {
-      await hrApi.createPayrollPeriod(periodForm)
+      await hrApi.createPayrollPeriod({
+        ...periodForm,
+        label: periodForm.label.trim(),
+      })
       toast.success('Period created'); setPeriodOpen(false); await load()
-    } catch (e: unknown) { toast.error((e as Error)?.message ?? 'Failed') }
+    } catch (err: unknown) { toast.error((err as Error)?.message ?? 'Failed') }
+    finally { setPeriodSaving(false) }
   }
 
-  const createRun = async () => {
+  const createRun = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (!periodId) { toast.error('Select a period'); return }
+    setRunSaving(true)
     try {
       await hrApi.createPayrollRun({ periodId })
       toast.success('Draft run created'); setRunOpen(false); await load()
-    } catch (e: unknown) { toast.error((e as Error)?.message ?? 'Failed') }
+    } catch (err: unknown) { toast.error((err as Error)?.message ?? 'Failed') }
+    finally { setRunSaving(false) }
   }
 
   const act = async (id: string, action: 'process' | 'approve' | 'pay' | 'cancel') => {
@@ -198,44 +214,92 @@ export default function HrPayrollPage() {
 
       {periodOpen && (
         <HrModal
-          title="New payroll period"
+          title="Add payroll period"
+          subtitle="Define the pay cycle dates for salary runs"
+          icon={CalendarDays}
           onClose={() => setPeriodOpen(false)}
           footer={(
             <>
-              <HrModalCancel onClick={() => setPeriodOpen(false)} />
-              <HrModalSubmit type="button" onClick={() => void createPeriod()}>
-                Create
+              <HrModalCancel onClick={() => setPeriodOpen(false)} disabled={periodSaving} />
+              <HrModalSubmit form="hr-payroll-period-form" loading={periodSaving}>
+                Create period
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
-            <HrField label="Label"><input value={periodForm.label} onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-            <HrField label="Start"><input type="date" value={periodForm.startDate} onChange={e => setPeriodForm(f => ({ ...f, startDate: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-            <HrField label="End"><input type="date" value={periodForm.endDate} onChange={e => setPeriodForm(f => ({ ...f, endDate: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-          </div>
+          <form id="hr-payroll-period-form" onSubmit={e => void createPeriod(e)} className="space-y-5">
+            <HrField label="Label" required hint="Shown on payslips and payroll runs">
+              <input
+                required
+                autoFocus
+                placeholder="e.g. 2026-08"
+                value={periodForm.label}
+                onChange={e => setPeriodForm(f => ({ ...f, label: e.target.value }))}
+                className="input-field h-11 w-full"
+              />
+            </HrField>
+            <div className="grid grid-cols-2 gap-4">
+              <HrField label="Start date" required>
+                <input
+                  required
+                  type="date"
+                  value={periodForm.startDate}
+                  onChange={e => setPeriodForm(f => ({ ...f, startDate: e.target.value }))}
+                  className="input-field h-11 w-full"
+                />
+              </HrField>
+              <HrField label="End date" required>
+                <input
+                  required
+                  type="date"
+                  min={periodForm.startDate}
+                  value={periodForm.endDate}
+                  onChange={e => setPeriodForm(f => ({ ...f, endDate: e.target.value }))}
+                  className="input-field h-11 w-full"
+                />
+              </HrField>
+            </div>
+          </form>
         </HrModal>
       )}
       {runOpen && (
         <HrModal
           title="Draft payroll run"
+          subtitle="Create a draft run for a period — process later to calculate payslips"
+          icon={Wallet}
           onClose={() => setRunOpen(false)}
           footer={(
             <>
-              <HrModalCancel onClick={() => setRunOpen(false)} />
-              <HrModalSubmit type="button" onClick={() => void createRun()}>
+              <HrModalCancel onClick={() => setRunOpen(false)} disabled={runSaving} />
+              <HrModalSubmit form="hr-payroll-run-form" loading={runSaving}>
                 Create draft
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
-            <HrField label="Period">
-              <select value={periodId} onChange={e => setPeriodId(e.target.value)} className="input-field h-11 w-full">
-                {periods.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
+          <form id="hr-payroll-run-form" onSubmit={e => void createRun(e)} className="space-y-5">
+            <HrField label="Payroll period" required>
+              <div className="relative">
+                <CalendarRange size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <select
+                  required
+                  value={periodId}
+                  onChange={e => setPeriodId(e.target.value)}
+                  className="input-field h-11 w-full pl-10"
+                >
+                  <option value="" disabled>Select period</option>
+                  {periods.map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
             </HrField>
-          </div>
+            {periods.length === 0 && (
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                No periods yet — create a payroll period first.
+              </p>
+            )}
+          </form>
         </HrModal>
       )}
     </HrFeatureGate>

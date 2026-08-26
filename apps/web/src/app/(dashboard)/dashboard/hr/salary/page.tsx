@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { DollarSign, Plus, Package as PackageIcon, Layers } from 'lucide-react'
+import { DollarSign, Plus, Package as PackageIcon, Layers, User, CalendarDays, Tag, Hash } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
@@ -59,7 +59,8 @@ export default function HrSalaryPage() {
 
   useEffect(() => { void load() }, [load])
 
-  const savePackage = async () => {
+  const savePackage = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (!pkgForm.employeeId || !pkgForm.basicSalary) { toast.error('Employee and basic required'); return }
     setSaving(true)
     try {
@@ -76,7 +77,8 @@ export default function HrSalaryPage() {
     finally { setSaving(false) }
   }
 
-  const saveComponent = async () => {
+  const saveComponent = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (!compForm.name || !compForm.code) { toast.error('Name and code required'); return }
     setSaving(true)
     try {
@@ -202,68 +204,139 @@ export default function HrSalaryPage() {
       {pkgOpen && (
         <HrModal
           title="Set salary package"
+          subtitle="Assign basic salary and active components to an employee"
+          icon={PackageIcon}
           onClose={() => setPkgOpen(false)}
           footer={(
             <>
               <HrModalCancel onClick={() => setPkgOpen(false)} disabled={saving} />
-              <HrModalSubmit type="button" loading={saving} onClick={() => void savePackage()}>
-                Save
+              <HrModalSubmit form="hr-salary-package-form" loading={saving}>
+                Save package
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
-            <HrField label="Employee">
-              <select value={pkgForm.employeeId} onChange={e => setPkgForm(f => ({ ...f, employeeId: e.target.value }))}
-                className="input-field h-11 w-full">
-                {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
-              </select>
+          <form id="hr-salary-package-form" onSubmit={e => void savePackage(e)} className="space-y-5">
+            <HrField label="Employee" required>
+              <div className="relative">
+                <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <select
+                  required
+                  value={pkgForm.employeeId}
+                  onChange={e => setPkgForm(f => ({ ...f, employeeId: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                >
+                  <option value="" disabled>Select employee</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.employeeCode})</option>
+                  ))}
+                </select>
+              </div>
             </HrField>
-            <HrField label="Basic salary">
-              <input type="number" value={pkgForm.basicSalary} onChange={e => setPkgForm(f => ({ ...f, basicSalary: e.target.value }))}
-                className="input-field h-11 w-full" />
+            <HrField label="Basic salary" required hint="LKR — used as the package base">
+              <div className="relative">
+                <DollarSign size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  required
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  value={pkgForm.basicSalary}
+                  onChange={e => setPkgForm(f => ({ ...f, basicSalary: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
             </HrField>
-            <HrField label="Effective from">
-              <input type="date" value={pkgForm.effectiveFrom} onChange={e => setPkgForm(f => ({ ...f, effectiveFrom: e.target.value }))}
-                className="input-field h-11 w-full" />
+            <HrField label="Effective from" required>
+              <div className="relative">
+                <CalendarDays size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  required
+                  type="date"
+                  value={pkgForm.effectiveFrom}
+                  onChange={e => setPkgForm(f => ({ ...f, effectiveFrom: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
             </HrField>
-          </div>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Active salary components are attached automatically with their default amounts.
+            </p>
+          </form>
         </HrModal>
       )}
 
       {compOpen && (
         <HrModal
-          title="New component"
+          title="Add salary component"
+          subtitle="Create an earning, deduction, or employer contribution"
+          icon={Layers}
           onClose={() => setCompOpen(false)}
           footer={(
             <>
               <HrModalCancel onClick={() => setCompOpen(false)} disabled={saving} />
-              <HrModalSubmit type="button" loading={saving} onClick={() => void saveComponent()}>
-                Save
+              <HrModalSubmit form="hr-salary-component-form" loading={saving}>
+                Create component
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
-            {(['name', 'code'] as const).map(k => (
-              <HrField key={k} label={k}>
-                <input value={compForm[k]} onChange={e => setCompForm(f => ({ ...f, [k]: e.target.value }))}
-                  className="input-field h-11 w-full" />
+          <form id="hr-salary-component-form" onSubmit={e => void saveComponent(e)} className="space-y-5">
+            <HrField label="Name" required>
+              <div className="relative">
+                <Tag size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  required
+                  autoFocus
+                  placeholder="e.g. Transport allowance"
+                  value={compForm.name}
+                  onChange={e => setCompForm(f => ({ ...f, name: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
+            </HrField>
+            <div className="grid grid-cols-2 gap-4">
+              <HrField label="Code" required>
+                <div className="relative">
+                  <Hash size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    required
+                    placeholder="TRANSPORT"
+                    value={compForm.code}
+                    onChange={e => setCompForm(f => ({ ...f, code: e.target.value }))}
+                    className="input-field h-11 w-full pl-10 font-mono"
+                  />
+                </div>
               </HrField>
-            ))}
-            <HrField label="Kind">
-              <select value={compForm.kind} onChange={e => setCompForm(f => ({ ...f, kind: e.target.value }))}
-                className="input-field h-11 w-full">
-                <option value="EARNING">Earning</option>
-                <option value="DEDUCTION">Deduction</option>
-                <option value="EMPLOYER">Employer</option>
-              </select>
+              <HrField label="Kind" required>
+                <select
+                  required
+                  value={compForm.kind}
+                  onChange={e => setCompForm(f => ({ ...f, kind: e.target.value }))}
+                  className="input-field h-11 w-full"
+                >
+                  <option value="EARNING">Earning</option>
+                  <option value="DEDUCTION">Deduction</option>
+                  <option value="EMPLOYER">Employer</option>
+                </select>
+              </HrField>
+            </div>
+            <HrField label="Default amount / %" hint="Used when attaching this component to a package">
+              <div className="relative">
+                <DollarSign size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  value={compForm.defaultAmount}
+                  onChange={e => setCompForm(f => ({ ...f, defaultAmount: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
             </HrField>
-            <HrField label="Default amount / %">
-              <input type="number" value={compForm.defaultAmount} onChange={e => setCompForm(f => ({ ...f, defaultAmount: e.target.value }))}
-                className="input-field h-11 w-full" />
-            </HrField>
-          </div>
+          </form>
         </HrModal>
       )}
     </HrFeatureGate>

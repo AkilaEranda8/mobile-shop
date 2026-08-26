@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CreditCard, Loader2, Plus, Banknote, Landmark } from 'lucide-react'
+import { CreditCard, Loader2, Plus, Banknote, Landmark, User, MessageSquare, Hash } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
@@ -45,6 +45,9 @@ export default function HrAdvancesPage() {
   const [advForm, setAdvForm] = useState({ employeeId: '', amount: '', reason: '' })
   const [loanForm, setLoanForm] = useState({ employeeId: '', principal: '', installmentCount: '6', interestRate: '0' })
 
+  const [advSaving, setAdvSaving] = useState(false)
+  const [loanSaving, setLoanSaving] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
@@ -62,18 +65,31 @@ export default function HrAdvancesPage() {
 
   useEffect(() => { void load() }, [load])
 
-  const requestAdvance = async () => {
+  const requestAdvance = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!advForm.amount || Number(advForm.amount) <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    setAdvSaving(true)
     try {
       await hrApi.requestAdvance({
         employeeId: advForm.employeeId || undefined,
         amount: Number(advForm.amount),
-        reason: advForm.reason || null,
+        reason: advForm.reason.trim() || null,
       })
       toast.success('Advance requested'); setAdvOpen(false); await load()
-    } catch (e: unknown) { toast.error((e as Error)?.message ?? 'Failed') }
+    } catch (err: unknown) { toast.error((err as Error)?.message ?? 'Failed') }
+    finally { setAdvSaving(false) }
   }
 
-  const requestLoan = async () => {
+  const requestLoan = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!loanForm.principal || Number(loanForm.principal) <= 0) {
+      toast.error('Enter a valid principal')
+      return
+    }
+    setLoanSaving(true)
     try {
       await hrApi.requestLoan({
         employeeId: loanForm.employeeId || undefined,
@@ -82,7 +98,8 @@ export default function HrAdvancesPage() {
         interestRate: Number(loanForm.interestRate) || 0,
       })
       toast.success('Loan requested'); setLoanOpen(false); await load()
-    } catch (e: unknown) { toast.error((e as Error)?.message ?? 'Failed') }
+    } catch (err: unknown) { toast.error((err as Error)?.message ?? 'Failed') }
+    finally { setLoanSaving(false) }
   }
 
   const advAct = async (id: string, action: 'approve' | 'reject' | 'disburse') => {
@@ -271,55 +288,141 @@ export default function HrAdvancesPage() {
       {advOpen && (
         <HrModal
           title="Request advance"
+          subtitle="Salary advance — recovered on the next payroll pay"
+          icon={Banknote}
           onClose={() => setAdvOpen(false)}
           footer={(
             <>
-              <HrModalCancel onClick={() => setAdvOpen(false)} />
-              <HrModalSubmit type="button" onClick={() => void requestAdvance()}>
-                Submit
+              <HrModalCancel onClick={() => setAdvOpen(false)} disabled={advSaving} />
+              <HrModalSubmit form="hr-advance-form" loading={advSaving}>
+                Submit request
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
+          <form id="hr-advance-form" onSubmit={e => void requestAdvance(e)} className="space-y-5">
             {canEdit && employees.length > 0 && (
               <HrField label="Employee">
-                <select value={advForm.employeeId} onChange={e => setAdvForm(f => ({ ...f, employeeId: e.target.value }))} className="input-field h-11 w-full">
-                  <option value="">My linked employee</option>
-                  {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
-                </select>
+                <div className="relative">
+                  <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <select
+                    value={advForm.employeeId}
+                    onChange={e => setAdvForm(f => ({ ...f, employeeId: e.target.value }))}
+                    className="input-field h-11 w-full pl-10"
+                  >
+                    <option value="">My linked employee</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.employeeCode})</option>
+                    ))}
+                  </select>
+                </div>
               </HrField>
             )}
-            <HrField label="Amount"><input type="number" value={advForm.amount} onChange={e => setAdvForm(f => ({ ...f, amount: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-            <HrField label="Reason"><input value={advForm.reason} onChange={e => setAdvForm(f => ({ ...f, reason: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-          </div>
+            <HrField label="Amount" required>
+              <div className="relative">
+                <Banknote size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  required
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  value={advForm.amount}
+                  onChange={e => setAdvForm(f => ({ ...f, amount: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
+            </HrField>
+            <HrField label="Reason" hint="Optional — helps approvers">
+              <div className="relative">
+                <MessageSquare size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  placeholder="e.g. Emergency expense"
+                  value={advForm.reason}
+                  onChange={e => setAdvForm(f => ({ ...f, reason: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
+            </HrField>
+          </form>
         </HrModal>
       )}
       {loanOpen && (
         <HrModal
           title="Request loan"
+          subtitle="Staff loan with installment recovery on payroll"
+          icon={Landmark}
           onClose={() => setLoanOpen(false)}
           footer={(
             <>
-              <HrModalCancel onClick={() => setLoanOpen(false)} />
-              <HrModalSubmit type="button" onClick={() => void requestLoan()}>
-                Submit
+              <HrModalCancel onClick={() => setLoanOpen(false)} disabled={loanSaving} />
+              <HrModalSubmit form="hr-loan-form" loading={loanSaving}>
+                Submit request
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
+          <form id="hr-loan-form" onSubmit={e => void requestLoan(e)} className="space-y-5">
             {canEdit && employees.length > 0 && (
               <HrField label="Employee">
-                <select value={loanForm.employeeId} onChange={e => setLoanForm(f => ({ ...f, employeeId: e.target.value }))} className="input-field h-11 w-full">
-                  <option value="">My linked employee</option>
-                  {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
-                </select>
+                <div className="relative">
+                  <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <select
+                    value={loanForm.employeeId}
+                    onChange={e => setLoanForm(f => ({ ...f, employeeId: e.target.value }))}
+                    className="input-field h-11 w-full pl-10"
+                  >
+                    <option value="">My linked employee</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.employeeCode})</option>
+                    ))}
+                  </select>
+                </div>
               </HrField>
             )}
-            <HrField label="Principal"><input type="number" value={loanForm.principal} onChange={e => setLoanForm(f => ({ ...f, principal: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-            <HrField label="Installments"><input type="number" value={loanForm.installmentCount} onChange={e => setLoanForm(f => ({ ...f, installmentCount: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-          </div>
+            <HrField label="Principal" required>
+              <div className="relative">
+                <Banknote size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  required
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  value={loanForm.principal}
+                  onChange={e => setLoanForm(f => ({ ...f, principal: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
+            </HrField>
+            <div className="grid grid-cols-2 gap-4">
+              <HrField label="Installments" required>
+                <div className="relative">
+                  <Hash size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    required
+                    type="number"
+                    min={1}
+                    placeholder="6"
+                    value={loanForm.installmentCount}
+                    onChange={e => setLoanForm(f => ({ ...f, installmentCount: e.target.value }))}
+                    className="input-field h-11 w-full pl-10"
+                  />
+                </div>
+              </HrField>
+              <HrField label="Interest %" hint="Optional">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0"
+                  value={loanForm.interestRate}
+                  onChange={e => setLoanForm(f => ({ ...f, interestRate: e.target.value }))}
+                  className="input-field h-11 w-full"
+                />
+              </HrField>
+            </div>
+          </form>
         </HrModal>
       )}
     </HrFeatureGate>

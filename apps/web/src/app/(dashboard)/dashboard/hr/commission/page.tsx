@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { TrendingUp, Plus, Users, ListChecks, Wallet } from 'lucide-react'
+import { TrendingUp, Plus, Users, ListChecks, Wallet, Tag, Percent } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import toast from 'react-hot-toast'
 import { hrApi } from '@/lib/api'
@@ -53,16 +53,19 @@ export default function HrCommissionPage() {
 
   useEffect(() => { void load() }, [load])
 
-  const save = async () => {
+  const save = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!form.name.trim()) { toast.error('Rule name is required'); return }
     setSaving(true)
     try {
       await hrApi.createCommissionRule({
-        name: form.name, source: form.source,
+        name: form.name.trim(),
+        source: form.source,
         ratePercent: Number(form.ratePercent) || 0,
         flatPerUnit: Number(form.flatPerUnit) || 0,
       })
       toast.success('Rule created'); setOpen(false); await load()
-    } catch (e: unknown) { toast.error((e as Error)?.message ?? 'Failed') }
+    } catch (err: unknown) { toast.error((err as Error)?.message ?? 'Failed') }
     finally { setSaving(false) }
   }
 
@@ -176,28 +179,74 @@ export default function HrCommissionPage() {
       </HrPageShell>
       {open && (
         <HrModal
-          title="Commission rule"
+          title="Add commission rule"
+          subtitle="Incentive rate for sales, repairs, or hire purchase"
+          icon={ListChecks}
           onClose={() => setOpen(false)}
           footer={(
             <>
               <HrModalCancel onClick={() => setOpen(false)} disabled={saving} />
-              <HrModalSubmit type="button" loading={saving} onClick={() => void save()}>
-                Save
+              <HrModalSubmit form="hr-commission-rule-form" loading={saving}>
+                Create rule
               </HrModalSubmit>
             </>
           )}
         >
-          <div className="space-y-3">
-            <HrField label="Name"><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-            <HrField label="Source">
-              <select value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} className="input-field h-11 w-full">
+          <form id="hr-commission-rule-form" onSubmit={e => void save(e)} className="space-y-5">
+            <HrField label="Name" required>
+              <div className="relative">
+                <Tag size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  required
+                  autoFocus
+                  placeholder="e.g. Sales floor 0.5%"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="input-field h-11 w-full pl-10"
+                />
+              </div>
+            </HrField>
+            <HrField label="Source" required>
+              <select
+                required
+                value={form.source}
+                onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
+                className="input-field h-11 w-full"
+              >
                 <option value="SALES">Sales</option>
                 <option value="REPAIRS">Repairs</option>
                 <option value="HIRE_PURCHASE">Hire purchase</option>
               </select>
             </HrField>
-            <HrField label="Rate %"><input type="number" value={form.ratePercent} onChange={e => setForm(f => ({ ...f, ratePercent: e.target.value }))} className="input-field h-11 w-full" /></HrField>
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <HrField label="Rate %" required hint="Percent of attributed revenue">
+                <div className="relative">
+                  <Percent size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    required
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.50"
+                    value={form.ratePercent}
+                    onChange={e => setForm(f => ({ ...f, ratePercent: e.target.value }))}
+                    className="input-field h-11 w-full pl-10"
+                  />
+                </div>
+              </HrField>
+              <HrField label="Flat per unit" hint="Optional fixed amount">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.flatPerUnit}
+                  onChange={e => setForm(f => ({ ...f, flatPerUnit: e.target.value }))}
+                  className="input-field h-11 w-full"
+                />
+              </HrField>
+            </div>
+          </form>
         </HrModal>
       )}
     </HrFeatureGate>
