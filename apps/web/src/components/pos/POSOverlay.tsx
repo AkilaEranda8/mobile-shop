@@ -1403,7 +1403,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [pinLocked, setPinLocked] = useState(false)
   const [pinGateMode, setPinGateMode] = useState<PosPinGateMode | null>(null)
   const [pinLength, setPinLength] = useState<4 | 6>(6)
-  const [pinIdleSeconds, setPinIdleSeconds] = useState(180)
+  const [pinIdleSeconds, setPinIdleSeconds] = useState(0)
   const [showMustChangePin, setShowMustChangePin] = useState(false)
   const pinIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const effectivePriceMode: PriceMode =
@@ -2565,7 +2565,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         const s = res?.data ?? res
         if (!s) return
         setPinLength(s.pinLength === 4 ? 4 : 6)
-        setPinIdleSeconds(typeof s.idleTimeoutSeconds === 'number' ? s.idleTimeoutSeconds : 180)
+        setPinIdleSeconds(typeof s.idleTimeoutSeconds === 'number' ? s.idleTimeoutSeconds : 0)
       })
       .catch(() => {})
     if (currentUser.pinMustChange) setShowMustChangePin(true)

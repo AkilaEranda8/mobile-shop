@@ -151,7 +151,7 @@ export default function SettingsPage() {
     pinLength: 6 as 4 | 6,
     maxFailedAttempts: 5,
     lockoutSeconds: 900,
-    idleTimeoutSeconds: 180,
+    idleTimeoutSeconds: 0,
     requirePasswordAfterLock: false,
     allowColdPinLogin: true,
   })
@@ -178,7 +178,7 @@ export default function SettingsPage() {
           pinLength: s.pinLength === 4 ? 4 : 6,
           maxFailedAttempts: s.maxFailedAttempts ?? 5,
           lockoutSeconds: s.lockoutSeconds ?? 900,
-          idleTimeoutSeconds: s.idleTimeoutSeconds ?? 180,
+          idleTimeoutSeconds: s.idleTimeoutSeconds ?? 0,
           requirePasswordAfterLock: !!s.requirePasswordAfterLock,
           allowColdPinLogin: s.allowColdPinLogin !== false,
         })
@@ -212,7 +212,7 @@ export default function SettingsPage() {
         pinLength: s.pinLength === 4 ? 4 : 6,
         maxFailedAttempts: s.maxFailedAttempts ?? 5,
         lockoutSeconds: s.lockoutSeconds ?? 900,
-        idleTimeoutSeconds: s.idleTimeoutSeconds ?? 180,
+        idleTimeoutSeconds: s.idleTimeoutSeconds ?? 0,
         requirePasswordAfterLock: !!s.requirePasswordAfterLock,
         allowColdPinLogin: s.allowColdPinLogin !== false,
       })
@@ -1677,10 +1677,11 @@ export default function SettingsPage() {
                             onChange={e => setPosPinForm(p => ({ ...p, lockoutSeconds: Number(e.target.value) || 900 }))} />
                         </div>
                         <div>
-                          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Idle lock (seconds, 0 = off)</label>
-                          <input type="number" min={0} max={3600} className="input-field h-10" disabled={!canEdit}
-                            value={posPinForm.idleTimeoutSeconds}
-                            onChange={e => setPosPinForm(p => ({ ...p, idleTimeoutSeconds: Number(e.target.value) || 0 }))} />
+                          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Idle lock</label>
+                          <input type="number" min={0} max={3600} className="input-field h-10" disabled
+                            value={0}
+                            title="Idle lock is off" />
+                          <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Off — POS will not auto-lock</p>
                         </div>
                       </div>
                     </>

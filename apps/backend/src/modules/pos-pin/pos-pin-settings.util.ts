@@ -20,7 +20,7 @@ export const DEFAULT_POS_PIN_SETTINGS: PosPinSettings = {
   pinLength: 6,
   maxFailedAttempts: 5,
   lockoutSeconds: 15 * 60,
-  idleTimeoutSeconds: 3 * 60,
+  idleTimeoutSeconds: 0,
   requirePasswordAfterLock: false,
   allowColdPinLogin: true,
 }
@@ -45,7 +45,8 @@ export function normalizePosPinSettings(raw: unknown): PosPinSettings {
     pinLength: len === 4 ? 4 : 6,
     maxFailedAttempts: asInt(o.maxFailedAttempts, DEFAULT_POS_PIN_SETTINGS.maxFailedAttempts, 3, 20),
     lockoutSeconds: asInt(o.lockoutSeconds, DEFAULT_POS_PIN_SETTINGS.lockoutSeconds, 60, 24 * 60 * 60),
-    idleTimeoutSeconds: asInt(o.idleTimeoutSeconds, DEFAULT_POS_PIN_SETTINGS.idleTimeoutSeconds, 0, 60 * 60),
+    // Idle auto-lock off — no timeout (stored values ignored until product re-enables)
+    idleTimeoutSeconds: 0,
     requirePasswordAfterLock: asBool(o.requirePasswordAfterLock, DEFAULT_POS_PIN_SETTINGS.requirePasswordAfterLock),
     allowColdPinLogin: asBool(o.allowColdPinLogin, DEFAULT_POS_PIN_SETTINGS.allowColdPinLogin),
   }
