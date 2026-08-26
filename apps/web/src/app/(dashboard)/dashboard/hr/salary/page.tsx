@@ -155,12 +155,12 @@ export default function HrSalaryPage() {
       <HrPageShell title="Salary" subtitle="Components and employee packages" icon={DollarSign}
         actions={canEdit ? (
           <div className="flex gap-2">
-            <button type="button" onClick={() => setCompOpen(true)} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
-              <Plus className="w-4 h-4 inline mr-1" /> Component
+            <button type="button" onClick={() => setCompOpen(true)} className="btn-secondary text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Component
             </button>
             <button type="button" onClick={() => { setPkgForm(f => ({ ...f, employeeId: employees[0]?.id ?? '' })); setPkgOpen(true) }}
-              className="px-3 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-              <Plus className="w-4 h-4 inline mr-1" /> Package
+              className="btn-primary text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Package
             </button>
           </div>
         ) : undefined}

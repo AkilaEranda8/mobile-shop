@@ -168,11 +168,11 @@ export default function HrPayrollPage() {
       <HrPageShell title="Payroll" subtitle="Periods → draft → process → approve → pay (GL via accounting)" icon={Wallet}
         actions={canEdit ? (
           <div className="flex gap-2">
-            <button type="button" onClick={() => setPeriodOpen(true)} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
-              <Plus className="w-4 h-4 inline mr-1" /> Period
+            <button type="button" onClick={() => setPeriodOpen(true)} className="btn-secondary text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Period
             </button>
-            <button type="button" onClick={() => setRunOpen(true)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-              <Plus className="w-4 h-4 inline mr-1" /> Draft run
+            <button type="button" onClick={() => setRunOpen(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Draft run
             </button>
           </div>
         ) : undefined}

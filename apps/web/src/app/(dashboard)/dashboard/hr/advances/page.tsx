@@ -225,11 +225,11 @@ export default function HrAdvancesPage() {
       <HrPageShell title="Advances & Loans" subtitle="Request, approve, disburse — recoveries hit payroll" icon={CreditCard}
         actions={
           <div className="flex gap-2">
-            <button type="button" onClick={() => setAdvOpen(true)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-              <Plus className="w-4 h-4 inline mr-1" /> Advance
+            <button type="button" onClick={() => setAdvOpen(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Advance
             </button>
-            <button type="button" onClick={() => setLoanOpen(true)} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
-              <Plus className="w-4 h-4 inline mr-1" /> Loan
+            <button type="button" onClick={() => setLoanOpen(true)} className="btn-secondary text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Loan
             </button>
           </div>
         }

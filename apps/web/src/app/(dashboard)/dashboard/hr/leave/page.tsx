@@ -394,8 +394,7 @@ export default function HrLeavePage() {
           <button
             type="button"
             onClick={openSubmit}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
-            style={{ background: 'var(--accent)', color: '#fff' }}
+            className="btn-primary text-sm flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Request leave
           </button>
@@ -473,8 +472,7 @@ export default function HrLeavePage() {
               <button
                 type="button"
                 onClick={() => openType()}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                className="btn-secondary text-sm flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" /> Add leave type
               </button>

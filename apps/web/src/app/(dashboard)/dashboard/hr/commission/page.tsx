@@ -133,8 +133,8 @@ export default function HrCommissionPage() {
     <HrFeatureGate>
       <HrPageShell title="Commission" subtitle="Staff sales / repair incentive preview (calc only)" icon={TrendingUp}
         actions={canEdit ? (
-          <button type="button" onClick={() => setOpen(true)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-            <Plus className="w-4 h-4 inline mr-1" /> Rule
+          <button type="button" onClick={() => setOpen(true)} className="btn-primary text-sm flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Rule
           </button>
         ) : undefined}
       >
