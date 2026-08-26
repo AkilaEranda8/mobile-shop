@@ -220,7 +220,7 @@ function PurchaseReturnDetailModal({
                   {Number(ret.supplierCreditCreated ?? 0) > 0 && (
                     <div className="flex justify-between">
                       <span style={{ color: 'var(--text-muted)' }}>Supplier credit</span>
-                      <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(ret.supplierCreditCreated)}</span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(ret.supplierCreditCreated ?? 0)}</span>
                     </div>
                   )}
                   <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -343,7 +343,7 @@ function PurchaseReturnDetailModal({
                     <div className="flex justify-between text-[13px]">
                       <span style={{ color: 'var(--text-muted)' }}>Supplier credit</span>
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(ret.supplierCreditCreated)}
+                        {formatCurrency(ret.supplierCreditCreated ?? 0)}
                       </span>
                     </div>
                   )}
