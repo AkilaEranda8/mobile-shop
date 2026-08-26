@@ -31,6 +31,7 @@ import {
   getExpectedImeiCount,
   poCanRegisterImei,
   poCanEditOrDelete,
+  poEditBlockReason,
   poHasImeiProducts,
   poStatusColors,
   type PoProduct as SharedPoProduct,
@@ -661,8 +662,9 @@ export default function PurchaseOrdersPage() {
       viewOnlyToast('suppliers')
       return
     }
-    if (!poCanEditOrDelete(po)) {
-      toast.error('Only unreceived DRAFT/SENT POs without payments can be edited')
+    const blocked = poEditBlockReason(po)
+    if (blocked) {
+      toast.error(blocked)
       return
     }
     setDetailPO(null)
@@ -674,8 +676,9 @@ export default function PurchaseOrdersPage() {
       viewOnlyToast('suppliers')
       return
     }
-    if (!poCanEditOrDelete(po)) {
-      toast.error('Only unreceived DRAFT/SENT POs without payments can be deleted')
+    const blocked = poEditBlockReason(po)
+    if (blocked) {
+      toast.error(blocked.replace(/^Cannot edit/, 'Cannot delete'))
       return
     }
     setDetailPO(null)
@@ -822,7 +825,7 @@ export default function PurchaseOrdersPage() {
           { text: 'View details', function: () => openPoDetail(po), icon: <Eye size={13} /> },
           { text: 'View Invoice', function: () => openPoInvoice(po.id), icon: <FileText size={13} /> },
         ]
-        if (canMutate) {
+        if (canEdit) {
           menu.push({
             text: 'Edit',
             function: () => openEditPO(po),
@@ -850,7 +853,7 @@ export default function PurchaseOrdersPage() {
             icon: <Printer size={13} />,
           })
         }
-        if (canMutate) {
+        if (canEdit) {
           menu.push({
             text: 'Delete',
             function: () => openDeletePO(po),
@@ -869,6 +872,20 @@ export default function PurchaseOrdersPage() {
               <Eye size={11} />
               View
             </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => openEditPO(po)}
+                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md border transition-colors"
+                style={canMutate
+                  ? { borderColor: 'rgba(139,92,246,0.35)', color: '#7c3aed', background: 'rgba(139,92,246,0.12)' }
+                  : { borderColor: 'var(--border-default)', color: 'var(--text-muted)', background: 'var(--bg-subtle)', opacity: 0.75 }}
+                title={canMutate ? 'Edit purchase order' : poEditBlockReason(po) || 'Cannot edit'}
+              >
+                <Pencil size={11} />
+                Edit
+              </button>
+            )}
             <TableActionsRow dropMoreActions={menu} />
           </div>
         )
@@ -897,12 +914,8 @@ export default function PurchaseOrdersPage() {
           onPrintBarcodes={(detailPO.status === 'RECEIVED' || detailPO.status === 'CLOSED')
             ? () => handlePrintPoLabels(detailPO)
             : undefined}
-          onEdit={canEdit && poCanEditOrDelete(detailPO)
-            ? () => openEditPO(detailPO)
-            : undefined}
-          onDelete={canEdit && poCanEditOrDelete(detailPO)
-            ? () => openDeletePO(detailPO)
-            : undefined}
+          onEdit={canEdit ? () => openEditPO(detailPO) : undefined}
+          onDelete={canEdit ? () => openDeletePO(detailPO) : undefined}
           receiving={markReceiving === detailPO.id}
           printingBarcodes={printingBarcodes || barcodePreviewLoading}
         />

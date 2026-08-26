@@ -13,7 +13,7 @@ import { emitPurchaseAccounting, emitOpeningSupplierApAccounting } from '../acco
 import { applyPurchaseOrderReceive } from '../../utils/po-receive.util'
 import { applyPurchaseOrderReceiveEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { resolveQueryDateRange, parseOptionalPaymentAt, assertPaymentAtNotFuture } from '../../utils/date-range'
-import { redactPurchaseOrderCost, redactPurchaseOrderCostList } from '../../utils/product-cost-redact'
+import { redactPurchaseOrderCost, redactPurchaseOrderCostList, canEditProductCost } from '../../utils/product-cost-redact'
 import { recordSupplierPayment } from './supplier-payment.service'
 import { processPurchaseReturn, listPurchaseReturns } from './purchase-return.service'
 import { OPENING_BALANCE_SUPPLIER_PO_NOTES } from '../../constants/business-rules.constants'
@@ -829,19 +829,85 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TEC
         nextSupplierName = supplierName !== undefined ? String(supplierName) : supplier.name
       }
 
-      const nextTotal = total !== undefined ? Number(total) || 0 : Number(po.total)
-      const nextSubtotal = subtotal !== undefined ? Number(subtotal) || 0 : Number(po.subtotal)
       const nextTax = tax !== undefined ? Number(tax) || 0 : Number(po.tax)
       const nextStatus = (bodyStatus && bodyStatus !== 'RECEIVED' ? bodyStatus : po.status) as typeof po.status
+      const allowCostWrite = canEditProductCost(req)
 
       if (nextStatus !== po.status) {
         await assertPurchaseOrderTransitionIfEnabled(req.tenantId!, po.status, nextStatus)
       }
 
       const updated = await prisma.$transaction(async (tx) => {
+        let nextItems:
+          | Array<{
+              productId?: string
+              productName: string
+              quantity: number
+              unitCost: number
+              total: number
+              receivedQuantity: number
+              storage?: string
+              colorName?: string
+              sku?: string
+            }>
+          | undefined
+
         if (Array.isArray(items)) {
           await tx.pOItem.deleteMany({ where: { purchaseOrderId: po.id } })
+          nextItems = await Promise.all(items.map(async (item: any, idx: number) => {
+            let productId = item.productId || undefined
+            if (!productId && item.productName) {
+              const p = await tx.product.findFirst({
+                where: {
+                  tenantId: req.tenantId!,
+                  branchId: po.branchId,
+                  name: { equals: item.productName, mode: 'insensitive' },
+                  isActive: true,
+                },
+              })
+              if (p) productId = p.id
+            }
+            let unitCost = Number(item.unitCost) || 0
+            // List/detail APIs redact unitCost without PRODUCT_COST view — preserve DB costs
+            if (!allowCostWrite || unitCost <= 0) {
+              const prev =
+                (item.id && po.items.find(i => i.id === item.id)) ||
+                (productId && po.items.find(i => i.productId === productId)) ||
+                po.items[idx]
+              if (prev) unitCost = Number(prev.unitCost) || unitCost
+            }
+            if (unitCost <= 0) {
+              throw new AppError('Unit cost is required for each line item', 400)
+            }
+            const qty = Number(item.quantity) || 1
+            return {
+              productId,
+              productName: item.productName,
+              quantity: qty,
+              unitCost,
+              total: qty * unitCost,
+              receivedQuantity: 0,
+              storage: item.storage || undefined,
+              colorName: item.colorName || undefined,
+              sku: item.sku || undefined,
+            }
+          }))
         }
+
+        const computedSubtotal = nextItems
+          ? nextItems.reduce((s, r) => s + Number(r.total), 0)
+          : undefined
+        // Prefer recomputed totals when items change (avoids wiping totals after cost redaction)
+        const nextSubtotal = computedSubtotal !== undefined
+          ? computedSubtotal
+          : subtotal !== undefined
+            ? Number(subtotal) || 0
+            : Number(po.subtotal)
+        const nextTotal = computedSubtotal !== undefined
+          ? computedSubtotal + nextTax
+          : total !== undefined
+            ? Number(total) || 0
+            : Number(po.total)
 
         return tx.purchaseOrder.update({
           where: { id: po.id },
@@ -859,34 +925,10 @@ router.put('/purchase-orders/:id', authorize('OWNER', 'MANAGER', 'CASHIER', 'TEC
                 : po.expectedDelivery,
             notes: notes !== undefined ? (notes || null) : po.notes,
             status: nextStatus,
-            ...(Array.isArray(items)
+            ...(nextItems
               ? {
                   items: {
-                    create: await Promise.all(items.map(async (item: any) => {
-                      let productId = item.productId || undefined
-                      if (!productId && item.productName) {
-                        const p = await tx.product.findFirst({
-                          where: {
-                            tenantId: req.tenantId!,
-                            branchId: po.branchId,
-                            name: { equals: item.productName, mode: 'insensitive' },
-                            isActive: true,
-                          },
-                        })
-                        if (p) productId = p.id
-                      }
-                      return {
-                        productId,
-                        productName: item.productName,
-                        quantity: Number(item.quantity) || 1,
-                        unitCost: Number(item.unitCost) || 0,
-                        total: Number(item.total) || 0,
-                        receivedQuantity: 0,
-                        storage: item.storage || undefined,
-                        colorName: item.colorName || undefined,
-                        sku: item.sku || undefined,
-                      }
-                    })),
+                    create: nextItems,
                   },
                 }
               : {}),

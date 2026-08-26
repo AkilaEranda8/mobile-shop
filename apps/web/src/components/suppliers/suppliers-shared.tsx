@@ -949,6 +949,21 @@ export function poCanEditOrDelete(po: PurchaseOrder): boolean {
   return true
 }
 
+/** Human-readable why full PO edit/delete is blocked (empty = allowed). */
+export function poEditBlockReason(po: PurchaseOrder): string {
+  if (poCanEditOrDelete(po)) return ''
+  if (!['DRAFT', 'SENT'].includes(po.status)) {
+    return `Cannot edit — status is ${po.status}. Only DRAFT/SENT orders can be edited (before stock is received).`
+  }
+  if (po.receivedAt || (po.items ?? []).some(i => Number(i.receivedQuantity ?? 0) > 0)) {
+    return 'Cannot edit — stock was already received on this PO.'
+  }
+  if (Number(po.paidAmount ?? 0) > 0) {
+    return 'Cannot edit — payments are recorded on this PO.'
+  }
+  return 'Cannot edit this purchase order.'
+}
+
 export function ConfirmDeletePOModal({ po, onConfirm, onCancel, loading }: {
   po: PurchaseOrder
   onConfirm: () => void
@@ -1688,6 +1703,7 @@ export function NewPOModal({
   })
   const [notes, setNotes]             = useState(editPo?.notes ?? '')
   const [items, setItems] = useState<{
+    id?: string
     productId: string
     productName: string
     quantity: number | string
@@ -1697,10 +1713,11 @@ export function NewPOModal({
     sku?: string
     _variations?: any[]
   }[]>(() => (editPo?.items ?? []).map(i => ({
+    id: i.id,
     productId: i.productId ?? '',
     productName: i.productName,
     quantity: i.quantity,
-    unitCost: i.unitCost,
+    unitCost: i.unitCost ?? '',
     storage: i.storage || undefined,
     colorName: i.colorName || undefined,
     sku: i.sku || undefined,
@@ -1916,8 +1933,9 @@ export function NewPOModal({
       toast.error('Select each product from the search list (do not type names manually)')
       return
     }
+    // On edit, costs may be redacted (no PRODUCT_COST view) — server preserves existing unitCost
     const missingCost = items.filter(r => !Number(r.unitCost))
-    if (missingCost.length) {
+    if (missingCost.length && !(isEdit && !canSeeProductCost)) {
       toast.error(
         canSeeProductCost
           ? 'Enter buying price (unit cost) for each item'
@@ -1936,22 +1954,25 @@ export function NewPOModal({
         supplierId,
         supplierName: selectedSupplier?.name ?? '',
         items: items.map(r => ({
+          id:               r.id,
           productId:        r.productId   || undefined,
           productName:      r.productName,
           quantity:         Number(r.quantity),
-          unitCost:         Number(r.unitCost),
-          total:            Number(r.quantity) * Number(r.unitCost),
+          unitCost:         Number(r.unitCost) || 0,
+          total:            Number(r.quantity) * (Number(r.unitCost) || 0),
           receivedQuantity: 0,
           storage:          r.storage   || undefined,
           colorName:        r.colorName || undefined,
           sku:              r.sku       || undefined,
         })),
         branchId: branchId || undefined,
-        subtotal,
-        tax: 0,
-        total: subtotal,
-        paidAmount: 0,
-        dueAmount: subtotal,
+        subtotal: isEdit && !canSeeProductCost ? Number(editPo?.subtotal ?? 0) : subtotal,
+        tax: isEdit && !canSeeProductCost ? Number(editPo?.tax ?? 0) : 0,
+        total: isEdit && !canSeeProductCost ? Number(editPo?.total ?? 0) : subtotal,
+        paidAmount: isEdit ? Number(editPo?.paidAmount ?? 0) : 0,
+        dueAmount: isEdit && !canSeeProductCost
+          ? Number(editPo?.dueAmount ?? editPo?.total ?? 0)
+          : subtotal,
         expectedDelivery: expectedDelivery || undefined,
         notes,
         status: isEdit ? (editPo?.status || 'DRAFT') : 'DRAFT',
