@@ -57,6 +57,7 @@ const FEATURE_DEFS = [
   { key: 'POS_PRICE_EDIT',    label: 'POS Price Edit',    desc: 'Edit sale price in popup before adding to cart (incl. variants)', optIn: true },
   { key: 'POS_BILL_DATE',     label: 'POS Bill Date',     desc: 'POS checkout calendar to pick bill date (works with or without Daily Closing)', optIn: true },
   { key: 'POS_QUICK_PIN',     label: 'POS Quick PIN',     desc: 'Cashier PIN login, switch, and idle unlock (tenant-scoped; not Keycloak password)', optIn: true },
+  { key: 'HR_PAYROLL',        label: 'HR & Payroll',      desc: 'Employees, attendance, leave, salary, commission, payroll & advances (opt-in)', optIn: true },
 ]
 const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',
