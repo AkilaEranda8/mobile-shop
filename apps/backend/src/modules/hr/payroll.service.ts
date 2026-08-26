@@ -609,7 +609,13 @@ export const payrollService = {
       where,
       include: {
         employee: { select: { id: true, fullName: true, employeeCode: true } },
-        run: { select: { id: true, status: true, period: { select: { label: true } } } },
+        run: {
+          select: {
+            id: true,
+            status: true,
+            period: { select: { label: true, startDate: true, endDate: true } },
+          },
+        },
       },
       orderBy: { issuedAt: 'desc' },
       take: 100,
