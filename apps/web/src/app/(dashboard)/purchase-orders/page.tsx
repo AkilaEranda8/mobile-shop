@@ -132,6 +132,17 @@ function PODetailsModal({
             <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${poStatusColors[po.status] || ''}`}>
               {safeText(po.status)}
             </span>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg border border-violet-500/35 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+                title="Edit purchase order"
+              >
+                <Pencil size={13} />
+                Edit
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -822,16 +833,8 @@ export default function PurchaseOrdersPage() {
         const canPrint = po.status === 'RECEIVED' || po.status === 'CLOSED'
         const canRegisterImei = poCanRegisterImei(po, allProducts)
         const menu = [
-          { text: 'View details', function: () => openPoDetail(po), icon: <Eye size={13} /> },
           { text: 'View Invoice', function: () => openPoInvoice(po.id), icon: <FileText size={13} /> },
         ]
-        if (canEdit) {
-          menu.push({
-            text: 'Edit',
-            function: () => openEditPO(po),
-            icon: <Pencil size={13} />,
-          })
-        }
         if (canEdit && canReceive) {
           menu.push({
             text: markReceiving === po.id ? 'Receiving…' : 'Receive stock',
@@ -853,41 +856,17 @@ export default function PurchaseOrdersPage() {
             icon: <Printer size={13} />,
           })
         }
-        if (canEdit) {
-          menu.push({
-            text: 'Delete',
-            function: () => openDeletePO(po),
-            icon: <Trash2 size={13} />,
-          })
-        }
         return (
-          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-            <button
-              type="button"
-              onClick={() => openPoDetail(po)}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md border transition-colors"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}
-              title="View details"
-            >
-              <Eye size={11} />
-              View
-            </button>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => openEditPO(po)}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md border transition-colors"
-                style={canMutate
-                  ? { borderColor: 'rgba(139,92,246,0.35)', color: '#7c3aed', background: 'rgba(139,92,246,0.12)' }
-                  : { borderColor: 'var(--border-default)', color: 'var(--text-muted)', background: 'var(--bg-subtle)', opacity: 0.75 }}
-                title={canMutate ? 'Edit purchase order' : poEditBlockReason(po) || 'Cannot edit'}
-              >
-                <Pencil size={11} />
-                Edit
-              </button>
-            )}
-            <TableActionsRow dropMoreActions={menu} />
-          </div>
+          <TableActionsRow
+            showAction={{ action: () => openPoDetail(po) }}
+            {...(canMutate
+              ? {
+                  editAction: { action: () => openEditPO(po) },
+                  deleteAction: { action: () => openDeletePO(po) },
+                }
+              : {})}
+            dropMoreActions={menu}
+          />
         )
       },
     },
@@ -914,8 +893,12 @@ export default function PurchaseOrdersPage() {
           onPrintBarcodes={(detailPO.status === 'RECEIVED' || detailPO.status === 'CLOSED')
             ? () => handlePrintPoLabels(detailPO)
             : undefined}
-          onEdit={canEdit ? () => openEditPO(detailPO) : undefined}
-          onDelete={canEdit ? () => openDeletePO(detailPO) : undefined}
+          onEdit={canEdit && poCanEditOrDelete(detailPO)
+            ? () => openEditPO(detailPO)
+            : undefined}
+          onDelete={canEdit && poCanEditOrDelete(detailPO)
+            ? () => openDeletePO(detailPO)
+            : undefined}
           receiving={markReceiving === detailPO.id}
           printingBarcodes={printingBarcodes || barcodePreviewLoading}
         />

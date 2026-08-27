@@ -459,6 +459,7 @@ export type UpdateSaleInput = {
   performedBy: string
   actorEmail?: string
   req?: Request
+  customerId?: string | null
   customerName?: string | null
   customerPhone?: string | null
   notes?: string | null
@@ -573,10 +574,30 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
     )
   }
 
-  if (effectiveDue > 0 && !sale.customerId) {
+  let nextCustomerId = sale.customerId
+  let linkedCustomer: { id: string; name: string; phone: string | null } | null = null
+  if (input.customerId !== undefined) {
+    if (input.customerId === null || input.customerId === '') {
+      nextCustomerId = null
+    } else {
+      const customer = await prisma.customer.findFirst({
+        where: { id: String(input.customerId), tenantId: input.tenantId, isActive: true },
+        select: { id: true, name: true, phone: true, branchId: true },
+      })
+      if (!customer) throw new AppError('Customer not found', 404)
+      if (input.req) assertBranchRecordAccess(input.req, customer.branchId)
+      if (sale.branchId && customer.branchId && customer.branchId !== sale.branchId) {
+        throw new AppError('Customer belongs to a different branch', 400)
+      }
+      nextCustomerId = customer.id
+      linkedCustomer = { id: customer.id, name: customer.name, phone: customer.phone }
+    }
+  }
+
+  if (effectiveDue > 0 && !nextCustomerId) {
     throw new AppError('Customer is required when the invoice has an outstanding balance', 400)
   }
-  if (storeCreditPaid > 0.001 && !sale.customerId) {
+  if (storeCreditPaid > 0.001 && !nextCustomerId) {
     throw new AppError('Customer is required to redeem store credit', 400)
   }
 
@@ -587,13 +608,15 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
 
   const customerName = input.customerName !== undefined
     ? (input.customerName?.trim() || null)
-    : sale.customerName
+    : (linkedCustomer ? linkedCustomer.name : sale.customerName)
   const customerPhone = input.customerPhone !== undefined
     ? (input.customerPhone?.trim() || null)
-    : sale.customerPhone
+    : (linkedCustomer ? (linkedCustomer.phone || null) : sale.customerPhone)
   const notes = input.notes !== undefined
     ? (input.notes?.trim() || null)
     : sale.notes
+
+  const customerChanged = sale.customerId !== nextCustomerId
 
   const updated = await prisma.$transaction(async (tx) => {
     // Stock adjustments for quantity changes (qtyDelta > 0 = more sold = reduce stock)
@@ -709,9 +732,22 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
     }
 
     const dueDelta = round2(effectiveDue - prevDue)
-    if (sale.customerId && Math.abs(dueDelta) >= 0.01) {
+    if (customerChanged) {
+      if (sale.customerId && prevDue >= 0.01) {
+        await tx.customer.update({
+          where: { id: sale.customerId },
+          data: { totalDue: { decrement: prevDue } },
+        })
+      }
+      if (nextCustomerId && effectiveDue >= 0.01) {
+        await tx.customer.update({
+          where: { id: nextCustomerId },
+          data: { totalDue: { increment: effectiveDue } },
+        })
+      }
+    } else if (nextCustomerId && Math.abs(dueDelta) >= 0.01) {
       await tx.customer.update({
-        where: { id: sale.customerId },
+        where: { id: nextCustomerId },
         data: { totalDue: { increment: dueDelta } },
       })
     }
@@ -722,9 +758,33 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
         .reduce((s, p) => s + Math.max(0, Number(p.amount) || 0), 0),
     )
     const storeCreditDelta = round2(storeCreditPaid - prevStoreCredit)
-    if (sale.customerId && Math.abs(storeCreditDelta) >= 0.01) {
+    if (customerChanged) {
+      if (sale.customerId && prevStoreCredit >= 0.01) {
+        await tx.customer.update({
+          where: { id: sale.customerId },
+          data: { creditBalance: { increment: prevStoreCredit } },
+        })
+      }
+      if (nextCustomerId && storeCreditPaid >= 0.01) {
+        const customer = await tx.customer.findUnique({
+          where: { id: nextCustomerId },
+          select: { creditBalance: true },
+        })
+        const available = round2(Math.max(0, Number(customer?.creditBalance ?? 0)))
+        if (storeCreditPaid > available + 0.001) {
+          throw new AppError(
+            `Store credit exceeds available balance. Available: ${available.toFixed(2)}`,
+            400,
+          )
+        }
+        await tx.customer.update({
+          where: { id: nextCustomerId },
+          data: { creditBalance: { decrement: storeCreditPaid } },
+        })
+      }
+    } else if (nextCustomerId && Math.abs(storeCreditDelta) >= 0.01) {
       const customer = await tx.customer.findUnique({
-        where: { id: sale.customerId },
+        where: { id: nextCustomerId },
         select: { creditBalance: true },
       })
       const available = round2(Math.max(0, Number(customer?.creditBalance ?? 0)))
@@ -735,7 +795,7 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
         )
       }
       await tx.customer.update({
-        where: { id: sale.customerId },
+        where: { id: nextCustomerId },
         data: { creditBalance: { decrement: storeCreditDelta } },
       })
     }
@@ -743,6 +803,7 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
     const s = await tx.sale.update({
       where: { id: sale.id },
       data: {
+        customerId: nextCustomerId,
         customerName,
         customerPhone,
         notes,
@@ -808,7 +869,7 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
         branchId: sale.branchId,
         saleId: sale.id,
         invoiceNumber: sale.invoiceNumber,
-        customerId: sale.customerId,
+        customerId: nextCustomerId,
         totalDelta,
         dueDelta,
         prevPayments: sale.payments.map(p => ({ method: String(p.method), amount: round2(Number(p.amount)) })),

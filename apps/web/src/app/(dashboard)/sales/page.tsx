@@ -6,7 +6,7 @@ import {
   Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, Hash, ShoppingBag,
   Banknote, Smartphone, TrendingUp, Download, Truck, RotateCcw,
-  Pencil, Trash2, Lock, AlertTriangle,
+  Pencil, Trash2, Lock, AlertTriangle, Search,
 } from 'lucide-react'
 import { TableDensityToggle, type TableDensity } from '@/components/ui/TableDensityToggle'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -14,7 +14,7 @@ import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
 import { ToolbarSearch } from '@/components/ui/toolbar-search'
-import { salesApi } from '@/lib/api'
+import { salesApi, customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -339,8 +339,14 @@ function EditSaleModal({
   sale, onClose, onSaved, initialAdminPassword = '',
 }: { sale: any; onClose: () => void; onSaved: (updated: any) => void; initialAdminPassword?: string }) {
   const hasReturns = (sale._count?.returns ?? sale.returns?.length ?? 0) > 0
+  const [customerId, setCustomerId] = useState<string | null>(sale.customerId ?? null)
   const [customerName, setCustomerName] = useState(sale.customerName ?? '')
   const [customerPhone, setCustomerPhone] = useState(sale.customerPhone ?? '')
+  const [custSearch, setCustSearch] = useState('')
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string; phone?: string | null }>>([])
+  const [custLoading, setCustLoading] = useState(false)
+  const [showCustDrop, setShowCustDrop] = useState(false)
+  const custDropRef = useRef<HTMLDivElement>(null)
   const [notes, setNotes] = useState(sale.notes ?? '')
   const [discount, setDiscount] = useState(String(sale.discount ?? 0))
   const [items, setItems] = useState(
@@ -364,6 +370,75 @@ function EditSaleModal({
   const [adminPassword, setAdminPassword] = useState(initialAdminPassword)
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    let cancelled = false
+    setCustLoading(true)
+    customersApi.list({ limit: '500' }).then((res: any) => {
+      if (cancelled) return
+      const raw = res?.data?.data ?? res?.data ?? res
+      setCustomers(Array.isArray(raw) ? raw : [])
+    }).catch(() => {
+      if (!cancelled) setCustomers([])
+    }).finally(() => {
+      if (!cancelled) setCustLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    const q = custSearch.trim()
+    if (!q) return
+    const t = setTimeout(() => {
+      customersApi.search(q).then((res: any) => {
+        const raw = res?.data ?? res
+        if (!Array.isArray(raw) || raw.length === 0) return
+        setCustomers(prev => {
+          const ids = new Set(raw.map((c: any) => c.id))
+          return [...raw, ...prev.filter((c: any) => !ids.has(c.id))]
+        })
+      }).catch(() => {})
+    }, 250)
+    return () => clearTimeout(t)
+  }, [custSearch])
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (custDropRef.current && !custDropRef.current.contains(e.target as Node)) {
+        setShowCustDrop(false)
+      }
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const filteredCustomers = useMemo(() => {
+    const q = custSearch.trim().toLowerCase()
+    const rows = customers
+    if (!q) return rows.slice(0, 40)
+    return rows
+      .filter(c =>
+        (c.name ?? '').toLowerCase().includes(q) ||
+        (c.phone ?? '').toLowerCase().includes(q),
+      )
+      .slice(0, 40)
+  }, [customers, custSearch])
+
+  const selectCustomer = (c: { id: string; name: string; phone?: string | null }) => {
+    setCustomerId(c.id)
+    setCustomerName(c.name ?? '')
+    setCustomerPhone(c.phone ?? '')
+    setCustSearch('')
+    setShowCustDrop(false)
+  }
+
+  const clearCustomer = () => {
+    setCustomerId(null)
+    setCustomerName('')
+    setCustomerPhone('')
+    setCustSearch('')
+    setShowCustDrop(false)
+  }
+
   const subtotal = items.reduce(
     (s: number, i: { unitPrice: string; quantity: string }) =>
       s + Number(i.unitPrice || 0) * Number(i.quantity || 0),
@@ -379,6 +454,7 @@ function EditSaleModal({
     try {
       const body: any = {
         adminPassword,
+        customerId,
         customerName: customerName.trim() || null,
         customerPhone: customerPhone.trim() || null,
         notes: notes.trim() || null,
@@ -444,14 +520,85 @@ function EditSaleModal({
             <AdminPasswordField value={adminPassword} onChange={setAdminPassword} autoFocus />
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Customer name</label>
-              <input className="input-field w-full text-sm" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+          <div ref={custDropRef} className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="block text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Customer
+              </label>
+              {(customerId || customerName || customerPhone) && (
+                <button
+                  type="button"
+                  onClick={clearCustomer}
+                  className="text-[11px] font-semibold text-rose-500 hover:text-rose-400"
+                >
+                  Clear / Walk-in
+                </button>
+              )}
             </div>
-            <div>
-              <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Customer phone</label>
-              <input className="input-field w-full text-sm" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+              <input
+                className="input-field w-full text-sm pl-8"
+                value={custSearch}
+                placeholder={custLoading ? 'Loading customers…' : 'Search loaded customers by name or phone…'}
+                onFocus={() => setShowCustDrop(true)}
+                onChange={e => { setCustSearch(e.target.value); setShowCustDrop(true) }}
+              />
+              {showCustDrop && (
+                <div
+                  className="absolute z-50 left-0 right-0 top-full mt-1 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto border"
+                  style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+                >
+                  {filteredCustomers.length === 0 ? (
+                    <p className="px-3 py-2.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                      {custLoading ? 'Loading…' : 'No customers found'}
+                    </p>
+                  ) : (
+                    filteredCustomers.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full flex items-center justify-between px-3 py-2 text-left transition-colors hover:bg-[var(--bg-subtle)]"
+                        onMouseDown={() => selectCustomer(c)}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                          {c.phone && (
+                            <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{c.phone}</p>
+                          )}
+                        </div>
+                        {customerId === c.id && (
+                          <span className="text-[10px] font-semibold text-emerald-500 flex-shrink-0 ml-2">Selected</span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            {customerId && (
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                Linked customer: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{customerName || '—'}</span>
+                {customerPhone ? ` · ${customerPhone}` : ''}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Customer name</label>
+                <input
+                  className="input-field w-full text-sm"
+                  value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Customer phone</label>
+                <input
+                  className="input-field w-full text-sm"
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value)}
+                />
+              </div>
             </div>
           </div>
           <div>
@@ -626,7 +773,7 @@ function EditSaleModal({
               className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
-              {saving ? 'Savingâ€¦' : 'Save changes'}
+              {saving ? 'Saving…' : 'Save changes'}
             </button>
           </div>
         </div>

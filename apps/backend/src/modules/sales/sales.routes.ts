@@ -87,6 +87,9 @@ router.patch('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Re
         performedBy: req.user?.userId ?? 'system',
         actorEmail: req.user?.email,
         req,
+        customerId: req.body.customerId !== undefined
+          ? (req.body.customerId === null || req.body.customerId === '' ? null : String(req.body.customerId))
+          : undefined,
         customerName: req.body.customerName,
         customerPhone: req.body.customerPhone,
         notes: req.body.notes,
