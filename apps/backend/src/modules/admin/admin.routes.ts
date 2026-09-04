@@ -48,7 +48,7 @@ import {
   syncTenantPaymentDueFlags,
 } from '../billing/billing.service'
 import { getBillingConfig, upsertBillingConfig } from '../billing/billing-config'
-import { getHelaposPublicConfig } from '../billing/helapos.client'
+import { getHelaposAdminConfig, upsertHelaposConfig } from '../billing/helapos-config'
 
 const router = Router()
 router.use(authenticate)
@@ -953,7 +953,8 @@ router.post('/payments/:id/reject', async (req: Request, res: Response, next: Ne
 router.get('/billing-settings', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const config = await getBillingConfig()
-    sendSuccess(res, { ...config, helapos: getHelaposPublicConfig() })
+    const helapos = await getHelaposAdminConfig()
+    sendSuccess(res, { ...config, helapos })
   } catch (e) { next(e) }
 })
 
@@ -964,17 +965,38 @@ router.put('/billing-settings', async (req: Request, res: Response, next: NextFu
       dueDaysAfterIssue: req.body?.dueDaysAfterIssue,
       bank: req.body?.bank,
     })
+    let helapos = await getHelaposAdminConfig()
+    if (req.body?.helapos && typeof req.body.helapos === 'object') {
+      helapos = await upsertHelaposConfig(req.body.helapos)
+    }
     await logPlatformActivity({
       eventType: 'BILLING_SETTINGS_UPDATED',
       severity: 'INFO',
       actorType: 'ADMIN',
       actor: (req as any).user?.email ?? 'admin',
       target: 'Platform',
-      details: `Grace ${data.graceDays}d · due+${data.dueDaysAfterIssue}d · bank ${data.bank.bankName}`,
+      details: `Grace ${data.graceDays}d · due+${data.dueDaysAfterIssue}d · bank ${data.bank.bankName} · HelaPOS ${helapos.enabled ? (helapos.mock ? 'mock' : 'live') : 'off'}`,
       ip: getClientIp(req),
       userId: (req as any).user?.userId,
     }).catch(() => {})
-    sendSuccess(res, data, 'Billing settings updated')
+    sendSuccess(res, { ...data, helapos }, 'Billing settings updated')
+  } catch (e) { next(e) }
+})
+
+router.put('/helapos-settings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const helapos = await upsertHelaposConfig(req.body ?? {})
+    await logPlatformActivity({
+      eventType: 'HELAPOS_SETTINGS_UPDATED',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actor: (req as any).user?.email ?? 'admin',
+      target: 'Platform',
+      details: `HelaPOS ${helapos.enabled ? (helapos.mock ? 'mock' : 'live') : 'off'} · appId ${helapos.appId ? 'set' : 'empty'} · secret ${helapos.hasAppSecret ? 'set' : 'empty'}`,
+      ip: getClientIp(req),
+      userId: (req as any).user?.userId,
+    }).catch(() => {})
+    sendSuccess(res, helapos, 'HelaPOS settings updated')
   } catch (e) { next(e) }
 })
 

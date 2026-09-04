@@ -500,6 +500,26 @@ export async function rejectSubscriptionPaymentSlip(id: string, reason: string) 
   })
 }
 
+export type HelaposAdminSettings = {
+  enabled: boolean
+  mock: boolean
+  appId: string
+  appSecret: string
+  hasAppSecret: boolean
+  merchantId: string
+  baseUrl: string
+  createQrPath: string
+  authMode: 'basic' | 'headers' | 'bearer'
+  webhookSecret: string
+  hasWebhookSecret: boolean
+  allowedIps: string
+  requireSignature: boolean
+  sessionTtlMinutes: number
+  notifyUrl: string
+  configured: boolean
+  source: 'database' | 'env' | 'mixed'
+}
+
 export type BillingSettings = {
   graceDays: number
   dueDaysAfterIssue: number
@@ -511,12 +531,7 @@ export type BillingSettings = {
     swift: string
     instructions: string
   }
-  helapos?: {
-    enabled: boolean
-    mock: boolean
-    notifyUrl: string
-    notifyUrlAlias?: string
-  }
+  helapos?: HelaposAdminSettings
 }
 
 export async function fetchBillingSettings() {
@@ -525,6 +540,13 @@ export async function fetchBillingSettings() {
 
 export async function updateBillingSettings(body: Partial<BillingSettings>) {
   return req<BillingSettings>(ADMIN_BASE, '/billing-settings', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function updateHelaposSettings(body: Partial<HelaposAdminSettings>) {
+  return req<HelaposAdminSettings>(ADMIN_BASE, '/helapos-settings', {
     method: 'PUT',
     body: JSON.stringify(body),
   })

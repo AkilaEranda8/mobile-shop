@@ -14,7 +14,9 @@ import {
   fetchSubscriptionPayments,
   rejectSubscriptionPaymentSlip,
   updateBillingSettings,
+  updateHelaposSettings,
   type BillingSettings,
+  type HelaposAdminSettings,
   type SubscriptionPaymentRow,
 } from '@/lib/api'
 
@@ -48,7 +50,11 @@ export default function PaymentsPage() {
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [settings, setSettings] = useState<BillingSettings | null>(null)
+  const [helaposForm, setHelaposForm] = useState<HelaposAdminSettings | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [savingHelapos, setSavingHelapos] = useState(false)
+  const [showAppSecret, setShowAppSecret] = useState(false)
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
 
@@ -73,7 +79,11 @@ export default function PaymentsPage() {
         fetchBillingSettings().catch(() => null),
       ])
       setRows(Array.isArray(payments) ? payments : (payments as any)?.data ?? [])
-      if (billing) setSettings((billing as any)?.data ?? billing)
+      if (billing) {
+        const b = ((billing as any)?.data ?? billing) as BillingSettings
+        setSettings(b)
+        if (b.helapos) setHelaposForm(b.helapos)
+      }
     } catch (e: any) {
       flash('err', e?.message || 'Failed to load payments')
     } finally {
@@ -126,12 +136,43 @@ export default function PaymentsPage() {
     setSavingSettings(true)
     try {
       const updated = await updateBillingSettings(settings)
-      setSettings((updated as any)?.data ?? updated)
+      const next = ((updated as any)?.data ?? updated) as BillingSettings
+      setSettings(next)
+      if (next.helapos) setHelaposForm(next.helapos)
       flash('ok', 'Billing settings saved')
     } catch (e: any) {
       flash('err', e?.message || 'Save failed')
     } finally {
       setSavingSettings(false)
+    }
+  }
+
+  const saveHelapos = async () => {
+    if (!helaposForm) return
+    setSavingHelapos(true)
+    try {
+      const updated = await updateHelaposSettings({
+        enabled: helaposForm.enabled,
+        mock: helaposForm.mock,
+        appId: helaposForm.appId,
+        appSecret: helaposForm.appSecret,
+        merchantId: helaposForm.merchantId,
+        baseUrl: helaposForm.baseUrl,
+        createQrPath: helaposForm.createQrPath,
+        authMode: helaposForm.authMode,
+        webhookSecret: helaposForm.webhookSecret,
+        allowedIps: helaposForm.allowedIps,
+        requireSignature: helaposForm.requireSignature,
+        sessionTtlMinutes: helaposForm.sessionTtlMinutes,
+      })
+      const next = ((updated as any)?.data ?? updated) as HelaposAdminSettings
+      setHelaposForm(next)
+      setSettings((s) => (s ? { ...s, helapos: next } : s))
+      flash('ok', 'HelaPOS keys saved')
+    } catch (e: any) {
+      flash('err', e?.message || 'HelaPOS save failed')
+    } finally {
+      setSavingHelapos(false)
     }
   }
 
@@ -241,41 +282,187 @@ export default function PaymentsPage() {
         </section>
       )}
 
-      {settings?.helapos && (
-        <section className="card p-5 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+      {helaposForm && (
+        <section className="card p-5 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-gray-900">LankaQR (HelaPOS)</h2>
-              <p className="text-xs text-gray-500">
-                Give this Notify URL to HelaPay support when onboarding. QR payments auto-approve invoices.
+              <h2 className="text-sm font-bold text-gray-900">LankaQR (HelaPOS) keys</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Update App ID / Secret here — stored in platform config (env is fallback). Secrets stay masked until you type a new value.
               </p>
             </div>
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded border ${
-                settings.helapos.enabled
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}
-            >
-              {settings.helapos.enabled
-                ? (settings.helapos.mock ? 'Enabled · Mock' : 'Enabled · Live')
-                : 'Disabled'}
-            </span>
-          </div>
-          <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-2 text-xs">
-            <div>
-              <p className="font-semibold text-gray-600 mb-0.5">Primary Notify URL</p>
-              <code className="break-all text-gray-900">{settings.helapos.notifyUrl}</code>
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded border ${
+                  helaposForm.enabled
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}
+              >
+                {helaposForm.enabled
+                  ? (helaposForm.mock ? 'Enabled · Mock' : helaposForm.configured ? 'Enabled · Live' : 'Enabled · Needs keys')
+                  : 'Disabled'}
+              </span>
+              <button
+                type="button"
+                disabled={savingHelapos}
+                onClick={() => void saveHelapos()}
+                className="text-xs font-bold px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                {savingHelapos ? 'Saving…' : 'Save HelaPOS'}
+              </button>
             </div>
-            {settings.helapos.notifyUrlAlias && (
-              <div>
-                <p className="font-semibold text-gray-600 mb-0.5">Alias</p>
-                <code className="break-all text-gray-900">{settings.helapos.notifyUrlAlias}</code>
+          </div>
+
+          <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-1 text-xs">
+            <p className="font-semibold text-gray-600">Notify URL (give to HelaPay support)</p>
+            <code className="break-all text-gray-900">{helaposForm.notifyUrl}</code>
+            <p className="text-gray-500 pt-1">Source: {helaposForm.source}</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <label className="flex items-center gap-2 text-sm sm:col-span-1">
+              <input
+                type="checkbox"
+                checked={helaposForm.enabled}
+                onChange={(e) => setHelaposForm({ ...helaposForm, enabled: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <span className="font-semibold text-gray-700">Enable LankaQR</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm sm:col-span-1">
+              <input
+                type="checkbox"
+                checked={helaposForm.mock}
+                onChange={(e) => setHelaposForm({ ...helaposForm, mock: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <span className="font-semibold text-gray-700">Mock mode (no live settle)</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm sm:col-span-1">
+              <input
+                type="checkbox"
+                checked={helaposForm.requireSignature}
+                onChange={(e) => setHelaposForm({ ...helaposForm, requireSignature: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <span className="font-semibold text-gray-700">Require webhook signature</span>
+            </label>
+
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">App ID</span>
+              <input
+                value={helaposForm.appId}
+                onChange={(e) => setHelaposForm({ ...helaposForm, appId: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder="From HelaPay email"
+                autoComplete="off"
+              />
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">
+                App Secret {helaposForm.hasAppSecret ? '(set)' : '(empty)'}
+              </span>
+              <div className="flex gap-1">
+                <input
+                  type={showAppSecret ? 'text' : 'password'}
+                  value={helaposForm.appSecret}
+                  onChange={(e) => setHelaposForm({ ...helaposForm, appSecret: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                  placeholder={helaposForm.hasAppSecret ? '•••••••• leave to keep' : 'Paste App Secret'}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAppSecret((v) => !v)}
+                  className="px-2 text-[11px] font-semibold border rounded-lg text-gray-600"
+                >
+                  {showAppSecret ? 'Hide' : 'Show'}
+                </button>
               </div>
-            )}
-            <p className="text-gray-500">
-              Env: <code>HELAPOS_ENABLED</code>, <code>HELAPOS_MOCK</code>, <code>HELAPOS_APP_ID</code>, <code>HELAPOS_APP_SECRET</code>
-            </p>
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Merchant ID</span>
+              <input
+                value={helaposForm.merchantId}
+                onChange={(e) => setHelaposForm({ ...helaposForm, merchantId: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder="Optional"
+              />
+            </label>
+
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Base URL</span>
+              <input
+                value={helaposForm.baseUrl}
+                onChange={(e) => setHelaposForm({ ...helaposForm, baseUrl: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Create QR path</span>
+              <input
+                value={helaposForm.createQrPath}
+                onChange={(e) => setHelaposForm({ ...helaposForm, createQrPath: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder="/qr/create"
+              />
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Auth mode</span>
+              <select
+                value={helaposForm.authMode}
+                onChange={(e) => setHelaposForm({ ...helaposForm, authMode: e.target.value as HelaposAdminSettings['authMode'] })}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="basic">Basic (AppId:Secret)</option>
+                <option value="headers">Headers X-App-Id / X-App-Secret</option>
+                <option value="bearer">Bearer token</option>
+              </select>
+            </label>
+
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">
+                Webhook secret {helaposForm.hasWebhookSecret ? '(set)' : '(empty)'}
+              </span>
+              <div className="flex gap-1">
+                <input
+                  type={showWebhookSecret ? 'text' : 'password'}
+                  value={helaposForm.webhookSecret}
+                  onChange={(e) => setHelaposForm({ ...helaposForm, webhookSecret: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                  placeholder={helaposForm.hasWebhookSecret ? '•••••••• leave to keep' : 'Optional HMAC secret'}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowWebhookSecret((v) => !v)}
+                  className="px-2 text-[11px] font-semibold border rounded-lg text-gray-600"
+                >
+                  {showWebhookSecret ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Allowed IPs (comma-separated)</span>
+              <input
+                value={helaposForm.allowedIps}
+                onChange={(e) => setHelaposForm({ ...helaposForm, allowedIps: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder="Empty = allow all"
+              />
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Session TTL (minutes)</span>
+              <input
+                type="number"
+                min={5}
+                max={60}
+                value={helaposForm.sessionTtlMinutes}
+                onChange={(e) => setHelaposForm({ ...helaposForm, sessionTtlMinutes: Number(e.target.value) || 15 })}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
           </div>
         </section>
       )}

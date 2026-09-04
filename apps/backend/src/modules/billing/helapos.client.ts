@@ -1,13 +1,17 @@
 /**
  * HelaPOS merchant API client (LankaQR).
- *
- * Partner guide only documents base URL + App ID/Secret. Paths and payload
- * shapes are env-configurable so we can align when HelaPay share OpenAPI.
+ * Credentials resolve from PlatformConfig (admin UI) with env fallback.
  */
 import { createHmac, timingSafeEqual } from 'crypto'
 import { env } from '../../config/env'
 import { AppError } from '../../middleware/error.middleware'
 import { getHelaposFeePolicy } from './helapos-fees'
+import {
+  getHelaposRuntimeConfig,
+  helaposNotifyUrlFromEnv,
+  type HelaposAuthMode,
+  type HelaposRuntimeConfig,
+} from './helapos-config'
 
 export type HelaposCreateQrInput = {
   amount: number
@@ -24,25 +28,26 @@ export type HelaposCreateQrResult = {
   mock: boolean
 }
 
-function isConfigured(): boolean {
-  return !!(env.HELAPOS_APP_ID?.trim() && env.HELAPOS_APP_SECRET?.trim())
+function isConfigured(cfg: HelaposRuntimeConfig): boolean {
+  return !!(cfg.appId.trim() && cfg.appSecret.trim())
 }
 
-export function isHelaposEnabled(): boolean {
-  // Mock alone is enough for local / staging end-to-end tests
-  if (env.HELAPOS_MOCK === 'true') return true
-  if (env.HELAPOS_ENABLED !== 'true') return false
-  return isConfigured()
+export async function isHelaposEnabled(): Promise<boolean> {
+  const cfg = await getHelaposRuntimeConfig()
+  if (cfg.mock) return true
+  if (!cfg.enabled) return false
+  return isConfigured(cfg)
 }
 
-export function isHelaposMockMode(): boolean {
-  return env.HELAPOS_MOCK === 'true' || (env.HELAPOS_ENABLED === 'true' && !isConfigured())
+export async function isHelaposMockMode(): Promise<boolean> {
+  const cfg = await getHelaposRuntimeConfig()
+  return cfg.mock || (cfg.enabled && !isConfigured(cfg))
 }
 
-function authHeaders(): Record<string, string> {
-  const appId = env.HELAPOS_APP_ID!.trim()
-  const secret = env.HELAPOS_APP_SECRET!.trim()
-  const mode = env.HELAPOS_AUTH_MODE ?? 'basic'
+function authHeaders(cfg: HelaposRuntimeConfig): Record<string, string> {
+  const appId = cfg.appId.trim()
+  const secret = cfg.appSecret.trim()
+  const mode: HelaposAuthMode = cfg.authMode || 'basic'
   if (mode === 'headers') {
     return {
       'X-App-Id': appId,
@@ -85,12 +90,15 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | null
 }
 
 export async function createHelaposQr(input: HelaposCreateQrInput): Promise<HelaposCreateQrResult> {
-  if (!isHelaposEnabled()) {
+  const cfg = await getHelaposRuntimeConfig()
+  if (!cfg.mock && !cfg.enabled) {
     throw new AppError('HelaPOS QR payments are not enabled', 503)
   }
+  if (!cfg.mock && !isConfigured(cfg)) {
+    throw new AppError('HelaPOS QR payments are not configured (App ID / Secret)', 503)
+  }
 
-  if (isHelaposMockMode()) {
-    // Mock EMV-style payload: scanners won't settle, but UI + webhook flow work end-to-end.
+  if (cfg.mock || !isConfigured(cfg)) {
     const qrPayload = `HELAPOS-MOCK|ref=${input.reference}|amount=${input.amount.toFixed(2)}|inv=${input.invoiceNumber ?? ''}`
     return {
       qrPayload,
@@ -100,10 +108,10 @@ export async function createHelaposQr(input: HelaposCreateQrInput): Promise<Hela
     }
   }
 
-  const base = env.HELAPOS_BASE_URL.replace(/\/$/, '')
-  const path = env.HELAPOS_CREATE_QR_PATH.startsWith('/')
-    ? env.HELAPOS_CREATE_QR_PATH
-    : `/${env.HELAPOS_CREATE_QR_PATH}`
+  const base = cfg.baseUrl.replace(/\/$/, '')
+  const path = cfg.createQrPath.startsWith('/')
+    ? cfg.createQrPath
+    : `/${cfg.createQrPath}`
   const url = `${base}${path}`
 
   const body: Record<string, unknown> = {
@@ -115,16 +123,16 @@ export async function createHelaposQr(input: HelaposCreateQrInput): Promise<Hela
     notifyUrl: input.notifyUrl,
     description: input.description ?? `Hexalyte subscription ${input.invoiceNumber ?? ''}`.trim(),
   }
-  if (env.HELAPOS_MERCHANT_ID?.trim()) {
-    body.merchant_id = env.HELAPOS_MERCHANT_ID.trim()
-    body.merchantId = env.HELAPOS_MERCHANT_ID.trim()
+  if (cfg.merchantId.trim()) {
+    body.merchant_id = cfg.merchantId.trim()
+    body.merchantId = cfg.merchantId.trim()
   }
 
   let res: Response
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: authHeaders(cfg),
       body: JSON.stringify(body),
     })
   } catch (err: any) {
@@ -159,7 +167,7 @@ export async function createHelaposQr(input: HelaposCreateQrInput): Promise<Hela
     'emv_qr',
   ])
   if (!qrPayload) {
-    throw new AppError('HelaPOS response did not include a QR payload — check HELAPOS_CREATE_QR_PATH / API contract', 502)
+    throw new AppError('HelaPOS response did not include a QR payload — check create QR path / API contract', 502)
   }
 
   const gatewayTxnId = pickString(json, [
@@ -255,16 +263,16 @@ export function parseHelaposWebhook(body: unknown): {
   return { reference, status: status || statusCode, amount, gatewayTxnId, success, raw }
 }
 
-export function verifyHelaposWebhookSignature(
+export async function verifyHelaposWebhookSignature(
   rawBody: string | Buffer,
   headers: Record<string, string | string[] | undefined>,
-): { ok: boolean; reason?: string } {
-  const secret = env.HELAPOS_WEBHOOK_SECRET?.trim()
-  const requireSig = env.HELAPOS_REQUIRE_SIGNATURE !== 'false'
-  const live = env.HELAPOS_ENABLED === 'true' && env.HELAPOS_MOCK !== 'true' && isConfigured()
+): Promise<{ ok: boolean; reason?: string }> {
+  const cfg = await getHelaposRuntimeConfig()
+  const secret = cfg.webhookSecret.trim()
+  const requireSig = cfg.requireSignature
+  const live = cfg.enabled && !cfg.mock && isConfigured(cfg)
 
   if (!secret) {
-    // Live production must not accept unsigned webhooks
     if (live && env.NODE_ENV === 'production') {
       return { ok: false, reason: 'webhook_secret_required' }
     }
@@ -310,7 +318,6 @@ export function verifyHelaposWebhookSignature(
   })
   if (!matched) return { ok: false, reason: 'bad_signature' }
 
-  // Optional replay window when gateway sends timestamp
   const tsRaw = get('x-helapos-timestamp') || get('x-timestamp') || get('timestamp')
   if (tsRaw) {
     const ts = Number(tsRaw)
@@ -323,9 +330,9 @@ export function verifyHelaposWebhookSignature(
   return { ok: true }
 }
 
-/** Return false if request IP is not in HELAPOS_ALLOWED_IPS (when configured). */
-export function isHelaposIpAllowed(ip: string | undefined): boolean {
-  const raw = env.HELAPOS_ALLOWED_IPS?.trim()
+export async function isHelaposIpAllowed(ip: string | undefined): Promise<boolean> {
+  const cfg = await getHelaposRuntimeConfig()
+  const raw = cfg.allowedIps.trim()
   if (!raw) return true
   if (!ip) return false
   const normalized = ip.replace(/^::ffff:/, '')
@@ -334,26 +341,29 @@ export function isHelaposIpAllowed(ip: string | undefined): boolean {
 }
 
 export function helaposNotifyUrl() {
-  const base = env.BACKEND_URL.replace(/\/$/, '')
-  const prefix = env.API_PREFIX.replace(/^\/+|\/+$/g, '')
-  return `${base}/${prefix}/payments/helapos/webhook`
+  return helaposNotifyUrlFromEnv()
 }
 
-export function getHelaposPublicConfig() {
+export async function getHelaposPublicConfig() {
+  const cfg = await getHelaposRuntimeConfig()
+  const configured = isConfigured(cfg)
+  const enabled = cfg.mock || (cfg.enabled && configured)
+  const mock = cfg.mock || (cfg.enabled && !configured)
   return {
-    enabled: isHelaposEnabled(),
-    mock: isHelaposMockMode(),
+    enabled,
+    mock,
     notifyUrl: helaposNotifyUrl(),
-    sessionTtlMinutes: env.HELAPOS_SESSION_TTL_MINUTES ?? 15,
+    sessionTtlMinutes: cfg.sessionTtlMinutes,
     signatureRequired: !!(
-      env.HELAPOS_WEBHOOK_SECRET?.trim()
-      || (env.HELAPOS_ENABLED === 'true' && env.HELAPOS_MOCK !== 'true' && env.NODE_ENV === 'production')
+      cfg.webhookSecret.trim()
+      || (cfg.enabled && !cfg.mock && env.NODE_ENV === 'production')
     ),
+    configured,
     fees: getHelaposFeePolicy(),
   }
 }
 
-export function helaposSessionExpiresAt(from = new Date()): Date {
-  const mins = env.HELAPOS_SESSION_TTL_MINUTES ?? 15
-  return new Date(from.getTime() + mins * 60_000)
+export async function helaposSessionExpiresAt(from = new Date()): Promise<Date> {
+  const cfg = await getHelaposRuntimeConfig()
+  return new Date(from.getTime() + cfg.sessionTtlMinutes * 60_000)
 }

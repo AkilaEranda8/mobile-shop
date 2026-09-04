@@ -575,7 +575,7 @@ export async function getBillingOverview(tenantId: string) {
       graceDays: config.graceDays,
       dueDaysAfterIssue: config.dueDaysAfterIssue,
       bank: config.bank,
-      helapos: getHelaposPublicConfig(),
+      helapos: await getHelaposPublicConfig(),
     },
     summary: {
       currentBalance: balance,

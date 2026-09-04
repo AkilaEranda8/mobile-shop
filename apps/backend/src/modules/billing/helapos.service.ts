@@ -84,7 +84,7 @@ export async function createHelaposQrSession(opts: {
   invoiceId: string
   submittedById?: string
 }) {
-  if (!isHelaposEnabled()) {
+  if (!(await isHelaposEnabled())) {
     throw new AppError(
       'LankaQR is not enabled. Set HELAPOS_ENABLED=true and App ID/Secret (or HELAPOS_MOCK=true).',
       503,
@@ -127,7 +127,7 @@ export async function createHelaposQrSession(opts: {
         paymentDate: new Date(),
         status: 'PENDING',
         submittedById: opts.submittedById,
-        notes: isHelaposMockMode()
+        notes: (await isHelaposMockMode())
           ? 'HelaPOS mock session'
           : fee.feeApplies
             ? `HelaPOS QR session · fee ${fee.processingFee.toFixed(2)} on net ${fee.subscriptionAmount.toFixed(2)}`
@@ -138,7 +138,7 @@ export async function createHelaposQrSession(opts: {
 
   const reference = buildHelaposReference(payment.id)
   const notifyUrl = helaposNotifyUrl()
-  const expiresAt = helaposSessionExpiresAt()
+  const expiresAt = await helaposSessionExpiresAt()
 
   // QR amount = customer payable (gross), not invoice.total
   const qr = await createHelaposQr({
@@ -168,7 +168,7 @@ export async function createHelaposQrSession(opts: {
       gatewayPayload,
       ...feeData,
       paymentDate: new Date(),
-      notes: isHelaposMockMode()
+      notes: (await isHelaposMockMode())
         ? 'HelaPOS mock session'
         : fee.feeApplies
           ? `HelaPOS QR · pay ${fee.customerPayableAmount.toFixed(2)} (net ${fee.subscriptionAmount.toFixed(2)} + fee ${fee.processingFee.toFixed(2)})`
@@ -251,7 +251,7 @@ export async function handleHelaposWebhook(opts: {
   headers: Record<string, string | string[] | undefined>
   ip?: string
 }) {
-  if (!isHelaposIpAllowed(opts.ip)) {
+  if (!(await isHelaposIpAllowed(opts.ip))) {
     await logPlatformActivity({
       eventType: 'SECURITY_ALERT',
       severity: 'WARN',
@@ -264,7 +264,7 @@ export async function handleHelaposWebhook(opts: {
   }
 
   if (opts.rawBody != null) {
-    const sig = verifyHelaposWebhookSignature(opts.rawBody, opts.headers)
+    const sig = await verifyHelaposWebhookSignature(opts.rawBody, opts.headers)
     if (!sig.ok) {
       await logPlatformActivity({
         eventType: 'SECURITY_ALERT',
@@ -276,9 +276,9 @@ export async function handleHelaposWebhook(opts: {
       }).catch(() => {})
       throw new AppError('Unauthorized', 401)
     }
-  } else if (!isHelaposMockMode()) {
+  } else if (!(await isHelaposMockMode())) {
     // Live path without raw body cannot verify HMAC — refuse in non-mock
-    const liveNeedsSig = verifyHelaposWebhookSignature('', opts.headers)
+    const liveNeedsSig = await verifyHelaposWebhookSignature('', opts.headers)
     if (!liveNeedsSig.ok && liveNeedsSig.reason === 'webhook_secret_required') {
       throw new AppError('Unauthorized', 401)
     }
@@ -344,7 +344,7 @@ export async function handleHelaposWebhook(opts: {
   }
 
   // Live success must include amount (prevents forged "paid" without amount)
-  if (!isHelaposMockMode() && parsed.amount == null) {
+  if (!(await isHelaposMockMode()) && parsed.amount == null) {
     throw new AppError('Webhook amount required', 400)
   }
 
@@ -467,7 +467,7 @@ export async function simulateHelaposPayment(opts: {
   tenantId: string
   paymentId: string
 }) {
-  if (!isHelaposMockMode()) {
+  if (!(await isHelaposMockMode())) {
     throw new AppError('Mock pay only allowed when HELAPOS_MOCK=true (or credentials missing)', 403)
   }
 

@@ -80,7 +80,7 @@ router.get('/config', async (_req: Request, res: Response, next: NextFunction) =
       bank: config.bank,
       graceDays: config.graceDays,
       dueDaysAfterIssue: config.dueDaysAfterIssue,
-      helapos: getHelaposPublicConfig(),
+      helapos: await getHelaposPublicConfig(),
     })
   } catch (e) { next(e) }
 })
