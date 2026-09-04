@@ -11,6 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/tenants': 'Tenants',
   '/subscriptions': 'Subscriptions & Billing',
+  '/payments': 'Payments',
   '/whatsapp': 'WhatsApp',
   '/auth-iam': 'Auth / IAM',
   '/system-health': 'System Health',

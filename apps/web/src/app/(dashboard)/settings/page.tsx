@@ -1924,6 +1924,12 @@ export default function SettingsPage() {
               plans={plans}
               teamCount={teamUsers.length}
               loading={!tenant}
+              onUpgraded={() => {
+                if (!tenantId) return
+                tenantApi.get(tenantId).then((r: any) => {
+                  setTenant(r?.data ?? r)
+                }).catch(() => {})
+              }}
             />
           )}
 

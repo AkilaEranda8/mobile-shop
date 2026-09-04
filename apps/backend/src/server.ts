@@ -9,6 +9,10 @@ import {
   startSubscriptionRenewalReminderJob,
   stopSubscriptionRenewalReminderJob,
 } from './jobs/subscription-renewal-reminder.job'
+import {
+  startSubscriptionBillingJob,
+  stopSubscriptionBillingJob,
+} from './jobs/subscription-billing.job'
 import { ensurePlatformAdmin } from './utils/ensure-platform-admin'
 import app from './app'
 
@@ -24,6 +28,7 @@ async function bootstrap() {
     startTrialExpiryJob()
     startHirePurchaseMaintenanceJob()
     startSubscriptionRenewalReminderJob()
+    startSubscriptionBillingJob()
 
     const server = app.listen(parseInt(env.PORT), () => {
       console.log(`🚀 Hexalyte API running on port ${env.PORT}`)
@@ -37,6 +42,7 @@ async function bootstrap() {
         stopTrialExpiryJob()
         stopHirePurchaseMaintenanceJob()
         stopSubscriptionRenewalReminderJob()
+        stopSubscriptionBillingJob()
         await disconnectDatabase()
         await redis.quit()
         console.log('✅ Graceful shutdown complete')

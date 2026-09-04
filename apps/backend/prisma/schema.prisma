@@ -31,6 +31,32 @@ enum TenantStatus {
   CANCELLED
 }
 
+/// Platform SaaS subscription invoice (Hexalyte → tenant), not shop POS Sale invoices
+enum SubscriptionInvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum SubscriptionPaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// How the tenant paid / will pay a subscription invoice (gateway-ready)
+enum SubscriptionPaymentChannel {
+  MANUAL_BANK_TRANSFER
+  CASH
+  OTHER
+  PAYHERE
+  WEBXPAY
+  HELAPOS
+  OTHER_GATEWAY
+}
+
 enum RepairStatus {
   RECEIVED
   DIAGNOSED
@@ -295,6 +321,8 @@ model Tenant {
   payslips                    Payslip[]
   employeeAdvances            EmployeeAdvance[]
   employeeLoans               EmployeeLoan[]
+  subscriptionInvoices        SubscriptionInvoice[]
+  subscriptionPayments        SubscriptionPayment[]
 }
 
 model TenantFeature {
@@ -1702,6 +1730,86 @@ model PlatformConfig {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────── Platform Subscription Billing (Hexalyte → Tenant) ───────────────
+
+model SubscriptionInvoice {
+  id                 String                     @id @default(cuid())
+  tenantId           String
+  /// Optional link to a future Subscription row; plan/mrr snapshot kept on invoice
+  subscriptionId     String?
+  invoiceNumber      String                     @unique
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  issueDate          DateTime
+  dueDate            DateTime
+  plan               SubscriptionPlan
+  months             Int                        @default(1)
+  subtotal           Float
+  discount           Float                      @default(0)
+  tax                Float                      @default(0)
+  total              Float
+  status             SubscriptionInvoiceStatus  @default(PENDING)
+  paidAt             DateTime?
+  notes              String?
+  /// Snapshot of MRR used when invoice was generated
+  mrrSnapshot        Float                      @default(0)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  tenant   Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments SubscriptionPayment[]
+
+  @@unique([tenantId, billingPeriodStart, billingPeriodEnd])
+  @@index([tenantId, status])
+  @@index([tenantId, dueDate])
+  @@index([status, dueDate])
+  @@index([issueDate])
+}
+
+model SubscriptionPayment {
+  id              String                      @id @default(cuid())
+  tenantId        String
+  invoiceId       String
+  /// Amount on this row. For HELAPOS = customer payable (gross QR amount).
+  amount          Float
+  /// Original subscription / invoice total (net revenue). Null on legacy rows.
+  subscriptionAmount Float?
+  /// Gateway processing fee (customerPayable − subscriptionAmount). 0 when fee N/A.
+  processingFee   Float                       @default(0)
+  /// What the customer was charged (gross). For HELAPOS equals amount when fee applied.
+  customerPayableAmount Float?
+  /// Expected or actual settlement after gateway fee (≈ subscriptionAmount).
+  settlementAmount Float?
+  /// Channel / gateway used (manual bank transfer today; PayHere etc. later)
+  channel         SubscriptionPaymentChannel  @default(MANUAL_BANK_TRANSFER)
+  /// Human-friendly method label when channel is OTHER / OTHER_GATEWAY
+  methodLabel     String?
+  paymentDate     DateTime
+  bankName        String?
+  accountRef      String?
+  transactionRef  String?
+  slipUrl         String?
+  slipFilename    String?
+  notes           String?
+  status          SubscriptionPaymentStatus   @default(PENDING)
+  rejectionReason String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  reviewedByEmail String?
+  submittedById   String?
+  gatewayPayload  Json?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice SubscriptionInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([invoiceId, status])
+  @@index([status, createdAt])
+  @@index([transactionRef])
 }
 
 // ─────────────── Support Notes ───────────────

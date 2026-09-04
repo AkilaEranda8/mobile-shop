@@ -37,6 +37,25 @@ const envSchema = z.object({
   KEYCLOAK_AUTH_ENABLED: z.enum(['true', 'false']).optional(),
   /** HMAC pepper for POS Quick PIN digests (min 16 chars). Falls back to derived JWT_SECRET hash if unset. */
   POS_PIN_PEPPER: z.string().min(16).optional(),
+
+  // HelaPOS LankaQR (subscription billing). Paths are configurable until HelaPay publish full OpenAPI.
+  HELAPOS_ENABLED: z.enum(['true', 'false']).optional().default('false'),
+  HELAPOS_MOCK: z.enum(['true', 'false']).optional().default('false'),
+  HELAPOS_BASE_URL: z.string().default('https://helapos.lk/merchant-api'),
+  HELAPOS_APP_ID: z.string().optional(),
+  HELAPOS_APP_SECRET: z.string().optional(),
+  HELAPOS_MERCHANT_ID: z.string().optional(),
+  /** Relative to HELAPOS_BASE_URL — adjust when HelaPay share the real path */
+  HELAPOS_CREATE_QR_PATH: z.string().default('/qr/create'),
+  HELAPOS_AUTH_MODE: z.enum(['basic', 'headers', 'bearer']).optional().default('basic'),
+  /** Optional shared secret for webhook HMAC / header verify (if HelaPay provide one) */
+  HELAPOS_WEBHOOK_SECRET: z.string().optional(),
+  /** Comma-separated CIDRs/IPs allowed to hit notify URL (empty = allow all) */
+  HELAPOS_ALLOWED_IPS: z.string().optional(),
+  /** Require HMAC signature even in non-production when secret is set (default true) */
+  HELAPOS_REQUIRE_SIGNATURE: z.enum(['true', 'false']).optional().default('true'),
+  /** QR session TTL minutes */
+  HELAPOS_SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(60).optional().default(15),
 })
 
 const parsed = envSchema.safeParse(process.env)

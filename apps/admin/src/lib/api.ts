@@ -449,6 +449,87 @@ export async function fetchSubscriptionContact(tenantId: string) {
   return req<SubscriptionContact>(ADMIN_BASE, `/subscriptions/${tenantId}/contact`)
 }
 
+// ─── Subscription Payments ────────────────────────────────────────────────────
+export interface SubscriptionPaymentRow {
+  id: string
+  tenantId: string
+  invoiceId: string
+  amount: number
+  channel: string
+  paymentDate: string
+  bankName?: string | null
+  transactionRef?: string | null
+  slipUrl?: string | null
+  slipFilename?: string | null
+  notes?: string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  rejectionReason?: string | null
+  createdAt: string
+  reviewedAt?: string | null
+  tenant: { id: string; name: string; ownerName: string; ownerEmail: string; plan: string; status: string }
+  invoice: {
+    id: string
+    invoiceNumber: string
+    total: number
+    status: string
+    dueDate: string
+    billingPeriodStart: string
+    billingPeriodEnd: string
+  }
+}
+
+export async function fetchSubscriptionPayments(params?: { status?: string; search?: string }) {
+  const q = new URLSearchParams()
+  if (params?.status) q.set('status', params.status)
+  if (params?.search) q.set('search', params.search)
+  const qs = q.toString()
+  return req<SubscriptionPaymentRow[]>(ADMIN_BASE, `/payments${qs ? `?${qs}` : ''}`)
+}
+
+export async function approveSubscriptionPaymentSlip(id: string) {
+  return req<SubscriptionPaymentRow>(ADMIN_BASE, `/payments/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
+export async function rejectSubscriptionPaymentSlip(id: string, reason: string) {
+  return req<SubscriptionPaymentRow>(ADMIN_BASE, `/payments/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export type BillingSettings = {
+  graceDays: number
+  dueDaysAfterIssue: number
+  bank: {
+    bankName: string
+    accountName: string
+    accountNumber: string
+    branch: string
+    swift: string
+    instructions: string
+  }
+  helapos?: {
+    enabled: boolean
+    mock: boolean
+    notifyUrl: string
+    notifyUrlAlias?: string
+  }
+}
+
+export async function fetchBillingSettings() {
+  return req<BillingSettings>(ADMIN_BASE, '/billing-settings')
+}
+
+export async function updateBillingSettings(body: Partial<BillingSettings>) {
+  return req<BillingSettings>(ADMIN_BASE, '/billing-settings', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
 // ─── Users (cross-tenant) ────────────────────────────────────────────────────
 export interface UserRow {
   id: string; name: string; email: string; role: string

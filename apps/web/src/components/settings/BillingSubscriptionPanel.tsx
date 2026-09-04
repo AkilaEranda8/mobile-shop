@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -14,15 +15,20 @@ import {
   Mail,
   MessageCircle,
   Phone,
+  QrCode,
   Shield,
   Sparkles,
   Table2,
+  Upload,
   Users,
   X,
   Zap,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import type { Tenant } from '@/types'
+import { billingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
+import { calculateHelaposCustomerPayable } from '@/lib/helapos-fees'
 
 export type BillingPlan = {
   key: string
@@ -42,6 +48,7 @@ type Props = {
   plans: BillingPlan[]
   teamCount: number
   loading?: boolean
+  onUpgraded?: () => void
 }
 
 const FALLBACK_PLANS: BillingPlan[] = [
@@ -223,9 +230,120 @@ function UsageMeter({
   )
 }
 
-export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loading }: Props) {
+export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loading, onUpgraded }: Props) {
+  const router = useRouter()
   const [view, setView] = useState<'cards' | 'compare'>('cards')
   const [upgradePlan, setUpgradePlan] = useState<BillingPlan | null>(null)
+  const [helaposEnabled, setHelaposEnabled] = useState(false)
+  const [upgradeBusy, setUpgradeBusy] = useState(false)
+  const [qrImage, setQrImage] = useState<string | null>(null)
+  const [qrSession, setQrSession] = useState<{
+    paymentId: string
+    amount: number
+    reference: string
+    mock: boolean
+    invoiceNumber: string
+    invoiceId: string
+    subscriptionAmount?: number
+    processingFee?: number
+    customerPayableAmount?: number
+    feeApplies?: boolean
+  } | null>(null)
+  const [qrPaid, setQrPaid] = useState(false)
+
+  useEffect(() => {
+    billingApi.config()
+      .then((r: any) => setHelaposEnabled(!!(r?.data?.helapos?.enabled ?? r?.helapos?.enabled)))
+      .catch(() => setHelaposEnabled(false))
+  }, [])
+
+  useEffect(() => {
+    if (!qrSession?.paymentId || qrPaid) return
+    let cancelled = false
+    const tick = async () => {
+      try {
+        const res: any = await billingApi.helaposPaymentStatus(qrSession.paymentId)
+        const data = res?.data ?? res
+        if (cancelled) return
+        if (data?.paid || data?.status === 'APPROVED') {
+          setQrPaid(true)
+          toast.success(`Upgraded to ${upgradePlan?.label ?? 'new plan'}`)
+          onUpgraded?.()
+        }
+      } catch { /* keep polling */ }
+    }
+    void tick()
+    const id = window.setInterval(() => { void tick() }, 3000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [qrSession?.paymentId, qrPaid, upgradePlan?.label, onUpgraded])
+
+  const closeUpgrade = () => {
+    setUpgradePlan(null)
+    setQrSession(null)
+    setQrImage(null)
+    setQrPaid(false)
+    setUpgradeBusy(false)
+  }
+
+  const startUpgradeInvoice = async (targetKey: string) => {
+    if (targetKey !== 'STARTER' && targetKey !== 'PRO') {
+      throw new Error('Self-serve upgrades support Starter and Pro only')
+    }
+    const res: any = await billingApi.requestUpgrade(targetKey)
+    return res?.data ?? res
+  }
+
+  const payUpgradeWithQr = async () => {
+    if (!upgradePlan) return
+    setUpgradeBusy(true)
+    setQrPaid(false)
+    setQrSession(null)
+    setQrImage(null)
+    try {
+      const data = await startUpgradeInvoice(upgradePlan.key)
+      const inv = data.invoice
+      const qrRes: any = await billingApi.createHelaposQr(inv.id)
+      const qr = qrRes?.data ?? qrRes
+      setQrSession({
+        paymentId: qr.paymentId,
+        amount: qr.customerPayableAmount ?? qr.amount,
+        reference: qr.reference,
+        mock: !!qr.mock,
+        invoiceNumber: qr.invoiceNumber || inv.invoiceNumber,
+        invoiceId: inv.id,
+        subscriptionAmount: qr.subscriptionAmount ?? inv.total,
+        processingFee: qr.processingFee ?? 0,
+        customerPayableAmount: qr.customerPayableAmount ?? qr.amount,
+        feeApplies: !!qr.feeApplies,
+      })
+      const QRCode = (await import('qrcode')).default
+      const url = await QRCode.toDataURL(String(qr.qrPayload), { margin: 2, width: 260 })
+      setQrImage(url)
+      toast.success(data.reused ? 'Continue with existing upgrade invoice' : 'LankaQR ready — scan to pay')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to start LankaQR upgrade')
+    } finally {
+      setUpgradeBusy(false)
+    }
+  }
+
+  const payUpgradeWithBank = async () => {
+    if (!upgradePlan) return
+    setUpgradeBusy(true)
+    try {
+      const data = await startUpgradeInvoice(upgradePlan.key)
+      const inv = data.invoice
+      toast.success('Upgrade invoice created — complete bank transfer on Billing')
+      closeUpgrade()
+      router.push(`/dashboard/billing?pay=${encodeURIComponent(inv.id)}`)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to create upgrade invoice')
+      setUpgradeBusy(false)
+    }
+  }
 
   const catalog = plans.length ? plans : FALLBACK_PLANS
   const currentKey = tenant?.plan ?? 'TRIAL'
@@ -257,6 +375,17 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       `Hi Hexalyte, I want to upgrade to the ${plan.label} plan (${plan.price}${plan.period}).\nShop: ${tenant?.name ?? ''}\nEmail: ${tenant?.ownerEmail ?? ''}`,
     )
     return `https://wa.me/${SUPPORT_WA}?text=${text}`
+  }
+
+  const canSelfServeUpgrade = (plan: BillingPlan) =>
+    plan.key === 'STARTER' || plan.key === 'PRO'
+
+  const upgradeAmountHint = (plan: BillingPlan) => {
+    const target = plan.mrr ?? (plan.key === 'PRO' ? 4999 : plan.key === 'STARTER' ? 2999 : null)
+    if (target == null) return null
+    const current = currentKey === 'TRIAL' ? 0 : (tenant?.mrr ?? currentPlan?.mrr ?? 0)
+    const delta = Math.max(0, target - current)
+    return delta
   }
 
   if (loading || !tenant) {
@@ -380,10 +509,10 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 </p>
               </div>
               <a
-                href={`tel:${SUPPORT_PHONE}`}
+                href="/dashboard/billing"
                 className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-500/40 dark:text-amber-200 dark:hover:bg-amber-500/10"
               >
-                <Phone size={12} /> Settle now
+                <CreditCard size={12} /> Open Billing
               </a>
             </div>
           )}
@@ -675,11 +804,11 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       {/* Upgrade modal */}
       {upgradePlan && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm"
-          onClick={() => setUpgradePlan(null)}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-sm"
+          onClick={closeUpgrade}
         >
           <div
-            className="rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+            className="rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -692,7 +821,11 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
             >
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: upgradePlan.color }}>
-                  {upgradePlan.key === 'ENTERPRISE' ? 'Talk to sales' : 'Upgrade request'}
+                  {upgradePlan.key === 'ENTERPRISE'
+                    ? 'Talk to sales'
+                    : planRank(upgradePlan.key) < planRank(currentKey)
+                      ? 'Plan change'
+                      : 'Upgrade & pay'}
                 </p>
                 <p className="text-xl font-black mt-1" style={{ color: 'var(--text-primary)' }}>
                   {upgradePlan.label}
@@ -700,18 +833,23 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   {upgradePlan.price}
                   <span className="ml-1">{upgradePlan.period}</span>
+                  {canSelfServeUpgrade(upgradePlan) && upgradeAmountHint(upgradePlan) != null && (
+                    <span className="ml-2 font-semibold text-emerald-600 dark:text-emerald-400">
+                      · pay {formatCurrency(upgradeAmountHint(upgradePlan)!)}
+                    </span>
+                  )}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setUpgradePlan(null)}
+                onClick={closeUpgrade}
                 className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 dark:text-slate-400"
               >
                 <X size={16} />
               </button>
             </div>
             <div className="p-5 space-y-4">
-              <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <ul className="space-y-2 max-h-36 overflow-y-auto pr-1">
                 {upgradePlan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-gray-700 dark:text-slate-300">
                     <Check size={14} className="mt-0.5 flex-shrink-0" style={{ color: upgradePlan.color }} />
@@ -719,26 +857,192 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-gray-500 dark:text-slate-400">
-                Send a request and Hexalyte will confirm payment, then activate{' '}
-                <strong className="text-gray-900 dark:text-white">{upgradePlan.label}</strong> on your account.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <a
-                  href={waUpgrade(upgradePlan)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white"
-                >
-                  <MessageCircle size={15} /> WhatsApp
-                </a>
-                <a
-                  href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
-                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
-                >
-                  <Mail size={14} /> Email
-                </a>
-              </div>
+
+              {canSelfServeUpgrade(upgradePlan) && planRank(upgradePlan.key) > planRank(currentKey) ? (
+                <>
+                  {qrPaid ? (
+                    <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 p-4 text-center space-y-2">
+                      <CheckCircle2 className="mx-auto text-emerald-600" size={28} />
+                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                        Payment received — {upgradePlan.label} is active
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeUpgrade()
+                          onUpgraded?.()
+                          router.refresh()
+                        }}
+                        className="text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600 text-white"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  ) : qrSession ? (
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-gray-200 dark:border-white/10 p-4 flex flex-col items-center gap-2 bg-white dark:bg-black/20">
+                        {qrImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={qrImage} alt="LankaQR" className="w-[220px] h-[220px] rounded-lg" />
+                        ) : (
+                          <Loader2 className="animate-spin text-violet-500" size={28} />
+                        )}
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {formatCurrency(qrSession.customerPayableAmount ?? qrSession.amount)}
+                        </p>
+                        {(qrSession.feeApplies || (qrSession.processingFee != null && qrSession.processingFee > 0)) && (
+                          <div className="w-full text-xs space-y-1 rounded-lg border border-gray-100 dark:border-white/10 p-2.5 bg-gray-50 dark:bg-white/[0.03]">
+                            <div className="flex justify-between gap-2 text-gray-600 dark:text-slate-400">
+                              <span>Subscription</span>
+                              <span>{formatCurrency(qrSession.subscriptionAmount ?? 0)}</span>
+                            </div>
+                            <div className="flex justify-between gap-2 text-amber-700 dark:text-amber-300">
+                              <span>Processing fee</span>
+                              <span>{formatCurrency(qrSession.processingFee ?? 0)}</span>
+                            </div>
+                            <div className="flex justify-between gap-2 font-bold text-gray-900 dark:text-white pt-1 border-t border-gray-200 dark:border-white/10">
+                              <span>Total payable</span>
+                              <span>{formatCurrency(qrSession.customerPayableAmount ?? qrSession.amount)}</span>
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400 text-center">
+                          Scan with your banking app · {qrSession.invoiceNumber}
+                          <br />
+                          Ref: {qrSession.reference}
+                        </p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <Loader2 size={10} className="animate-spin" /> Waiting for payment…
+                        </p>
+                      </div>
+                      {qrSession.mock && (
+                        <button
+                          type="button"
+                          disabled={upgradeBusy}
+                          onClick={async () => {
+                            setUpgradeBusy(true)
+                            try {
+                              await billingApi.helaposMockPay(qrSession.paymentId)
+                              setQrPaid(true)
+                              toast.success('Mock payment applied')
+                              onUpgraded?.()
+                            } catch (e: any) {
+                              toast.error(e?.message || 'Mock pay failed')
+                            } finally {
+                              setUpgradeBusy(false)
+                            }
+                          }}
+                          className="w-full text-xs font-bold py-2.5 rounded-xl border border-dashed border-amber-400 text-amber-700 dark:text-amber-300"
+                        >
+                          Simulate payment (mock)
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQrSession(null)
+                          setQrImage(null)
+                        }}
+                        className="w-full text-xs font-semibold py-2 text-gray-500"
+                      >
+                        Back
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-gray-500 dark:text-slate-400">
+                        Pay the upgrade difference and{' '}
+                        <strong className="text-gray-900 dark:text-white">{upgradePlan.label}</strong>{' '}
+                        activates automatically (LankaQR) or after slip approval (bank).
+                      </p>
+                      {helaposEnabled && (() => {
+                        const net = upgradeAmountHint(upgradePlan)
+                        if (net == null) return null
+                        const fee = calculateHelaposCustomerPayable(net)
+                        if (!fee.feeApplies) return null
+                        return (
+                          <div className="rounded-xl border border-violet-200 dark:border-violet-500/25 bg-violet-50/80 dark:bg-violet-500/10 px-3 py-2.5 text-xs space-y-1.5">
+                            <div className="flex justify-between gap-2 text-gray-600 dark:text-slate-300">
+                              <span>Subscription</span>
+                              <span className="font-semibold">{formatCurrency(fee.subscriptionAmount)}</span>
+                            </div>
+                            <div className="flex justify-between gap-2 text-amber-700 dark:text-amber-300">
+                              <span>Payment processing fee</span>
+                              <span className="font-semibold">{formatCurrency(fee.processingFee)}</span>
+                            </div>
+                            <div className="flex justify-between gap-2 font-bold text-gray-900 dark:text-white">
+                              <span>Total payable (LankaQR)</span>
+                              <span>{formatCurrency(fee.customerPayableAmount)}</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
+                      <div className="grid gap-2">
+                        {helaposEnabled && (
+                          <button
+                            type="button"
+                            disabled={upgradeBusy}
+                            onClick={() => void payUpgradeWithQr()}
+                            className="inline-flex items-center justify-center gap-2 text-sm font-bold py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-60"
+                          >
+                            {upgradeBusy ? <Loader2 size={15} className="animate-spin" /> : <QrCode size={15} />}
+                            Pay with LankaQR
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={upgradeBusy}
+                          onClick={() => void payUpgradeWithBank()}
+                          className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl border border-gray-200 text-gray-800 hover:bg-gray-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5 disabled:opacity-60"
+                        >
+                          {upgradeBusy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                          Bank transfer + slip
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <a
+                          href={waUpgrade(upgradePlan)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white"
+                        >
+                          <MessageCircle size={13} /> WhatsApp
+                        </a>
+                        <a
+                          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
+                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+                        >
+                          <Mail size={13} /> Email
+                        </a>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">
+                    {upgradePlan.key === 'ENTERPRISE'
+                      ? 'Enterprise plans are custom — Hexalyte will confirm pricing and activate your account.'
+                      : 'Send a request and Hexalyte will confirm the plan change on your account.'}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <a
+                      href={waUpgrade(upgradePlan)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white"
+                    >
+                      <MessageCircle size={15} /> WhatsApp
+                    </a>
+                    <a
+                      href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
+                      className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+                    >
+                      <Mail size={14} /> Email
+                    </a>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

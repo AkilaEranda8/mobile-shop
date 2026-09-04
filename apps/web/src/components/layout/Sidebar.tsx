@@ -259,6 +259,7 @@ const navItems: NavGroup[] = [
       { href: '/dashboard/release-notes', icon: Sparkles, label: 'Release Notes', badge: 'NEW' },
       { href: '/dashboard/feature-suggestions', icon: MessageSquarePlus, label: 'Feature Suggestions' },
       { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW', permission: 'BRANCHES' },
+      { href: '/dashboard/billing', icon: CreditCard, label: 'Billing & Invoices', badge: 'NEW' },
       { href: '/dashboard/settings', icon: Settings,  label: 'Settings', permission: 'SETTINGS' },
     ],
   },

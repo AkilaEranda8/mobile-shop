@@ -123,7 +123,7 @@ export default function ConnectionTab({ canEdit, status, config, onStatusChange,
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Gateway connection</h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Dialog / Mobitel / Hutch / Twilio — API keys per shop
+              Dialog ESMS / Hexalyte SMS Gateway / Mobitel — API keys per shop
             </p>
           </div>
           <span className={`badge-status ${scfg.bg} border ${scfg.color} text-[10px]`}>
@@ -187,7 +187,12 @@ export default function ConnectionTab({ canEdit, status, config, onStatusChange,
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium mb-1.5 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-              <Hash size={11} /> {form.provider === 'generic' ? 'Provider HTTP URL' : 'Sender ID / Mask'}
+              <Hash size={11} />{' '}
+              {form.provider === 'generic'
+                ? 'Provider HTTP URL'
+                : form.provider === 'hexalyte'
+                  ? 'Sender ID (mask)'
+                  : 'Sender ID / Mask'}
             </label>
             <input className="input-field w-full" value={form.senderId} disabled={!canEdit}
               onChange={e => setForm(f => ({ ...f, senderId: e.target.value }))} />

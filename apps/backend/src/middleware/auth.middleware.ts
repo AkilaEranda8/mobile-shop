@@ -108,10 +108,19 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     req.tenantId = req.user.tenantId
     if (req.user.role !== 'PLATFORM_ADMIN' && req.user.tenantId) {
       try {
-        await ensureTenantAccess(req.user.tenantId)
+        await ensureTenantAccess(req.user.tenantId, {
+          path: req.originalUrl || req.path,
+          apiPrefix: env.API_PREFIX,
+        })
       } catch (err) {
         if (err instanceof AppError) {
-          sendError(res, err.message, err.statusCode)
+          const code = (err as AppError & { code?: string }).code
+          res.status(err.statusCode).json({
+            success: false,
+            message: err.message,
+            errors: err.errors,
+            ...(code ? { code } : {}),
+          })
           return
         }
         sendError(res, 'Account access denied', 403)

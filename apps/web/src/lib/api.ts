@@ -103,6 +103,16 @@ async function request<T = unknown>(
   if (!res.ok) {
     const err: any = new Error(responseErrorMessage(json, text))
     err.status = res.status
+    err.code = typeof json.code === 'string' ? json.code : undefined
+    if (
+      err.code === 'ACCOUNT_SUSPENDED_PAYMENT'
+      && typeof window !== 'undefined'
+      && !window.location.pathname.startsWith('/dashboard/billing')
+      && !path.startsWith('/billing')
+      && !path.startsWith('/tenants/me')
+    ) {
+      window.location.href = '/dashboard/billing?suspended=1'
+    }
     throw err
   }
   return json as T
@@ -1193,4 +1203,136 @@ export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   const { json, text } = await parseResponseBody(res)
   if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Failed to load platform status'))
   return (json.data ?? json) as PlatformStatus
+}
+
+// ── Platform SaaS billing (subscription invoices) ─────────────────────────────
+export const billingApi = {
+  overview: () => api.get<{ data: any }>('/billing/overview'),
+  config: () => api.get<{ data: any }>('/billing/config'),
+  invoices: (params?: { status?: string; search?: string }) => {
+    const p = new URLSearchParams()
+    if (params?.status) p.set('status', params.status)
+    if (params?.search) p.set('search', params.search)
+    const qs = p.toString()
+    return api.get<{ data: any[] }>(`/billing/invoices${qs ? `?${qs}` : ''}`)
+  },
+  invoice: (id: string) => api.get<{ data: any }>(`/billing/invoices/${id}`),
+  submitPayment: (body: {
+    invoiceId: string
+    amount: number
+    channel?: string
+    methodLabel?: string
+    paymentDate: string
+    bankName?: string
+    accountRef?: string
+    transactionRef?: string
+    slipUrl?: string
+    slipFilename?: string
+    notes?: string
+  }) => api.post<{ data: any }>('/billing/payments', body),
+  uploadSlip: async (file: File): Promise<{ url: string; filename: string }> => {
+    const token = authStorage.getAccessToken()
+    const form = new FormData()
+    form.append('slip', file)
+    const headers: Record<string, string> = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    const tenantSlug = getTenantSlugFromHost()
+    if (tenantSlug) headers['x-tenant-id'] = tenantSlug
+    const res = await fetch(`${getApiBaseUrl()}/billing/payments/slip`, {
+      method: 'POST',
+      headers,
+      body: form,
+    })
+    const { json, text } = await parseResponseBody(res)
+    if (!res.ok) throw new Error(responseErrorMessage(json, text, 'Slip upload failed'))
+    return json.data as { url: string; filename: string }
+  },
+  downloadPdf: async (invoiceId: string, invoiceNumber: string, opts?: { openInTab?: boolean }) => {
+    const token = authStorage.getAccessToken()
+    const headers: Record<string, string> = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    const tenantSlug = getTenantSlugFromHost()
+    if (tenantSlug) headers['x-tenant-id'] = tenantSlug
+    const activeBranchId = getActiveBranchId()
+    const branchScope = getBranchScope()
+    if (activeBranchId) headers['x-active-branch-id'] = activeBranchId
+    if (branchScope) headers['x-branch-scope'] = branchScope
+    const res = await fetch(`${getApiBaseUrl()}/billing/invoices/${invoiceId}/pdf`, { headers })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(text || 'Failed to download invoice PDF')
+    }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    if (opts?.openInTab) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      // Revoke later so the tab can load
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      return
+    }
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${invoiceNumber}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
+  createHelaposQr: (invoiceId: string) =>
+    api.post<{ data: {
+      paymentId: string
+      invoiceId: string
+      invoiceNumber: string
+      amount: number
+      subscriptionAmount: number
+      processingFee: number
+      customerPayableAmount: number
+      expectedSettlementAmount: number
+      feeApplies: boolean
+      feeRate: number
+      reference: string
+      qrPayload: string
+      mock: boolean
+      status: string
+      notifyUrl: string
+      expiresAt?: string
+    } }>(`/billing/invoices/${invoiceId}/helapos/qr`),
+  helaposQuote: (invoiceId: string) =>
+    api.get<{ data: {
+      invoiceId: string
+      invoiceNumber: string
+      subscriptionAmount: number
+      processingFee: number
+      customerPayableAmount: number
+      expectedSettlementAmount: number
+      feeApplies: boolean
+      feeRate: number
+    } }>(`/billing/invoices/${invoiceId}/helapos/quote`),
+  helaposPaymentStatus: (paymentId: string) =>
+    api.get<{ data: {
+      paymentId: string
+      status: string
+      amount: number
+      subscriptionAmount?: number
+      processingFee?: number
+      customerPayableAmount?: number
+      settlementAmount?: number
+      feeApplies?: boolean
+      reference: string | null
+      paid: boolean
+      mock: boolean
+      qrPayload: string | null
+      invoice: { id: string; invoiceNumber: string; status: string; total: number; paidAt: string | null }
+    } }>(`/billing/helapos/payments/${paymentId}`),
+  helaposMockPay: (paymentId: string) =>
+    api.post<{ data: any }>(`/billing/helapos/payments/${paymentId}/mock-pay`),
+  requestUpgrade: (targetPlan: 'STARTER' | 'PRO') =>
+    api.post<{ data: {
+      invoice: any
+      reused: boolean
+      fromPlan: string
+      targetPlan: string
+      amount: number
+      targetMrr: number
+    } }>('/billing/upgrade', { targetPlan }),
 }

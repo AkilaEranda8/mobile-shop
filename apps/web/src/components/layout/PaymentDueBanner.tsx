@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, CreditCard, Phone, X } from 'lucide-react'
-import { tenantApi } from '@/lib/api'
+import Link from 'next/link'
+import { AlertTriangle, CreditCard, X } from 'lucide-react'
+import { billingApi, tenantApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import type { Tenant } from '@/types'
 
@@ -11,27 +12,48 @@ function sessionKey(tenantId?: string) {
 }
 
 /**
- * Shown to all shop users when platform admin marks Payment Due.
- * Session-dismissible only — reappears on next login / new session.
+ * Non-blocking overdue / payment-due banner.
+ * During grace period shows remaining days; links to Billing.
  */
 export function PaymentDueBanner() {
   const [tenant, setTenant] = useState<Tenant | null>(null)
+  const [grace, setGrace] = useState<{ daysRemaining: number; amount: number; invoiceNumber?: string } | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
   const load = useCallback(() => {
     tenantApi.me()
-      .then((r: any) => {
+      .then(async (r: any) => {
         const data = (r?.data ?? r) as Tenant
         setTenant(data)
         try {
           const key = sessionKey(data?.id)
-          if (key && sessionStorage.getItem(key) === '1' && data?.paymentDue) {
+          if (key && sessionStorage.getItem(key) === '1' && (data?.paymentDue || data?.status === 'SUSPENDED')) {
             setDismissed(true)
           } else {
             setDismissed(false)
           }
         } catch {
           setDismissed(false)
+        }
+
+        if (data?.paymentDue || data?.status === 'SUSPENDED') {
+          try {
+            const o: any = await billingApi.overview()
+            const overview = o?.data ?? o
+            if (overview?.graceWarning) {
+              setGrace({
+                daysRemaining: overview.graceWarning.daysRemaining,
+                amount: overview.graceWarning.amount,
+                invoiceNumber: overview.graceWarning.invoiceNumber,
+              })
+            } else {
+              setGrace(null)
+            }
+          } catch {
+            setGrace(null)
+          }
+        } else {
+          setGrace(null)
         }
       })
       .catch(() => setTenant(null))
@@ -50,10 +72,12 @@ export function PaymentDueBanner() {
     }
   }, [load])
 
-  if (!tenant?.paymentDue || dismissed) return null
+  const show = tenant && (tenant.paymentDue || tenant.status === 'SUSPENDED' || grace)
+  if (!show || dismissed) return null
 
-  const amount = tenant.paymentDueAmount != null ? formatCurrency(tenant.paymentDueAmount) : null
-  const invoiceNo = tenant.paymentDueInvoiceNo
+  const amount = grace?.amount ?? (tenant.paymentDueAmount != null ? tenant.paymentDueAmount : null)
+  const invoiceNo = grace?.invoiceNumber ?? tenant.paymentDueInvoiceNo
+  const suspended = tenant.status === 'SUSPENDED'
 
   const dismiss = () => {
     setDismissed(true)
@@ -67,40 +91,68 @@ export function PaymentDueBanner() {
     <div
       className="px-4 lg:px-6 py-2.5 flex flex-wrap items-center gap-2 sm:gap-3 border-b"
       style={{
-        background: 'rgba(245,158,11,0.12)',
-        borderColor: 'rgba(245,158,11,0.35)',
+        background: suspended ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.12)',
+        borderColor: suspended ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.35)',
         color: 'var(--text-primary)',
       }}
       role="alert"
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span
-          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md flex-shrink-0"
-          style={{ background: '#f59e0b', color: '#ffffff' }}
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md flex-shrink-0 text-white"
+          style={{ background: suspended ? '#ef4444' : '#f59e0b' }}
         >
-          <CreditCard size={11} color="#ffffff" /> Payment Due
+          <CreditCard size={11} color="#ffffff" />
+          {suspended ? 'Suspended' : grace ? 'Payment Overdue' : 'Payment Due'}
         </span>
-        <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 hidden sm:block" />
+        <AlertTriangle size={14} className={`flex-shrink-0 hidden sm:block ${suspended ? 'text-red-500' : 'text-amber-500'}`} />
         <p className="text-[12px] sm:text-[13px] min-w-0">
-          <span className="font-semibold text-amber-700 dark:text-amber-300">Your Hexalyte subscription payment is due.</span>
-          {' '}
-          <span style={{ color: 'var(--text-muted)' }}>
-            {amount ? `Amount: ${amount}. ` : ''}
-            {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
-            Please settle with Hexalyte to keep your account active.
-          </span>
+          {suspended ? (
+            <>
+              <span className="font-semibold text-red-700 dark:text-red-300">Account suspended for unpaid subscription.</span>
+              {' '}
+              <span style={{ color: 'var(--text-muted)' }}>
+                {amount != null ? `Outstanding ${formatCurrency(amount)}. ` : ''}
+                {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
+                Pay now to restore access.
+              </span>
+            </>
+          ) : grace ? (
+            <>
+              <span className="font-semibold text-amber-700 dark:text-amber-300">Subscription Payment Due</span>
+              {' '}
+              <span style={{ color: 'var(--text-muted)' }}>
+                You have {grace.daysRemaining} day{grace.daysRemaining === 1 ? '' : 's'} remaining before suspension.
+                {amount != null ? ` Outstanding: ${formatCurrency(amount)}.` : ''}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-amber-700 dark:text-amber-300">Your Hexalyte subscription payment is due.</span>
+              {' '}
+              <span style={{ color: 'var(--text-muted)' }}>
+                {amount != null ? `Amount: ${formatCurrency(amount)}. ` : ''}
+                {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
+                Submit payment from Billing.
+              </span>
+            </>
+          )}
         </p>
       </div>
-      <a
-        href="tel:+94703130100"
-        className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-amber-500/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/10 flex-shrink-0"
+      <Link
+        href="/dashboard/billing"
+        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border flex-shrink-0 ${
+          suspended
+            ? 'border-red-500/40 text-red-800 dark:text-red-200 hover:bg-red-500/10'
+            : 'border-amber-500/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/10'
+        }`}
       >
-        <Phone size={12} /> +94 70 3130100
-      </a>
+        Pay / LankaQR
+      </Link>
       <button
         type="button"
         onClick={dismiss}
-        className="p-1 rounded-md hover:bg-amber-500/15 text-amber-700/70 dark:text-amber-300/70 flex-shrink-0"
+        className="p-1 rounded-md hover:bg-black/5 text-gray-500 flex-shrink-0"
         title="Hide for this session"
         aria-label="Hide payment due banner"
       >

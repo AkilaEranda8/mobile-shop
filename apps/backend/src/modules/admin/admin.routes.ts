@@ -40,6 +40,15 @@ import { sendTenantOnboardWhatsApp } from '../../utils/send-tenant-onboard-whats
 import releaseNotesAdminRoutes from '../release-notes/release-notes-admin.routes'
 import masterCatalogAdminRoutes from '../master-catalog/master-catalog-admin.routes'
 import featureSuggestionsAdminRoutes from '../feature-suggestions/feature-suggestions-admin.routes'
+import {
+  approveSubscriptionPayment,
+  createSubscriptionInvoice,
+  listAdminPayments,
+  rejectSubscriptionPayment,
+  syncTenantPaymentDueFlags,
+} from '../billing/billing.service'
+import { getBillingConfig, upsertBillingConfig } from '../billing/billing-config'
+import { getHelaposPublicConfig } from '../billing/helapos.client'
 
 const router = Router()
 router.use(authenticate)
@@ -698,7 +707,7 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
   } catch (e) { next(e) }
 })
 
-/** Mark next-period invoice as payment due — does NOT extend subscriptionEndsAt */
+/** Mark next-period invoice as payment due — creates a permanent SubscriptionInvoice */
 router.post('/subscriptions/:tenantId/mark-payment-due', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
@@ -707,10 +716,6 @@ router.post('/subscriptions/:tenantId/mark-payment-due', async (req: Request, re
     const months = Math.max(1, Math.min(24, Number(req.body?.months) || 1))
     const amount = Number(req.body?.amount)
     if (!Number.isFinite(amount) || amount < 0) throw new AppError('Invalid amount', 400)
-
-    const invoiceNo = typeof req.body?.invoiceNo === 'string' && req.body.invoiceNo.trim()
-      ? req.body.invoiceNo.trim()
-      : `HX-${new Date().getFullYear()}-${String(tenant.id).slice(-5).toUpperCase()}`
 
     const periodStart = req.body?.periodStart ? new Date(req.body.periodStart) : (
       tenant.subscriptionEndsAt && tenant.subscriptionEndsAt > new Date()
@@ -725,17 +730,26 @@ router.post('/subscriptions/:tenantId/mark-payment-due', async (req: Request, re
       throw new AppError('Invalid period dates', 400)
     }
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: {
-        paymentDue: true,
-        paymentDueAmount: amount,
-        paymentDueInvoiceNo: invoiceNo,
-        paymentDueMonths: months,
-        paymentDuePeriodStart: periodStart,
-        paymentDuePeriodEnd: periodEnd,
-        paymentDueAt: new Date(),
+    const invoice = await createSubscriptionInvoice({
+      tenantId: tenant.id,
+      billingPeriodStart: periodStart,
+      billingPeriodEnd: periodEnd,
+      months,
+      amount,
+      invoiceNumber: typeof req.body?.invoiceNo === 'string' && req.body.invoiceNo.trim()
+        ? req.body.invoiceNo.trim()
+        : undefined,
+      issueDate: req.body?.issueDate ? new Date(req.body.issueDate) : new Date(),
+      dueDate: req.body?.dueDate ? new Date(req.body.dueDate) : undefined,
+      actor: {
+        type: 'ADMIN',
+        name: (req as any).user?.email ?? 'admin',
+        userId: (req as any).user?.userId,
       },
+    })
+
+    const updated = await prisma.tenant.findUnique({
+      where: { id: tenant.id },
       select: {
         id: true, name: true, plan: true, status: true, mrr: true,
         subscriptionEndsAt: true, trialEndsAt: true, ownerEmail: true, ownerName: true,
@@ -751,13 +765,13 @@ router.post('/subscriptions/:tenantId/mark-payment-due', async (req: Request, re
       actorType: 'ADMIN',
       actor: (req as any).user?.email ?? 'admin',
       target: tenant.name,
-      details: `Payment due marked · ${invoiceNo} · Rs.${amount.toLocaleString()} · ${months} mo (not extended)`,
+      details: `Payment due marked · ${invoice.invoiceNumber} · Rs.${amount.toLocaleString()} · ${months} mo (permanent invoice)`,
       ip: getClientIp(req),
       tenantId: tenant.id,
       userId: (req as any).user?.userId,
     }).catch(() => {})
 
-    sendSuccess(res, updated, 'Payment marked as due (subscription not extended)')
+    sendSuccess(res, { ...updated, invoice }, 'Payment marked as due (subscription not extended)')
   } catch (e) { next(e) }
 })
 
@@ -786,33 +800,81 @@ router.post('/subscriptions/:tenantId/clear-payment-due', async (req: Request, r
   } catch (e) { next(e) }
 })
 
-/** Confirm payment received → clear due AND extend subscriptionEndsAt */
+/** Confirm payment received → clear due AND extend subscriptionEndsAt (legacy + ledger) */
 router.post('/subscriptions/:tenantId/confirm-payment', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
     if (!tenant) throw new AppError('Tenant not found', 404)
-    if (!tenant.paymentDue) throw new AppError('No payment due marked for this tenant', 400)
 
-    const months = Math.max(1, Math.min(24, Number(req.body?.months) || tenant.paymentDueMonths || 1))
+    // Prefer approving a pending payment submission if one exists
+    const pendingPayment = await prisma.subscriptionPayment.findFirst({
+      where: { tenantId: tenant.id, status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    if (pendingPayment) {
+      await approveSubscriptionPayment({
+        paymentId: pendingPayment.id,
+        reviewedById: (req as any).user?.userId,
+        reviewedByEmail: (req as any).user?.email,
+      })
+      const updated = await prisma.tenant.findUnique({
+        where: { id: tenant.id },
+        select: {
+          id: true, name: true, plan: true, status: true, mrr: true,
+          subscriptionEndsAt: true, paymentDue: true,
+        },
+      })
+      sendSuccess(res, updated, 'Payment confirmed — subscription extended')
+      return
+    }
+
+    // Mark oldest unpaid invoice as PAID if present
+    const unpaid = await prisma.subscriptionInvoice.findFirst({
+      where: { tenantId: tenant.id, status: { in: ['PENDING', 'OVERDUE'] } },
+      orderBy: { dueDate: 'asc' },
+    })
+
+    const months = Math.max(1, Math.min(24, Number(req.body?.months) || tenant.paymentDueMonths || unpaid?.months || 1))
     const base = tenant.subscriptionEndsAt && tenant.subscriptionEndsAt > new Date()
       ? new Date(tenant.subscriptionEndsAt)
       : new Date()
-    const newEnd = tenant.paymentDuePeriodEnd
-      ? new Date(tenant.paymentDuePeriodEnd)
-      : (() => { const d = new Date(base); d.setMonth(d.getMonth() + months); return d })()
+    const newEnd = unpaid?.billingPeriodEnd
+      ?? (tenant.paymentDuePeriodEnd
+        ? new Date(tenant.paymentDuePeriodEnd)
+        : (() => { const d = new Date(base); d.setMonth(d.getMonth() + months); return d })())
+
+    if (unpaid) {
+      await prisma.subscriptionInvoice.update({
+        where: { id: unpaid.id },
+        data: { status: 'PAID', paidAt: new Date() },
+      })
+    }
+
+    const stillUnpaid = await prisma.subscriptionInvoice.count({
+      where: {
+        tenantId: tenant.id,
+        status: { in: ['PENDING', 'OVERDUE'] },
+        ...(unpaid ? { id: { not: unpaid.id } } : {}),
+      },
+    })
 
     const updated = await prisma.tenant.update({
       where: { id: tenant.id },
       data: {
-        status: 'ACTIVE',
+        status: stillUnpaid === 0 ? 'ACTIVE' : tenant.status,
         subscriptionEndsAt: newEnd,
-        paymentDue: false,
-        paymentDueAmount: null,
-        paymentDueInvoiceNo: null,
-        paymentDueMonths: null,
-        paymentDuePeriodStart: null,
-        paymentDuePeriodEnd: null,
-        paymentDueAt: null,
+        paymentDue: stillUnpaid > 0,
+        ...(stillUnpaid === 0
+          ? {
+              paymentDueAmount: null,
+              paymentDueInvoiceNo: null,
+              paymentDueMonths: null,
+              paymentDuePeriodStart: null,
+              paymentDuePeriodEnd: null,
+              paymentDueAt: null,
+            }
+          : {}),
       },
       select: {
         id: true, name: true, plan: true, status: true, mrr: true,
@@ -820,19 +882,118 @@ router.post('/subscriptions/:tenantId/confirm-payment', async (req: Request, res
       },
     })
 
+    if (stillUnpaid > 0) await syncTenantPaymentDueFlags(tenant.id)
+
     await logPlatformActivity({
       eventType: 'SUBSCRIPTION_PAYMENT_CONFIRMED',
       severity: 'INFO',
       actorType: 'ADMIN',
       actor: (req as any).user?.email ?? 'admin',
       target: tenant.name,
-      details: `Payment confirmed · ${tenant.paymentDueInvoiceNo ?? 'invoice'} · extended to ${newEnd.toISOString().slice(0, 10)}`,
+      details: `Payment confirmed · ${unpaid?.invoiceNumber ?? tenant.paymentDueInvoiceNo ?? 'invoice'} · extended to ${newEnd.toISOString().slice(0, 10)}`,
       ip: getClientIp(req),
       tenantId: tenant.id,
       userId: (req as any).user?.userId,
     }).catch(() => {})
 
+    if (stillUnpaid === 0) {
+      await logPlatformActivity({
+        eventType: 'ACCOUNT_REACTIVATED',
+        severity: 'INFO',
+        actorType: 'ADMIN',
+        actor: (req as any).user?.email ?? 'admin',
+        target: tenant.name,
+        details: 'Account reactivated after manual payment confirmation',
+        tenantId: tenant.id,
+        userId: (req as any).user?.userId,
+      }).catch(() => {})
+    }
+
     sendSuccess(res, updated, 'Payment confirmed — subscription extended')
+  } catch (e) { next(e) }
+})
+
+// ── Subscription Payments (manual bank transfer approval) ─────────────────────
+router.get('/payments', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { status, search } = req.query as Record<string, string>
+    const data = await listAdminPayments({
+      status: (status as any) || 'ALL',
+      search,
+    })
+    sendSuccess(res, data)
+  } catch (e) { next(e) }
+})
+
+router.post('/payments/:id/approve', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const payment = await approveSubscriptionPayment({
+      paymentId: req.params.id,
+      reviewedById: (req as any).user?.userId,
+      reviewedByEmail: (req as any).user?.email,
+    })
+    sendSuccess(res, payment, 'Payment approved')
+  } catch (e) { next(e) }
+})
+
+router.post('/payments/:id/reject', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const reason = String(req.body?.reason || '').trim()
+    if (reason.length < 3) throw new AppError('Rejection reason is required', 400)
+    const payment = await rejectSubscriptionPayment({
+      paymentId: req.params.id,
+      reason,
+      reviewedById: (req as any).user?.userId,
+      reviewedByEmail: (req as any).user?.email,
+    })
+    sendSuccess(res, payment, 'Payment rejected')
+  } catch (e) { next(e) }
+})
+
+router.get('/billing-settings', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const config = await getBillingConfig()
+    sendSuccess(res, { ...config, helapos: getHelaposPublicConfig() })
+  } catch (e) { next(e) }
+})
+
+router.put('/billing-settings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await upsertBillingConfig({
+      graceDays: req.body?.graceDays,
+      dueDaysAfterIssue: req.body?.dueDaysAfterIssue,
+      bank: req.body?.bank,
+    })
+    await logPlatformActivity({
+      eventType: 'BILLING_SETTINGS_UPDATED',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actor: (req as any).user?.email ?? 'admin',
+      target: 'Platform',
+      details: `Grace ${data.graceDays}d · due+${data.dueDaysAfterIssue}d · bank ${data.bank.bankName}`,
+      ip: getClientIp(req),
+      userId: (req as any).user?.userId,
+    }).catch(() => {})
+    sendSuccess(res, data, 'Billing settings updated')
+  } catch (e) { next(e) }
+})
+
+router.get('/invoices', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tenantId, status } = req.query as Record<string, string>
+    const where: any = {}
+    if (tenantId) where.tenantId = tenantId
+    if (status && status !== 'ALL') where.status = status
+    const data = await prisma.subscriptionInvoice.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      include: {
+        tenant: { select: { id: true, name: true, ownerEmail: true, plan: true, status: true } },
+        payments: { orderBy: { createdAt: 'desc' }, take: 3 },
+      },
+    })
+    sendSuccess(res, data)
   } catch (e) { next(e) }
 })
 

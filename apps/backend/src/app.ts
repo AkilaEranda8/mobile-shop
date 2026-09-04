@@ -45,6 +45,8 @@ import notificationsRoutes from './modules/feature-suggestions/notifications.rou
 import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
 import hirePurchaseRoutes from './modules/hire-purchase/hire-purchase.routes'
 import smsRoutes from './modules/sms/sms.routes'
+import billingRoutes from './modules/billing/billing.routes'
+import paymentsPublicRoutes from './modules/billing/payments.routes'
 
 const app = express()
 
@@ -218,6 +220,9 @@ app.use(`${API}/platform`, platformRoutes)
 app.use(`${API}/release-notes`, releaseNotesRoutes)
 app.use(`${API}/feature-suggestions`, featureSuggestionsRoutes)
 app.use(`${API}/notifications`, notificationsRoutes)
+app.use(`${API}/billing`, billingRoutes)
+/** Alias Notify URL path from HelaPOS onboarding emails: /payments/helapos/webhook */
+app.use(`${API}/payments`, paymentsPublicRoutes)
 app.use('/admin/v1', adminRoutes)
 
 app.use(notFound)

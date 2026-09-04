@@ -4,6 +4,7 @@ import { resolveTenantOwnerPhone } from '../utils/tenant-owner-phone'
 import { whatsappService } from '../modules/whatsapp/whatsapp.service'
 import { logPlatformActivity } from '../utils/activity-log'
 import { buildSubscriptionInvoicePdf } from '../utils/subscription-invoice-pdf'
+import { createSubscriptionInvoice } from '../modules/billing/billing.service'
 
 const BILLING_SLUG = 'hexalyte-billing-internal'
 const TZ = 'Asia/Colombo'
@@ -117,7 +118,7 @@ function renewalDraft(tenant: {
       : new Date())
   const periodEnd = tenant.paymentDuePeriodEnd ?? addMonths(periodStart, months)
   const invoiceNo = tenant.paymentDueInvoiceNo
-    ?? `HX-${new Date().getFullYear()}-${String(tenant.id).slice(-5).toUpperCase()}`
+    ?? `INV-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-TEMP`
   const total = tenant.paymentDueAmount ?? mrr * months
   return { months, mrr, periodStart, periodEnd, invoiceNo, total }
 }
@@ -336,6 +337,17 @@ async function markPaymentDueOnExpiryDay(tenants: TenantRow[], todayKey: string)
       }
 
       const draft = renewalDraft(tenant)
+
+      await createSubscriptionInvoice({
+        tenantId: tenant.id,
+        billingPeriodStart: draft.periodStart,
+        billingPeriodEnd: draft.periodEnd,
+        months: draft.months,
+        amount: draft.total,
+        invoiceNumber: draft.invoiceNo.startsWith('INV-') ? draft.invoiceNo : undefined,
+        issueDate: new Date(),
+        actor: { type: 'SYSTEM', name: 'subscription-renewal-job' },
+      })
 
       await prisma.tenant.update({
         where: { id: tenant.id },
