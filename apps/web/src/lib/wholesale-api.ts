@@ -130,23 +130,23 @@ export const wholesaleApi = {
       })}`,
     ),
   tiers: () => api.get<{ data: unknown[] }>('/wholesale/pricing/tiers'),
-  createTier: (body: unknown) => api.post('/wholesale/pricing/tiers', body),
+  createTier: (body: unknown) => api.post('/wholesale/pricing/tiers', body ?? {}),
   updateTier: (id: string, body: unknown) => api.patch(`/wholesale/pricing/tiers/${id}`, body),
   deleteTier: (id: string) => api.delete(`/wholesale/pricing/tiers/${id}`),
   priceLists: () => api.get<{ data: unknown[] }>('/wholesale/pricing/price-lists'),
   priceList: (id: string) => api.get(`/wholesale/pricing/price-lists/${id}`),
-  createPriceList: (body: unknown) => api.post('/wholesale/pricing/price-lists', body),
+  createPriceList: (body: unknown) => api.post('/wholesale/pricing/price-lists', body ?? {}),
   updatePriceList: (id: string, body: unknown) =>
     api.patch(`/wholesale/pricing/price-lists/${id}`, body),
   deletePriceList: (id: string) => api.delete(`/wholesale/pricing/price-lists/${id}`),
   createPriceListItem: (priceListId: string, body: unknown) =>
-    api.post(`/wholesale/pricing/price-lists/${priceListId}/items`, body),
+    api.post(`/wholesale/pricing/price-lists/${priceListId}/items`, body ?? {}),
   updatePriceListItem: (itemId: string, body: unknown) =>
     api.patch(`/wholesale/pricing/items/${itemId}`, body),
   deletePriceListItem: (itemId: string) => api.delete(`/wholesale/pricing/items/${itemId}`),
   dealerOverrides: (dealerId: string) =>
     api.get(`/wholesale/pricing/overrides/${dealerId}`),
-  createDealerOverride: (body: unknown) => api.post('/wholesale/pricing/overrides', body),
+  createDealerOverride: (body: unknown) => api.post('/wholesale/pricing/overrides', body ?? {}),
   updateDealerOverride: (id: string, body: unknown) =>
     api.patch(`/wholesale/pricing/overrides/${id}`, body),
   deleteDealerOverride: (id: string) => api.delete(`/wholesale/pricing/overrides/${id}`),
@@ -171,66 +171,66 @@ export const wholesaleApi = {
   quotations: (params?: Record<string, string>) =>
     api.get(`/wholesale/quotations${qs(params)}`),
   quotation: (id: string) => api.get(`/wholesale/quotations/${id}`),
-  createQuotation: (body: unknown) => api.post('/wholesale/quotations', body),
+  createQuotation: (body: unknown) => api.post('/wholesale/quotations', body ?? {}),
   updateQuotation: (id: string, body: unknown) => api.patch(`/wholesale/quotations/${id}`, body),
-  issueQuotation: (id: string) => api.post(`/wholesale/quotations/${id}/issue`),
-  acceptQuotation: (id: string) => api.post(`/wholesale/quotations/${id}/accept`),
+  issueQuotation: (id: string) => api.post(`/wholesale/quotations/${id}/issue`, {}),
+  acceptQuotation: (id: string) => api.post(`/wholesale/quotations/${id}/accept`, {}),
   rejectQuotation: (id: string, body?: unknown) =>
-    api.post(`/wholesale/quotations/${id}/reject`, body),
-  reviseQuotation: (id: string) => api.post(`/wholesale/quotations/${id}/revise`),
+    api.post(`/wholesale/quotations/${id}/reject`, body ?? {}),
+  reviseQuotation: (id: string) => api.post(`/wholesale/quotations/${id}/revise`, {}),
 
   // Orders
   orders: (params?: Record<string, string>) => api.get(`/wholesale/orders${qs(params)}`),
   order: (id: string) => api.get(`/wholesale/orders/${id}`),
-  createOrder: (body: unknown) => api.post('/wholesale/orders', body),
+  createOrder: (body: unknown) => api.post('/wholesale/orders', body ?? {}),
   updateOrder: (id: string, body: unknown) => api.patch(`/wholesale/orders/${id}`, body),
-  submitOrder: (id: string) => api.post(`/wholesale/orders/${id}/submit`),
-  confirmOrder: (id: string) => api.post(`/wholesale/orders/${id}/confirm`),
-  holdOrder: (id: string, body?: unknown) => api.post(`/wholesale/orders/${id}/hold`, body),
+  submitOrder: (id: string) => api.post(`/wholesale/orders/${id}/submit`, {}),
+  confirmOrder: (id: string) => api.post(`/wholesale/orders/${id}/confirm`, {}),
+  holdOrder: (id: string, body?: unknown) => api.post(`/wholesale/orders/${id}/hold`, body ?? {}),
   releaseHold: (id: string, body?: unknown) =>
-    api.post(`/wholesale/orders/${id}/release-hold`, body),
-  cancelOrder: (id: string, body?: unknown) => api.post(`/wholesale/orders/${id}/cancel`, body),
+    api.post(`/wholesale/orders/${id}/release-hold`, body ?? {}),
+  cancelOrder: (id: string, body?: unknown) => api.post(`/wholesale/orders/${id}/cancel`, body ?? {}),
 
   // Warehouse
   pickQueue: (params?: Record<string, string>) =>
     api.get(`/wholesale/warehouse/pick-queue${qs(params)}`),
   pickLists: (params?: Record<string, string>) =>
     api.get(`/wholesale/warehouse/pick-lists${qs(params)}`),
-  createPickList: (body: unknown) => api.post('/wholesale/warehouse/pick-lists', body),
+  createPickList: (body: unknown) => api.post('/wholesale/warehouse/pick-lists', body ?? {}),
   pickList: (id: string) => api.get(`/wholesale/warehouse/pick-lists/${id}`),
   recordPick: (id: string, body: unknown) =>
-    api.post(`/wholesale/warehouse/pick-lists/${id}/pick`, body),
-  completePick: (id: string) => api.post(`/wholesale/warehouse/pick-lists/${id}/complete`),
-  packPick: (id: string) => api.post(`/wholesale/warehouse/pick-lists/${id}/pack`),
+    api.post(`/wholesale/warehouse/pick-lists/${id}/pick`, body ?? {}),
+  completePick: (id: string) => api.post(`/wholesale/warehouse/pick-lists/${id}/complete`, {}),
+  packPick: (id: string) => api.post(`/wholesale/warehouse/pick-lists/${id}/pack`, {}),
   dispatches: (params?: Record<string, string>) =>
     api.get(`/wholesale/warehouse/dispatches${qs(params)}`),
   dispatch: (id: string) => api.get(`/wholesale/warehouse/dispatches/${id}`),
-  createDispatch: (body: unknown) => api.post('/wholesale/warehouse/dispatches', body),
+  createDispatch: (body: unknown) => api.post('/wholesale/warehouse/dispatches', body ?? {}),
   bindDispatchImei: (id: string, body: unknown) =>
-    api.post(`/wholesale/warehouse/dispatches/${id}/bind-imei`, body),
-  confirmDispatch: (id: string) => api.post(`/wholesale/warehouse/dispatches/${id}/confirm`),
+    api.post(`/wholesale/warehouse/dispatches/${id}/bind-imei`, body ?? {}),
+  confirmDispatch: (id: string) => api.post(`/wholesale/warehouse/dispatches/${id}/confirm`, {}),
 
   // Delivery
   trips: (params?: Record<string, string>) =>
     api.get(`/wholesale/delivery/trips${qs(params)}`),
-  createTrip: (body: unknown) => api.post('/wholesale/delivery/trips', body),
+  createTrip: (body: unknown) => api.post('/wholesale/delivery/trips', body ?? {}),
   trip: (id: string) => api.get(`/wholesale/delivery/trips/${id}`),
   addTripStop: (id: string, body: unknown) =>
-    api.post(`/wholesale/delivery/trips/${id}/stops`, body),
-  startTrip: (id: string) => api.post(`/wholesale/delivery/trips/${id}/start`),
-  completeTrip: (id: string) => api.post(`/wholesale/delivery/trips/${id}/complete`),
+    api.post(`/wholesale/delivery/trips/${id}/stops`, body ?? {}),
+  startTrip: (id: string) => api.post(`/wholesale/delivery/trips/${id}/start`, {}),
+  completeTrip: (id: string) => api.post(`/wholesale/delivery/trips/${id}/complete`, {}),
   podStop: (tripId: string, stopId: string, body: unknown) =>
-    api.post(`/wholesale/delivery/trips/${tripId}/stops/${stopId}/pod`, body),
+    api.post(`/wholesale/delivery/trips/${tripId}/stops/${stopId}/pod`, body ?? {}),
 
   // Returns
   returns: (params?: Record<string, string>) => api.get(`/wholesale/returns${qs(params)}`),
   getReturn: (id: string) => api.get(`/wholesale/returns/${id}`),
-  createReturn: (body: unknown) => api.post('/wholesale/returns', body),
-  approveReturn: (id: string) => api.post(`/wholesale/returns/${id}/approve`),
+  createReturn: (body: unknown) => api.post('/wholesale/returns', body ?? {}),
+  approveReturn: (id: string) => api.post(`/wholesale/returns/${id}/approve`, {}),
   qcReturn: (id: string, body?: unknown) => api.post(`/wholesale/returns/${id}/qc`, body ?? {}),
   dispositionReturn: (id: string, body: unknown) =>
-    api.post(`/wholesale/returns/${id}/disposition`, body),
-  creditNoteReturn: (id: string) => api.post(`/wholesale/returns/${id}/credit-note`),
+    api.post(`/wholesale/returns/${id}/disposition`, body ?? {}),
+  creditNoteReturn: (id: string) => api.post(`/wholesale/returns/${id}/credit-note`, {}),
 
   // Collections
   ageing: (params?: Record<string, string>) =>
@@ -239,10 +239,10 @@ export const wholesaleApi = {
     api.get(`/wholesale/collections/statement/${dealerId}${qs(params)}`),
   payments: (params?: Record<string, string>) =>
     api.get(`/wholesale/collections/payments${qs(params)}`),
-  createPayment: (body: unknown) => api.post('/wholesale/collections/payments', body),
+  createPayment: (body: unknown) => api.post('/wholesale/collections/payments', body ?? {}),
   collectionTasks: (params?: Record<string, string>) =>
     api.get(`/wholesale/collections/tasks${qs(params)}`),
-  createCollectionTask: (body: unknown) => api.post('/wholesale/collections/tasks', body),
+  createCollectionTask: (body: unknown) => api.post('/wholesale/collections/tasks', body ?? {}),
   updateCollectionTask: (id: string, body: unknown) =>
     api.patch(`/wholesale/collections/tasks/${id}`, body),
 
@@ -261,21 +261,21 @@ export const wholesaleApi = {
   // Van
   vehicles: (params?: Record<string, string>) =>
     api.get(`/wholesale/van/vehicles${qs(params)}`),
-  createVehicle: (body: unknown) => api.post('/wholesale/van/vehicles', body),
+  createVehicle: (body: unknown) => api.post('/wholesale/van/vehicles', body ?? {}),
   updateVehicle: (id: string, body: unknown) => api.patch(`/wholesale/van/vehicles/${id}`, body),
   reps: (params?: Record<string, string>) => api.get(`/wholesale/van/reps${qs(params)}`),
-  createRep: (body: unknown) => api.post('/wholesale/van/reps', body),
+  createRep: (body: unknown) => api.post('/wholesale/van/reps', body ?? {}),
   updateRep: (id: string, body: unknown) => api.patch(`/wholesale/van/reps/${id}`, body),
-  vanLoad: (body: unknown) => api.post('/wholesale/van/load', body),
-  vanSale: (body: unknown) => api.post('/wholesale/van/sale', body),
+  vanLoad: (body: unknown) => api.post('/wholesale/van/load', body ?? {}),
+  vanSale: (body: unknown) => api.post('/wholesale/van/sale', body ?? {}),
   settlements: (params?: Record<string, string>) =>
     api.get(`/wholesale/van/settlements${qs(params)}`),
-  createSettlement: (body: unknown) => api.post('/wholesale/van/settlements', body),
-  submitSettlement: (id: string) => api.post(`/wholesale/van/settlements/${id}/submit`),
-  approveSettlement: (id: string) => api.post(`/wholesale/van/settlements/${id}/approve`),
+  createSettlement: (body: unknown) => api.post('/wholesale/van/settlements', body ?? {}),
+  submitSettlement: (id: string) => api.post(`/wholesale/van/settlements/${id}/submit`, {}),
+  approveSettlement: (id: string) => api.post(`/wholesale/van/settlements/${id}/approve`, {}),
   visits: (params?: Record<string, string>) => api.get(`/wholesale/van/visits${qs(params)}`),
-  upsertVisit: (body: unknown) => api.post('/wholesale/van/visits', body),
+  upsertVisit: (body: unknown) => api.post('/wholesale/van/visits', body ?? {}),
   arriveStop: (tripId: string, stopId: string) =>
-    api.post(`/wholesale/delivery/trips/${tripId}/stops/${stopId}/arrive`),
-  closeReturn: (id: string) => api.post(`/wholesale/returns/${id}/close`),
+    api.post(`/wholesale/delivery/trips/${tripId}/stops/${stopId}/arrive`, {}),
+  closeReturn: (id: string) => api.post(`/wholesale/returns/${id}/close`, {}),
 }
