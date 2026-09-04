@@ -86,13 +86,13 @@ export function summarizePayrollLines(lines: PayrollCalcLine[]): PayrollCalcResu
 }
 
 export type CommissionDoc = {
-  source: 'SALES' | 'REPAIRS' | 'HIRE_PURCHASE'
+  source: 'SALES' | 'REPAIRS' | 'HIRE_PURCHASE' | 'WHOLESALE_VAN'
   amount: number
   count?: number
 }
 
 export type CommissionRuleInput = {
-  source: 'SALES' | 'REPAIRS' | 'HIRE_PURCHASE'
+  source: 'SALES' | 'REPAIRS' | 'HIRE_PURCHASE' | 'WHOLESALE_VAN'
   ratePercent: number
   flatPerUnit: number
 }
@@ -102,7 +102,7 @@ export function calculateCommissionPreview(
   docs: CommissionDoc[],
   rules: CommissionRuleInput[],
 ): { total: number; bySource: Record<string, number>; lines: Array<{ source: string; base: number; amount: number }> } {
-  const bySource: Record<string, number> = { SALES: 0, REPAIRS: 0, HIRE_PURCHASE: 0 }
+  const bySource: Record<string, number> = { SALES: 0, REPAIRS: 0, HIRE_PURCHASE: 0, WHOLESALE_VAN: 0 }
   const lines: Array<{ source: string; base: number; amount: number }> = []
 
   for (const rule of rules) {

@@ -87,7 +87,7 @@ export default function HrOverviewPage() {
               <HrQuickLink href="/dashboard/hr/shifts" icon={Calendar} label="Shifts" description="Shift windows & assignments" />
               <HrQuickLink href="/dashboard/hr/leave" icon={Plane} label="Leave" description="Requests, balances & approval" />
               <HrQuickLink href="/dashboard/hr/salary" icon={DollarSign} label="Salary" description="Packages & components" />
-              <HrQuickLink href="/dashboard/hr/commission" icon={TrendingUp} label="Commission" description="Sales/repair incentive preview" />
+              <HrQuickLink href="/dashboard/hr/commission" icon={TrendingUp} label="Commission" description="Sales / repair / van-rep incentive preview" />
               <HrQuickLink href="/dashboard/hr/payroll" icon={Wallet} label="Payroll" description="Runs draft → approve → pay" />
               <HrQuickLink href="/dashboard/hr/payslips" icon={Receipt} label="Payslips" description="Processed slip snapshots" />
               <HrQuickLink href="/dashboard/hr/advances" icon={CreditCard} label="Advances" description="Advances & loan recoveries" />

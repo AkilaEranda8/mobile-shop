@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import {
   BookOpen, Calendar, ChevronRight, CreditCard, FileText, HelpCircle, Keyboard,
   LogIn, MessageSquare, Package, Phone, RotateCcw, Search, Shield,
-  ShoppingCart, Sparkles, UserCheck, Users, Workflow, Wrench, ExternalLink,
+  ShoppingCart, Sparkles, UserCheck, Users, Workflow, Wrench, ExternalLink, Truck,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -41,6 +41,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
   whatsapp: MessageSquare,
   roles: UserCheck,
   faq: HelpCircle,
+  wholesale: Truck,
 }
 
 interface UserManualPanelProps {

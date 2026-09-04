@@ -1,4 +1,5 @@
 import { salesApi } from '@/lib/api'
+import { wholesaleApi } from '@/lib/wholesale-api'
 import { getQueueItems, removeQueueItem } from './db'
 
 export function isBrowserOnline(): boolean {
@@ -27,9 +28,18 @@ export async function syncOfflineQueue(): Promise<{ synced: number; failed: numb
     try {
       if (item.type === 'SALE_CREATE') {
         await salesApi.create(item.payload)
-        await removeQueueItem(item.id)
-        synced++
+      } else if (item.type === 'VAN_SALE_CREATE') {
+        await wholesaleApi.vanSale(item.payload)
+      } else if (item.type === 'VAN_PAYMENT') {
+        await wholesaleApi.createPayment(item.payload)
+      } else if (item.type === 'VAN_VISIT_UPSERT') {
+        await wholesaleApi.upsertVisit(item.payload)
+      } else {
+        failed++
+        continue
       }
+      await removeQueueItem(item.id)
+      synced++
     } catch {
       failed++
     }

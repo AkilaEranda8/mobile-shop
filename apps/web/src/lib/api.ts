@@ -538,7 +538,12 @@ export const hirePurchaseApi = {
     api.patch(`/hire-purchase/agreements/${id}/status`, { status, reason }),
   collectPayment: (id: string, body: unknown) =>
     api.post(`/hire-purchase/agreements/${id}/payments`, body),
-  earlySettlement: (id: string) => api.post(`/hire-purchase/agreements/${id}/early-settlement`, {}),
+  reversePayment: (paymentId: string, reason?: string) =>
+    api.post(`/hire-purchase/payments/${paymentId}/reverse`, { reason }),
+  earlySettlementQuote: (id: string) =>
+    api.get(`/hire-purchase/agreements/${id}/early-settlement`),
+  earlySettlement: (id: string, body: unknown) =>
+    api.post(`/hire-purchase/agreements/${id}/early-settlement`, body),
   dues: (scope: string) => api.get(`/hire-purchase/dues?scope=${encodeURIComponent(scope)}`),
   guarantors: () => api.get('/hire-purchase/guarantors'),
   addGuarantor: (agreementId: string, body: unknown) =>
@@ -548,7 +553,8 @@ export const hirePurchaseApi = {
   deleteGuarantor: (id: string) => api.delete(`/hire-purchase/guarantors/${id}`),
   settings: () => api.get('/hire-purchase/settings'),
   updateSettings: (body: unknown) => api.patch('/hire-purchase/settings', body),
-  report: (type: string) => api.get(`/hire-purchase/reports/${encodeURIComponent(type)}`),
+  report: (type: string, params?: Record<string, string>) =>
+    api.get(`/hire-purchase/reports/${encodeURIComponent(type)}${params ? `?${new URLSearchParams(params)}` : ''}`),
   logs: () => api.get('/hire-purchase/logs'),
   applyPenalties: () => api.post('/hire-purchase/maintenance/apply-penalties', {}),
   sendReminders: (agreementIds: string[], channel: 'WHATSAPP' | 'EMAIL' | 'SMS' = 'WHATSAPP') =>
@@ -1337,3 +1343,4 @@ export const billingApi = {
       targetMrr: number
     } }>('/billing/upgrade', { targetPlan }),
 }
+

@@ -131,6 +131,171 @@ enum StockMovementType {
   RETURN
   EXCHANGE_IN
   PURCHASE_RETURN
+  WHOLESALE_DISPATCH
+  WHOLESALE_RETURN
+}
+
+enum BranchKind {
+  STORE
+  WAREHOUSE
+  VEHICLE
+}
+
+enum WholesaleInvoiceChannel {
+  COUNTER
+  VAN
+  DELIVERY
+}
+
+enum DealerStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  SUSPENDED
+  CLOSED
+}
+
+enum DealerAddressType {
+  BILL_TO
+  SHIP_TO
+}
+
+enum WholesaleSellUnit {
+  PIECE
+  BOX
+  CARTON
+}
+
+enum QuoteStatus {
+  DRAFT
+  ISSUED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  CONVERTED
+}
+
+enum WholesaleSalesOrderStatus {
+  DRAFT
+  SUBMITTED
+  ON_HOLD
+  CONFIRMED
+  PARTIAL
+  FULFILLED
+  CANCELLED
+  CLOSED
+}
+
+enum HoldType {
+  CREDIT
+  MOQ
+  STOCK
+  MANUAL
+  PRICE
+}
+
+enum StockReservationStatus {
+  ACTIVE
+  RELEASED
+  CONSUMED
+  EXPIRED
+}
+
+enum WholesalePickStatus {
+  DRAFT
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum WholesaleDispatchStatus {
+  DRAFT
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum WholesaleTripStatus {
+  PLANNED
+  LOADED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum WholesaleStopStatus {
+  PENDING
+  ARRIVED
+  COMPLETED
+  SKIPPED
+  FAILED
+}
+
+enum WholesaleInvoiceStatus {
+  DRAFT
+  POSTED
+  PARTIAL
+  PAID
+  VOID
+  CANCELLED
+}
+
+enum WholesaleCreditNoteStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+enum DealerPaymentStatus {
+  COMPLETED
+  REVERSED
+}
+
+enum DealerCollectionTaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum WholesaleReturnStatus {
+  DRAFT
+  RECEIVED
+  QC
+  CREDITED
+  CLOSED
+  CANCELLED
+}
+
+enum WholesaleReturnDisposition {
+  RESTOCK
+  DAMAGED
+  QUARANTINE
+}
+
+enum RepVisitStatus {
+  PLANNED
+  CHECKED_IN
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
+enum VanLoadSheetStatus {
+  DRAFT
+  LOADED
+  CLOSED
+  CANCELLED
+}
+
+enum VanSettlementStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
 }
 
 enum ImeiStatus {
@@ -323,6 +488,27 @@ model Tenant {
   employeeLoans               EmployeeLoan[]
   subscriptionInvoices        SubscriptionInvoice[]
   subscriptionPayments        SubscriptionPayment[]
+  dealerTiers                 DealerTier[]
+  dealers                     Dealer[]
+  wholesalePriceLists         WholesalePriceList[]
+  wholesaleQuotations         WholesaleQuotation[]
+  wholesaleSalesOrders        WholesaleSalesOrder[]
+  stockReservations           StockReservation[]
+  wholesalePickLists          WholesalePickList[]
+  wholesaleDispatches         WholesaleDispatch[]
+  wholesaleDeliveryTrips      WholesaleDeliveryTrip[]
+  wholesaleInvoices           WholesaleInvoice[]
+  dealerPayments              DealerPayment[]
+  wholesaleCreditNotes        WholesaleCreditNote[]
+  dealerCollectionTasks       DealerCollectionTask[]
+  wholesaleReturns            WholesaleReturn[]
+  vehicles                    Vehicle[]
+  repProfiles                 RepProfile[]
+  territories                 Territory[]
+  salesRoutes                 SalesRoute[]
+  repVisits                   RepVisit[]
+  vanLoadSheets               VanLoadSheet[]
+  vanSettlements              VanSettlement[]
 }
 
 model TenantFeature {
@@ -355,7 +541,7 @@ model Service {
 }
 
 model Branch {
-  id                  String   @id @default(cuid())
+  id                  String     @id @default(cuid())
   tenantId            String
   name                String
   address             String
@@ -363,17 +549,19 @@ model Branch {
   state               String
   phone               String
   email               String?
-  isHeadquarters      Boolean  @default(false)
-  isDefault           Boolean  @default(false)
-  isActive            Boolean  @default(true)
+  isHeadquarters      Boolean    @default(false)
+  isDefault           Boolean    @default(false)
+  isActive            Boolean    @default(true)
+  /// STORE = retail/shop; WAREHOUSE = depot; VEHICLE = van stock location
+  kind                BranchKind @default(STORE)
   /// When tenant has DAILY_CLOSING, this branch can opt out of day lock / day close UI
-  dailyClosingEnabled Boolean  @default(true)
+  dailyClosingEnabled Boolean    @default(true)
   /// Tenant-enabled opt-in modules this branch turns off (e.g. ["ACCOUNTING","HIRE_PURCHASE"])
   disabledFeatures    Json?
   /// Per-branch bill/receipt header overrides (merged over Tenant.invoiceSettings)
   invoiceSettings     Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   tenant                      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   users                       UserBranch[]
@@ -419,6 +607,24 @@ model Branch {
   payrollRuns                 PayrollRun[]
   employeeAdvances            EmployeeAdvance[]
   employeeLoans               EmployeeLoan[]
+  dealers                     Dealer[]
+  stockReservations           StockReservation[]
+  wholesaleQuotations         WholesaleQuotation[]
+  wholesaleSalesOrders        WholesaleSalesOrder[]
+  wholesalePickLists          WholesalePickList[]
+  wholesaleDispatches         WholesaleDispatch[]
+  wholesaleDeliveryTrips      WholesaleDeliveryTrip[]
+  wholesaleInvoicesFulfillment WholesaleInvoice[]          @relation("WholesaleInvoiceFulfillmentBranch")
+  wholesaleReturns            WholesaleReturn[]
+  vehiclesHome                Vehicle[]                    @relation("VehicleHomeBranch")
+  vehiclesStock               Vehicle[]                    @relation("VehicleStockBranch")
+  vanLoadSheets               VanLoadSheet[]
+  vanSettlements              VanSettlement[]
+  dealerPayments              DealerPayment[]
+  dealerCollectionTasks       DealerCollectionTask[]
+  wholesaleCreditNotes        WholesaleCreditNote[]
+
+  @@index([tenantId, kind])
 }
 
 model User {
@@ -452,6 +658,18 @@ model User {
   userNotifications      UserNotification[]
   hirePurchaseSales      HirePurchaseAgreement[] @relation("HpSalesPerson")
   employee               Employee?
+  dealersAssigned        Dealer[]                @relation("DealerSalesRep")
+  wholesaleQuotationsCreated WholesaleQuotation[] @relation("WholesaleQuotationCreatedBy")
+  wholesaleSalesOrdersCreated WholesaleSalesOrder[] @relation("WholesaleSalesOrderCreatedBy")
+  wholesalePickListsAssigned WholesalePickList[] @relation("WholesalePickListPicker")
+  wholesaleInvoicesAsRep WholesaleInvoice[]      @relation("WholesaleInvoiceSalesRep")
+  wholesaleDeliveryTripsAsDriver WholesaleDeliveryTrip[] @relation("WholesaleDeliveryTripDriver")
+  dealerPaymentsCollected DealerPayment[]        @relation("DealerPaymentCollectedBy")
+  dealerCollectionTasksAssigned DealerCollectionTask[] @relation("DealerCollectionTaskAssignee")
+  repProfile             RepProfile?
+  vehiclesAssigned       Vehicle[]               @relation("VehicleAssignedRep")
+  repVisits              RepVisit[]              @relation("RepVisitRep")
+  vanSettlements         VanSettlement[]         @relation("VanSettlementRep")
 
   @@unique([tenantId, email])
   @@unique([tenantId, pinDigest])
@@ -535,6 +753,10 @@ model Product {
   subCategory       String?
   deviceModel       String?
   condition         ProductCondition @default(BRAND_NEW)
+  /// Wholesale UOM: pieces per box (null = not sold by box)
+  unitsPerBox       Int?
+  /// Wholesale UOM: pieces per carton (null = not sold by carton)
+  unitsPerCarton    Int?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
@@ -551,23 +773,37 @@ model Product {
   poItems                POItem[]
   warranties             Warranty[]
   hirePurchaseAgreements HirePurchaseAgreement[]
+  wholesalePriceListItems WholesalePriceListItem[]
+  wholesaleDealerPriceOverrides WholesaleDealerPriceOverride[]
+  wholesaleQuotationLines WholesaleQuotationLine[]
+  wholesaleSalesOrderLines WholesaleSalesOrderLine[]
+  stockReservations      StockReservation[]
+  wholesalePickLines     WholesalePickLine[]
+  wholesaleDispatchLines WholesaleDispatchLine[]
+  wholesaleInvoiceLines  WholesaleInvoiceLine[]
+  wholesaleReturnLines   WholesaleReturnLine[]
+  wholesaleCreditNoteLines WholesaleCreditNoteLine[]
+  vanSettlementLines     VanSettlementLine[]
 
   @@unique([tenantId, sku])
 }
 
 model ImeiRecord {
-  id              String     @id @default(cuid())
-  imei            String     @unique
-  productId       String
-  branchId        String
-  customerId      String?
-  saleId          String?
-  purchaseOrderId String?
-  poItemId        String?
-  status          ImeiStatus @default(IN_STOCK)
-  variation       String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id                String     @id @default(cuid())
+  imei              String     @unique
+  productId         String
+  branchId          String
+  customerId        String?
+  saleId            String?
+  purchaseOrderId   String?
+  poItemId          String?
+  status            ImeiStatus @default(IN_STOCK)
+  variation         String?
+  /// Soft hold for wholesale ATP (Gap 3) — expires unless hardened on commit
+  softReservedUntil DateTime?
+  softReservedBy    String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   product                Product                 @relation(fields: [productId], references: [id])
   branch                 Branch                  @relation(fields: [branchId], references: [id])
@@ -575,6 +811,10 @@ model ImeiRecord {
   sale                   Sale?                   @relation(fields: [saleId], references: [id])
   purchaseOrder          PurchaseOrder?          @relation(fields: [purchaseOrderId], references: [id])
   hirePurchaseAgreements HirePurchaseAgreement[]
+  stockReservations      StockReservation[]
+  wholesaleDispatchSerials WholesaleDispatchSerial[]
+
+  @@index([softReservedUntil])
 }
 
 model StockMovement {
@@ -623,6 +863,7 @@ model Customer {
   imeiRecords            ImeiRecord[]
   exchanges              DeviceExchange[]
   hirePurchaseAgreements HirePurchaseAgreement[]
+  dealers                Dealer[]
 
   @@unique([tenantId, branchId, phone])
   @@index([tenantId, branchId])
@@ -2246,6 +2487,7 @@ enum JournalSourceModule {
   TAX
   PERIOD_CLOSE
   DAILY_CLOSING
+  WHOLESALE
 }
 
 enum AccountingPeriodStatus {
@@ -2996,6 +3238,7 @@ enum CommissionSource {
   SALES
   REPAIRS
   HIRE_PURCHASE
+  WHOLESALE_VAN
 }
 
 enum PayrollPeriodStatus {
@@ -3281,4 +3524,975 @@ model LoanInstallment {
   @@unique([loanId, seq])
   @@index([loanId, status])
   @@index([dueDate, status])
+}
+
+// ─────────────── Wholesale / Distribution ───────────────
+
+model DealerTier {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  code      String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealers    Dealer[]
+  priceLists WholesalePriceList[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+model Dealer {
+  id                 String       @id @default(cuid())
+  tenantId           String
+  branchId           String?
+  dealerCode         String
+  legalName          String
+  tradingName        String?
+  phone              String
+  email              String?
+  taxId              String?
+  status             DealerStatus @default(DRAFT)
+  creditLimit        Float        @default(0)
+  paymentTermsDays   Int          @default(0)
+  cashOnly           Boolean      @default(false)
+  assignedSalesRepId String?
+  tierId             String?
+  totalDue           Float        @default(0)
+  creditBalance      Float        @default(0)
+  customerId         String?
+  externalRef        Json?
+  isActive           Boolean      @default(true)
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  tenant           Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch?                        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  assignedSalesRep User?                          @relation("DealerSalesRep", fields: [assignedSalesRepId], references: [id], onDelete: SetNull)
+  tier             DealerTier?                    @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  customer         Customer?                      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  addresses        DealerAddress[]
+  priceOverrides   WholesaleDealerPriceOverride[]
+  quotations       WholesaleQuotation[]
+  salesOrders      WholesaleSalesOrder[]
+  invoices         WholesaleInvoice[]
+  payments         DealerPayment[]
+  creditNotes      WholesaleCreditNote[]
+  collectionTasks  DealerCollectionTask[]
+  returns          WholesaleReturn[]
+  routeLinks       SalesRouteDealer[]
+  visits           RepVisit[]
+  deliveryStops    WholesaleDeliveryStop[]
+
+  @@unique([tenantId, dealerCode])
+  @@index([tenantId, status])
+  @@index([tenantId, isActive])
+  @@index([tenantId, assignedSalesRepId])
+  @@index([tenantId, branchId])
+  @@index([tierId])
+  @@index([customerId])
+}
+
+model DealerAddress {
+  id         String            @id @default(cuid())
+  dealerId   String
+  type       DealerAddressType
+  line1      String
+  line2      String?
+  city       String
+  district   String?
+  postalCode String?
+  isDefault  Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  dealer Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  @@index([dealerId, type])
+}
+
+model WholesalePriceList {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  code      String?
+  tierId    String?
+  currency  String   @default("LKR")
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tier   DealerTier?              @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  items  WholesalePriceListItem[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+  @@index([tierId])
+}
+
+model WholesalePriceListItem {
+  id            String            @id @default(cuid())
+  priceListId   String
+  productId     String
+  unitPrice     Float
+  floorPrice    Float?
+  moq           Int?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  sellUnit      WholesaleSellUnit @default(PIECE)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  priceList WholesalePriceList  @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  qtyBreaks WholesaleQtyBreak[]
+
+  @@unique([priceListId, productId, sellUnit])
+  @@index([productId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+model WholesaleQtyBreak {
+  id             String  @id @default(cuid())
+  priceListItemId String
+  qtyFrom        Int
+  qtyTo          Int?
+  unitPrice      Float
+
+  priceListItem WholesalePriceListItem @relation(fields: [priceListItemId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListItemId, qtyFrom])
+  @@index([priceListItemId])
+}
+
+model WholesaleDealerPriceOverride {
+  id            String             @id @default(cuid())
+  dealerId      String
+  productId     String
+  unitPrice     Float
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  sellUnit      WholesaleSellUnit?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  dealer  Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([dealerId, productId, sellUnit])
+  @@index([productId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+model WholesaleQuotation {
+  id              String      @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  quoteNumber     String
+  version         Int         @default(1)
+  status          QuoteStatus @default(DRAFT)
+  dealerId        String
+  validityEnd     DateTime?
+  subtotal        Float       @default(0)
+  discount        Float       @default(0)
+  tax             Float       @default(0)
+  total           Float       @default(0)
+  notes           String?
+  createdById     String?
+  issuedAt        DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  convertedOrderId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  tenant    Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?                  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  dealer    Dealer                   @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  createdBy User?                    @relation("WholesaleQuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines     WholesaleQuotationLine[]
+  salesOrders WholesaleSalesOrder[]
+
+  @@unique([tenantId, quoteNumber, version])
+  @@index([tenantId, status])
+  @@index([tenantId, dealerId])
+  @@index([validityEnd])
+}
+
+model WholesaleQuotationLine {
+  id           String            @id @default(cuid())
+  quotationId  String
+  productId    String?
+  productName  String
+  sku          String?
+  quantity     Float
+  sellUnit     WholesaleSellUnit @default(PIECE)
+  stockQty     Float             @default(0)
+  unitPrice    Float
+  discount     Float             @default(0)
+  tax          Float             @default(0)
+  total        Float
+  sortOrder    Int               @default(0)
+  notes        String?
+
+  quotation WholesaleQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId])
+  @@index([productId])
+}
+
+model WholesaleSalesOrder {
+  id              String                     @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  orderNumber     String
+  status          WholesaleSalesOrderStatus  @default(DRAFT)
+  dealerId        String
+  quotationId     String?
+  requestedDate   DateTime?
+  confirmedAt     DateTime?
+  subtotal        Float                      @default(0)
+  discount        Float                      @default(0)
+  tax             Float                      @default(0)
+  total           Float                      @default(0)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  tenant       Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch?                    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  dealer       Dealer                     @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  quotation    WholesaleQuotation?        @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  createdBy    User?                      @relation("WholesaleSalesOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines        WholesaleSalesOrderLine[]
+  holds        WholesaleOrderHold[]
+  pickLists    WholesalePickList[]
+  dispatches   WholesaleDispatch[]
+  invoices     WholesaleInvoice[]
+  deliveryStops WholesaleDeliveryStop[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, dealerId])
+  @@index([quotationId])
+}
+
+model WholesaleSalesOrderLine {
+  id           String            @id @default(cuid())
+  salesOrderId String
+  productId    String?
+  productName  String
+  sku          String?
+  quantity     Float
+  fulfilledQty Float             @default(0)
+  sellUnit     WholesaleSellUnit @default(PIECE)
+  stockQty     Float             @default(0)
+  unitPrice    Float
+  discount     Float             @default(0)
+  tax          Float             @default(0)
+  total        Float
+  sortOrder    Int               @default(0)
+  notes        String?
+
+  salesOrder    WholesaleSalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product       Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  reservations  StockReservation[]
+  pickLines     WholesalePickLine[]
+  dispatchLines WholesaleDispatchLine[]
+
+  @@index([salesOrderId])
+  @@index([productId])
+}
+
+model WholesaleOrderHold {
+  id           String   @id @default(cuid())
+  salesOrderId String
+  type         HoldType
+  reason       String?
+  releasedAt   DateTime?
+  releasedBy   String?
+  createdAt    DateTime @default(now())
+
+  salesOrder WholesaleSalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+
+  @@index([salesOrderId, type])
+}
+
+model StockReservation {
+  id         String                 @id @default(cuid())
+  tenantId   String
+  productId  String
+  branchId   String
+  orderLineId String?
+  quantity   Float
+  sku        String?
+  imeiId     String?
+  status     StockReservationStatus @default(ACTIVE)
+  expiresAt  DateTime?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  tenant    Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product   Product                   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  branch    Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  orderLine WholesaleSalesOrderLine?  @relation(fields: [orderLineId], references: [id], onDelete: SetNull)
+  imei      ImeiRecord?               @relation(fields: [imeiId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, productId, branchId, status])
+  @@index([orderLineId])
+  @@index([imeiId])
+  @@index([expiresAt])
+}
+
+model WholesalePickList {
+  id               String              @id @default(cuid())
+  tenantId         String
+  branchId         String
+  salesOrderId     String?
+  pickNumber       String
+  status           WholesalePickStatus @default(DRAFT)
+  assignedPickerId String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  salesOrder     WholesaleSalesOrder? @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  assignedPicker User?               @relation("WholesalePickListPicker", fields: [assignedPickerId], references: [id], onDelete: SetNull)
+  lines          WholesalePickLine[]
+  dispatches     WholesaleDispatch[]
+
+  @@unique([tenantId, pickNumber])
+  @@index([tenantId, status])
+  @@index([branchId, status])
+  @@index([salesOrderId])
+}
+
+model WholesalePickLine {
+  id          String @id @default(cuid())
+  pickListId  String
+  orderLineId String?
+  productId   String?
+  productName String
+  sku         String?
+  quantity    Float
+  pickedQty   Float  @default(0)
+  sortOrder   Int    @default(0)
+
+  pickList  WholesalePickList        @relation(fields: [pickListId], references: [id], onDelete: Cascade)
+  orderLine WholesaleSalesOrderLine? @relation(fields: [orderLineId], references: [id], onDelete: SetNull)
+  product   Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([pickListId])
+  @@index([orderLineId])
+  @@index([productId])
+}
+
+model WholesaleDispatch {
+  id             String                  @id @default(cuid())
+  tenantId       String
+  branchId       String
+  salesOrderId   String?
+  pickListId     String?
+  dispatchNumber String
+  status         WholesaleDispatchStatus @default(DRAFT)
+  dispatchedAt   DateTime?
+  notes          String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  tenant     Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch                  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  salesOrder WholesaleSalesOrder?    @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  pickList   WholesalePickList?      @relation(fields: [pickListId], references: [id], onDelete: SetNull)
+  lines      WholesaleDispatchLine[]
+  deliveryStops WholesaleDeliveryStop[]
+
+  @@unique([tenantId, dispatchNumber])
+  @@index([tenantId, status])
+  @@index([salesOrderId])
+  @@index([pickListId])
+}
+
+model WholesaleDispatchLine {
+  id          String @id @default(cuid())
+  dispatchId  String
+  orderLineId String?
+  productId   String?
+  productName String
+  sku         String?
+  quantity    Float
+  sortOrder   Int    @default(0)
+
+  dispatch  WholesaleDispatch         @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  orderLine WholesaleSalesOrderLine?  @relation(fields: [orderLineId], references: [id], onDelete: SetNull)
+  product   Product?                  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  serials   WholesaleDispatchSerial[]
+
+  @@index([dispatchId])
+  @@index([orderLineId])
+  @@index([productId])
+}
+
+model WholesaleDispatchSerial {
+  id             String @id @default(cuid())
+  dispatchLineId String
+  imeiId         String?
+  imei           String
+
+  dispatchLine WholesaleDispatchLine @relation(fields: [dispatchLineId], references: [id], onDelete: Cascade)
+  imeiRecord   ImeiRecord?           @relation(fields: [imeiId], references: [id], onDelete: SetNull)
+
+  @@index([dispatchLineId])
+  @@index([imeiId])
+  @@index([imei])
+}
+
+model WholesaleDeliveryTrip {
+  id           String              @id @default(cuid())
+  tenantId     String
+  branchId     String
+  tripNumber   String
+  status       WholesaleTripStatus @default(PLANNED)
+  vehicleId    String?
+  driverUserId String?
+  plannedDate  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  notes        String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch                  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  vehicle Vehicle?               @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driver  User?                  @relation("WholesaleDeliveryTripDriver", fields: [driverUserId], references: [id], onDelete: SetNull)
+  stops   WholesaleDeliveryStop[]
+
+  @@unique([tenantId, tripNumber])
+  @@index([tenantId, status])
+  @@index([plannedDate])
+  @@index([vehicleId])
+}
+
+model WholesaleDeliveryStop {
+  id           String              @id @default(cuid())
+  tripId       String
+  dealerId     String
+  salesOrderId String?
+  dispatchId   String?
+  sequence     Int                 @default(0)
+  status       WholesaleStopStatus @default(PENDING)
+  arrivedAt    DateTime?
+  completedAt  DateTime?
+  notes        String?
+
+  trip       WholesaleDeliveryTrip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  dealer     Dealer                  @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  salesOrder WholesaleSalesOrder?    @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  dispatch   WholesaleDispatch?      @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  proof      WholesaleProofOfDelivery?
+  invoices   WholesaleInvoice[]
+
+  @@index([tripId, sequence])
+  @@index([dealerId])
+  @@index([salesOrderId])
+  @@index([dispatchId])
+}
+
+model WholesaleProofOfDelivery {
+  id              String   @id @default(cuid())
+  stopId          String   @unique
+  acceptedQty     Float    @default(0)
+  rejectedQty     Float    @default(0)
+  signatureUrl    String?
+  photoUrl        String?
+  recipientName   String?
+  notes           String?
+  codCollected    Float    @default(0)
+  capturedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  stop WholesaleDeliveryStop @relation(fields: [stopId], references: [id], onDelete: Cascade)
+}
+
+model WholesaleInvoice {
+  id                   String                   @id @default(cuid())
+  tenantId             String
+  channel              WholesaleInvoiceChannel
+  invoiceNumber        String
+  dealerId             String
+  fulfillmentBranchId  String
+  salesOrderId         String?
+  deliveryStopId       String?
+  vehicleId            String?
+  visitId              String?
+  salesRepId           String?
+  subtotal             Float
+  discount             Float                    @default(0)
+  tax                  Float                    @default(0)
+  total                Float
+  paidAmount           Float                    @default(0)
+  dueAmount            Float                    @default(0)
+  status               WholesaleInvoiceStatus   @default(DRAFT)
+  notes                String?
+  sourceNotes          String?
+  postedAt             DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealer            Dealer                     @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  fulfillmentBranch Branch                     @relation("WholesaleInvoiceFulfillmentBranch", fields: [fulfillmentBranchId], references: [id], onDelete: Restrict)
+  salesOrder        WholesaleSalesOrder?       @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  deliveryStop      WholesaleDeliveryStop?     @relation(fields: [deliveryStopId], references: [id], onDelete: SetNull)
+  vehicle           Vehicle?                   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  visit             RepVisit?                  @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  salesRep          User?                      @relation("WholesaleInvoiceSalesRep", fields: [salesRepId], references: [id], onDelete: SetNull)
+  lines             WholesaleInvoiceLine[]
+  payments          WholesaleInvoicePayment[]
+  paymentAllocations DealerPaymentAllocation[]
+  creditNotes       WholesaleCreditNote[]
+  returns           WholesaleReturn[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, channel, status])
+  @@index([tenantId, dealerId])
+  @@index([tenantId, salesRepId])
+  @@index([fulfillmentBranchId])
+  @@index([salesOrderId])
+  @@index([vehicleId])
+  @@index([visitId])
+  @@index([createdAt])
+}
+
+model WholesaleInvoiceLine {
+  id          String            @id @default(cuid())
+  invoiceId   String
+  productId   String?
+  productName String
+  sku         String?
+  quantity    Float
+  sellUnit    WholesaleSellUnit @default(PIECE)
+  stockQty    Float             @default(0)
+  unitPrice   Float
+  unitCost    Float             @default(0)
+  discount    Float             @default(0)
+  total       Float
+  imei        String?
+  sortOrder   Int               @default(0)
+
+  invoice WholesaleInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+model WholesaleInvoicePayment {
+  id        String        @id @default(cuid())
+  invoiceId String
+  method    PaymentMethod
+  amount    Float
+  reference String?
+  paidAt    DateTime?
+
+  invoice WholesaleInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model DealerPayment {
+  id              String              @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  dealerId        String
+  receiptNumber   String
+  amount          Float
+  method          PaymentMethod
+  reference       String?
+  notes           String?
+  status          DealerPaymentStatus @default(COMPLETED)
+  collectedById   String?
+  paidAt          DateTime            @default(now())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?                   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  dealer      Dealer                    @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  collectedBy User?                     @relation("DealerPaymentCollectedBy", fields: [collectedById], references: [id], onDelete: SetNull)
+  allocations DealerPaymentAllocation[]
+
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId, dealerId])
+  @@index([tenantId, paidAt])
+  @@index([status])
+}
+
+model DealerPaymentAllocation {
+  id              String   @id @default(cuid())
+  dealerPaymentId String
+  invoiceId       String
+  amount          Float
+  createdAt       DateTime @default(now())
+
+  dealerPayment DealerPayment    @relation(fields: [dealerPaymentId], references: [id], onDelete: Cascade)
+  invoice       WholesaleInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([dealerPaymentId, invoiceId])
+  @@index([invoiceId])
+}
+
+model WholesaleCreditNote {
+  id              String                    @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  creditNoteNumber String
+  dealerId        String
+  invoiceId       String?
+  returnId        String?
+  status          WholesaleCreditNoteStatus @default(DRAFT)
+  subtotal        Float                     @default(0)
+  tax             Float                     @default(0)
+  total           Float                     @default(0)
+  reason          String?
+  notes           String?
+  postedAt        DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  tenant  Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch?                   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  dealer  Dealer                    @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  invoice         WholesaleInvoice?         @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  wholesaleReturn WholesaleReturn?          @relation(fields: [returnId], references: [id], onDelete: SetNull)
+  lines           WholesaleCreditNoteLine[]
+
+  @@unique([tenantId, creditNoteNumber])
+  @@index([tenantId, dealerId])
+  @@index([invoiceId])
+  @@index([returnId])
+  @@index([status])
+}
+
+model WholesaleCreditNoteLine {
+  id           String @id @default(cuid())
+  creditNoteId String
+  productId    String?
+  productName  String
+  sku          String?
+  quantity     Float
+  unitPrice    Float
+  total        Float
+  sortOrder    Int    @default(0)
+
+  creditNote WholesaleCreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  product    Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([creditNoteId])
+  @@index([productId])
+}
+
+model DealerCollectionTask {
+  id           String                     @id @default(cuid())
+  tenantId     String
+  branchId     String?
+  dealerId     String
+  assigneeId   String?
+  status       DealerCollectionTaskStatus @default(OPEN)
+  dueDate      DateTime?
+  targetAmount Float?
+  notes        String?
+  completedAt  DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  dealer   Dealer  @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  assignee User?   @relation("DealerCollectionTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, dealerId])
+  @@index([assigneeId, status])
+  @@index([dueDate])
+}
+
+model WholesaleReturn {
+  id           String                @id @default(cuid())
+  tenantId     String
+  branchId     String
+  returnNumber String
+  dealerId     String
+  invoiceId    String?
+  status       WholesaleReturnStatus @default(DRAFT)
+  reason       String?
+  notes        String?
+  receivedAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  dealer      Dealer                 @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  invoice     WholesaleInvoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  lines       WholesaleReturnLine[]
+  creditNotes WholesaleCreditNote[]
+
+  @@unique([tenantId, returnNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, dealerId])
+  @@index([invoiceId])
+}
+
+model WholesaleReturnLine {
+  id          String                      @id @default(cuid())
+  returnId    String
+  productId   String?
+  productName String
+  sku         String?
+  quantity    Float
+  disposition WholesaleReturnDisposition  @default(RESTOCK)
+  imei        String?
+  unitPrice   Float                       @default(0)
+  total       Float                       @default(0)
+  sortOrder   Int                         @default(0)
+
+  wholesaleReturn WholesaleReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product         Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([returnId])
+  @@index([productId])
+}
+
+// ─────────────── Wholesale Van / Rep (Phase 1B) ───────────────
+
+model Vehicle {
+  id                String   @id @default(cuid())
+  tenantId          String
+  plateNumber       String
+  name              String
+  homeBranchId      String
+  stockBranchId     String
+  assignedRepUserId String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  homeBranch      Branch               @relation("VehicleHomeBranch", fields: [homeBranchId], references: [id], onDelete: Restrict)
+  stockBranch     Branch               @relation("VehicleStockBranch", fields: [stockBranchId], references: [id], onDelete: Restrict)
+  assignedRepUser User?                @relation("VehicleAssignedRep", fields: [assignedRepUserId], references: [id], onDelete: SetNull)
+  repProfiles     RepProfile[]
+  deliveryTrips   WholesaleDeliveryTrip[]
+  invoices        WholesaleInvoice[]
+  visits          RepVisit[]
+  loadSheets      VanLoadSheet[]
+  settlements     VanSettlement[]
+
+  @@unique([tenantId, plateNumber])
+  @@index([tenantId, isActive])
+  @@index([assignedRepUserId])
+  @@index([stockBranchId])
+}
+
+model Territory {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  code      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  repProfiles RepProfile[]
+  routes      SalesRoute[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+model RepProfile {
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String   @unique
+  territoryId      String?
+  defaultVehicleId String?
+  monthlyTarget    Float?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  territory      Territory? @relation(fields: [territoryId], references: [id], onDelete: SetNull)
+  defaultVehicle Vehicle?  @relation(fields: [defaultVehicleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, isActive])
+  @@index([territoryId])
+  @@index([defaultVehicleId])
+}
+
+model SalesRoute {
+  id          String   @id @default(cuid())
+  tenantId    String
+  territoryId String?
+  name        String
+  code        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  territory Territory?         @relation(fields: [territoryId], references: [id], onDelete: SetNull)
+  dealers   SalesRouteDealer[]
+  visits    RepVisit[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+  @@index([territoryId])
+}
+
+model SalesRouteDealer {
+  id       String @id @default(cuid())
+  routeId  String
+  dealerId String
+  sequence Int    @default(0)
+
+  route  SalesRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  dealer Dealer     @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, dealerId])
+  @@index([dealerId])
+}
+
+model RepVisit {
+  id          String         @id @default(cuid())
+  tenantId    String
+  dealerId    String
+  repUserId   String
+  vehicleId   String?
+  routeId     String?
+  status      RepVisitStatus @default(PLANNED)
+  plannedAt   DateTime?
+  checkedInAt DateTime?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealer   Dealer             @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  repUser  User               @relation("RepVisitRep", fields: [repUserId], references: [id], onDelete: Restrict)
+  vehicle  Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  route    SalesRoute?        @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  invoices WholesaleInvoice[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, repUserId, plannedAt])
+  @@index([dealerId])
+  @@index([vehicleId])
+  @@index([routeId])
+}
+
+model VanLoadSheet {
+  id           String             @id @default(cuid())
+  tenantId     String
+  branchId     String
+  vehicleId    String
+  loadNumber   String
+  status       VanLoadSheetStatus @default(DRAFT)
+  loadedAt     DateTime?
+  notes        String?
+  linesJson    Json?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, loadNumber])
+  @@index([tenantId, status])
+  @@index([vehicleId])
+  @@index([branchId])
+}
+
+model VanSettlement {
+  id              String              @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  vehicleId       String
+  repUserId       String
+  settlementNumber String
+  settlementDate  DateTime            @db.Date
+  status          VanSettlementStatus @default(DRAFT)
+  expectedCash    Float               @default(0)
+  declaredCash    Float               @default(0)
+  variance        Float               @default(0)
+  notes           String?
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedByEmail String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  tenant         Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch?                     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  vehicle        Vehicle                     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  repUser        User                        @relation("VanSettlementRep", fields: [repUserId], references: [id], onDelete: Restrict)
+  lines          VanSettlementLine[]
+  paymentBuckets VanSettlementPaymentBucket[]
+
+  @@unique([tenantId, settlementNumber])
+  @@index([tenantId, settlementDate])
+  @@index([tenantId, status])
+  @@index([vehicleId])
+  @@index([repUserId])
+}
+
+model VanSettlementLine {
+  id           String @id @default(cuid())
+  settlementId String
+  productId    String?
+  productName  String
+  sku          String?
+  openingQty   Float  @default(0)
+  loadedQty    Float  @default(0)
+  soldQty      Float  @default(0)
+  returnedQty  Float  @default(0)
+  closingQty   Float  @default(0)
+  varianceQty  Float  @default(0)
+
+  settlement VanSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  product    Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([settlementId])
+  @@index([productId])
+}
+
+model VanSettlementPaymentBucket {
+  id           String        @id @default(cuid())
+  settlementId String
+  method       PaymentMethod
+  amount       Float         @default(0)
+
+  settlement VanSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@unique([settlementId, method])
+  @@index([settlementId])
 }

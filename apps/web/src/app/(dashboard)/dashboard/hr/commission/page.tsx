@@ -94,6 +94,18 @@ export default function HrCommissionPage() {
       cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{(row.original.bySource.REPAIRS ?? 0).toLocaleString()}</span>,
     },
     {
+      id: 'hp',
+      accessorFn: r => r.bySource.HIRE_PURCHASE ?? 0,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="HP" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{(row.original.bySource.HIRE_PURCHASE ?? 0).toLocaleString()}</span>,
+    },
+    {
+      id: 'van',
+      accessorFn: r => r.bySource.WHOLESALE_VAN ?? 0,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Van" />,
+      cell: ({ row }) => <span className="text-gray-500 dark:text-slate-400">{(row.original.bySource.WHOLESALE_VAN ?? 0).toLocaleString()}</span>,
+    },
+    {
       accessorKey: 'total',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Total" />,
       cell: ({ row }) => <span className="font-semibold text-gray-900 dark:text-white">{row.original.total.toLocaleString()}</span>,
@@ -134,7 +146,7 @@ export default function HrCommissionPage() {
 
   return (
     <HrFeatureGate>
-      <HrPageShell title="Commission" subtitle="Staff sales / repair incentive preview (calc only)" icon={TrendingUp}
+      <HrPageShell title="Commission" subtitle="Staff sales / repair / van-rep incentive preview (calc only)" icon={TrendingUp}
         actions={canEdit ? (
           <button type="button" onClick={() => setOpen(true)} className="btn-primary text-sm flex items-center gap-2">
             <Plus className="w-4 h-4" /> Rule
@@ -180,7 +192,7 @@ export default function HrCommissionPage() {
       {open && (
         <HrModal
           title="Add commission rule"
-          subtitle="Incentive rate for sales, repairs, or hire purchase"
+          subtitle="Incentive rate for sales, repairs, hire purchase, or van / wholesale rep"
           icon={ListChecks}
           onClose={() => setOpen(false)}
           footer={(
@@ -199,7 +211,7 @@ export default function HrCommissionPage() {
                 <input
                   required
                   autoFocus
-                  placeholder="e.g. Sales floor 0.5%"
+                  placeholder="e.g. Van rep 1%"
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   className="input-field h-11 w-full pl-10"
@@ -213,11 +225,15 @@ export default function HrCommissionPage() {
                 onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
                 className="input-field h-11 w-full"
               >
-                <option value="SALES">Sales</option>
+                <option value="SALES">Sales (retail POS)</option>
                 <option value="REPAIRS">Repairs</option>
                 <option value="HIRE_PURCHASE">Hire purchase</option>
+                <option value="WHOLESALE_VAN">Van / wholesale rep</option>
               </select>
             </HrField>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Van source uses wholesale van invoices attributed to the rep&apos;s login (Employee must be linked to that user — auto-created when you add a sales rep under Wholesale → Rep / Van).
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <HrField label="Rate %" required hint="Percent of attributed revenue">
                 <div className="relative">

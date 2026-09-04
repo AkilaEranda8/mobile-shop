@@ -26,6 +26,23 @@ export const ROLE_PERMISSION_MODULES = [
   { key: 'DAILY_CLOSING', label: 'Daily Closing' },
   { key: 'ACCOUNTING', label: 'Accounting' },
   { key: 'HIRE_PURCHASE', label: 'Hire Purchase' },
+  { key: 'WHOLESALE', label: 'Wholesale' },
+  { key: 'WHOLESALE_POS', label: 'Wholesale POS' },
+  { key: 'WHOLESALE_PRICING_ADMIN', label: 'Wholesale Pricing Admin' },
+  { key: 'WHOLESALE_DEALERS', label: 'Wholesale Dealers' },
+  { key: 'WHOLESALE_ORDERS', label: 'Wholesale Orders' },
+  { key: 'WHOLESALE_WAREHOUSE', label: 'Wholesale Warehouse' },
+  { key: 'WHOLESALE_DELIVERY', label: 'Wholesale Delivery' },
+  { key: 'WHOLESALE_RETURNS', label: 'Wholesale Returns' },
+  { key: 'WHOLESALE_COLLECTIONS', label: 'Wholesale Collections' },
+  { key: 'WHOLESALE_REPORTS', label: 'Wholesale Reports' },
+  { key: 'REP_VAN_SALES', label: 'Rep / Van Sales' },
+  { key: 'REP_VAN_LOAD', label: 'Van Stock Load' },
+  { key: 'REP_VAN_SELL', label: 'Van Sell' },
+  { key: 'REP_VAN_COLLECT', label: 'Van Collect' },
+  { key: 'REP_VAN_SETTLE', label: 'Van Settlement' },
+  { key: 'REP_VAN_APPROVE', label: 'Van Approve' },
+  { key: 'REP_VAN_REPORTS', label: 'Van Reports' },
   { key: 'REPORTS', label: 'Reports' },
   { key: 'STAFF', label: 'Staff & Roles' },
   { key: 'HR', label: 'HR' },
@@ -63,6 +80,23 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     PROFIT_ALLOCATION: 'view',
     ACCOUNTING: 'view',
     HIRE_PURCHASE: 'edit',
+    WHOLESALE: 'edit',
+    WHOLESALE_POS: 'edit',
+    WHOLESALE_PRICING_ADMIN: 'edit',
+    WHOLESALE_DEALERS: 'edit',
+    WHOLESALE_ORDERS: 'edit',
+    WHOLESALE_WAREHOUSE: 'edit',
+    WHOLESALE_DELIVERY: 'edit',
+    WHOLESALE_RETURNS: 'edit',
+    WHOLESALE_COLLECTIONS: 'edit',
+    WHOLESALE_REPORTS: 'edit',
+    REP_VAN_SALES: 'edit',
+    REP_VAN_LOAD: 'edit',
+    REP_VAN_SELL: 'edit',
+    REP_VAN_COLLECT: 'edit',
+    REP_VAN_SETTLE: 'edit',
+    REP_VAN_APPROVE: 'edit',
+    REP_VAN_REPORTS: 'edit',
     PRODUCT_COST: 'view',
     HR_SALARY: 'view',
     HR_PAYROLL: 'view',
@@ -75,6 +109,17 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     SERVICES: 'view',
     WARRANTY: 'view',
     HIRE_PURCHASE: 'edit',
+    WHOLESALE: 'view',
+    WHOLESALE_POS: 'edit',
+    WHOLESALE_DEALERS: 'view',
+    WHOLESALE_ORDERS: 'view',
+    WHOLESALE_COLLECTIONS: 'edit',
+    REP_VAN_SALES: 'edit',
+    REP_VAN_LOAD: 'view',
+    REP_VAN_SELL: 'edit',
+    REP_VAN_COLLECT: 'edit',
+    REP_VAN_SETTLE: 'edit',
+    REP_VAN_REPORTS: 'view',
     PRODUCT_COST: 'hide',
   },
   TECHNICIAN: {
@@ -183,6 +228,9 @@ export const EDIT_ONLY_PATH_PREFIXES = [
   '/dashboard/hire-purchase/payments',
   '/dashboard/hire-purchase/settings',
   '/dashboard/hr/settings',
+  '/dashboard/wholesale/pos',
+  '/dashboard/wholesale/pricing',
+  '/dashboard/wholesale/settings',
 ] as const
 
 export function pathRequiresEdit(pathname: string): boolean {
@@ -257,6 +305,73 @@ export function pathToPermissionModule(pathname: string): RolePermissionModuleKe
     || pathname.startsWith('/hire-purchase/')
   ) {
     return 'HIRE_PURCHASE'
+  }
+  if (pathname.startsWith('/dashboard/wholesale/pos') || pathname.startsWith('/wholesale/pos')) {
+    return 'WHOLESALE_POS'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/dealers')
+    || pathname.startsWith('/wholesale/dealers')
+  ) {
+    return 'WHOLESALE_DEALERS'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/pricing')
+    || pathname.startsWith('/wholesale/pricing')
+  ) {
+    return 'WHOLESALE_PRICING_ADMIN'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/orders')
+    || pathname.startsWith('/dashboard/wholesale/quotations')
+    || pathname.startsWith('/wholesale/orders')
+    || pathname.startsWith('/wholesale/quotations')
+  ) {
+    return 'WHOLESALE_ORDERS'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/warehouse')
+    || pathname.startsWith('/wholesale/warehouse')
+  ) {
+    return 'WHOLESALE_WAREHOUSE'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/delivery')
+    || pathname.startsWith('/wholesale/delivery')
+  ) {
+    return 'WHOLESALE_DELIVERY'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/returns')
+    || pathname.startsWith('/wholesale/returns')
+  ) {
+    return 'WHOLESALE_RETURNS'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/collections')
+    || pathname.startsWith('/wholesale/collections')
+  ) {
+    return 'WHOLESALE_COLLECTIONS'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/reports')
+    || pathname.startsWith('/wholesale/reports')
+  ) {
+    return 'WHOLESALE_REPORTS'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale/van')
+    || pathname.startsWith('/dashboard/wholesale/rep')
+    || pathname.startsWith('/rep')
+  ) {
+    return 'REP_VAN_SALES'
+  }
+  if (
+    pathname.startsWith('/dashboard/wholesale')
+    || pathname === '/wholesale'
+    || pathname.startsWith('/wholesale/')
+  ) {
+    return 'WHOLESALE'
   }
   if (
     pathname.startsWith('/dashboard/finance') ||

@@ -18,8 +18,14 @@ Single write path for operational stock mutations, `StockMovement` rows, and rel
 | `applyExchangeTradeInStockEffectsIfEnabled` | Exchange trade-in |
 | `applyExchangeSoldStockEffectsIfEnabled` | Exchange sold unit |
 | `applyStockAdjustmentEffects` / `IfEnabled` | Catalog absolute stock set → `ADJUSTMENT` |
+| `consumeStock` / `consumeImei` | Optimistic qty / IMEI hard commit (Gaps 1–3) |
+| `getOnHand` / `getReservedQty` / `getAtp` | ATP = onHand − reserved (no MOQ/credit) |
+| `softReserveImei` / `releaseImeiSoftReserve` | IMEI soft-hold TTL (needs W1 columns) |
+| `atp.service` (`getAtpSnapshot`) | Thin wholesale/POS ATP façade |
 
 Each `*IfEnabled` returns whether the engine handled the write (`false` / `null` → caller runs legacy path).
+
+**Retail sale:** keep calling `applySaleStockEffectsIfEnabled` — it delegates to `consumeStock` / `consumeImei` internally. Direct helper use is for wholesale / shared ATP checks.
 
 ## Rules
 

@@ -2,7 +2,7 @@
 
 > **For:** Shop owners, managers, cashiers, technicians  
 > **සඳහා:** Shop owners, managers, cashiers, technicians  
-> **Version:** 1.0 · June 2026
+> **Version:** 1.1 · September 2026
 
 ---
 
@@ -25,8 +25,9 @@
 15. [Daily Reload](#15-daily-reload)
 16. [Staff, Branches & Settings](#16-staff-branches--settings)
 17. [User Roles — Who Can Do What](#17-user-roles--who-can-do-what)
-18. [Keyboard Shortcuts (POS)](#18-keyboard-shortcuts-pos)
-19. [Frequently Asked Questions](#19-frequently-asked-questions)
+18. [Wholesale & Distribution](#18-wholesale--distribution)
+19. [Keyboard Shortcuts (POS)](#19-keyboard-shortcuts-pos)
+20. [Frequently Asked Questions](#20-frequently-asked-questions)
 
 ---
 
@@ -662,7 +663,91 @@ Owner role assign කරනවා.
 
 ---
 
-## 18. Keyboard Shortcuts (POS)
+## 18. Wholesale & Distribution
+
+> **Feature:** `WHOLESALE` (van/rep also needs `REP_VAN_SALES`)  
+> **Menu:** Sidebar → **Wholesale**  
+> Separate from retail POS — sells to **dealers (B2B)** and never creates a retail `Sale`.
+
+### English
+
+#### 18.1 Enable & permissions
+
+1. Platform Admin enables **WHOLESALE** (and **REP_VAN_SALES** if you use vans).
+2. Staff & Roles → Permission Matrix → set View/Edit for wholesale modules.
+3. Wholesale → **Settings** — overdue tolerance, IMEI soft-reserve TTL, ageing buckets.
+
+#### 18.2 Dealers
+
+1. Wholesale → **Dealers** → **New dealer** (legal name, phone, credit limit, terms).
+2. Click **dealer code / name** → detail modal → **Approve / Hold / Suspend**.
+3. From the modal, open **Collections** for that dealer’s AR.
+
+#### 18.3 Counter sale (Wholesale POS)
+
+1. Wholesale → **Wholesale POS**.
+2. Select **dealer** → add products (price from wholesale pricing).
+3. Enter payments → **Checkout** → thermal invoice (wholesale invoice, not retail).
+
+#### 18.4 Quote → Order → Warehouse → Delivery
+
+1. **Quotations** → New → dealer + **catalog product** → Create → open quote # → **Issue** → **Accept**.
+2. **Orders** → open order # → **Submit** → **Confirm** (reserves stock — needs `productId`).
+3. **Warehouse** → Pick queue → Create pick → open Pick # → **Pick all** → **Complete** → **Pack** → **Create DN**.
+4. **Dispatches** → open DN # → **Bind IMEI** (if needed) → **Confirm**.
+5. **Delivery** → New trip → open Trip # → **Start** → **Arrive** → **POD** → **Complete**.
+
+#### 18.5 Rep / Van sales
+
+1. **Rep / Van Sales** → Add vehicle → **Assign rep** (creates/links HR Employee for commission).
+2. **Load stock** (vehicle + product + qty).
+3. Sell via desktop **Van sale**, phone **/rep**, or Flutter **Hexalyte Rep** app.
+4. Field day: Check in → van sale → collect payment.
+5. **Settlements** → New → **Submit** → **Approve**.
+6. **Commission:** HR → Commission → rule **Van / wholesale rep**. Van invoices on that rep’s login appear in the preview.
+
+#### 18.6 Returns & collections
+
+1. **Returns** → New RMA → open RMA # → Approve → QC → Restock/Credit → Close.
+2. **Collections** → Ageing / Payments / Tasks / **Statement** (pick dealer).
+3. **Reports** — Counter vs Van vs Delivery revenue and outstanding AR.
+
+#### 18.7 View modals
+
+Click primary IDs (Quote #, Order #, Pick #, DN #, Trip #, RMA #, dealer code) to open the same style **detail modal** used elsewhere in Hexalyte (Esc to close; actions in the header).
+
+---
+
+### සිංහල
+
+#### 18.1 Enable
+
+Admin → **WHOLESALE** (+ van නම් **REP_VAN_SALES**) → Permission Matrix → Wholesale Settings.
+
+#### 18.2 Dealers
+
+Dealers → New → code click → detail → Approve/Hold/Suspend / Collections.
+
+#### 18.3 Counter
+
+Wholesale POS → dealer → products → Checkout → wholesale invoice.
+
+#### 18.4 Fulfilment
+
+Quote (product select) → Issue/Accept → Order Submit/Confirm → Warehouse pick/pack/DN → Delivery trip Arrive/POD.
+
+#### 18.5 Van
+
+Vehicle → Assign rep → Load stock → Van sale (/rep හෝ Flutter) → Settlement Submit/Approve.  
+Commission: HR → Commission → **Van / wholesale rep** rule — rep login එකේ van invoices count වෙනවා.
+
+#### 18.6 Returns & AR
+
+RMA flow detail modal එකෙන් · Collections payment/statement · Reports channel KPIs.
+
+---
+
+## 19. Keyboard Shortcuts (POS)
 
 ### English & සිංහala
 
@@ -683,7 +768,7 @@ Owner role assign කරනවා.
 
 ---
 
-## 19. Frequently Asked Questions
+## 20. Frequently Asked Questions
 
 ### English
 
@@ -716,6 +801,15 @@ A: Returns page → find original invoice → select items → process return.
 
 **Q: Forgot password?**  
 A: Login page → Forgot password → email link.
+
+**Q: Wholesale menu missing?**  
+A: Ask admin to enable WHOLESALE (and REP_VAN_SALES for vans) and set Role Permissions.
+
+**Q: Wholesale order will not Confirm?**  
+A: Create/edit with a catalog product selected — description-only lines cannot reserve stock.
+
+**Q: Retail POS vs Wholesale POS?**  
+A: Retail = walk-in customers. Wholesale = dealers (B2B). They never share the same Sale record.
 
 ---
 
@@ -751,6 +845,15 @@ A: Returns → invoice → items return.
 **Q: Password forgot?**  
 A: Forgot password → email.
 
+**Q: Wholesale menu නැහැ?**  
+A: Admin WHOLESALE enable + permissions.
+
+**Q: Wholesale Confirm නැහැ?**  
+A: Catalog product select කරලා order create කරන්න.
+
+**Q: Retail vs Wholesale POS?**  
+A: Retail = walk-in. Wholesale = dealers. Sale record එකක් share වෙන්නේ නැහැ.
+
 ---
 
 ## Quick Reference Card | ඉක්මන් යොමුව
@@ -768,6 +871,17 @@ A: Forgot password → email.
 │  7. Bill prints → F5 reprint if needed          │
 │  8. F10 New sale                                │
 │  9. F11 Day End / Daily Closing (end of day)    │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│  WHOLESALE — DAILY / WEEKLY FLOW                │
+├─────────────────────────────────────────────────┤
+│  1. Dealers up to date (Approve / credit)       │
+│  2. Counter: Wholesale POS → dealer checkout    │
+│  3. Delivery: Quote→Order Confirm→Pick→DN→POD   │
+│  4. Van: Load stock → field sale → Settlement   │
+│  5. Collections: ageing / payment / statement   │
+│  6. Returns: RMA Approve→QC→Credit→Close        │
 └─────────────────────────────────────────────────┘
 ```
 

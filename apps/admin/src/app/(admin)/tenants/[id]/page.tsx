@@ -52,6 +52,8 @@ const FEATURE_DEFS = [
   { key: 'CUSTOMER_CREDIT', label: 'Customer Credit',    desc: 'Customer credit payments & outstanding balances', optIn: true  },
   { key: 'ACCOUNTING',      label: 'Accounting (GL)',    desc: 'Double-entry general ledger, COA, journals & GL reports', optIn: true },
   { key: 'HIRE_PURCHASE',   label: 'Hire Purchase',      desc: 'Mobile-shop installment agreements, collections and due management', optIn: true },
+  { key: 'WHOLESALE', label: 'Wholesale & Distribution', desc: 'B2B wholesale: dealers, Counter POS, orders, delivery, invoices (independent of Retail POS)', optIn: true },
+  { key: 'REP_VAN_SALES', label: 'Rep / Van Sales', desc: 'Vehicle stock, field sales from van, settlements (requires Wholesale)', optIn: true },
   { key: 'WHOLESALE_PRICING', label: 'Wholesale Pricing', desc: 'Wholesale product price + POS Retail|Wholesale toggle', optIn: true },
   { key: 'CREDIT_PRICING',    label: 'Credit Pricing',    desc: 'Credit product price + POS Retail|Credit toggle', optIn: true },
   { key: 'POS_PRICE_EDIT',    label: 'POS Price Edit',    desc: 'Edit sale price in popup before adding to cart (incl. variants)', optIn: true },

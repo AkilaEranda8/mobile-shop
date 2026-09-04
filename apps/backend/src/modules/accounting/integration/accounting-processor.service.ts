@@ -16,6 +16,12 @@ import {
   postHirePurchaseAgreementJournal,
 } from './auto-journal.engine'
 import {
+  postWholesaleCreditNoteJournal,
+  postWholesaleInvoiceCogsJournal,
+  postWholesaleInvoiceJournal,
+  postWholesaleReceiptJournal,
+} from './wholesale-journals'
+import {
   postApPaymentFromTransaction,
   postArPaymentFromTransaction,
   postHirePurchasePaymentFromTransaction,
@@ -80,6 +86,10 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
     SALE_COGS: 20,
     REPAIR_COGS: 20,
     SALE_RETURN_COGS: 20,
+    WHOLESALE_INVOICE_CREATED: 10,
+    WHOLESALE_RECEIPT: 10,
+    WHOLESALE_CREDIT_NOTE_CREATED: 10,
+    WHOLESALE_INVOICE_COGS: 20,
   }
   items.sort((a, b) => {
     const pa = eventPriority[a.eventType] ?? 50
@@ -143,6 +153,14 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
         await postHirePurchaseAgreementJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'HP_PAYMENT_RECEIVED' && item.sourceType === 'Transaction') {
         await postHirePurchasePaymentFromTransaction(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'WHOLESALE_INVOICE_CREATED' && item.sourceType === 'WholesaleInvoice') {
+        await postWholesaleInvoiceJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'WHOLESALE_INVOICE_COGS' && item.sourceType === 'WholesaleInvoice') {
+        await postWholesaleInvoiceCogsJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'WHOLESALE_CREDIT_NOTE_CREATED' && item.sourceType === 'WholesaleCreditNote') {
+        await postWholesaleCreditNoteJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'WHOLESALE_RECEIPT' && item.sourceType === 'DealerPayment') {
+        await postWholesaleReceiptJournal(tenantId, item.sourceId, actorEmail)
       } else {
         throw new AppError(`Unsupported outbox item: ${item.sourceType} ${item.eventType}`, 400)
       }

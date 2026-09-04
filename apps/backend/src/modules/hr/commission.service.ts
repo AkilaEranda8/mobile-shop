@@ -24,15 +24,39 @@ const ruleSelect = {
 export const DEFAULT_COMMISSION_RULES = [
   { name: 'POS sales incentive', code: 'SALES', source: 'SALES' as const, ratePercent: 0.5, sortOrder: 1 },
   { name: 'Repair technician incentive', code: 'REPAIR', source: 'REPAIRS' as const, ratePercent: 2, sortOrder: 2 },
+  { name: 'Van / wholesale rep incentive', code: 'VAN', source: 'WHOLESALE_VAN' as const, ratePercent: 1, sortOrder: 3 },
 ]
 
 export async function ensureDefaultCommissionRules(tenantId: string) {
   const count = await prisma.commissionRule.count({ where: { tenantId } })
-  if (count > 0) return
-  await prisma.commissionRule.createMany({
-    data: DEFAULT_COMMISSION_RULES.map(r => ({ tenantId, ...r })),
-    skipDuplicates: true,
+  if (count === 0) {
+    await prisma.commissionRule.createMany({
+      data: DEFAULT_COMMISSION_RULES.map(r => ({ tenantId, ...r })),
+      skipDuplicates: true,
+    })
+    return
+  }
+  // Tenants that already had SALES/REPAIRS rules still need the van rule
+  const van = await prisma.commissionRule.findFirst({
+    where: { tenantId, source: 'WHOLESALE_VAN' },
+    select: { id: true },
   })
+  if (!van) {
+    try {
+      await prisma.commissionRule.create({
+        data: {
+          tenantId,
+          name: 'Van / wholesale rep incentive',
+          code: 'VAN',
+          source: 'WHOLESALE_VAN',
+          ratePercent: 1,
+          sortOrder: 3,
+        },
+      })
+    } catch {
+      // name unique conflict — ignore
+    }
+  }
 }
 
 async function attributedDocs(
@@ -77,6 +101,18 @@ async function attributedDocs(
     select: { cashPrice: true },
   })
   for (const a of hp) docs.push({ source: 'HIRE_PURCHASE', amount: a.cashPrice })
+
+  const vanInvoices = await prisma.wholesaleInvoice.findMany({
+    where: {
+      tenantId,
+      salesRepId: userId,
+      channel: 'VAN',
+      createdAt: { gte: from, lte: to },
+      status: { in: ['POSTED', 'PARTIAL', 'PAID'] },
+    },
+    select: { total: true },
+  })
+  for (const inv of vanInvoices) docs.push({ source: 'WHOLESALE_VAN', amount: inv.total })
 
   return docs
 }

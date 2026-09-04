@@ -45,6 +45,142 @@ export async function generateInvoiceNumber(tenantId: string): Promise<string> {
   return `INV-${String(next).padStart(5, '0')}`
 }
 
+async function nextWholesaleSeq(
+  tenantId: string,
+  redisKey: string,
+  prefix: string,
+  seedMax: () => Promise<number>,
+): Promise<string> {
+  const key = `${redisKey}:${tenantId}`
+  const seeded = await redis.set(key, '0', 'NX')
+  if (seeded === 'OK') {
+    await redis.set(key, String(await seedMax()))
+  }
+  const next = await redis.incr(key)
+  const ym = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  return `${prefix}-${ym}-${String(next).padStart(5, '0')}`
+}
+
+function maxTrailingDigits(values: Array<string | null | undefined>): number {
+  let max = 0
+  for (const v of values) {
+    const m = v?.match(/(\d+)$/)
+    if (m) max = Math.max(max, parseInt(m[1], 10))
+  }
+  return max
+}
+
+/** Wholesale B2B invoice numbers (separate sequence from retail INV-*). */
+export async function generateWholesaleInvoiceNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wsi_seq', 'WSI', async () => {
+    const all = await prisma.wholesaleInvoice.findMany({
+      where: { tenantId },
+      select: { invoiceNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.invoiceNumber))
+  })
+}
+
+export async function generateWholesaleQuoteNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wsq_seq', 'WSQ', async () => {
+    const all = await prisma.wholesaleQuotation.findMany({
+      where: { tenantId },
+      select: { quoteNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.quoteNumber))
+  })
+}
+
+export async function generateWholesaleOrderNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wso_seq', 'WSO', async () => {
+    const all = await prisma.wholesaleSalesOrder.findMany({
+      where: { tenantId },
+      select: { orderNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.orderNumber))
+  })
+}
+
+export async function generateWholesalePickNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wpk_seq', 'WPK', async () => {
+    const all = await prisma.wholesalePickList.findMany({
+      where: { tenantId },
+      select: { pickNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.pickNumber))
+  })
+}
+
+export async function generateWholesaleDispatchNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wds_seq', 'WDS', async () => {
+    const all = await prisma.wholesaleDispatch.findMany({
+      where: { tenantId },
+      select: { dispatchNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.dispatchNumber))
+  })
+}
+
+export async function generateWholesaleTripNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wtr_seq', 'WTR', async () => {
+    const all = await prisma.wholesaleDeliveryTrip.findMany({
+      where: { tenantId },
+      select: { tripNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.tripNumber))
+  })
+}
+
+export async function generateWholesaleReturnNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wrm_seq', 'WRM', async () => {
+    const all = await prisma.wholesaleReturn.findMany({
+      where: { tenantId },
+      select: { returnNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.returnNumber))
+  })
+}
+
+export async function generateWholesaleCreditNoteNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'wcn_seq', 'WCN', async () => {
+    const all = await prisma.wholesaleCreditNote.findMany({
+      where: { tenantId },
+      select: { creditNoteNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.creditNoteNumber))
+  })
+}
+
+export async function generateDealerPaymentReceiptNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'dpr_seq', 'DPR', async () => {
+    const all = await prisma.dealerPayment.findMany({
+      where: { tenantId },
+      select: { receiptNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.receiptNumber))
+  })
+}
+
+export async function generateVanLoadNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'vld_seq', 'VLD', async () => {
+    const all = await prisma.vanLoadSheet.findMany({
+      where: { tenantId },
+      select: { loadNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.loadNumber))
+  })
+}
+
+export async function generateVanSettlementNumber(tenantId: string): Promise<string> {
+  return nextWholesaleSeq(tenantId, 'vst_seq', 'VST', async () => {
+    const all = await prisma.vanSettlement.findMany({
+      where: { tenantId },
+      select: { settlementNumber: true },
+    })
+    return maxTrailingDigits(all.map((r) => r.settlementNumber))
+  })
+}
+
 export async function generateTicketNumber(tenantId: string): Promise<string> {
   const today = new Date()
   const prefix = `TKT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`

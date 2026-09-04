@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 
-export type OfflineOpType = 'SALE_CREATE'
+export type OfflineOpType = 'SALE_CREATE' | 'VAN_SALE_CREATE' | 'VAN_PAYMENT' | 'VAN_VISIT_UPSERT'
 
 export interface OfflineQueueItem {
   id: string

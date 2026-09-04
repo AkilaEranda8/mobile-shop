@@ -6,6 +6,7 @@ import {
   DEMO_BRANDS,
   DEMO_CATEGORIES,
   DEMO_CUSTOMERS,
+  DEMO_DEALERS,
   DEMO_PRODUCTS,
   DEMO_SERVICES,
   DEMO_STAFF,
@@ -119,6 +120,7 @@ export async function installDemoDataForTenant(tenantId: string, branchId: strin
         brandId,
         buyingPrice: p.buyingPrice,
         sellingPrice: p.sellingPrice,
+        wholesalePrice: Math.round(p.sellingPrice * 0.85),
         mrp: p.mrp,
         trackImei: p.trackImei,
         warrantyMonths: p.warrantyMonths,
@@ -151,6 +153,31 @@ export async function installDemoDataForTenant(tenantId: string, branchId: strin
     })
     customerByKey.set(c.key, { id: row.id, name: row.name, phone: row.phone })
     manifest.customerIds.push(row.id)
+  }
+
+  for (const d of DEMO_DEALERS) {
+    try {
+      const row = await prisma.dealer.create({
+        data: {
+          tenantId,
+          branchId,
+          dealerCode: d.dealerCode,
+          legalName: d.legalName,
+          tradingName: d.tradingName,
+          phone: d.phone,
+          email: d.email,
+          creditLimit: d.creditLimit,
+          paymentTermsDays: d.paymentTermsDays,
+          status: 'ACTIVE',
+          isActive: true,
+          cashOnly: false,
+          notes: 'Demo dealer — remove anytime from Dashboard',
+        },
+      })
+      manifest.dealerIds.push(row.id)
+    } catch {
+      // wholesale migration may not be applied yet — skip dealers
+    }
   }
 
   for (const s of DEMO_SERVICES) {
@@ -588,6 +615,9 @@ export async function clearDemoDataForTenant(tenantId: string) {
       }
       if (manifest.customerIds.length) {
         await tx.customer.deleteMany({ where: { id: { in: manifest.customerIds }, tenantId } })
+      }
+      if (manifest.dealerIds.length) {
+        await tx.dealer.deleteMany({ where: { id: { in: manifest.dealerIds }, tenantId } })
       }
       if (manifest.serviceIds.length) {
         await tx.service.deleteMany({ where: { id: { in: manifest.serviceIds }, tenantId } })

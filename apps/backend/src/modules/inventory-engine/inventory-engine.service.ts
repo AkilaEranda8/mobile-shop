@@ -7,6 +7,7 @@ import {
 } from '../../utils/exchange-stock.util'
 import { executeStockTransferEffects } from '../../utils/stock-transfer.util'
 import { isInventoryEngineEnabled } from './inventory-engine.feature'
+import { consumeImei, consumeStock } from './inventory-engine.stock'
 import type { Prisma } from '@prisma/client'
 import type {
   ApplyExchangeSoldStockInput,
@@ -19,80 +20,46 @@ import type {
   ApplyStockTransferInput,
 } from './inventory-engine.types'
 
+export {
+  computeAtp,
+  consumeImei,
+  consumeStock,
+  getAtp,
+  getOnHand,
+  getReservedQty,
+  releaseImeiSoftReserve,
+  softReserveImei,
+} from './inventory-engine.stock'
+
 /**
  * Inventory Engine — Phase 1: sale stock decrement + StockMovement + IMEI status.
  * Behavior mirrors legacy inline logic in sales.service.ts (delegate parity).
+ * Stock/IMEI writes go through consumeStock / consumeImei (Gaps 1–3).
  */
 export async function applySaleStockEffects(input: ApplySaleStockInput): Promise<void> {
   const { tx, tenantId, branchId, saleId, invoiceNumber, cashierName, customerId, items } = input
 
   for (const item of items) {
     if (!item.productId) continue
+
+    // Tenant-scoped existence check (parity with pre-extract retail path).
     const product = await tx.product.findFirst({
       where: { id: item.productId, tenantId, branchId },
-      select: { stock: true, name: true, storageVariations: true },
+      select: { id: true },
     })
     if (!product) {
       throw new AppError('Product not available at this branch', 400)
     }
 
-    const variantMode = hasVariants(product.storageVariations)
-    const available = variantMode ? sumVariantStock(product.storageVariations) : product.stock
-    if (available < item.quantity) {
-      throw new AppError(
-        `Insufficient stock for "${product.name}". Available: ${available}, Requested: ${item.quantity}`,
-        400,
-      )
-    }
-
-    if (variantMode) {
-      let updatedVariations = product.storageVariations as any[]
-      let changed = false
-      updatedVariations = updatedVariations.map((v: any) => {
-        const matchSku = item.sku && v.sku === item.sku
-        const matchProps =
-          item.variationLabel && `${v.storage}::${v.colorName}` === item.variationLabel
-        if (matchSku || matchProps) {
-          changed = true
-          return { ...v, stock: Math.max(0, (v.stock || 0) - item.quantity) }
-        }
-        return v
-      })
-      if (!changed) {
-        throw new AppError(
-          `Insufficient stock for "${product.name}". Variant not found for this sale line`,
-          400,
-        )
-      }
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          storageVariations: updatedVariations,
-          stock: sumVariantStock(updatedVariations),
-        },
-      })
-    } else {
-      const dec = await tx.product.updateMany({
-        where: { id: item.productId, branchId, stock: { gte: item.quantity } },
-        data: { stock: { decrement: item.quantity } },
-      })
-      if (dec.count === 0) {
-        throw new AppError(
-          `Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`,
-          400,
-        )
-      }
-    }
-
-    await tx.stockMovement.create({
-      data: {
-        productId: item.productId,
-        branchId,
-        type: 'SALE',
-        quantity: -item.quantity,
-        reference: invoiceNumber,
-        performedBy: cashierName,
-      },
+    await consumeStock(tx, {
+      productId: item.productId,
+      branchId,
+      quantity: item.quantity,
+      sku: item.sku,
+      variationLabel: item.variationLabel,
+      reference: invoiceNumber,
+      performedBy: cashierName,
+      movementType: 'SALE',
     })
 
     if (item.imei) {
@@ -101,15 +68,15 @@ export async function applySaleStockEffects(input: ApplySaleStockInput): Promise
         if (existingImei.branchId !== branchId) {
           throw new AppError(`IMEI ${item.imei} belongs to a different branch`, 400)
         }
-        await tx.imeiRecord.update({
-          where: { imei: item.imei },
-          data: {
-            status: 'SOLD',
-            customerId: customerId ?? existingImei.customerId,
-            saleId,
-          },
+        // Retail POS does not soft-reserve — consume when IN_STOCK (or expired/own hold).
+        await consumeImei(tx, {
+          imei: item.imei,
+          saleId,
+          customerId: customerId ?? existingImei.customerId,
+          branchId,
         })
       } else if (item.productId) {
+        // Parity: unregistered IMEI on sale line → create as SOLD (legacy path).
         await tx.imeiRecord.create({
           data: {
             imei: item.imei,

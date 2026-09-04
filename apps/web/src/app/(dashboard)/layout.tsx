@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import { POSOverlay } from '@/components/pos/POSOverlay'
@@ -23,6 +23,8 @@ import { PinMustChangeGate } from '@/components/pos/PinMustChangeGate'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const isRepShell = pathname === '/rep' || pathname.startsWith('/rep/')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [checked, setChecked] = useState(false)
@@ -49,6 +51,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [])
 
   if (!checked) return null
+
+  /* Field-rep PWA: no sidebar — mobile-first chrome only */
+  if (isRepShell) {
+    return (
+      <ShopQuestUnlockProvider>
+        <div className="flex h-screen overflow-hidden flex-col" style={{ background: 'var(--bg-primary)' }}>
+          <OfflineBanner />
+          <PaymentDueBanner />
+          <SessionBranchBootstrap />
+          <PinMustChangeGate />
+          {maintenance?.enabled && <MaintenanceBanner message={maintenance.message} />}
+          <main className="flex-1 overflow-y-auto" style={{ color: 'var(--text-primary)' }}>
+            <HexTableProvider>
+              <SuspendedAccountGate>
+                <RoleAccessGuard>{children}</RoleAccessGuard>
+              </SuspendedAccountGate>
+            </HexTableProvider>
+          </main>
+        </div>
+      </ShopQuestUnlockProvider>
+    )
+  }
 
   return (
     <ShopQuestUnlockProvider>

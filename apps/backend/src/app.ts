@@ -44,6 +44,7 @@ import featureSuggestionsRoutes from './modules/feature-suggestions/feature-sugg
 import notificationsRoutes from './modules/feature-suggestions/notifications.routes'
 import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
 import hirePurchaseRoutes from './modules/hire-purchase/hire-purchase.routes'
+import wholesaleRoutes from './modules/wholesale/wholesale.routes'
 import smsRoutes from './modules/sms/sms.routes'
 import billingRoutes from './modules/billing/billing.routes'
 import paymentsPublicRoutes from './modules/billing/payments.routes'
@@ -209,6 +210,7 @@ app.use(`${API}/daily-reloads`, dailyReloadRoutes)
 app.use(`${API}/daily-closing`, dailyClosingRoutes)
 app.use(`${API}/profit-allocation`, profitAllocationRoutes)
 app.use(`${API}/hire-purchase`, hirePurchaseRoutes)
+app.use(`${API}/wholesale`, wholesaleRoutes)
 app.use(`${API}/accounting`, accountingRoutes)
 app.use(`${API}/hr`, hrRoutes)
 app.use(`${API}/delivery`, deliveryRoutes)

@@ -3,7 +3,7 @@
  * Copied into the tenant on register; IDs stored in Tenant.demoDataManifest for clean removal.
  */
 
-export const DEMO_TEMPLATE_VERSION = 2
+export const DEMO_TEMPLATE_VERSION = 3
 
 export const DEMO_CATEGORIES = [
   { key: 'mobiles', name: 'Mobiles (Demo)', slug: 'demo-mobiles', icon: '📱' },
@@ -77,6 +77,29 @@ export const DEMO_CUSTOMERS = [
   },
 ] as const
 
+export const DEMO_DEALERS = [
+  {
+    key: 'city-mobile',
+    dealerCode: 'DEMO-DLR-001',
+    legalName: 'City Mobile Distributors (Demo)',
+    tradingName: 'City Mobile',
+    phone: '0112000001',
+    email: 'demo.citymobile@example.com',
+    creditLimit: 500000,
+    paymentTermsDays: 30,
+  },
+  {
+    key: 'gadget-hub',
+    dealerCode: 'DEMO-DLR-002',
+    legalName: 'Gadget Hub Wholesale (Demo)',
+    tradingName: 'Gadget Hub',
+    phone: '0112000002',
+    email: 'demo.gadgethub@example.com',
+    creditLimit: 250000,
+    paymentTermsDays: 14,
+  },
+] as const
+
 export const DEMO_SERVICES = [
   {
     key: 'screen',
@@ -144,6 +167,7 @@ export type DemoDataManifest = {
   exchangeIds: string[]
   dailyReloadIds: string[]
   profitFundIds: string[]
+  dealerIds: string[]
 }
 
 export function emptyDemoManifest(installedAt = new Date().toISOString()): DemoDataManifest {
@@ -168,6 +192,7 @@ export function emptyDemoManifest(installedAt = new Date().toISOString()): DemoD
     exchangeIds: [],
     dailyReloadIds: [],
     profitFundIds: [],
+    dealerIds: [],
   }
 }
 
@@ -199,5 +224,6 @@ export function normalizeDemoManifest(raw: unknown): DemoDataManifest {
     exchangeIds: m.exchangeIds ?? [],
     dailyReloadIds: m.dailyReloadIds ?? [],
     profitFundIds: m.profitFundIds ?? [],
+    dealerIds: m.dealerIds ?? [],
   }
 }

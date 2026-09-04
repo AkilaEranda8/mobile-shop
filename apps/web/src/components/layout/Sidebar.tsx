@@ -107,6 +107,22 @@ const hirePurchaseSubmenu: NavSubItem[] = [
   { href: '/dashboard/hire-purchase/settings', icon: Settings, label: 'HP Settings', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE', requiresEdit: true },
 ]
 
+const wholesaleSubmenu: NavSubItem[] = [
+  { href: '/dashboard/wholesale', icon: LayoutDashboard, label: 'Dashboard', feature: 'WHOLESALE', permission: 'WHOLESALE' },
+  { href: '/dashboard/wholesale/pos', icon: ShoppingCart, label: 'Wholesale POS', badge: 'NEW', feature: 'WHOLESALE', permission: 'WHOLESALE_POS', requiresEdit: true },
+  { href: '/dashboard/wholesale/dealers', icon: Building2, label: 'Dealers', feature: 'WHOLESALE', permission: 'WHOLESALE_DEALERS' },
+  { href: '/dashboard/wholesale/pricing', icon: Tag, label: 'Pricing', feature: 'WHOLESALE', permission: 'WHOLESALE_PRICING_ADMIN', requiresEdit: true },
+  { href: '/dashboard/wholesale/quotations', icon: FileText, label: 'Quotations', feature: 'WHOLESALE', permission: 'WHOLESALE_ORDERS' },
+  { href: '/dashboard/wholesale/orders', icon: ClipboardList, label: 'Orders', feature: 'WHOLESALE', permission: 'WHOLESALE_ORDERS' },
+  { href: '/dashboard/wholesale/warehouse', icon: Package, label: 'Warehouse', feature: 'WHOLESALE', permission: 'WHOLESALE_WAREHOUSE' },
+  { href: '/dashboard/wholesale/delivery', icon: Truck, label: 'Delivery', feature: 'WHOLESALE', permission: 'WHOLESALE_DELIVERY' },
+  { href: '/dashboard/wholesale/van', icon: Truck, label: 'Rep / Van Sales', feature: 'REP_VAN_SALES', permission: 'REP_VAN_SALES' },
+  { href: '/dashboard/wholesale/returns', icon: RotateCcw, label: 'Returns', feature: 'WHOLESALE', permission: 'WHOLESALE_RETURNS' },
+  { href: '/dashboard/wholesale/collections', icon: Wallet, label: 'Collections', feature: 'WHOLESALE', permission: 'WHOLESALE_COLLECTIONS' },
+  { href: '/dashboard/wholesale/reports', icon: BarChart3, label: 'Reports', feature: 'WHOLESALE', permission: 'WHOLESALE_REPORTS' },
+  { href: '/dashboard/wholesale/settings', icon: Settings, label: 'Settings', feature: 'WHOLESALE', permission: 'WHOLESALE', requiresEdit: true },
+]
+
 const reportsSubmenu: NavSubItem[] = [
   { href: '/dashboard/reports/overview', icon: BarChart3, label: 'Overview', feature: 'REPORTS', permission: 'REPORTS' },
   { href: '/dashboard/reports/sales', icon: ShoppingCart, label: 'Sales', feature: 'REPORTS', permission: 'REPORTS' },
@@ -202,6 +218,20 @@ const navItems: NavGroup[] = [
         feature: 'ACCOUNTING',
         permission: 'ACCOUNTING',
         submenu: accountingSubmenu,
+      },
+    ],
+  },
+  {
+    label: 'Wholesale',
+    items: [
+      {
+        href: '/dashboard/wholesale',
+        icon: Building2,
+        label: 'Wholesale',
+        badge: 'NEW',
+        feature: 'WHOLESALE',
+        permission: 'WHOLESALE',
+        submenu: wholesaleSubmenu,
       },
     ],
   },

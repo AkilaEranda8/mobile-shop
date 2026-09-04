@@ -47,8 +47,79 @@ async function syncLinkedSaleOnHpComplete(
     where: { id: sale.id },
     data: { paidAmount: sale.total, dueAmount: 0, status: 'PAID' },
   })
-  // Note: installment collections are recorded on HirePurchasePayment — sale stays a device invoice marker.
   void occurredAt
+}
+
+/** Cancel open HP: restock IMEI, reverse POS stock decrement, mark linked sale RETURNED. */
+async function unwindCancelledHpAgreement(
+  tx: Prisma.TransactionClient,
+  agreement: {
+    id: string
+    saleId: string | null
+    imeiRecordId: string | null
+    productId: string | null
+    agreementNumber: string
+    branchId: string
+    payments: Array<{ status: string }>
+  },
+  actorEmail: string,
+) {
+  const activePayments = agreement.payments.filter(p => p.status !== 'REVERSED')
+  if (activePayments.length > 0) {
+    throw new AppError('Reverse all collections before cancelling this agreement', 400)
+  }
+
+  if (agreement.imeiRecordId) {
+    await tx.imeiRecord.update({
+      where: { id: agreement.imeiRecordId },
+      data: { status: 'IN_STOCK', customerId: null, saleId: null },
+    })
+  }
+
+  if (agreement.saleId) {
+    const sale = await tx.sale.findUnique({ where: { id: agreement.saleId } })
+    if (sale && sale.status !== 'RETURNED') {
+      await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          status: 'RETURNED',
+          notes: `${sale.notes ?? ''}\nHP cancelled ${agreement.agreementNumber}`.trim(),
+        },
+      })
+      if (agreement.productId) {
+        await tx.product.update({
+          where: { id: agreement.productId },
+          data: { stock: { increment: 1 } },
+        })
+        await tx.stockMovement.create({
+          data: {
+            productId: agreement.productId,
+            branchId: agreement.branchId,
+            type: 'RETURN',
+            quantity: 1,
+            reference: sale.invoiceNumber,
+            note: `Hire Purchase cancelled ${agreement.agreementNumber}`,
+            performedBy: actorEmail,
+          },
+        })
+      }
+    }
+  } else if (agreement.productId && agreement.imeiRecordId) {
+    // Draft agreement reserved IMEI without sale — stock was never decremented
+  }
+}
+
+function resolvePenaltyAmount(agreementLateFee: number, penaltyRules: unknown): number | null {
+  const rules = (penaltyRules && typeof penaltyRules === 'object' ? penaltyRules : {}) as Record<string, any>
+  if (rules.enabled === false) return null
+  const amount = Number(rules.amount)
+  if (Number.isFinite(amount) && amount > 0) {
+    const max = Number(rules.maxPerInstallment)
+    if (Number.isFinite(max) && max > 0) return Math.min(amount, max)
+    return amount
+  }
+  if (agreementLateFee > 0) return agreementLateFee
+  return null
 }
 const ACTIVE_STATUSES = ['PENDING', 'ACTIVE', 'DEFAULTED'] as const
 const PAYMENT_METHODS = new Set(['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE'])
@@ -447,6 +518,9 @@ router.patch('/agreements/:id/status', requireModuleAccess('HIRE_PURCHASE', 'edi
     if (!['PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'DEFAULTED'].includes(status)) throw new AppError('Invalid agreement status', 400)
     if (status === 'COMPLETED' && agreement.outstandingBalance > 0.001) throw new AppError('Agreement has an outstanding balance', 400)
     const updated = await prisma.$transaction(async tx => {
+      if (status === 'CANCELLED') {
+        await unwindCancelledHpAgreement(tx, agreement, req.user?.email ?? 'Staff')
+      }
       const row = await tx.hirePurchaseAgreement.update({
         where: { id: agreement.id },
         data: {
@@ -457,10 +531,10 @@ router.patch('/agreements/:id/status', requireModuleAccess('HIRE_PURCHASE', 'edi
           cancellationReason: status === 'CANCELLED' ? String(req.body.reason || '') : agreement.cancellationReason,
         },
       })
-      if ((status === 'CANCELLED' || status === 'COMPLETED') && agreement.imeiRecordId) {
+      if (status === 'COMPLETED' && agreement.imeiRecordId) {
         await tx.imeiRecord.update({
           where: { id: agreement.imeiRecordId },
-          data: { status: status === 'CANCELLED' && !agreement.saleId ? 'IN_STOCK' : 'SOLD' },
+          data: { status: 'SOLD' },
         })
       }
       if (status === 'COMPLETED') {
@@ -700,6 +774,7 @@ router.post('/payments/:id/reverse', authorize('OWNER', 'MANAGER'), requireModul
     if (!payment) throw new AppError('Payment not found', 404)
     if (payment.status === 'REVERSED') throw new AppError('Payment is already reversed', 400)
     assertBranchRecordAccess(req, payment.branchId)
+    const reason = String(req.body.reason || 'Administrative reversal').trim()
     const allocation = payment.allocationJson as any
     const installments = Array.isArray(allocation) ? allocation : allocation?.installments ?? []
     const penalties = allocation?.penalties ?? []
@@ -709,36 +784,290 @@ router.post('/payments/:id/reverse', authorize('OWNER', 'MANAGER'), requireModul
         if (!installment) continue
         const paidAmount = round2(Math.max(0, installment.paidAmount - Number(item.amount)))
         const outstanding = round2(installment.outstanding + Number(item.amount))
-        await tx.hirePurchaseInstallment.update({ where: { id: installment.id }, data: { paidAmount, outstanding, status: paidAmount > 0 ? 'PARTIAL' : installment.dueDate < new Date() ? 'OVERDUE' : 'PENDING', paidAt: null } })
+        await tx.hirePurchaseInstallment.update({
+          where: { id: installment.id },
+          data: {
+            paidAmount,
+            outstanding,
+            status: paidAmount > 0 ? 'PARTIAL' : installment.dueDate < new Date() ? 'OVERDUE' : 'PENDING',
+            paidAt: null,
+          },
+        })
       }
       for (const item of penalties) {
-        await tx.hirePurchasePenalty.update({ where: { id: item.penaltyId }, data: { paidAmount: { decrement: Number(item.amount) } } }).catch(() => null)
+        await tx.hirePurchasePenalty.update({
+          where: { id: item.penaltyId },
+          data: { paidAmount: { decrement: Number(item.amount) } },
+        }).catch(() => null)
       }
-      await tx.hirePurchasePayment.update({ where: { id: payment.id }, data: { status: 'REVERSED', notes: `${payment.notes ?? ''}\nReversed: ${String(req.body.reason || 'Administrative reversal')}`.trim() } })
+      await tx.hirePurchasePayment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'REVERSED',
+          notes: `${payment.notes ?? ''}\nReversed: ${reason}`.trim(),
+        },
+      })
       const agreement = await tx.hirePurchaseAgreement.update({
         where: { id: payment.agreementId },
-        data: { paidAmount: { decrement: payment.amount }, outstandingBalance: { increment: payment.amount }, status: 'ACTIVE', completedAt: null },
+        data: {
+          paidAmount: { decrement: payment.amount },
+          outstandingBalance: { increment: payment.amount },
+          status: 'ACTIVE',
+          completedAt: null,
+        },
       })
-      if (payment.agreement.imeiRecordId) await tx.imeiRecord.update({ where: { id: payment.agreement.imeiRecordId }, data: { status: 'UNDER_HIRE_PURCHASE' } })
-      await writeLog(tx, req, payment.branchId, 'PAYMENT_REVERSED', payment.agreementId, payment, agreement, { reason: req.body.reason })
+      if (payment.agreement.imeiRecordId) {
+        await tx.imeiRecord.update({
+          where: { id: payment.agreement.imeiRecordId },
+          data: { status: 'UNDER_HIRE_PURCHASE' },
+        })
+      }
+      // Reverse linked cash income rows created for this receipt
+      const incomeRows = await tx.transaction.findMany({
+        where: {
+          tenantId: payment.tenantId,
+          branchId: payment.branchId,
+          type: 'INCOME',
+          category: 'Hire Purchase Collection',
+          reference: payment.receiptNumber,
+        },
+      })
+      for (const row of incomeRows) {
+        await tx.transaction.create({
+          data: {
+            tenantId: row.tenantId,
+            branchId: row.branchId,
+            type: 'EXPENSE',
+            category: 'Hire Purchase Reversal',
+            amount: row.amount,
+            description: `Reversal of ${payment.receiptNumber} — ${reason}`,
+            paymentMethod: row.paymentMethod,
+            reference: `${payment.receiptNumber}-REV`,
+            occurredAt: new Date(),
+            performedBy: req.user?.email ?? 'Staff',
+          },
+        })
+      }
+      if (payment.agreement.saleId) {
+        const sale = await tx.sale.findUnique({ where: { id: payment.agreement.saleId }, include: { payments: true } })
+        if (sale && sale.status === 'PAID') {
+          const pay = salePaymentState(payment.agreement.cashPrice, payment.agreement.downPayment)
+          // Restore financed CREDIT marker if missing
+          const hasCredit = sale.payments.some(p => p.method === 'CREDIT')
+          if (!hasCredit && pay.due > 0.001) {
+            await tx.salePayment.create({
+              data: {
+                saleId: sale.id,
+                method: 'CREDIT',
+                amount: pay.due,
+                reference: `HP financed balance ${payment.agreement.agreementNumber}`,
+              },
+            })
+          }
+          await tx.sale.update({
+            where: { id: sale.id },
+            data: { paidAmount: pay.paid, dueAmount: pay.due, status: pay.status },
+          })
+        }
+      }
+      await writeLog(tx, req, payment.branchId, 'PAYMENT_REVERSED', payment.agreementId, payment, agreement, { reason })
       return agreement
     })
     sendSuccess(res, updated, 'Payment reversed')
   } catch (error) { next(error) }
 })
 
-router.post('/agreements/:id/early-settlement', requireModuleAccess('HIRE_PURCHASE', 'edit'), async (req, res, next) => {
+router.get('/agreements/:id/early-settlement', requireModuleAccess('HIRE_PURCHASE', 'view'), async (req, res, next) => {
   try {
     const agreement = await loadAgreement(req, req.params.id)
+    if (!['ACTIVE', 'DEFAULTED'].includes(agreement.status)) {
+      throw new AppError('Agreement is not open for early settlement', 400)
+    }
     const open = agreement.installments.filter(row => row.status !== 'PAID' && row.status !== 'WAIVED')
-    const principal = open.reduce((sum, row) => sum + Math.max(0, row.principal - row.paidAmount), 0)
-    const accrued = open.filter(row => row.dueDate <= new Date()).reduce((sum, row) => sum + row.interest, 0)
+    const openPenalties = agreement.penalties.filter(p => !p.waivedAt && p.paidAmount < p.amount - 0.001)
+    const penaltyOutstanding = round2(openPenalties.reduce((s, p) => s + Math.max(0, p.amount - p.paidAmount), 0))
+    const principal = round2(open.reduce((sum, row) => sum + Math.max(0, row.principal * (row.outstanding / Math.max(row.totalDue, 0.001))), 0))
+    const accrued = round2(open.filter(row => row.dueDate <= new Date()).reduce((sum, row) => {
+      const ratio = row.outstanding / Math.max(row.totalDue, 0.001)
+      return sum + row.interest * ratio
+    }, 0))
+    const interestRebate = agreement.interestType === 'FLAT'
+      ? round2(open.reduce((sum, row) => {
+          const ratio = row.outstanding / Math.max(row.totalDue, 0.001)
+          return sum + row.interest * ratio
+        }, 0))
+      : 0
+    const settlementPrincipal = calculateEarlySettlement(principal, accrued, agreement.interestType)
+    const settlementAmount = round2(settlementPrincipal + penaltyOutstanding)
     sendSuccess(res, {
       agreementId: agreement.id,
-      settlementAmount: calculateEarlySettlement(principal, accrued, agreement.interestType),
-      interestRebate: agreement.interestType === 'FLAT' ? round2(open.reduce((sum, row) => sum + row.interest, 0)) : 0,
-      validUntil: new Date().toISOString(),
+      agreementNumber: agreement.agreementNumber,
+      outstandingBalance: agreement.outstandingBalance,
+      settlementAmount,
+      principalOutstanding: principal,
+      accruedInterest: accrued,
+      interestRebate,
+      penaltyOutstanding,
+      openInstallments: open.length,
+      interestType: agreement.interestType,
+      validUntil: new Date(Date.now() + 15 * 60_000).toISOString(),
     })
+  } catch (error) { next(error) }
+})
+
+router.post('/agreements/:id/early-settlement', requireModuleAccess('HIRE_PURCHASE', 'edit'), requireHpAction('RECEIVE_PAYMENT'), async (req, res, next) => {
+  try {
+    const agreement = await loadAgreement(req, req.params.id)
+    if (!['ACTIVE', 'DEFAULTED'].includes(agreement.status)) {
+      throw new AppError('Agreement is not open for early settlement', 400)
+    }
+    const open = agreement.installments.filter(row => row.status !== 'PAID' && row.status !== 'WAIVED')
+    const openPenalties = agreement.penalties.filter(p => !p.waivedAt && p.paidAmount < p.amount - 0.001)
+    const penaltyOutstanding = round2(openPenalties.reduce((s, p) => s + Math.max(0, p.amount - p.paidAmount), 0))
+    const principal = round2(open.reduce((sum, row) => sum + Math.max(0, row.principal * (row.outstanding / Math.max(row.totalDue, 0.001))), 0))
+    const accrued = round2(open.filter(row => row.dueDate <= new Date()).reduce((sum, row) => {
+      const ratio = row.outstanding / Math.max(row.totalDue, 0.001)
+      return sum + row.interest * ratio
+    }, 0))
+    const settlementPrincipal = calculateEarlySettlement(principal, accrued, agreement.interestType)
+    const settlementAmount = round2(settlementPrincipal + penaltyOutstanding)
+    if (settlementAmount <= 0.001) throw new AppError('Nothing to settle', 400)
+
+    const amount = req.body.amount != null ? round2(Number(req.body.amount)) : settlementAmount
+    if (Math.abs(amount - settlementAmount) > 0.5) {
+      throw new AppError(`Settlement amount must be ${settlementAmount.toFixed(2)}`, 400)
+    }
+    const methods = Array.isArray(req.body.methods) && req.body.methods.length
+      ? req.body.methods
+      : [{ method: req.body.method || 'CASH', amount }]
+    const methodTotal = round2(methods.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0))
+    if (Math.abs(methodTotal - amount) > 0.001) throw new AppError('Split payment methods must equal settlement amount', 400)
+    for (const entry of methods) {
+      if (!PAYMENT_METHODS.has(String(entry.method).toUpperCase())) throw new AppError('Invalid payment method', 400)
+    }
+    const occurredAt = req.body.occurredAt ? parseDate(req.body.occurredAt, 'Payment date') : new Date()
+    await assertBusinessDayOpenIfEnabled(req.tenantId!, agreement.branchId, occurredAt)
+
+    const result = await prisma.$transaction(async tx => {
+      let remaining = amount
+      let penaltyAmount = 0
+      const penaltyAllocations: Array<{ penaltyId: string; amount: number }> = []
+      for (const penalty of openPenalties) {
+        if (remaining <= 0.001) break
+        const bal = round2(Math.max(0, penalty.amount - penalty.paidAmount))
+        const applied = round2(Math.min(remaining, bal))
+        if (applied <= 0) continue
+        await tx.hirePurchasePenalty.update({ where: { id: penalty.id }, data: { paidAmount: { increment: applied } } })
+        penaltyAllocations.push({ penaltyId: penalty.id, amount: applied })
+        penaltyAmount = round2(penaltyAmount + applied)
+        remaining = round2(remaining - applied)
+      }
+
+      let principalAmount = 0
+      let interestAmount = 0
+      const allocations: Array<{ installmentId: string; sequence: number; amount: number }> = []
+      for (const installment of open) {
+        const outstanding = installment.outstanding
+        if (outstanding <= 0.001) {
+          await tx.hirePurchaseInstallment.update({ where: { id: installment.id }, data: { status: 'WAIVED', outstanding: 0, paidAt: occurredAt } })
+          continue
+        }
+        const ratio = outstanding / Math.max(installment.totalDue, 0.001)
+        const principalShare = round2(installment.principal * ratio)
+        const interestShare = agreement.interestType === 'FLAT' ? 0 : round2(installment.interest * ratio)
+        const apply = round2(principalShare + interestShare)
+        const take = round2(Math.min(remaining, apply > 0 ? apply : outstanding))
+        principalAmount = round2(principalAmount + (apply > 0 ? principalShare * (take / apply) : take))
+        interestAmount = round2(interestAmount + (apply > 0 ? interestShare * (take / apply) : 0))
+        await tx.hirePurchaseInstallment.update({
+          where: { id: installment.id },
+          data: {
+            paidAmount: { increment: take },
+            outstanding: 0,
+            status: 'PAID',
+            paidAt: occurredAt,
+          },
+        })
+        allocations.push({ installmentId: installment.id, sequence: installment.sequence, amount: take })
+        remaining = round2(remaining - take)
+        // Waive unearned FLAT interest residual on this line
+        if (agreement.interestType === 'FLAT' && interestShare === 0 && installment.interest > 0) {
+          // already zero outstanding — interest rebate implicit
+        }
+      }
+
+      // Force-close any leftover open installments (waive residuals)
+      await tx.hirePurchaseInstallment.updateMany({
+        where: { agreementId: agreement.id, status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] } },
+        data: { status: 'WAIVED', outstanding: 0, paidAt: occurredAt },
+      })
+
+      const payment = await tx.hirePurchasePayment.create({
+        data: {
+          tenantId: req.tenantId!,
+          branchId: agreement.branchId,
+          agreementId: agreement.id,
+          receiptNumber: receiptNumber(),
+          amount,
+          principalAmount,
+          interestAmount,
+          penaltyAmount,
+          methods,
+          allocationJson: { installments: allocations, penalties: penaltyAllocations, earlySettlement: true },
+          reference: req.body.reference,
+          notes: req.body.notes || 'Early settlement',
+          occurredAt,
+          performedBy: req.user?.email ?? 'Staff',
+        },
+      })
+
+      const updated = await tx.hirePurchaseAgreement.update({
+        where: { id: agreement.id },
+        data: {
+          paidAmount: { increment: amount },
+          outstandingBalance: 0,
+          status: 'COMPLETED',
+          completedAt: occurredAt,
+        },
+      })
+
+      const transactionIds: string[] = []
+      for (const entry of methods) {
+        const methodAmount = round2(Number(entry.amount))
+        if (methodAmount <= 0) continue
+        const transaction = await tx.transaction.create({
+          data: {
+            tenantId: req.tenantId!,
+            branchId: agreement.branchId,
+            type: 'INCOME',
+            category: 'Hire Purchase Collection',
+            amount: methodAmount,
+            description: `${agreement.agreementNumber} — Early settlement`,
+            paymentMethod: String(entry.method).toUpperCase() as PaymentMethod,
+            reference: payment.receiptNumber,
+            occurredAt,
+            performedBy: req.user?.email ?? 'Staff',
+          },
+        })
+        transactionIds.push(transaction.id)
+      }
+      if (agreement.imeiRecordId) {
+        await tx.imeiRecord.update({ where: { id: agreement.imeiRecordId }, data: { status: 'SOLD' } })
+      }
+      await syncLinkedSaleOnHpComplete(tx, agreement.saleId, occurredAt)
+      await writeLog(tx, req, agreement.branchId, 'EARLY_SETTLEMENT', agreement.id, agreement, updated, {
+        paymentId: payment.id,
+        amount,
+        settlementPrincipal,
+        interestRebate: agreement.interestType === 'FLAT' ? round2(agreement.outstandingBalance - settlementPrincipal - penaltyOutstanding) : 0,
+      })
+      return { payment, agreement: updated, transactionIds, settlementAmount }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+
+    await Promise.all(result.transactionIds.map(id =>
+      emitHirePurchasePaymentAccounting(req.tenantId!, id, agreement.branchId, req.user?.email),
+    ))
+    sendSuccess(res, result, 'Early settlement completed', 201)
   } catch (error) { next(error) }
 })
 
@@ -806,6 +1135,10 @@ router.post('/maintenance/apply-penalties', requireModuleAccess('HIRE_PURCHASE',
   try {
     const branchId = effectiveBranchId(req)
     const now = new Date()
+    const settingsRows = await prisma.hirePurchaseSettings.findMany({
+      where: { tenantId: req.tenantId!, ...(branchId ? { branchId } : {}) },
+    })
+    const settingsByBranch = new Map(settingsRows.map(s => [s.branchId, s]))
     const rows = await prisma.hirePurchaseInstallment.findMany({
       where: { tenantId: req.tenantId!, ...(branchId ? { branchId } : {}), dueDate: { lt: now }, status: { in: ['PENDING', 'PARTIAL'] } },
       include: { agreement: true },
@@ -814,15 +1147,29 @@ router.post('/maintenance/apply-penalties', requireModuleAccess('HIRE_PURCHASE',
     for (const row of rows) {
       const graceEnd = new Date(row.dueDate); graceEnd.setUTCDate(graceEnd.getUTCDate() + row.agreement.gracePeriodDays)
       if (graceEnd >= now) continue
+      const branchSettings = settingsByBranch.get(row.branchId)
+      const penaltyAmt = resolvePenaltyAmount(row.agreement.lateFee, branchSettings?.penaltyRules)
       await prisma.$transaction(async tx => {
         await tx.hirePurchaseInstallment.update({ where: { id: row.id }, data: { status: 'OVERDUE' } })
         await tx.hirePurchaseAgreement.update({ where: { id: row.agreementId }, data: { status: 'DEFAULTED' } })
+        if (penaltyAmt == null || penaltyAmt <= 0) return
         const exists = await tx.hirePurchasePenalty.findFirst({ where: { installmentId: row.id, waivedAt: null } })
-        if (!exists && row.agreement.lateFee > 0) {
-          await tx.hirePurchasePenalty.create({ data: { tenantId: row.tenantId, branchId: row.branchId, agreementId: row.agreementId, installmentId: row.id, amount: row.agreement.lateFee, reason: `Late fee for installment ${row.sequence}` } })
-          await tx.hirePurchaseAgreement.update({ where: { id: row.agreementId }, data: { outstandingBalance: { increment: row.agreement.lateFee } } })
-          applied += 1
-        }
+        if (exists) return
+        await tx.hirePurchasePenalty.create({
+          data: {
+            tenantId: row.tenantId,
+            branchId: row.branchId,
+            agreementId: row.agreementId,
+            installmentId: row.id,
+            amount: penaltyAmt,
+            reason: `Late fee for installment ${row.sequence}`,
+          },
+        })
+        await tx.hirePurchaseAgreement.update({
+          where: { id: row.agreementId },
+          data: { outstandingBalance: { increment: penaltyAmt } },
+        })
+        applied += 1
       })
     }
     sendSuccess(res, { scanned: rows.length, penaltiesApplied: applied })
@@ -883,10 +1230,120 @@ router.get('/reports/:type', requireHpAction('EXPORT_REPORTS'), async (req, res,
     if (to) to.setUTCHours(23, 59, 59, 999)
     const dateRange = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined
     let rows: unknown[] = []
-    if (type === 'collections' || type === 'cash-flow') rows = await prisma.hirePurchasePayment.findMany({ where: { ...base, ...(dateRange ? { occurredAt: dateRange } : {}) }, orderBy: { occurredAt: 'desc' }, include: { agreement: { select: { agreementNumber: true } } } })
-    else if (type === 'dues') rows = await prisma.hirePurchaseInstallment.findMany({ where: { ...base, ...(dateRange ? { dueDate: dateRange } : {}), status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] } }, orderBy: { dueDate: 'asc' }, include: { agreement: { select: { agreementNumber: true } } } })
-    else if (type === 'late-fees') rows = await prisma.hirePurchasePenalty.findMany({ where: { ...base, ...(dateRange ? { appliedAt: dateRange } : {}) }, orderBy: { appliedAt: 'desc' } })
-    else rows = await prisma.hirePurchaseAgreement.findMany({ where: { ...base, ...(dateRange ? { createdAt: dateRange } : {}), ...(type === 'defaulters' ? { status: 'DEFAULTED' as const } : type === 'outstanding' ? { outstandingBalance: { gt: 0 } } : {}) }, orderBy: { createdAt: 'desc' }, include: { customer: { select: { name: true, phone: true } } } })
+    if (type === 'collections' || type === 'cash-flow') {
+      rows = await prisma.hirePurchasePayment.findMany({
+        where: { ...base, status: 'COMPLETED', ...(dateRange ? { occurredAt: dateRange } : {}) },
+        orderBy: { occurredAt: 'desc' },
+        include: { agreement: { select: { agreementNumber: true, customer: { select: { name: true, phone: true } } } } },
+      })
+    } else if (type === 'dues') {
+      rows = await prisma.hirePurchaseInstallment.findMany({
+        where: { ...base, ...(dateRange ? { dueDate: dateRange } : {}), status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] } },
+        orderBy: { dueDate: 'asc' },
+        include: { agreement: { select: { agreementNumber: true, customer: { select: { name: true, phone: true } } } } },
+      })
+    } else if (type === 'late-fees') {
+      rows = await prisma.hirePurchasePenalty.findMany({
+        where: { ...base, ...(dateRange ? { appliedAt: dateRange } : {}) },
+        orderBy: { appliedAt: 'desc' },
+        include: { agreement: { select: { agreementNumber: true } } },
+      })
+    } else if (type === 'profit') {
+      const agreements = await prisma.hirePurchaseAgreement.findMany({
+        where: { ...base, ...(dateRange ? { createdAt: dateRange } : {}) },
+        include: {
+          payments: { where: { status: { not: 'REVERSED' } }, select: { interestAmount: true, penaltyAmount: true, amount: true } },
+          customer: { select: { name: true, phone: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+      rows = agreements.map(a => {
+        const interestCollected = round2(a.payments.reduce((s, p) => s + p.interestAmount, 0))
+        const penaltiesCollected = round2(a.payments.reduce((s, p) => s + p.penaltyAmount, 0))
+        const fees = round2(a.processingFee + a.insuranceFee + a.documentFee + a.otherCharges)
+        return {
+          agreementNumber: a.agreementNumber,
+          customer: a.customer.name,
+          phone: a.customer.phone,
+          status: a.status,
+          cashPrice: a.cashPrice,
+          financeAmount: a.financeAmount,
+          interestExpected: a.interestAmount,
+          interestCollected,
+          fees,
+          penaltiesCollected,
+          profitEstimate: round2(interestCollected + fees + penaltiesCollected),
+          outstandingBalance: a.outstandingBalance,
+        }
+      })
+    } else if (type === 'customer-statement') {
+      const customerId = req.query.customerId ? String(req.query.customerId) : undefined
+      const agreements = await prisma.hirePurchaseAgreement.findMany({
+        where: {
+          ...base,
+          ...(customerId ? { customerId } : {}),
+          ...(dateRange ? { createdAt: dateRange } : {}),
+        },
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          installments: { orderBy: { sequence: 'asc' } },
+          payments: { where: { status: { not: 'REVERSED' } }, orderBy: { occurredAt: 'asc' } },
+          penalties: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+      rows = agreements.flatMap(a => {
+        const lines: Record<string, unknown>[] = [{
+          kind: 'AGREEMENT',
+          agreementNumber: a.agreementNumber,
+          customer: a.customer.name,
+          phone: a.customer.phone,
+          status: a.status,
+          cashPrice: a.cashPrice,
+          totalPayable: a.totalPayable,
+          outstandingBalance: a.outstandingBalance,
+          productName: a.productName,
+          imei: a.imei,
+        }]
+        for (const p of a.payments) {
+          lines.push({
+            kind: 'PAYMENT',
+            agreementNumber: a.agreementNumber,
+            customer: a.customer.name,
+            receiptNumber: p.receiptNumber,
+            amount: p.amount,
+            principalAmount: p.principalAmount,
+            interestAmount: p.interestAmount,
+            penaltyAmount: p.penaltyAmount,
+            occurredAt: p.occurredAt,
+          })
+        }
+        for (const i of a.installments) {
+          lines.push({
+            kind: 'INSTALLMENT',
+            agreementNumber: a.agreementNumber,
+            customer: a.customer.name,
+            sequence: i.sequence,
+            dueDate: i.dueDate,
+            totalDue: i.totalDue,
+            paidAmount: i.paidAmount,
+            outstanding: i.outstanding,
+            status: i.status,
+          })
+        }
+        return lines
+      })
+    } else {
+      rows = await prisma.hirePurchaseAgreement.findMany({
+        where: {
+          ...base,
+          ...(dateRange ? { createdAt: dateRange } : {}),
+          ...(type === 'defaulters' ? { status: 'DEFAULTED' as const } : type === 'outstanding' ? { outstandingBalance: { gt: 0 } } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        include: { customer: { select: { name: true, phone: true } } },
+      })
+    }
     sendSuccess(res, { type, rows })
   } catch (error) { next(error) }
 })

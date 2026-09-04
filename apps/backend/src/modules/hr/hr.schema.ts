@@ -134,7 +134,7 @@ export const upsertSalaryPackageSchema = z.object({
 export const createCommissionRuleSchema = z.object({
   name: z.string().trim().min(1).max(120),
   code: z.string().trim().max(32).optional().nullable(),
-  source: z.enum(['SALES', 'REPAIRS', 'HIRE_PURCHASE']),
+  source: z.enum(['SALES', 'REPAIRS', 'HIRE_PURCHASE', 'WHOLESALE_VAN']),
   ratePercent: z.number().min(0).max(100).optional(),
   flatPerUnit: z.number().min(0).optional(),
   isActive: z.boolean().optional(),

@@ -47,6 +47,7 @@ type Agreement = {
   }>
   payments?: Array<{
     id: string; receiptNumber: string; amount: number; occurredAt: string
+    status?: string
     methods: Array<{ method: string; amount: number }>
   }>
   guarantors?: Array<{
@@ -170,10 +171,14 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
   const [uploading, setUploading] = useState(false)
   const [addingGuarantor, setAddingGuarantor] = useState(false)
   const [savingGuarantor, setSavingGuarantor] = useState(false)
+  const [settling, setSettling] = useState(false)
+  const [settlementQuote, setSettlementQuote] = useState<any>(null)
+  const [reversingId, setReversingId] = useState<string | null>(null)
   const [guarantorForm, setGuarantorForm] = useState({
     name: '', nic: '', phone: '', address: '', relationship: '',
   })
   const printableRef = useRef<HTMLDivElement>(null)
+  const payMethods = usePaymentMethods()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -258,6 +263,51 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
     }
   }
 
+  const loadSettlementQuote = async () => {
+    if (!row || !canEdit) return viewOnlyToast('hire purchase')
+    try {
+      const res: any = await hirePurchaseApi.earlySettlementQuote(row.id)
+      setSettlementQuote(res.data ?? res)
+    } catch (e: any) {
+      toast.error(e.message)
+    }
+  }
+
+  const confirmEarlySettlement = async () => {
+    if (!row || !settlementQuote) return
+    const method = payMethods[0]?.key || 'CASH'
+    setSettling(true)
+    try {
+      await hirePurchaseApi.earlySettlement(row.id, {
+        amount: settlementQuote.settlementAmount,
+        method,
+      })
+      toast.success('Early settlement completed')
+      setSettlementQuote(null)
+      reload()
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSettling(false)
+    }
+  }
+
+  const reversePayment = async (paymentId: string) => {
+    if (!canEdit) return viewOnlyToast('hire purchase')
+    const reason = window.prompt('Reason for reversing this payment?')
+    if (reason == null) return
+    setReversingId(paymentId)
+    try {
+      await hirePurchaseApi.reversePayment(paymentId, reason || 'Administrative reversal')
+      toast.success('Payment reversed')
+      reload()
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setReversingId(null)
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
@@ -285,6 +335,15 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
             {row && <StatusBadge value={row.status} />}
+            {canEdit && row && ['ACTIVE', 'DEFAULTED'].includes(row.status) && row.outstandingBalance > 0.001 && (
+              <button
+                type="button"
+                onClick={() => void loadSettlementQuote()}
+                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+              >
+                <Wallet size={12} /> Early settle
+              </button>
+            )}
             <button
               type="button"
               onClick={downloadPdf}
@@ -483,7 +542,9 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
                             <th className="px-3 py-2 text-left">Receipt</th>
                             <th className="px-3 py-2 text-left">Date</th>
                             <th className="px-3 py-2 text-left">Method</th>
+                            <th className="px-3 py-2 text-left">Status</th>
                             <th className="px-3 py-2 text-right">Amount</th>
+                            {canEdit && <th className="px-3 py-2 text-right print:hidden"> </th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -494,9 +555,24 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
                               <td className="px-3 py-2">
                                 {(Array.isArray(payment.methods) ? payment.methods : []).map(m => m.method).join(', ') || '—'}
                               </td>
-                              <td className="px-3 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                              <td className="px-3 py-2"><StatusBadge value={payment.status || 'COMPLETED'} /></td>
+                              <td className={`px-3 py-2 text-right font-semibold ${payment.status === 'REVERSED' ? 'text-slate-400 line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                 {formatCurrency(payment.amount)}
                               </td>
+                              {canEdit && (
+                                <td className="px-3 py-2 text-right print:hidden">
+                                  {payment.status !== 'REVERSED' && (
+                                    <button
+                                      type="button"
+                                      disabled={reversingId === payment.id}
+                                      onClick={() => void reversePayment(payment.id)}
+                                      className="text-[11px] font-semibold text-rose-600 hover:underline disabled:opacity-50"
+                                    >
+                                      {reversingId === payment.id ? '…' : 'Reverse'}
+                                    </button>
+                                  )}
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -657,6 +733,55 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
           </div>
         )}
       </div>
+
+      {settlementQuote && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" onClick={() => !settling && setSettlementQuote(null)}>
+          <div
+            className="w-full max-w-md rounded-2xl border p-5 shadow-xl space-y-4"
+            style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Early settlement quote</h3>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {settlementQuote.agreementNumber} · valid ~15 min
+                </p>
+              </div>
+              <button type="button" onClick={() => setSettlementQuote(null)} disabled={settling} className="p-1 rounded-lg hover:bg-black/5">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <div className="flex justify-between"><span>Book outstanding</span><span>{formatCurrency(settlementQuote.outstandingBalance)}</span></div>
+              <div className="flex justify-between"><span>Principal (open)</span><span>{formatCurrency(settlementQuote.principalOutstanding)}</span></div>
+              <div className="flex justify-between"><span>Accrued interest</span><span>{formatCurrency(settlementQuote.accruedInterest)}</span></div>
+              {Number(settlementQuote.interestRebate) > 0 && (
+                <div className="flex justify-between text-emerald-600"><span>Interest rebate</span><span>−{formatCurrency(settlementQuote.interestRebate)}</span></div>
+              )}
+              {Number(settlementQuote.penaltyOutstanding) > 0 && (
+                <div className="flex justify-between"><span>Penalties</span><span>{formatCurrency(settlementQuote.penaltyOutstanding)}</span></div>
+              )}
+              <div className="flex justify-between pt-2 border-t font-bold text-sm" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}>
+                <span>Pay now</span>
+                <span className="text-violet-600 dark:text-violet-400">{formatCurrency(settlementQuote.settlementAmount)}</span>
+              </div>
+            </div>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Collects via {payMethods[0]?.label || payMethods[0]?.id || 'CASH'}, waives unearned interest, and completes the agreement.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setSettlementQuote(null)} disabled={settling} className="btn-secondary flex-1 text-sm">
+                Close
+              </button>
+              <button type="button" onClick={() => void confirmEarlySettlement()} disabled={settling} className="btn-primary flex-1 text-sm inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
+                {settling ? <Loader2 size={14} className="animate-spin" /> : <Wallet size={14} />}
+                Collect & complete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -767,8 +892,17 @@ export function HpAgreementsPage({ fixedStatus }: { fixedStatus?: string } = {})
 
   const changeStatus = async (row: Agreement, status: string) => {
     if (!canEdit) return viewOnlyToast('hire purchase')
+    let reason: string | undefined
+    if (status === 'CANCELLED') {
+      const typed = window.prompt(
+        'Cancel this agreement? Reverse all collections first if any exist.\n\nCancellation reason:',
+      )
+      if (typed == null) return
+      reason = typed.trim() || 'Cancelled by staff'
+      if (!window.confirm(`Cancel ${row.agreementNumber}? Device returns to stock if linked to a POS sale.`)) return
+    }
     try {
-      await hirePurchaseApi.updateStatus(row.id, status)
+      await hirePurchaseApi.updateStatus(row.id, status, reason)
       toast.success(`Agreement ${status.toLowerCase()}`)
       reload()
     } catch (e: any) {
@@ -1305,6 +1439,7 @@ export function HpDuesPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [reminderChannel, setReminderChannel] = useState<'WHATSAPP' | 'SMS' | 'EMAIL'>('WHATSAPP')
   const [query, setQuery] = useState('')
   const [detail, setDetail] = useState<string | null>(null)
 
@@ -1330,8 +1465,8 @@ export function HpDuesPage() {
     if (!ids.length) return toast.error('No agreements in this due group')
     setSending(true)
     try {
-      const res: any = await hirePurchaseApi.sendReminders(ids)
-      toast.success(`${res.data?.sent ?? 0} reminders sent`)
+      const res: any = await hirePurchaseApi.sendReminders(ids, reminderChannel)
+      toast.success(`${res.data?.sent ?? 0} ${reminderChannel.toLowerCase()} reminders sent`)
       if (res.data?.failed) toast.error(`${res.data.failed} reminders failed`)
     } catch (e: any) {
       toast.error(e.message)
@@ -1385,10 +1520,22 @@ export function HpDuesPage() {
         title="Due Collections"
         subtitle="Today, tomorrow, upcoming and overdue installments"
         action={(
-          <button type="button" onClick={sendReminders} disabled={sending || !rows.length} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
-            {sending ? <Loader2 size={14} className="animate-spin" /> : <Smartphone size={14} />}
-            Send WhatsApp Reminders
-          </button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <select
+              value={reminderChannel}
+              onChange={e => setReminderChannel(e.target.value as 'WHATSAPP' | 'SMS' | 'EMAIL')}
+              className="text-xs rounded-lg border px-2.5 py-2 bg-transparent"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+            >
+              <option value="WHATSAPP">WhatsApp</option>
+              <option value="SMS">SMS</option>
+              <option value="EMAIL">Email</option>
+            </select>
+            <button type="button" onClick={sendReminders} disabled={sending || !rows.length} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+              {sending ? <Loader2 size={14} className="animate-spin" /> : <Smartphone size={14} />}
+              Send reminders
+            </button>
+          </div>
         )}
       />
 
@@ -1521,7 +1668,13 @@ export function HpReportsPage() {
 
   const download = async (type: string, format: 'csv' | 'xlsx' | 'pdf') => {
     try {
-      const res: any = await hirePurchaseApi.report(type)
+      const params: Record<string, string> = {}
+      if (type === 'customer-statement') {
+        const customerId = window.prompt('Optional: filter by customer ID (leave blank for all)')
+        if (customerId == null) return
+        if (customerId.trim()) params.customerId = customerId.trim()
+      }
+      const res: any = await hirePurchaseApi.report(type, Object.keys(params).length ? params : undefined)
       const rows = res.data?.rows ?? res.rows ?? []
       if (!rows.length) return toast.error('No report data')
       const flat = rows.map((row: any) =>
