@@ -637,6 +637,25 @@ export async function getInvoiceForTenant(tenantId: string, invoiceId: string) {
   return enriched
 }
 
+/** Admin: load subscription invoice by id (any tenant) */
+export async function getSubscriptionInvoiceById(invoiceId: string) {
+  const invoice = await prisma.subscriptionInvoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      payments: { orderBy: { createdAt: 'desc' } },
+      tenant: {
+        select: { id: true, name: true, ownerName: true, ownerEmail: true, plan: true },
+      },
+    },
+  })
+  if (!invoice) throw new AppError('Invoice not found', 404)
+  const [enriched] = await enrichInvoicesWithPayers(
+    [invoice],
+    invoice.tenant.ownerName || invoice.tenant.name,
+  )
+  return enriched
+}
+
 export type SubmitPaymentInput = {
   tenantId: string
   invoiceId: string

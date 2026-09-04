@@ -500,6 +500,33 @@ export async function rejectSubscriptionPaymentSlip(id: string, reason: string) 
   })
 }
 
+/** Download subscription invoice PDF (admin → any tenant) */
+export async function downloadSubscriptionInvoicePdf(invoiceId: string, invoiceNumber: string) {
+  const token = adminAuth.getToken()
+  if (!token) throw new Error('Not authenticated')
+  const res = await fetch(`${ADMIN_BASE}/subscriptions/invoices/${encodeURIComponent(invoiceId)}/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    let message = text || 'Failed to download invoice PDF'
+    try {
+      const json = JSON.parse(text) as { message?: string }
+      if (json.message) message = json.message
+    } catch { /* keep text */ }
+    throw new Error(message)
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${invoiceNumber || 'invoice'}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export type HelaposAdminSettings = {
   enabled: boolean
   mock: boolean

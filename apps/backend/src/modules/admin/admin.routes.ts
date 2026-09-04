@@ -43,12 +43,14 @@ import featureSuggestionsAdminRoutes from '../feature-suggestions/feature-sugges
 import {
   approveSubscriptionPayment,
   createSubscriptionInvoice,
+  getSubscriptionInvoiceById,
   listAdminPayments,
   rejectSubscriptionPayment,
   syncTenantPaymentDueFlags,
 } from '../billing/billing.service'
 import { getBillingConfig, upsertBillingConfig } from '../billing/billing-config'
 import { getHelaposAdminConfig, upsertHelaposConfig } from '../billing/helapos-config'
+import { buildSubscriptionInvoicePdf } from '../../utils/subscription-invoice-pdf'
 
 const router = Router()
 router.use(authenticate)
@@ -947,6 +949,38 @@ router.post('/payments/:id/reject', async (req: Request, res: Response, next: Ne
       reviewedByEmail: (req as any).user?.email,
     })
     sendSuccess(res, payment, 'Payment rejected')
+  } catch (e) { next(e) }
+})
+
+/** Download Hexalyte subscription invoice PDF (platform → tenant) */
+router.get('/subscriptions/invoices/:id/pdf', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const invoice = await getSubscriptionInvoiceById(req.params.id)
+    const config = await getBillingConfig()
+    const pdf = buildSubscriptionInvoicePdf({
+      invoiceNo: invoice.invoiceNumber,
+      shopName: invoice.tenant.name,
+      ownerName: invoice.tenant.ownerName,
+      ownerEmail: invoice.tenant.ownerEmail,
+      plan: invoice.plan,
+      months: invoice.months,
+      mrr: invoice.mrrSnapshot,
+      total: invoice.total,
+      periodStart: invoice.billingPeriodStart,
+      periodEnd: invoice.billingPeriodEnd,
+      issueDate: invoice.issueDate,
+      dueDate: invoice.dueDate,
+      status: invoice.status,
+      discount: invoice.discount,
+      tax: invoice.tax,
+      subtotal: invoice.subtotal,
+      paidAt: invoice.paidAt,
+      paidByName: (invoice as any).paidByName || null,
+      bank: config.bank,
+    })
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`)
+    res.send(pdf)
   } catch (e) { next(e) }
 })
 

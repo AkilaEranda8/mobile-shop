@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   CheckCircle2,
+  Download,
   ExternalLink,
   Loader2,
   Search,
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react'
 import {
   approveSubscriptionPaymentSlip,
+  downloadSubscriptionInvoicePdf,
   fetchBillingSettings,
   fetchSubscriptionPayments,
   rejectSubscriptionPaymentSlip,
@@ -57,6 +59,7 @@ export default function PaymentsPage() {
   const [showWebhookSecret, setShowWebhookSecret] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null)
 
   const flash = (kind: 'ok' | 'err', message: string) => {
     if (kind === 'ok') {
@@ -65,6 +68,18 @@ export default function PaymentsPage() {
     } else {
       setErr(message)
       setOk(null)
+    }
+  }
+
+  const downloadInvoice = async (invoiceId: string, invoiceNumber: string) => {
+    setDownloadingInvoiceId(invoiceId)
+    try {
+      await downloadSubscriptionInvoicePdf(invoiceId, invoiceNumber)
+      flash('ok', `Downloaded ${invoiceNumber}`)
+    } catch (e: any) {
+      flash('err', e?.message || 'Invoice download failed')
+    } finally {
+      setDownloadingInvoiceId(null)
     }
   }
 
@@ -536,6 +551,19 @@ export default function PaymentsPage() {
                     <td className="p-3">
                       <p className="font-semibold">{row.invoice.invoiceNumber}</p>
                       <p className="text-[11px] text-gray-500">Due {fmtDate(row.invoice.dueDate)}</p>
+                      <button
+                        type="button"
+                        disabled={downloadingInvoiceId === row.invoice.id}
+                        onClick={() => void downloadInvoice(row.invoice.id, row.invoice.invoiceNumber)}
+                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:underline disabled:opacity-50"
+                      >
+                        {downloadingInvoiceId === row.invoice.id ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : (
+                          <Download size={11} />
+                        )}
+                        Download PDF
+                      </button>
                     </td>
                     <td className="p-3 font-semibold">{money(row.amount)}</td>
                     <td className="p-3">{fmtDate(row.paymentDate)}</td>
@@ -558,28 +586,41 @@ export default function PaymentsPage() {
                     </td>
                     <td className="p-3 text-xs text-gray-500">{fmtDate(row.createdAt)}</td>
                     <td className="p-3">
-                      {row.status === 'PENDING' ? (
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            disabled={busyId === row.id}
-                            onClick={() => void approve(row)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg bg-emerald-600 text-white disabled:opacity-60"
-                          >
-                            <CheckCircle2 size={12} /> Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === row.id}
-                            onClick={() => { setRejectId(row.id); setRejectReason('') }}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border border-red-200 text-red-700"
-                          >
-                            <XCircle size={12} /> Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-gray-400">—</span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          disabled={downloadingInvoiceId === row.invoice.id}
+                          onClick={() => void downloadInvoice(row.invoice.id, row.invoice.invoiceNumber)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                        >
+                          {downloadingInvoiceId === row.invoice.id ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Download size={12} />
+                          )}
+                          Invoice
+                        </button>
+                        {row.status === 'PENDING' ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={busyId === row.id}
+                              onClick={() => void approve(row)}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg bg-emerald-600 text-white disabled:opacity-60"
+                            >
+                              <CheckCircle2 size={12} /> Approve
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyId === row.id}
+                              onClick={() => { setRejectId(row.id); setRejectReason('') }}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border border-red-200 text-red-700"
+                            >
+                              <XCircle size={12} /> Reject
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
