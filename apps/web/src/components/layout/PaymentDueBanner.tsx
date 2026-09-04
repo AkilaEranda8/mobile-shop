@@ -99,8 +99,11 @@ export function PaymentDueBanner() {
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span
-          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md flex-shrink-0 text-white"
-          style={{ background: suspended ? '#ef4444' : '#f59e0b' }}
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md flex-shrink-0"
+          style={{
+            background: suspended ? '#ef4444' : '#f59e0b',
+            color: '#ffffff',
+          }}
         >
           <CreditCard size={11} color="#ffffff" />
           {suspended ? 'Suspended' : grace ? 'Payment Overdue' : 'Payment Due'}
@@ -141,12 +144,14 @@ export function PaymentDueBanner() {
       </div>
       <Link
         href="/dashboard/settings?tab=billing"
-        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border flex-shrink-0 ${
+        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg flex-shrink-0 ${
           suspended
-            ? 'border-red-500/40 text-red-800 dark:text-red-200 hover:bg-red-500/10'
-            : 'border-amber-500/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/10'
+            ? 'bg-red-600 hover:bg-red-500'
+            : 'bg-amber-600 hover:bg-amber-500'
         }`}
+        style={{ color: '#ffffff' }}
       >
+        <CreditCard size={11} color="#ffffff" />
         Pay / LankaQR
       </Link>
       <button

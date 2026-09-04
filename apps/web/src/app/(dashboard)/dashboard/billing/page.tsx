@@ -510,17 +510,19 @@ export default function BillingPage() {
                     <button
                       type="button"
                       onClick={() => void openQrPay(current)}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm"
+                      style={{ color: '#ffffff' }}
                     >
-                      <QrCode size={14} /> Pay LankaQR
+                      <QrCode size={14} color="#ffffff" /> Pay LankaQR
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => openPay(current)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm"
+                    style={{ color: '#ffffff' }}
                   >
-                    <CreditCard size={14} /> Bank transfer
+                    <CreditCard size={14} color="#ffffff" /> Bank transfer
                   </button>
                 </>
               )}
@@ -748,17 +750,19 @@ export default function BillingPage() {
                       <button
                         type="button"
                         onClick={() => void openQrPay(current)}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm"
+                        style={{ color: '#ffffff' }}
                       >
-                        <QrCode size={14} /> Pay with LankaQR
+                        <QrCode size={14} color="#ffffff" /> Pay with LankaQR
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={() => openPay(current)}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-sky-600 text-white hover:bg-sky-500 shadow-sm"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 shadow-sm"
+                      style={{ color: '#ffffff' }}
                     >
-                      <CreditCard size={14} /> Bank Transfer
+                      <CreditCard size={14} color="#ffffff" /> Bank Transfer
                     </button>
                   </>
                 )}

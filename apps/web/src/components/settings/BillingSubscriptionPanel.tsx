@@ -540,7 +540,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
           </div>
 
           {tenant.paymentDue && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-500/35 dark:bg-amber-500/10 p-4 flex flex-wrap items-start gap-3">
+            <div className="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-500/35 dark:bg-amber-500/10 p-4 flex flex-wrap items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
               </div>
@@ -555,9 +555,10 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
               </div>
               <a
                 href="/dashboard/billing"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-500/40 dark:text-amber-200 dark:hover:bg-amber-500/10"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500"
+                style={{ color: '#ffffff' }}
               >
-                <CreditCard size={12} /> Open Billing
+                <CreditCard size={12} color="#ffffff" /> Open Billing
               </a>
             </div>
           )}
@@ -627,9 +628,10 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
           <button
             type="button"
             onClick={() => router.push('/dashboard/billing')}
-            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500"
+            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500"
+            style={{ color: '#ffffff' }}
           >
-            <CreditCard size={13} /> Open Billing & pay
+            <CreditCard size={13} color="#ffffff" /> Open Billing & pay
           </button>
         </div>
 
