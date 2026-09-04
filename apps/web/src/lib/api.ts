@@ -1296,7 +1296,7 @@ export const billingApi = {
       status: string
       notifyUrl: string
       expiresAt?: string
-    } }>(`/billing/invoices/${invoiceId}/helapos/qr`),
+    } }>(`/billing/invoices/${invoiceId}/helapos/qr`, {}),
   helaposQuote: (invoiceId: string) =>
     api.get<{ data: {
       invoiceId: string
@@ -1325,7 +1325,7 @@ export const billingApi = {
       invoice: { id: string; invoiceNumber: string; status: string; total: number; paidAt: string | null }
     } }>(`/billing/helapos/payments/${paymentId}`),
   helaposMockPay: (paymentId: string) =>
-    api.post<{ data: any }>(`/billing/helapos/payments/${paymentId}/mock-pay`),
+    api.post<{ data: any }>(`/billing/helapos/payments/${paymentId}/mock-pay`, {}),
   requestUpgrade: (targetPlan: 'STARTER' | 'PRO') =>
     api.post<{ data: {
       invoice: any
