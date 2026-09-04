@@ -38,7 +38,7 @@ export const POS_SHORTCUT_ACTIONS = [
 
 export type PosShortcutActionId = (typeof POS_SHORTCUT_ACTIONS)[number]
 
-export type PosUiThemeId = 'hexa-dark' | 'hexa-light' | 'studio'
+export type PosUiThemeId = 'hexa-dark' | 'hexa-light' | 'studio' | 'nova'
 
 export type PosUiSettings = {
   theme: PosUiThemeId
@@ -184,6 +184,7 @@ function coerce(raw: unknown): PosUiSettings {
   const theme: PosUiThemeId =
     s.theme === 'hexa-light' ? 'hexa-light'
     : s.theme === 'studio' ? 'studio'
+    : s.theme === 'nova' ? 'nova'
     : 'hexa-dark'
   return {
     ...DEFAULT_POS_UI_SETTINGS,

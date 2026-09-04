@@ -1244,7 +1244,12 @@ export default function SettingsPage() {
                           <option value="hexa-dark">Hexa Dark</option>
                           <option value="hexa-light">Hexa Light</option>
                           <option value="studio">Studio Modern</option>
+                          <option value="nova">Nova Counter</option>
                         </select>
+                        <p className="text-[10px] opacity-50">
+                          Preview all skins:{' '}
+                          <a href="/dashboard/pos/templates" className="underline underline-offset-2">POS templates</a>
+                        </p>
                       </div>
                       <div className="min-w-0 space-y-1.5">
                         <label className="block text-xs" style={{ color: 'var(--text-muted)' }}>Accent color</label>

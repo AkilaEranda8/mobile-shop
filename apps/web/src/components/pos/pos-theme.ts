@@ -1,6 +1,6 @@
-/** Shared POS chrome color tokens (Hexa + Studio skins). */
+/** Shared POS chrome color tokens (Hexa + Studio + Nova skins). */
 
-export type PosThemeId = 'hexa-dark' | 'hexa-light' | 'studio'
+export type PosThemeId = 'hexa-dark' | 'hexa-light' | 'studio' | 'nova'
 
 export type PosThemeTokens = {
   bg: string
@@ -92,6 +92,30 @@ const STUDIO: PosThemeTokens = {
   tealDark: '#0F766E',
 }
 
+/** Top-bar counter template — blue accent, no left rail (screenshot style). */
+const NOVA: PosThemeTokens = {
+  bg: '#0A0C10',
+  panel: '#0E1117',
+  card: '#151A22',
+  cardHover: '#1B2230',
+  border: '#2A3344',
+  muted: '#9CA3AF',
+  text: '#FFFFFF',
+  /* purple slot = primary accent for shared POS cards / checkout */
+  purple: '#3B82F6',
+  purpleDark: '#2563EB',
+  green: '#22C55E',
+  greenDark: '#16A34A',
+  blue: '#3B82F6',
+  blueDark: '#2563EB',
+  amber: '#F59E0B',
+  amberDark: '#D97706',
+  red: '#EF4444',
+  redDark: '#DC2626',
+  teal: '#0D9488',
+  tealDark: '#0F766E',
+}
+
 function isHexAccent(v?: string): v is string {
   return !!v && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(v)
 }
@@ -99,6 +123,7 @@ function isHexAccent(v?: string): v is string {
 export function resolvePosTheme(theme?: PosThemeId | string, accent?: string): PosThemeTokens {
   const base =
     theme === 'studio' ? STUDIO
+    : theme === 'nova' ? NOVA
     : theme === 'hexa-light' ? HEXA_LIGHT
     : HEXA_DARK
 
@@ -107,6 +132,7 @@ export function resolvePosTheme(theme?: PosThemeId | string, accent?: string): P
     ...base,
     purple: accent,
     purpleDark: accent,
+    ...(theme === 'nova' ? { blue: accent, blueDark: accent } : {}),
   }
 }
 

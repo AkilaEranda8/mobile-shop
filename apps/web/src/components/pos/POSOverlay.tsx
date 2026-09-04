@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { HexaPosLayout, categoryIcon } from './HexaPosLayout'
 import { StudioPosLayout } from './StudioPosLayout'
+import { NovaPosLayout } from './NovaPosLayout'
 import { POS_THEME, syncPosThemeRuntime } from './pos-theme'
 import { PosPinGate, type PosPinGateMode } from './PosPinGate'
 import { StaffPinModal } from '@/components/staff/StaffPinModal'
@@ -465,11 +466,23 @@ function PriceModeToggle({
     <button
       type="button"
       onClick={() => onChange(key)}
-      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200"
+      className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
       style={mode === key
-        ? { background: POS_THEME.card, color: POS_THEME.text, boxShadow: '0 1px 3px rgba(0,0,0,0.35)', border: `1px solid ${POS_THEME.border}` }
-        : { background: 'transparent', color: POS_THEME.muted, border: '1px solid transparent' }}
+        ? {
+            background: POS_THEME.purple,
+            color: '#fff',
+            boxShadow: `0 0 0 1px ${POS_THEME.purple}, 0 4px 12px ${POS_THEME.purple}40`,
+            border: '1px solid transparent',
+            outlineColor: POS_THEME.purple,
+          }
+        : {
+            background: 'transparent',
+            color: POS_THEME.muted,
+            border: '1px solid transparent',
+            outlineColor: POS_THEME.purple,
+          }}
       title={title}
+      aria-pressed={mode === key}
     >
       {label}
     </button>
@@ -730,6 +743,8 @@ function VariationPickerModal({
     : catalogPrice
   const addQty = qtyLocked ? 1 : (qtyValid ? parsedQty : 1)
   const displayPrice = unitPrice * addQty
+  const novaSkin =
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-pos-skin') === 'nova'
 
   return (
     <div
@@ -741,10 +756,12 @@ function VariationPickerModal({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Configure ${product.name}`}
+        aria-label={novaSkin ? `Set Sale Price — ${product.name}` : `Configure ${product.name}`}
         className="relative w-full sm:max-w-lg max-h-[min(88dvh,680px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
         style={{
-          background: `radial-gradient(720px 220px at 50% -20%, ${POS_THEME.purple}1a 0%, transparent 55%), ${POS_THEME.card}`,
+          background: novaSkin
+            ? POS_THEME.card
+            : `radial-gradient(720px 220px at 50% -20%, ${POS_THEME.purple}1a 0%, transparent 55%), ${POS_THEME.card}`,
           borderColor: POS_THEME.border,
           boxShadow: `0 20px 50px rgba(0,0,0,0.45), 0 0 0 1px ${POS_THEME.border}`,
         }}
@@ -766,6 +783,11 @@ function VariationPickerModal({
             )}
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
+            {novaSkin && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-0.5" style={{ color: POS_THEME.blue }}>
+                Set Sale Price
+              </p>
+            )}
             <p className="text-sm sm:text-[15px] font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>{product.name}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {selected && (
@@ -1279,7 +1301,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
     ?? 'CASH'
   const posUi = usePosUiSettings()
   useMemo(() => syncPosThemeRuntime(posUi.theme, posUi.accent), [posUi.theme, posUi.accent])
-  const PosShell = posUi.theme === 'studio' ? StudioPosLayout : HexaPosLayout
+  const PosShell =
+    posUi.theme === 'studio' ? StudioPosLayout
+    : posUi.theme === 'nova' ? NovaPosLayout
+    : HexaPosLayout
   const payMethodsRef = useRef(payMethods)
   useEffect(() => {
     payMethodsRef.current = payMethods
@@ -3287,6 +3312,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (id === 'cash') { setCashFlowMode('IN'); setShowCashFlow(true); return }
     if (id === 'returns') { setActiveNavId('returns'); setShowReturnModal(true); return }
     if (id === 'reload') { setSelectedCategory('RELOAD'); setActiveNavId('products'); return }
+    if (id === 'newSale') { handleNewSale(); return }
+    if (id === 'hold') { handleHoldSales(); return }
     const routes: Record<string, string> = {
       repairs: '/dashboard/repairs',
       purchase: '/purchase-invoice',
@@ -3302,7 +3329,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       onClose()
       router.push(routes[id])
     }
-  }, [onClose, router, openRecentSales, openCustomerPicker, cart.length, posUi.behavior.confirmLeaveWithCart])
+  }, [onClose, router, openRecentSales, openCustomerPicker, cart.length, posUi.behavior.confirmLeaveWithCart, handleNewSale, handleHoldSales])
 
   const posNavItems = useMemo(
     () => buildPosNavItems({ hasIMEI, hasFinance, hasDailyReload }),
