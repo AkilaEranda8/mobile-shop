@@ -163,8 +163,9 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
       }}
     >
       {/* ── Command bar ── */}
-      <header
-        className="shrink-0 border-b z-10"
+      <div
+        role="banner"
+        className="nova-command shrink-0 border-b z-10"
         style={{ borderColor: T.border, background: T.panel }}
       >
         <div className="flex items-center gap-2 px-2.5 sm:px-3 py-2 w-full min-w-0">
@@ -181,19 +182,18 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
               <X size={15} />
             </button>
 
-            <div className="hidden sm:flex items-center gap-2.5 min-w-0 pl-0.5">
+            <div className="nova-brand hidden sm:flex items-center gap-2.5 min-w-0">
               <div
-                className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
-                style={{
-                  background: T.blue,
-                  boxShadow: `0 0 0 1px ${T.blueDark}88, 0 6px 16px -6px ${T.blue}66`,
-                }}
+                className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
+                style={{ background: T.blue }}
                 aria-hidden
               >
-                <ShoppingCart size={16} className="text-white" />
+                <ShoppingCart size={15} style={{ color: '#ffffff' }} />
               </div>
-              <div className="min-w-0 leading-tight">
-                <p className="text-[13px] font-extrabold tracking-tight truncate">Hexa POS</p>
+              <div className="min-w-0 leading-tight pr-1">
+                <p className="text-[13px] font-extrabold tracking-tight truncate" style={{ color: '#ffffff' }}>
+                  Hexa POS
+                </p>
                 <p
                   className="text-[10px] font-medium truncate max-w-[10rem]"
                   style={{ color: T.muted }}
@@ -324,7 +324,7 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
           </div>
         </div>
         {filtersPanel ? <div className="nova-filters border-t" style={{ borderColor: T.border }}>{filtersPanel}</div> : null}
-      </header>
+      </div>
 
       {/* ── Body ── */}
       <div className="flex-1 flex min-h-0 min-w-0 relative">

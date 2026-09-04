@@ -514,6 +514,14 @@ html:not(.dark) header {
   border-bottom: 1px solid rgba(0,0,0,0.08);
   box-shadow: 0 1px 6px rgba(0,0,0,0.07);
 }
+/* POS shells stay dark even when the app theme is light */
+html:not(.dark) [data-pos="dark"] header,
+html:not(.dark) [data-pos="nova"] header,
+html:not(.dark) [data-pos="studio"] header {
+  background: inherit !important;
+  border-bottom-color: inherit !important;
+  box-shadow: none !important;
+}
 html:not(.dark) aside {
   background: #f8fafc !important;
   border-right: 1px solid rgba(0,0,0,0.08);
@@ -968,6 +976,17 @@ html:not(.dark) [data-pos="dark"] {
   background-color: #0B0E14 !important;
   color: #ffffff !important;
 }
+html:not(.dark) [data-pos="nova"] {
+  background-color: #0A0C10 !important;
+  color: #ffffff !important;
+}
+html:not(.dark) [data-pos="nova"] .text-white,
+html:not(.dark) [data-pos="nova"] .text-white *:not(.pos-price) { color: #ffffff !important; }
+html:not(.dark) [data-pos="nova"] .bg-white\/3 { background-color: rgba(255,255,255,0.03) !important; }
+html:not(.dark) [data-pos="nova"] .bg-white\/5 { background-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-pos="nova"] .hover\:bg-white\/5:hover { background-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-pos="nova"] .border-white\/5 { border-color: rgba(255,255,255,0.05) !important; }
+html:not(.dark) [data-pos="nova"] .border-white\/10 { border-color: rgba(255,255,255,0.10) !important; }
 html:not(.dark) [data-pos="dark"] aside {
   background: #161B22 !important;
   box-shadow: none !important;

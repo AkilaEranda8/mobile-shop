@@ -1,20 +1,42 @@
-/* Nova Counter skin — visual polish for slotted POS chrome only.
-   Scoped to [data-pos="nova"] / [data-pos-skin="nova"]. No logic changes. */
+/* Nova Counter skin — modern dark retail POS.
+   Scoped to [data-pos="nova"] / [data-pos-skin="nova"]. Visual only. */
 
 [data-pos='nova'] {
   --nova-radius: 12px;
   --nova-radius-lg: 14px;
   --nova-ease: 150ms ease;
+  --nova-surface: #12161e;
+  --nova-elevated: #171c26;
+  color-scheme: dark;
+}
+
+/* Command bar — never inherit app light header white */
+[data-pos='nova'] .nova-command {
+  background: #0c1017 !important;
+  border-bottom: 1px solid #252b36 !important;
+  box-shadow: none !important;
+}
+
+[data-pos='nova'] .nova-brand {
+  background: #151a23;
+  border: 1px solid #2a3344;
+  border-radius: 12px;
+  padding: 0.35rem 0.65rem 0.35rem 0.35rem;
 }
 
 /* Category pills */
+[data-pos='nova'] .nova-category {
+  background: #0c1017 !important;
+  border-bottom: 1px solid #252b36 !important;
+}
+
 [data-pos='nova'] .nova-category :is(button) {
   transition: background-color var(--nova-ease), border-color var(--nova-ease), color var(--nova-ease),
     box-shadow var(--nova-ease), transform var(--nova-ease);
 }
 
 [data-pos='nova'] .nova-category :is(button):hover {
-  filter: brightness(1.08);
+  filter: brightness(1.1);
 }
 
 [data-pos='nova'] .nova-category :is(button):focus-visible {
@@ -25,6 +47,8 @@
 /* Product grid cards */
 [data-pos='nova'] .nova-products .group.cursor-pointer {
   border-radius: 14px !important;
+  background: var(--nova-elevated) !important;
+  border-color: #2a3344 !important;
   transition: border-color var(--nova-ease), box-shadow var(--nova-ease), transform var(--nova-ease),
     background-color var(--nova-ease) !important;
 }
@@ -35,9 +59,15 @@
   transform: translateY(-1px);
 }
 
+/* Keep product photos from flashing white into the dark UI */
+[data-pos='nova'] .nova-products .group.cursor-pointer img {
+  background: #0e1219;
+}
+
 [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[5\/3\],
 [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[16\/10\] {
-  max-height: 7.5rem;
+  max-height: 7.25rem;
+  background: #0e1219;
 }
 
 [data-pos='nova'] .nova-products .group.cursor-pointer button:focus-visible {
@@ -48,6 +78,7 @@
 /* List-row product items */
 [data-pos='nova'] .nova-products .flex.items-center.gap-3.rounded-xl {
   border-radius: 12px !important;
+  background: var(--nova-elevated) !important;
   transition: border-color var(--nova-ease), background-color var(--nova-ease);
 }
 
@@ -57,15 +88,17 @@
 
 /* Cart panel workspace */
 [data-pos='nova'] .nova-cart {
-  background: #0e1219 !important;
+  background: #0b0e14 !important;
+  border-color: #252b36 !important;
 }
 
 [data-pos='nova'] .nova-cart > div {
-  background: transparent;
+  background: transparent !important;
 }
 
 [data-pos='nova'] .nova-cart .rounded-xl.border {
   border-radius: 12px !important;
+  background: var(--nova-elevated) !important;
   transition: border-color var(--nova-ease), background-color var(--nova-ease);
 }
 
@@ -73,22 +106,23 @@
   border-color: color-mix(in srgb, var(--pos-accent, #3b82f6) 28%, transparent) !important;
 }
 
-/* Checkout / primary cart CTAs that use brand gradient → solid blue on Nova */
 [data-pos='nova'] .nova-cart button[style*='brand-gradient'],
 [data-pos='nova'] .nova-cart button[style*='var(--brand-gradient)'] {
   background: linear-gradient(180deg, #3b82f6, #2563eb) !important;
   box-shadow: 0 6px 18px -6px rgba(37, 99, 235, 0.55) !important;
 }
 
-/* Bottom action bar */
+/* Bottom action bar — compact modern strip */
 [data-pos='nova'] .nova-bottom {
-  gap: 0.5rem !important;
-  padding-top: 0.5rem !important;
-  padding-bottom: 0.5rem !important;
+  gap: 0.45rem !important;
+  padding-top: 0.45rem !important;
+  padding-bottom: 0.45rem !important;
+  background: #0c1017 !important;
+  border-top: 1px solid #252b36 !important;
 }
 
 [data-pos='nova'] .nova-bottom > button {
-  height: 2.5rem !important;
+  height: 2.4rem !important;
   border-radius: 10px !important;
   font-size: 11px !important;
   letter-spacing: 0.01em;
@@ -108,16 +142,28 @@
   outline-offset: 2px;
 }
 
-/* Pagination strip */
+[data-pos='nova'] .nova-pagination {
+  background: #0c1017 !important;
+  border-top: 1px solid #252b36 !important;
+}
+
 [data-pos='nova'] .nova-pagination button:focus-visible {
   outline: 2px solid var(--pos-accent, #3b82f6);
   outline-offset: 1px;
+}
+
+[data-pos='nova'] .nova-customer button,
+[data-pos='nova'] .nova-customer input {
+  background: #151a23 !important;
+  border-color: #2a3344 !important;
+  color: #ffffff !important;
 }
 
 /* Sale price / variation modal while Nova skin is active */
 [data-pos-skin='nova'] [role='dialog'][aria-modal='true'] {
   border-radius: 16px !important;
   border-color: #2a3344 !important;
+  background: #151a23 !important;
   box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(59, 130, 246, 0.12) !important;
 }
 
