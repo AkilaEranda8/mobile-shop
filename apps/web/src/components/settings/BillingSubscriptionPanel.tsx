@@ -91,9 +91,9 @@ const FALLBACK_PLANS: BillingPlan[] = [
     label: 'Pro',
     price: 'Rs. 4,999',
     period: '/month',
-    color: '#8b5cf6',
-    bg: 'rgba(139,92,246,0.08)',
-    border: 'rgba(139,92,246,0.30)',
+    color: '#0d9488',
+    bg: 'rgba(13,148,136,0.08)',
+    border: 'rgba(13,148,136,0.30)',
     features: [
       'Up to 5 Branches',
       'Up to 15 Users',
@@ -226,7 +226,7 @@ function UsageMeter({
             width: `${unlimited ? 18 : pct}%`,
             background: over
               ? '#ef4444'
-              : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+              : 'linear-gradient(90deg, #10b981, #0d9488)',
           }}
         />
       </div>
@@ -437,7 +437,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
   if (loading || !tenant) {
     return (
       <div className="card p-10 flex justify-center">
-        <Loader2 size={22} className="animate-spin text-violet-400" />
+        <Loader2 size={22} className="animate-spin text-emerald-400" />
       </div>
     )
   }
@@ -448,13 +448,13 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       <section className="card relative overflow-hidden !p-0">
         <div
           className="pointer-events-none absolute -right-6 -top-10 h-44 w-44 rounded-full opacity-40 blur-2xl dark:opacity-25"
-          style={{ background: 'rgba(99,102,241,0.22)' }}
+          style={{ background: 'rgba(16,185,129,0.22)' }}
         />
         <div className="relative p-5 sm:p-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2 py-1 rounded-md bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/25">
                   <CreditCard size={11} /> Billing & Subscription
                 </span>
                 <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md border ${STATUS_STYLE[tenant.status] ?? STATUS_STYLE.ACTIVE}`}>
@@ -504,7 +504,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
           <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50/90 dark:bg-black/25 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                <Calendar size={14} className="text-violet-600 dark:text-violet-300" />
+                <Calendar size={14} className="text-emerald-600 dark:text-emerald-300" />
                 {tenant.subscriptionEndsAt
                   ? `Renews ${fmtDate(tenant.subscriptionEndsAt)}`
                   : 'No renewal date set'}
@@ -529,7 +529,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                   background:
                     renewIn != null && renewIn <= 7
                       ? 'linear-gradient(90deg,#f59e0b,#ef4444)'
-                      : 'linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4)',
+                      : 'linear-gradient(90deg,#10b981,#0d9488,#06b6d4)',
                 }}
               />
             </div>
@@ -575,7 +575,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-50 border border-gray-200 dark:bg-[var(--bg-card)] dark:border-white/10"
             >
-              <Zap size={16} className="text-violet-600 dark:text-violet-300" />
+              <Zap size={16} className="text-emerald-600 dark:text-emerald-300" />
             </div>
             <p className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-slate-400">
               Plan power
@@ -614,8 +614,8 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       <section className="card overflow-hidden !p-0">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-              <FileText size={16} className="text-violet-600 dark:text-violet-300" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <FileText size={16} className="text-emerald-600 dark:text-emerald-300" />
             </div>
             <div>
               <h3 className="text-base font-bold text-gray-900 dark:text-white">Invoice history</h3>
@@ -627,7 +627,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
           <button
             type="button"
             onClick={() => router.push('/dashboard/billing')}
-            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-500"
+            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500"
           >
             <CreditCard size={13} /> Open Billing & pay
           </button>
@@ -720,7 +720,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard/billing')}
-                  className="font-semibold text-violet-600 dark:text-violet-300 hover:underline"
+                  className="font-semibold text-emerald-600 dark:text-emerald-300 hover:underline"
                 >
                   See all on Billing
                 </button>
@@ -734,7 +734,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       <section className="card p-5 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-300">Plans</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">Plans</p>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               Choose what fits your shop
             </h3>
@@ -750,7 +750,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
               type="button"
               onClick={() => setView('cards')}
               className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition ${
-                view === 'cards' ? 'bg-violet-600 text-white' : ''
+                view === 'cards' ? 'bg-emerald-600 text-white' : ''
               }`}
               style={view !== 'cards' ? { color: 'var(--text-muted)' } : undefined}
             >
@@ -760,7 +760,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
               type="button"
               onClick={() => setView('compare')}
               className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition ${
-                view === 'compare' ? 'bg-violet-600 text-white' : ''
+                view === 'compare' ? 'bg-emerald-600 text-white' : ''
               }`}
               style={view !== 'compare' ? { color: 'var(--text-muted)' } : undefined}
             >
@@ -793,7 +793,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                   }
                 >
                   {plan.popular && !isCurrent && (
-                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-violet-600 text-white tracking-wide inline-flex items-center gap-1">
+                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white tracking-wide inline-flex items-center gap-1">
                       <Sparkles size={9} /> Popular
                     </span>
                   )}
@@ -874,7 +874,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                         {p.price}
                       </div>
                       {p.key === currentKey && (
-                        <span className="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white">
+                        <span className="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white">
                           YOU
                         </span>
                       )}
@@ -1056,7 +1056,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={qrImage} alt="LankaQR" className="w-[220px] h-[220px] rounded-lg" />
                         ) : (
-                          <Loader2 className="animate-spin text-violet-500" size={28} />
+                          <Loader2 className="animate-spin text-emerald-500" size={28} />
                         )}
                         <p className="text-sm font-bold text-gray-900 dark:text-white">
                           {formatCurrency(qrSession.customerPayableAmount ?? qrSession.amount)}
@@ -1132,7 +1132,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                         const fee = calculateHelaposCustomerPayable(net)
                         if (!fee.feeApplies) return null
                         return (
-                          <div className="rounded-xl border border-violet-200 dark:border-violet-500/25 bg-violet-50/80 dark:bg-violet-500/10 px-3 py-2.5 text-xs space-y-1.5">
+                          <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/25 bg-emerald-50/80 dark:bg-emerald-500/10 px-3 py-2.5 text-xs space-y-1.5">
                             <div className="flex justify-between gap-2 text-gray-600 dark:text-slate-300">
                               <span>Subscription</span>
                               <span className="font-semibold">{formatCurrency(fee.subscriptionAmount)}</span>
@@ -1154,7 +1154,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                             type="button"
                             disabled={upgradeBusy}
                             onClick={() => void payUpgradeWithQr()}
-                            className="inline-flex items-center justify-center gap-2 text-sm font-bold py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-60"
+                            className="inline-flex items-center justify-center gap-2 text-sm font-bold py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60"
                           >
                             {upgradeBusy ? <Loader2 size={15} className="animate-spin" /> : <QrCode size={15} />}
                             Pay with LankaQR

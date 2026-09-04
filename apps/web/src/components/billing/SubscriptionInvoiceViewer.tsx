@@ -92,7 +92,7 @@ export default function SubscriptionInvoiceViewer({ invoice, onClose, onDownload
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 print:hidden">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700">View Invoice</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">View Invoice</p>
             <p className="text-sm font-bold text-gray-900">{invoice.invoiceNumber}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -107,7 +107,7 @@ export default function SubscriptionInvoiceViewer({ invoice, onClose, onDownload
               type="button"
               disabled={downloading}
               onClick={onDownload}
-              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
             >
               <Download size={13} /> {downloading ? 'Downloading…' : 'Download PDF'}
             </button>

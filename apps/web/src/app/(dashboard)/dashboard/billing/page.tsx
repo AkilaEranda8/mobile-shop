@@ -518,7 +518,7 @@ export default function BillingPage() {
                   <button
                     type="button"
                     onClick={() => openPay(current)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-[var(--brand-primary,#6366f1)] text-white hover:opacity-90 shadow-sm"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm"
                   >
                     <CreditCard size={14} /> Bank transfer
                   </button>
@@ -756,8 +756,7 @@ export default function BillingPage() {
                     <button
                       type="button"
                       onClick={() => openPay(current)}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl text-white shadow-sm hover:opacity-90"
-                      style={{ background: 'var(--brand-primary, #6366f1)' }}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-sky-600 text-white hover:bg-sky-500 shadow-sm"
                     >
                       <CreditCard size={14} /> Bank Transfer
                     </button>

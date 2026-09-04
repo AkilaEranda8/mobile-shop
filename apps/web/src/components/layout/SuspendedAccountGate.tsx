@@ -95,7 +95,7 @@ export function SuspendedAccountGate({ children }: { children: React.ReactNode }
           <button
             type="button"
             onClick={() => router.replace('/dashboard/settings?tab=billing&suspended=1')}
-            className="inline-flex items-center justify-center gap-2 w-full text-sm font-bold py-2.5 rounded-xl bg-violet-600 text-white"
+            className="inline-flex items-center justify-center gap-2 w-full text-sm font-bold py-2.5 rounded-xl bg-emerald-600 text-white"
           >
             <CreditCard size={15} /> Go to Settings → Billing
           </button>
