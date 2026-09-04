@@ -41,22 +41,28 @@ export async function listDealers(
     isActive?: boolean
   },
 ) {
+  const and: Prisma.DealerWhereInput[] = []
+  if (opts.branchId) {
+    // Explicit branch still includes tenant-wide (null branch) dealers
+    and.push({ OR: [{ branchId: opts.branchId }, { branchId: null }] })
+  }
+  if (opts.search) {
+    and.push({
+      OR: [
+        { legalName: { contains: opts.search, mode: 'insensitive' } },
+        { tradingName: { contains: opts.search, mode: 'insensitive' } },
+        { dealerCode: { contains: opts.search, mode: 'insensitive' } },
+        { phone: { contains: opts.search, mode: 'insensitive' } },
+        { email: { contains: opts.search, mode: 'insensitive' } },
+      ],
+    })
+  }
+
   const where: Prisma.DealerWhereInput = {
     tenantId,
     ...(opts.status ? { status: opts.status } : {}),
-    ...(opts.branchId ? { branchId: opts.branchId } : {}),
     ...(typeof opts.isActive === 'boolean' ? { isActive: opts.isActive } : {}),
-    ...(opts.search
-      ? {
-          OR: [
-            { legalName: { contains: opts.search, mode: 'insensitive' } },
-            { tradingName: { contains: opts.search, mode: 'insensitive' } },
-            { dealerCode: { contains: opts.search, mode: 'insensitive' } },
-            { phone: { contains: opts.search, mode: 'insensitive' } },
-            { email: { contains: opts.search, mode: 'insensitive' } },
-          ],
-        }
-      : {}),
+    ...(and.length ? { AND: and } : {}),
   }
 
   const [data, total] = await Promise.all([

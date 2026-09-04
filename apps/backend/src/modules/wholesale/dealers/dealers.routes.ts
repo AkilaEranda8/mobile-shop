@@ -3,7 +3,6 @@ import type { DealerStatus } from '@prisma/client'
 import { validate } from '../../../middleware/validate.middleware'
 import { sendPaginated, sendSuccess } from '../../../utils/response'
 import { getPagination } from '../../../utils/pagination'
-import { effectiveBranchId } from '../../../utils/active-branch'
 import {
   createDealerSchema,
   updateDealerSchema,
@@ -19,8 +18,10 @@ dealersRouter.get('/', async (req: Request, res: Response, next: NextFunction) =
     const status = req.query.status as DealerStatus | undefined
     const isActive =
       req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined
-    const branchId =
-      (req.query.branchId as string | undefined) || effectiveBranchId(req) || undefined
+    // Dealers are tenant master data. Only filter by branch when the client
+    // explicitly asks (?branchId=...). Auto-scoping to the active branch hid
+    // dealers created with branchId=null (common for B2B counter flow).
+    const branchId = (req.query.branchId as string | undefined)?.trim() || undefined
     const { data, total } = await dealersService.listDealers(req.tenantId!, {
       skip,
       limit,
