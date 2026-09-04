@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Loader2, MessageCircle, Send, X, Users } from 'lucide-react'
+import { Loader2, MessageCircle, Send, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authStorage } from '@/lib/auth'
 import {
@@ -35,7 +35,6 @@ export function SupportLiveChatPanel({ embedded = false, className = '' }: Props
   const [agents, setAgents] = useState<SupportAgent[]>([])
   const [agentsLoading, setAgentsLoading] = useState(true)
   const [selectedAgent, setSelectedAgent] = useState<SupportAgent | null>(null)
-  const [lottieData, setLottieData] = useState<object | null>(null)
   const [session, setSession] = useState<SupportChatSession | null>(null)
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [text, setText] = useState('')
@@ -64,13 +63,6 @@ export function SupportLiveChatPanel({ embedded = false, className = '' }: Props
     const t = setInterval(() => void loadAgents(), 15000)
     return () => clearInterval(t)
   }, [loadAgents])
-
-  useEffect(() => {
-    void fetch('/lottie/customer-support.json')
-      .then((r) => r.json())
-      .then(setLottieData)
-      .catch(() => setLottieData(null))
-  }, [])
 
   const connectStream = useCallback((sessionId: string) => {
     esRef.current?.close()
@@ -247,15 +239,14 @@ export function SupportLiveChatPanel({ embedded = false, className = '' }: Props
         <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
           <div className="relative flex flex-col items-center px-4 pt-4 pb-2">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-sky-500/10 to-transparent" />
-            {lottieData ? (
-              <div className="h-28 w-28 animate-[scFadeIn_0.5s_ease]">
-                <Lottie animationData={lottieData} loop autoplay style={{ width: '100%', height: '100%' }} />
-              </div>
-            ) : (
-              <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-sky-100 text-sky-600">
-                <Users size={28} />
-              </div>
-            )}
+            <div className="h-28 w-28 animate-[scFadeIn_0.5s_ease]">
+              <Lottie
+                src="/lottie/customer-support.json"
+                loop
+                autoplay
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
             <p className="text-center text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               Hexalyte Support Team
             </p>
