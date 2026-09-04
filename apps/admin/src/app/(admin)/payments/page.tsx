@@ -8,7 +8,6 @@ import {
   Search,
   XCircle,
 } from 'lucide-react'
-import toast from 'react-hot-toast'
 import {
   approveSubscriptionPaymentSlip,
   fetchBillingSettings,
@@ -50,6 +49,18 @@ export default function PaymentsPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [settings, setSettings] = useState<BillingSettings | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [ok, setOk] = useState<string | null>(null)
+
+  const flash = (kind: 'ok' | 'err', message: string) => {
+    if (kind === 'ok') {
+      setOk(message)
+      setErr(null)
+    } else {
+      setErr(message)
+      setOk(null)
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -64,7 +75,7 @@ export default function PaymentsPage() {
       setRows(Array.isArray(payments) ? payments : (payments as any)?.data ?? [])
       if (billing) setSettings((billing as any)?.data ?? billing)
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to load payments')
+      flash('err', e?.message || 'Failed to load payments')
     } finally {
       setLoading(false)
     }
@@ -82,10 +93,10 @@ export default function PaymentsPage() {
     setBusyId(row.id)
     try {
       await approveSubscriptionPaymentSlip(row.id)
-      toast.success('Payment approved')
+      flash('ok', 'Payment approved')
       await load()
     } catch (e: any) {
-      toast.error(e?.message || 'Approve failed')
+      flash('err', e?.message || 'Approve failed')
     } finally {
       setBusyId(null)
     }
@@ -93,18 +104,18 @@ export default function PaymentsPage() {
 
   const reject = async () => {
     if (!rejectId || rejectReason.trim().length < 3) {
-      toast.error('Enter a rejection reason')
+      flash('err', 'Enter a rejection reason')
       return
     }
     setBusyId(rejectId)
     try {
       await rejectSubscriptionPaymentSlip(rejectId, rejectReason.trim())
-      toast.success('Payment rejected')
+      flash('ok', 'Payment rejected')
       setRejectId(null)
       setRejectReason('')
       await load()
     } catch (e: any) {
-      toast.error(e?.message || 'Reject failed')
+      flash('err', e?.message || 'Reject failed')
     } finally {
       setBusyId(null)
     }
@@ -116,9 +127,9 @@ export default function PaymentsPage() {
     try {
       const updated = await updateBillingSettings(settings)
       setSettings((updated as any)?.data ?? updated)
-      toast.success('Billing settings saved')
+      flash('ok', 'Billing settings saved')
     } catch (e: any) {
-      toast.error(e?.message || 'Save failed')
+      flash('err', e?.message || 'Save failed')
     } finally {
       setSavingSettings(false)
     }
@@ -132,6 +143,13 @@ export default function PaymentsPage() {
           Review bank-transfer slips and LankaQR (HelaPOS) payments. Approving marks the invoice paid and reactivates the tenant when nothing else is outstanding.
         </p>
       </div>
+
+      {err && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>
+      )}
+      {ok && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{ok}</div>
+      )}
 
       {/* Bank / grace settings */}
       {settings && (
