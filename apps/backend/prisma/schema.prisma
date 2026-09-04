@@ -460,6 +460,9 @@ model Tenant {
   repairFaultOptions          RepairFaultOption[]
   featureSuggestions          FeatureSuggestion[]
   userNotifications           UserNotification[]
+  supportTickets              SupportTicket[]
+  supportChatSessions         SupportChatSession[]
+  customerServiceTickets      CustomerServiceTicket[]
   hirePurchaseAgreements      HirePurchaseAgreement[]
   hirePurchaseInstallments    HirePurchaseInstallment[]
   hirePurchasePayments        HirePurchasePayment[]
@@ -656,6 +659,9 @@ model User {
   announcementDismissals AnnouncementDismissal[]
   featureSuggestions     FeatureSuggestion[]
   userNotifications      UserNotification[]
+  supportTicketsCreated  SupportTicket[]         @relation("SupportTicketCreatedBy")
+  supportChatSessionsStarted SupportChatSession[] @relation("SupportChatStartedBy")
+  customerServiceTicketsCreated CustomerServiceTicket[] @relation("CustomerServiceTicketCreatedBy")
   hirePurchaseSales      HirePurchaseAgreement[] @relation("HpSalesPerson")
   employee               Employee?
   dealersAssigned        Dealer[]                @relation("DealerSalesRep")
@@ -2829,6 +2835,9 @@ enum UserNotificationType {
   ANNOUNCEMENT
   SUBSCRIPTION
   BUG_REPORT
+  SUPPORT_TICKET
+  SUPPORT_CHAT
+  CUSTOMER_SERVICE_TICKET
 }
 
 model FeatureSuggestion {
@@ -2903,6 +2912,243 @@ model UserNotification {
   @@index([tenantId, userId, isRead, createdAt])
   @@index([userId, createdAt])
   @@index([relatedId])
+}
+
+// ── Platform Support Tickets + Live Chat ─────────────────────────────────────
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SupportTicketCategory {
+  BUG
+  BILLING
+  HOW_TO
+  ACCOUNT
+  FEATURE
+  OTHER
+}
+
+enum SupportTicketEventAction {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNEE_CHANGED
+  MESSAGE
+  ATTACHMENT
+  CLOSED
+  REOPENED
+}
+
+enum SupportMessageAuthorType {
+  TENANT_USER
+  PLATFORM_ADMIN
+  SYSTEM
+}
+
+enum SupportChatSessionStatus {
+  WAITING
+  ACTIVE
+  ENDED
+}
+
+enum CustomerServiceTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+model SupportTicket {
+  id                  String                 @id @default(cuid())
+  tenantId            String
+  ticketNumber        String
+  createdById         String
+  assigneeAdminEmail  String?
+  category            SupportTicketCategory  @default(OTHER)
+  priority            SupportTicketPriority  @default(MEDIUM)
+  status              SupportTicketStatus    @default(OPEN)
+  subject             String
+  slaDueAt            DateTime
+  firstResponseAt     DateTime?
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  sourceChatSessionId String?                @unique
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy         User                     @relation("SupportTicketCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  sourceChatSession SupportChatSession?      @relation("ChatConvertedToTicket", fields: [sourceChatSessionId], references: [id], onDelete: SetNull)
+  messages          SupportTicketMessage[]
+  attachments       SupportTicketAttachment[]
+  events            SupportTicketEvent[]
+
+  @@unique([tenantId, ticketNumber])
+  @@index([tenantId, status, createdAt])
+  @@index([status, priority, slaDueAt])
+  @@index([assigneeAdminEmail])
+  @@index([createdById])
+}
+
+model SupportTicketMessage {
+  id          String                   @id @default(cuid())
+  ticketId    String
+  body        String
+  isInternal  Boolean                  @default(false)
+  authorType  SupportMessageAuthorType
+  authorUserId String?
+  authorEmail String
+  createdAt   DateTime                 @default(now())
+
+  ticket      SupportTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments SupportTicketAttachment[]
+
+  @@index([ticketId, createdAt])
+}
+
+model SupportTicketAttachment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  messageId  String?
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  url        String
+  createdAt  DateTime @default(now())
+
+  ticket  SupportTicket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message SupportTicketMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([messageId])
+}
+
+model SupportTicketEvent {
+  id                   String                   @id @default(cuid())
+  ticketId             String
+  action               SupportTicketEventAction
+  oldStatus            SupportTicketStatus?
+  newStatus            SupportTicketStatus?
+  oldPriority          SupportTicketPriority?
+  newPriority          SupportTicketPriority?
+  oldAssigneeAdminEmail String?
+  newAssigneeAdminEmail String?
+  note                 String?
+  performedByEmail     String
+  createdAt            DateTime                 @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+model SupportChatSession {
+  id                 String                   @id @default(cuid())
+  tenantId           String
+  startedById        String
+  assigneeAdminEmail String?
+  status             SupportChatSessionStatus @default(WAITING)
+  subject            String?
+  lastMessageAt      DateTime                 @default(now())
+  endedAt            DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  startedBy   User                   @relation("SupportChatStartedBy", fields: [startedById], references: [id], onDelete: Cascade)
+  messages    SupportChatMessage[]
+  attachments SupportChatAttachment[]
+  convertedTicket SupportTicket?     @relation("ChatConvertedToTicket")
+
+  @@index([tenantId, status, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([startedById])
+  @@index([assigneeAdminEmail])
+}
+
+model SupportChatMessage {
+  id           String                   @id @default(cuid())
+  sessionId    String
+  body         String
+  authorType   SupportMessageAuthorType
+  authorUserId String?
+  authorEmail  String
+  createdAt    DateTime                 @default(now())
+
+  session     SupportChatSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  attachments SupportChatAttachment[]
+
+  @@index([sessionId, createdAt])
+}
+
+model SupportChatAttachment {
+  id         String   @id @default(cuid())
+  sessionId  String
+  messageId  String?
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  url        String
+  createdAt  DateTime @default(now())
+
+  session SupportChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  message SupportChatMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([messageId])
+}
+
+/// In-tenant customer → shop staff service requests (Phase 2)
+model CustomerServiceTicket {
+  id           String                      @id @default(cuid())
+  tenantId     String
+  branchId     String?
+  customerId   String?
+  createdById  String
+  ticketNumber String
+  subject      String
+  status       CustomerServiceTicketStatus @default(OPEN)
+  priority     SupportTicketPriority       @default(MEDIUM)
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+
+  tenant    Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User                         @relation("CustomerServiceTicketCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  messages  CustomerServiceTicketMessage[]
+
+  @@unique([tenantId, ticketNumber])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, customerId])
+  @@index([branchId])
+}
+
+model CustomerServiceTicketMessage {
+  id           String                   @id @default(cuid())
+  ticketId     String
+  body         String
+  authorType   SupportMessageAuthorType @default(TENANT_USER)
+  authorUserId String?
+  authorEmail  String
+  createdAt    DateTime                 @default(now())
+
+  ticket CustomerServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
 }
 
 // ─────────────── HR & Payroll (Phase 1) ───────────────

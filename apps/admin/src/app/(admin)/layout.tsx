@@ -20,6 +20,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/activity-logs': 'Activity Logs',
   '/notifications': 'Notifications',
   '/feature-suggestions': 'Feature Suggestions',
+  '/tickets': 'Support Tickets',
+  '/live-chat': 'Live Chat',
   '/announcements': 'Announcements',
   '/release-notes': 'Release Notes',
   '/master-catalog': 'Master Catalog',

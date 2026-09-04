@@ -42,6 +42,9 @@ import accountingRoutes from './modules/accounting/accounting.routes'
 import hrRoutes from './modules/hr/hr.routes'
 import featureSuggestionsRoutes from './modules/feature-suggestions/feature-suggestions.routes'
 import notificationsRoutes from './modules/feature-suggestions/notifications.routes'
+import supportTicketsRoutes from './modules/support-tickets/support-tickets.routes'
+import supportChatRoutes from './modules/support-tickets/support-chat.routes'
+import customerServiceTicketsRoutes from './modules/support-tickets/customer-service-tickets.routes'
 import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
 import hirePurchaseRoutes from './modules/hire-purchase/hire-purchase.routes'
 import wholesaleRoutes from './modules/wholesale/wholesale.routes'
@@ -222,6 +225,9 @@ app.use(`${API}/platform`, platformRoutes)
 app.use(`${API}/release-notes`, releaseNotesRoutes)
 app.use(`${API}/feature-suggestions`, featureSuggestionsRoutes)
 app.use(`${API}/notifications`, notificationsRoutes)
+app.use(`${API}/support-tickets`, supportTicketsRoutes)
+app.use(`${API}/support-chat`, supportChatRoutes)
+app.use(`${API}/customer-service-tickets`, customerServiceTicketsRoutes)
 app.use(`${API}/billing`, billingRoutes)
 /** Alias Notify URL path from HelaPOS onboarding emails: /payments/helapos/webhook */
 app.use(`${API}/payments`, paymentsPublicRoutes)

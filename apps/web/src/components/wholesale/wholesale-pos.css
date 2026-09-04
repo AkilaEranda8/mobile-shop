@@ -378,19 +378,45 @@
 }
 
 .wpos-pthumb {
-  height: 96px;
-  border-radius: 0.65rem;
-  background: linear-gradient(160deg, #1e293b, #0f172a);
+  position: relative;
+  aspect-ratio: 4 / 3;
+  height: auto;
+  min-height: 110px;
+  border-radius: 0.7rem;
+  background:
+    radial-gradient(ellipse at 70% 20%, rgba(96, 165, 250, 0.12), transparent 55%),
+    linear-gradient(160deg, #1e293b, #0f172a);
   display: grid;
   place-items: center;
   color: var(--wpos-faint);
   overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.1);
 }
 
 .wpos-pthumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  padding: 0.35rem;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.wpos-pthumb-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: #64748b;
+}
+
+.wpos-pthumb-initial {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  line-height: 1;
 }
 
 .wpos-side {
@@ -763,19 +789,97 @@
   font-weight: 600;
 }
 
-.wpos-checkout-row {
+.wpos-cart-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.45rem;
-  margin-top: 0.8rem;
+  margin-top: 0.75rem;
 }
 
-.wpos-checkout-row .wpos-btn-primary {
+.wpos-cart-actions .wpos-btn-primary {
   grid-column: 1 / -1;
-  height: 2.75rem !important;
-  font-size: 0.84rem !important;
-  border-radius: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+}
+
+.wpos-checkout-modal {
+  width: min(920px, 96vw) !important;
+  max-height: min(90vh, 920px);
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.wpos-checkout-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.wpos-checkout-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.wpos-checkout-order,
+.wpos-checkout-pay {
+  padding: 1rem 1.1rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.wpos-checkout-order {
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.wpos-checkout-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.wpos-checkout-line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.wpos-checkout-footer {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  position: sticky;
+  bottom: 0;
+  padding-top: 0.5rem;
+  background: linear-gradient(to top, #111827 70%, transparent);
+}
+
+@media (max-width: 860px) {
+  .wpos-checkout-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wpos-checkout-order {
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    max-height: 40vh;
+  }
 }
 
 .wpos-toggle {

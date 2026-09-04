@@ -40,6 +40,8 @@ import { sendTenantOnboardWhatsApp } from '../../utils/send-tenant-onboard-whats
 import releaseNotesAdminRoutes from '../release-notes/release-notes-admin.routes'
 import masterCatalogAdminRoutes from '../master-catalog/master-catalog-admin.routes'
 import featureSuggestionsAdminRoutes from '../feature-suggestions/feature-suggestions-admin.routes'
+import supportTicketsAdminRoutes from '../support-tickets/support-tickets-admin.routes'
+import supportChatAdminRoutes from '../support-tickets/support-chat-admin.routes'
 import {
   approveSubscriptionPayment,
   createSubscriptionInvoice,
@@ -2270,5 +2272,7 @@ router.delete('/settings/admins/:id', async (req: Request, res: Response, next: 
 router.use('/releases', releaseNotesAdminRoutes)
 router.use('/master-catalog', masterCatalogAdminRoutes)
 router.use('/feature-suggestions', featureSuggestionsAdminRoutes)
+router.use('/support-tickets', supportTicketsAdminRoutes)
+router.use('/support-chat', supportChatAdminRoutes)
 
 export default router

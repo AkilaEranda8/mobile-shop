@@ -1051,3 +1051,93 @@ export const featureSuggestionsAdminApi = {
       body: JSON.stringify(body),
     }),
 }
+
+export type AdminSupportTicket = {
+  id: string
+  ticketNumber: string
+  subject: string
+  status: string
+  priority: string
+  category: string
+  slaDueAt: string
+  slaBreached?: boolean
+  assigneeAdminEmail?: string | null
+  tenant?: { id: string; name: string; slug: string; ownerEmail: string }
+  createdBy?: { id: string; name: string; email: string }
+  messages?: Array<{
+    id: string
+    body: string
+    isInternal?: boolean
+    authorType: string
+    authorEmail: string
+    createdAt: string
+  }>
+  createdAt: string
+}
+
+export type AdminChatSession = {
+  id: string
+  status: string
+  subject?: string | null
+  assigneeAdminEmail?: string | null
+  lastMessageAt: string
+  tenant?: { id: string; name: string; slug: string }
+  startedBy?: { id: string; name: string; email: string }
+  messages?: Array<{
+    id: string
+    body: string
+    authorType: string
+    authorEmail: string
+    createdAt: string
+  }>
+  ticket?: { id: string; ticketNumber: string } | null
+}
+
+export const supportTicketsAdminApi = {
+  list: (params?: Record<string, string>) => {
+    const qs = params && Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''
+    return req<AdminSupportTicket[]>(ADMIN_BASE, `/support-tickets${qs}`)
+  },
+  get: (id: string) => req<AdminSupportTicket>(ADMIN_BASE, `/support-tickets/${id}`),
+  patch: (id: string, body: Record<string, unknown>) =>
+    req<AdminSupportTicket>(ADMIN_BASE, `/support-tickets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  reply: (id: string, body: string, isInternal = false) =>
+    req<AdminSupportTicket>(ADMIN_BASE, `/support-tickets/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ body, isInternal }),
+    }),
+  reports: () => req<Record<string, unknown>>(ADMIN_BASE, '/support-tickets/reports/summary'),
+}
+
+export const supportChatAdminApi = {
+  list: (params?: Record<string, string>) => {
+    const qs = params && Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''
+    return req<AdminChatSession[]>(ADMIN_BASE, `/support-chat/sessions${qs}`)
+  },
+  get: (id: string) => req<AdminChatSession>(ADMIN_BASE, `/support-chat/sessions/${id}`),
+  claim: (id: string) =>
+    req<AdminChatSession>(ADMIN_BASE, `/support-chat/sessions/${id}/claim`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  send: (id: string, body: string) =>
+    req<{ id: string; body: string; authorType: string; authorEmail: string; createdAt: string }>(
+      ADMIN_BASE,
+      `/support-chat/sessions/${id}/messages`,
+      { method: 'POST', body: JSON.stringify({ body }) },
+    ),
+  end: (id: string) =>
+    req<AdminChatSession>(ADMIN_BASE, `/support-chat/sessions/${id}/end`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  convert: (id: string, body?: Record<string, unknown>) =>
+    req<AdminSupportTicket>(ADMIN_BASE, `/support-chat/sessions/${id}/convert-to-ticket`, {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
+    }),
+}
+

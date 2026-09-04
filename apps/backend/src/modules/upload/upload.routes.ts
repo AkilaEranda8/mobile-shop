@@ -18,6 +18,10 @@ const PRODUCT_DIR = path.join(process.cwd(), 'uploads', 'products')
 fs.mkdirSync(PRODUCT_DIR, { recursive: true })
 const HP_DIR = path.join(process.cwd(), 'uploads', 'hire-purchase')
 fs.mkdirSync(HP_DIR, { recursive: true })
+const SUPPORT_DIR = path.join(process.cwd(), 'uploads', 'support-tickets')
+fs.mkdirSync(SUPPORT_DIR, { recursive: true })
+const CUSTOMER_SR_DIR = path.join(process.cwd(), 'uploads', 'customer-sr')
+fs.mkdirSync(CUSTOMER_SR_DIR, { recursive: true })
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -137,6 +141,34 @@ router.post('/hire-purchase-document', hpUpload.single('file'), async (req: Requ
       data: { tenantId: req.tenantId!, branchId: agreement.branchId, agreementId: agreement.id, action: 'DOCUMENT_UPLOADED', actorId: req.user?.userId, actorEmail: req.user?.email, afterJson: document },
     })
     sendSuccess(res, document, 'Hire purchase document uploaded', 201)
+  } catch (e) { next(e) }
+})
+
+const supportUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, SUPPORT_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase() || '.bin'
+      cb(null, `sr_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`)
+    },
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf']
+    cb(null, allowed.includes(file.mimetype))
+  },
+})
+
+router.post('/support-ticket-file', supportUpload.single('file'), (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.file) { res.status(400).json({ message: 'No file uploaded' }); return }
+    const url = `${env.BACKEND_URL.replace(/\/$/, '')}/uploads/support-tickets/${req.file.filename}`
+    sendSuccess(res, {
+      url,
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      sizeBytes: req.file.size,
+    }, 'File uploaded', 201)
   } catch (e) { next(e) }
 })
 

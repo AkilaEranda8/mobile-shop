@@ -20,6 +20,7 @@ import { SuspendedAccountGate } from '@/components/layout/SuspendedAccountGate'
 import { ShopQuestUnlockProvider } from '@/lib/shop-quest-unlock'
 import { OnboardingQuest } from '@/components/shop-quest/OnboardingQuest'
 import { PinMustChangeGate } from '@/components/pos/PinMustChangeGate'
+import { SupportLiveChatWidget } from '@/components/support/SupportLiveChatWidget'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -125,6 +126,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <PosGlobalShortcuts />
       <POSOverlay />
+      <SupportLiveChatWidget />
     </div>
     </ShopQuestUnlockProvider>
   )

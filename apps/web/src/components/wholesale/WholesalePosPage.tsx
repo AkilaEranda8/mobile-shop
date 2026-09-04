@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { printThermalReceipt, type ThermalSale } from '@/components/invoice/ThermalReceipt'
-import { productsApi, imeiApi } from '@/lib/api'
+import { productsApi, imeiApi, resolveUploadUrl } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import {
   getActiveBranchId,
@@ -201,6 +201,48 @@ function displayWholesalePrice(p: PosProduct) {
   return null
 }
 
+function WposProductThumb({
+  imageUrl,
+  name,
+  categoryName,
+}: {
+  imageUrl?: string | null
+  name: string
+  categoryName?: string
+}) {
+  const [failed, setFailed] = useState(false)
+  const src = imageUrl && !failed ? imageUrl : null
+  const cat = (categoryName || '').toLowerCase()
+  const initial = (name || '?').trim().slice(0, 1).toUpperCase()
+
+  return (
+    <div className="wpos-pthumb">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="wpos-pthumb-fallback" aria-hidden>
+          <span className="wpos-pthumb-initial">{initial}</span>
+          <Package
+            size={22}
+            className={
+              cat.includes('phone') || cat.includes('mobile')
+                ? 'opacity-80'
+                : 'opacity-70'
+            }
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function dayKeyNow() {
   const d = new Date()
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
@@ -249,7 +291,15 @@ export function WholesalePosPage() {
   const products = useMemo(() => {
     const raw = (productsData as { data?: PosProduct[] } | null)?.data
     const list = Array.isArray(raw) ? raw : []
-    return list.filter((p) => p.isActive !== false)
+    return list
+      .filter((p) => p.isActive !== false)
+      .map((p) => {
+        const row = p as PosProduct & { image_url?: string | null }
+        return {
+          ...p,
+          imageUrl: resolveUploadUrl(row.imageUrl ?? row.image_url ?? null),
+        }
+      })
   }, [productsData])
 
   useEffect(() => {
@@ -282,6 +332,7 @@ export function WholesalePosPage() {
   const [activePayMethod, setActivePayMethod] = useState<keyof PayAmounts>('CASH')
   const [checkingOut, setCheckingOut] = useState(false)
   const [sideOpen, setSideOpen] = useState(false)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [clock, setClock] = useState('')
   const [sideWidth, setSideWidth] = useState(420)
@@ -814,6 +865,36 @@ export function WholesalePosPage() {
     }
   }
 
+  const openCheckout = useCallback(() => {
+    if (!dealer) {
+      toast.error('Select a dealer first')
+      setDealerPickerOpen(true)
+      return
+    }
+    if (!cart.length) {
+      toast.error('Cart is empty')
+      return
+    }
+    for (const line of cart) {
+      if (line.trackImei && !line.imei.trim()) {
+        toast.error(`IMEI required for ${line.productName}`)
+        return
+      }
+    }
+    setSideOpen(true)
+    setCheckoutOpen(true)
+    const anyPaid = PAY_KEYS.some((p) => Number(pay[p.key]) > 0)
+    if (!anyPaid) {
+      setActivePayMethod('CASH')
+      setPay({
+        CASH: String(grandTotal || ''),
+        CARD: '',
+        BANK_TRANSFER: '',
+        CREDIT: '',
+      })
+    }
+  }, [cart, dealer, grandTotal, pay])
+
   const persistHolds = (next: HoldOrder[]) => {
     setHolds(next)
     saveJson(`${HOLD_KEY}_${storageScope()}`, next)
@@ -1029,6 +1110,7 @@ export function WholesalePosPage() {
         discount: Number(inv?.discount ?? cartDiscount),
       }
       setSuccess(successPayload)
+      setCheckoutOpen(false)
 
       persistRecent(
         [
@@ -1119,6 +1201,10 @@ export function WholesalePosPage() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (checkoutOpen) {
+          setCheckoutOpen(false)
+          return
+        }
         if (success) {
           setSuccess(null)
           return
@@ -1167,12 +1253,12 @@ export function WholesalePosPage() {
       }
       if (e.key === 'F9') {
         e.preventDefault()
-        document.getElementById('wholesale-pos-checkout')?.click()
+        openCheckout()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [closePos, success, imeiModal, holdOpen, recentOpen, sideOpen, holdCart])
+  }, [closePos, success, imeiModal, holdOpen, recentOpen, sideOpen, holdCart, checkoutOpen, openCheckout])
 
   if (!wholesaleOn) {
     return (
@@ -1388,14 +1474,11 @@ export function WholesalePosPage() {
                 : p.categoryName?.split(/\s|\/|-/)[0] || 'Product'
               return (
                 <article key={p.id} className="wpos-pcard">
-                  <div className="wpos-pthumb">
-                    {p.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.imageUrl} alt="" />
-                    ) : (
-                      <Package size={26} />
-                    )}
-                  </div>
+                  <WposProductThumb
+                    imageUrl={p.imageUrl}
+                    name={p.name}
+                    categoryName={p.categoryName}
+                  />
                   <div className="min-w-0">
                     <div className="text-[0.8rem] font-semibold leading-snug line-clamp-2">
                       {p.name}
@@ -1785,137 +1868,11 @@ export function WholesalePosPage() {
                   <strong className="tabular-nums">{formatCurrency(grandTotal)}</strong>
                 </div>
               </div>
-            </div>
 
-            <div
-              className={`wpos-cart-h-resize${resizingCartH ? ' is-dragging' : ''}`}
-              onPointerDown={(e) => {
-                e.preventDefault()
-                ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-                cartHResizeRef.current = { startY: e.clientY, startFlex: cartFlexRef.current }
-                setResizingCartH(true)
-              }}
-              title="Drag up/down to resize cart height"
-            >
-              <span />
-            </div>
-
-            {/* Payment */}
-            <div className="wpos-block">
-              <div className="wpos-section-title">
-                <span>3. Payment (F9)</span>
-                <label className="wpos-toggle">
-                  <input
-                    type="checkbox"
-                    checked={splitPayment}
-                    onChange={(e) => setSplitPayment(e.target.checked)}
-                  />
-                  Split Payment
-                </label>
-              </div>
-
-              {dealer && Number(pay.CREDIT) > 0 && (
-                <div className="mb-2 rounded-xl border border-[rgba(148,163,184,0.12)] bg-[rgba(15,23,42,0.65)] p-2.5 text-[0.7rem] space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-[var(--wpos-faint)]">Outstanding</span>
-                    <span className="tabular-nums">{formatCurrency(dealer.totalDue)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--wpos-faint)]">Current Invoice (credit)</span>
-                    <span className="tabular-nums">{formatCurrency(Number(pay.CREDIT) || 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--wpos-faint)]">After Sale</span>
-                    <span className="tabular-nums">{formatCurrency(creditAfter)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--wpos-faint)]">Available Credit</span>
-                    <span className="text-[var(--wpos-green)] tabular-nums">
-                      {formatCurrency(creditHeadroom)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {creditExceeded && (
-                <div className="wpos-warn mb-2">
-                  CREDIT LIMIT EXCEEDED — change payment or request approval.
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      className="wpos-btn wpos-btn-secondary !h-8 !text-[0.7rem]"
-                      onClick={() => fillPayMethod('CASH')}
-                    >
-                      Change Payment
-                    </button>
-                    <button
-                      type="button"
-                      className="wpos-btn wpos-btn-ghost !h-8 !text-[0.7rem]"
-                      onClick={() => toast('Ask a manager to raise credit limit or approve override.')}
-                    >
-                      Request Approval
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="wpos-pay-grid">
-                {PAY_KEYS.map((p) => {
-                  const Icon =
-                    p.key === 'CASH'
-                      ? Banknote
-                      : p.key === 'CARD'
-                        ? CreditCard
-                        : p.key === 'BANK_TRANSFER'
-                          ? Landmark
-                          : Wallet
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      className={`wpos-pay-btn${activePayMethod === p.key || Number(pay[p.key]) > 0 ? ' is-active' : ''}`}
-                      onClick={() => fillPayMethod(p.key)}
-                      disabled={p.key === 'CREDIT' && creditExceeded && !splitPayment}
-                    >
-                      <Icon size={16} />
-                      {p.label}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {(splitPayment || paidTotal > 0) && (
-                <div className="wpos-pay-fields">
-                  {PAY_KEYS.map((p) => (
-                    <div key={p.key} className="wpos-pay-field">
-                      <span>{p.label}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={pay[p.key]}
-                        onChange={(e) =>
-                          setPay((prev) => ({ ...prev, [p.key]: e.target.value }))
-                        }
-                        disabled={p.key === 'CREDIT' && creditExceeded}
-                      />
-                    </div>
-                  ))}
-                  <div className="flex justify-between text-[0.75rem] pt-1">
-                    <span className="text-[var(--wpos-muted)]">Paid / Balance</span>
-                    <span className="tabular-nums font-semibold">
-                      {formatCurrency(paidTotal)} /{' '}
-                      <span className={dueLeft > 0.05 ? 'text-[var(--wpos-rose)]' : 'text-[var(--wpos-green)]'}>
-                        {formatCurrency(dueLeft)}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="wpos-checkout-row">
+              <div className="wpos-cart-actions">
                 <button
                   type="button"
-                  className="wpos-btn wpos-btn-ghost !h-11 !text-[0.72rem]"
+                  className="wpos-btn wpos-btn-ghost !h-10 !text-[0.72rem]"
                   onClick={() => {
                     if (!cart.length) {
                       toast.error('Nothing to save')
@@ -1929,7 +1886,7 @@ export function WholesalePosPage() {
                 </button>
                 <button
                   type="button"
-                  className="wpos-btn wpos-btn-amber !h-11 !text-[0.72rem]"
+                  className="wpos-btn wpos-btn-amber !h-10 !text-[0.72rem]"
                   onClick={holdCart}
                 >
                   Hold
@@ -1937,16 +1894,12 @@ export function WholesalePosPage() {
                 <button
                   id="wholesale-pos-checkout"
                   type="button"
-                  className="wpos-btn wpos-btn-primary !h-11 !text-[0.8rem]"
-                  disabled={checkingOut || !dealer || !cart.length || creditExceeded}
-                  onClick={() => void checkout()}
+                  className="wpos-btn wpos-btn-primary !h-11 !text-[0.82rem]"
+                  disabled={!dealer || !cart.length}
+                  onClick={openCheckout}
                 >
-                  {checkingOut ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <Check size={16} />
-                  )}
-                  Complete Sale
+                  Checkout
+                  <span className="opacity-80 text-[0.7rem] font-semibold">F9</span>
                 </button>
               </div>
             </div>
@@ -2025,6 +1978,206 @@ export function WholesalePosPage() {
       </div>
 
       {/* Modals */}
+      {checkoutOpen && (
+        <div className="wpos-overlay" onClick={() => setCheckoutOpen(false)}>
+          <div
+            className="wpos-modal wpos-checkout-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="wpos-checkout-head">
+              <div>
+                <div className="text-[0.65rem] font-bold uppercase tracking-[0.08em] text-[#64748b]">
+                  Checkout · F9
+                </div>
+                <h2 className="text-lg font-bold mt-0.5">Review &amp; Pay</h2>
+                <p className="text-[0.75rem] text-[var(--wpos-muted)] mt-0.5">
+                  {dealer?.tradingName || dealer?.legalName} · {itemCount} items · {unitCount} units
+                </p>
+              </div>
+              <button type="button" className="wpos-util" onClick={() => setCheckoutOpen(false)}>
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="wpos-checkout-grid">
+              <div className="wpos-checkout-order">
+                <div className="wpos-section-title !mb-2">
+                  <span>Order</span>
+                </div>
+                <div className="wpos-checkout-lines">
+                  {cart.map((line) => (
+                    <div key={line.key} className="wpos-checkout-line">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-[0.82rem] truncate">{line.productName}</div>
+                        <div className="text-[0.62rem] text-[var(--wpos-faint)]">
+                          {line.sku || '—'}
+                          {line.trackImei && line.imei ? ` · IMEI ${line.imei}` : ''}
+                          {!line.trackImei
+                            ? ` · ${line.quantity} ${line.sellUnit.toLowerCase()}`
+                            : ''}
+                        </div>
+                      </div>
+                      <div className="text-right tabular-nums">
+                        <div className="text-[0.65rem] text-[var(--wpos-muted)]">
+                          {formatCurrency(line.unitPrice)}
+                        </div>
+                        <div className="font-bold text-[0.85rem]">{formatCurrency(lineTotal(line))}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="wpos-totals !mt-3">
+                  <div className="wpos-totals-row">
+                    <span className="text-[var(--wpos-muted)]">Subtotal</span>
+                    <span className="tabular-nums font-semibold">{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="wpos-totals-row">
+                    <span className="text-[var(--wpos-muted)]">Discount</span>
+                    <span className="tabular-nums">{formatCurrency(cartDiscount)}</span>
+                  </div>
+                  <div className="wpos-totals-row">
+                    <span className="text-[var(--wpos-muted)]">Tax</span>
+                    <span className="tabular-nums">{formatCurrency(tax)}</span>
+                  </div>
+                  <div className="wpos-totals-grand">
+                    <span className="font-bold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748b]">
+                      Total
+                    </span>
+                    <strong className="tabular-nums">{formatCurrency(grandTotal)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="wpos-checkout-pay">
+                <div className="wpos-section-title">
+                  <span>Payment</span>
+                  <label className="wpos-toggle">
+                    <input
+                      type="checkbox"
+                      checked={splitPayment}
+                      onChange={(e) => setSplitPayment(e.target.checked)}
+                    />
+                    Split
+                  </label>
+                </div>
+
+                {dealer && Number(pay.CREDIT) > 0 && (
+                  <div className="mb-2 rounded-xl border border-[rgba(148,163,184,0.12)] bg-[rgba(15,23,42,0.65)] p-2.5 text-[0.7rem] space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-[var(--wpos-faint)]">Outstanding</span>
+                      <span className="tabular-nums">{formatCurrency(dealer.totalDue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--wpos-faint)]">This credit</span>
+                      <span className="tabular-nums">{formatCurrency(Number(pay.CREDIT) || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--wpos-faint)]">After sale</span>
+                      <span className="tabular-nums">{formatCurrency(creditAfter)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--wpos-faint)]">Available</span>
+                      <span className="text-[var(--wpos-green)] tabular-nums">
+                        {formatCurrency(creditHeadroom)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {creditExceeded && (
+                  <div className="wpos-warn mb-2">
+                    CREDIT LIMIT EXCEEDED
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        className="wpos-btn wpos-btn-secondary !h-8 !text-[0.7rem]"
+                        onClick={() => fillPayMethod('CASH')}
+                      >
+                        Change Payment
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="wpos-pay-grid">
+                  {PAY_KEYS.map((p) => {
+                    const Icon =
+                      p.key === 'CASH'
+                        ? Banknote
+                        : p.key === 'CARD'
+                          ? CreditCard
+                          : p.key === 'BANK_TRANSFER'
+                            ? Landmark
+                            : Wallet
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        className={`wpos-pay-btn${activePayMethod === p.key || Number(pay[p.key]) > 0 ? ' is-active' : ''}`}
+                        onClick={() => fillPayMethod(p.key)}
+                        disabled={p.key === 'CREDIT' && creditExceeded && !splitPayment}
+                      >
+                        <Icon size={16} />
+                        {p.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="wpos-pay-fields">
+                  {PAY_KEYS.map((p) => (
+                    <div key={p.key} className="wpos-pay-field">
+                      <span>{p.label}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={pay[p.key]}
+                        onChange={(e) =>
+                          setPay((prev) => ({ ...prev, [p.key]: e.target.value }))
+                        }
+                        disabled={p.key === 'CREDIT' && creditExceeded}
+                      />
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-[0.75rem] pt-1">
+                    <span className="text-[var(--wpos-muted)]">Paid / Balance</span>
+                    <span className="tabular-nums font-semibold">
+                      {formatCurrency(paidTotal)} /{' '}
+                      <span className={dueLeft > 0.05 ? 'text-[var(--wpos-rose)]' : 'text-[var(--wpos-green)]'}>
+                        {formatCurrency(dueLeft)}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="wpos-checkout-footer">
+                  <button
+                    type="button"
+                    className="wpos-btn wpos-btn-ghost !h-11"
+                    onClick={() => setCheckoutOpen(false)}
+                  >
+                    Back to Cart
+                  </button>
+                  <button
+                    type="button"
+                    className="wpos-btn wpos-btn-primary !h-11 !text-[0.85rem]"
+                    disabled={checkingOut || creditExceeded || dueLeft > 0.05}
+                    onClick={() => void checkout()}
+                  >
+                    {checkingOut ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                    Complete Wholesale Sale
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {imeiModal && (
         <div className="wpos-overlay" onClick={() => setImeiModal(null)}>
           <div className="wpos-modal p-4" onClick={(e) => e.stopPropagation()}>

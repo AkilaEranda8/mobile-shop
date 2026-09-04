@@ -26,6 +26,7 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  SUPPORT_NOTIFY_EMAIL: z.string().email().optional(),
   SMS_PROVIDER: z.string().optional(),
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().optional(),

@@ -15,6 +15,33 @@ export function getApiBaseUrl(): string {
   return resolveApiBaseUrl()
 }
 
+/** Resolve product/logo upload URLs so localhost / relative paths work on prod. */
+export function resolveUploadUrl(raw?: string | null): string | null {
+  if (!raw || !String(raw).trim()) return null
+  let url = String(raw).trim()
+  if (url.startsWith('http://')) url = `https://${url.slice(7)}`
+
+  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+  let apiOrigin = 'http://localhost:3001'
+  try {
+    apiOrigin = new URL(configured).origin
+  } catch {
+    /* keep default */
+  }
+
+  if (url.startsWith('/uploads/')) return `${apiOrigin}${url}`
+
+  try {
+    const u = new URL(url)
+    if (u.pathname.startsWith('/uploads/')) {
+      return `${apiOrigin}${u.pathname}${u.search}`
+    }
+  } catch {
+    /* keep as-is */
+  }
+  return url
+}
+
 async function parseResponseBody(res: Response): Promise<{ json: Record<string, unknown>; text: string }> {
   const text = await res.text()
   if (!text) return { json: {}, text: '' }
@@ -1080,6 +1107,116 @@ export const featureSuggestionsApi = {
     api.get<{ data: FeatureSuggestion }>(`/feature-suggestions/${id}`),
   create: (body: CreateFeatureSuggestionBody) =>
     api.post<{ data: FeatureSuggestion }>('/feature-suggestions', body),
+}
+
+export type SupportTicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER' | 'RESOLVED' | 'CLOSED'
+export type SupportTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type SupportTicketCategory = 'BUG' | 'BILLING' | 'HOW_TO' | 'ACCOUNT' | 'FEATURE' | 'OTHER'
+
+export type SupportTicket = {
+  id: string
+  ticketNumber: string
+  subject: string
+  status: SupportTicketStatus
+  priority: SupportTicketPriority
+  category: SupportTicketCategory
+  slaDueAt: string
+  slaBreached?: boolean
+  assigneeAdminEmail?: string | null
+  createdAt: string
+  messages?: Array<{
+    id: string
+    body: string
+    isInternal?: boolean
+    authorType: string
+    authorEmail: string
+    createdAt: string
+  }>
+  attachments?: Array<{ id: string; fileName: string; url: string }>
+}
+
+export type SupportChatSession = {
+  id: string
+  status: 'WAITING' | 'ACTIVE' | 'ENDED'
+  subject?: string | null
+  assigneeAdminEmail?: string | null
+  lastMessageAt: string
+  messages?: Array<{
+    id: string
+    body: string
+    authorType: string
+    authorEmail: string
+    createdAt: string
+  }>
+  ticket?: { id: string; ticketNumber: string } | null
+  tenant?: { id: string; name: string; slug: string }
+  startedBy?: { id: string; name: string; email: string }
+}
+
+export const supportTicketsApi = {
+  list: (params?: Record<string, string>) =>
+    api.get<{ data: SupportTicket[]; meta: { total: number; page: number; limit: number } }>(
+      `/support-tickets${params ? '?' + new URLSearchParams(params) : ''}`,
+    ),
+  get: (id: string) => api.get<{ data: SupportTicket }>(`/support-tickets/${id}`),
+  create: (body: {
+    subject: string
+    body: string
+    category?: SupportTicketCategory
+    priority?: SupportTicketPriority
+  }) => api.post<{ data: SupportTicket }>('/support-tickets', body),
+  reply: (id: string, body: string) =>
+    api.post<{ data: SupportTicket }>(`/support-tickets/${id}/messages`, { body }),
+  close: (id: string) => api.patch<{ data: SupportTicket }>(`/support-tickets/${id}/close`, {}),
+}
+
+export const supportChatApi = {
+  start: (body?: { subject?: string; body?: string }) =>
+    api.post<{ data: SupportChatSession }>('/support-chat/sessions', body ?? {}),
+  mine: () => api.get<{ data: SupportChatSession[] }>('/support-chat/sessions/mine'),
+  get: (id: string) => api.get<{ data: SupportChatSession }>(`/support-chat/sessions/${id}/messages`),
+  send: (id: string, body: string) =>
+    api.post<{ data: SupportChatSession['messages'] extends (infer M)[] | undefined ? M : never }>(
+      `/support-chat/sessions/${id}/messages`,
+      { body },
+    ),
+  end: (id: string) => api.post<{ data: SupportChatSession }>(`/support-chat/sessions/${id}/end`, {}),
+}
+
+export type CustomerServiceTicket = {
+  id: string
+  ticketNumber: string
+  subject: string
+  status: SupportTicketStatus
+  priority: SupportTicketPriority
+  customerId?: string | null
+  createdAt: string
+  messages?: Array<{
+    id: string
+    body: string
+    authorType: string
+    authorEmail: string
+    createdAt: string
+  }>
+}
+
+export const customerServiceTicketsApi = {
+  list: (params?: Record<string, string>) =>
+    api.get<{ data: CustomerServiceTicket[]; meta: { total: number } }>(
+      `/customer-service-tickets${params ? '?' + new URLSearchParams(params) : ''}`,
+    ),
+  get: (id: string) => api.get<{ data: CustomerServiceTicket }>(`/customer-service-tickets/${id}`),
+  create: (body: {
+    subject: string
+    body: string
+    customerId?: string | null
+    branchId?: string | null
+    priority?: SupportTicketPriority
+  }) => api.post<{ data: CustomerServiceTicket }>('/customer-service-tickets', body),
+  reply: (id: string, body: string) =>
+    api.post<{ data: CustomerServiceTicket }>(`/customer-service-tickets/${id}/messages`, { body }),
+  patch: (id: string, body: { status?: SupportTicketStatus }) =>
+    api.patch<{ data: CustomerServiceTicket }>(`/customer-service-tickets/${id}`, body),
 }
 
 export const hrApi = {

@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Building2, CreditCard, KeyRound, Activity,
-  BarChart3, ScrollText, Bell, Megaphone, Wrench, Settings,
-  Shield, LogOut, X, Sparkles, MessageCircle, Smartphone, Lightbulb, ShieldCheck, Wallet,
+  BarChart3, ScrollText, Bell,   Megaphone, Wrench, Settings,
+  Shield, LogOut, X, Sparkles, MessageCircle, Smartphone, Lightbulb, ShieldCheck, Wallet, LifeBuoy, MessagesSquare,
 } from 'lucide-react'
 import {
   featureSuggestionsAdminApi,
@@ -34,6 +34,8 @@ const ENTERPRISE_NAV: NavItem[] = [
   { href: '/activity-logs', label: 'Activity Logs', icon: ScrollText },
   { href: '/notifications', label: 'Notifications', icon: Bell },
   { href: '/feature-suggestions', label: 'Feature Suggestions', icon: Lightbulb },
+  { href: '/tickets', label: 'Tickets', icon: LifeBuoy },
+  { href: '/live-chat', label: 'Live Chat', icon: MessagesSquare },
   { href: '/announcements', label: 'Announcements', icon: Megaphone },
   { href: '/release-notes', label: 'Release Notes', icon: Sparkles },
   { href: '/master-catalog', label: 'Master Catalog', icon: Smartphone },
