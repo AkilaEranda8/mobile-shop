@@ -32,6 +32,9 @@ assert(DEFAULT_POS_UI_SETTINGS.shortcuts.F10 === 'newSale', 'default F10')
 const studio = normalizePosUiSettings({ theme: 'studio' })
 assert(studio.theme === 'studio', 'studio theme')
 
+const nova = normalizePosUiSettings({ theme: 'nova' })
+assert(nova.theme === 'nova', 'nova theme')
+
 const unknownTheme = normalizePosUiSettings({ theme: 'neon' })
 assert(unknownTheme.theme === 'hexa-dark', 'unknown theme falls back')
 

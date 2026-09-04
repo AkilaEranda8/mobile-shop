@@ -39,7 +39,7 @@ export const POS_SHORTCUT_ACTIONS = [
 
 export type PosShortcutActionId = (typeof POS_SHORTCUT_ACTIONS)[number]
 
-export type PosUiThemeId = 'hexa-dark' | 'hexa-light' | 'studio'
+export type PosUiThemeId = 'hexa-dark' | 'hexa-light' | 'studio' | 'nova'
 
 export type PosUiSettings = {
   theme: PosUiThemeId
@@ -173,6 +173,7 @@ export function normalizePosUiSettings(raw: unknown): PosUiSettings {
   const theme: PosUiThemeId =
     src.theme === 'hexa-light' ? 'hexa-light'
     : src.theme === 'studio' ? 'studio'
+    : src.theme === 'nova' ? 'nova'
     : 'hexa-dark'
   const density = src.density === 'compact' ? 'compact' : 'comfortable'
   const cartPosition = layout.cartPosition === 'left' ? 'left' : 'right'
