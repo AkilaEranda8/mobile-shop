@@ -156,6 +156,7 @@ export interface SubscriptionRow {
   paymentDue?: boolean
   paymentDueAmount?: number | null
   paymentDueInvoiceNo?: string | null
+  paymentDueInvoiceId?: string | null
   paymentDueMonths?: number | null
   paymentDuePeriodStart?: string | null
   paymentDuePeriodEnd?: string | null
@@ -400,9 +401,11 @@ export async function markSubscriptionPaymentDue(
     periodEnd: string
   },
 ) {
-  return req<SubscriptionRow>(ADMIN_BASE, `/subscriptions/${tenantId}/mark-payment-due`, {
-    method: 'POST', body: JSON.stringify(body),
-  })
+  return req<SubscriptionRow & { invoice?: { id: string; invoiceNumber: string } }>(
+    ADMIN_BASE,
+    `/subscriptions/${tenantId}/mark-payment-due`,
+    { method: 'POST', body: JSON.stringify(body) },
+  )
 }
 
 export async function clearSubscriptionPaymentDue(tenantId: string) {

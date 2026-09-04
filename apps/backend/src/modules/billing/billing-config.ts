@@ -21,10 +21,10 @@ export type BillingConfig = {
 
 const DEFAULT_BANK: BillingBankSettings = {
   bankName: 'Commercial Bank',
-  accountName: 'Hexalyte Innovation (Pvt) Ltd',
-  accountNumber: '',
+  accountName: 'Akila Eranda Gankewela',
+  accountNumber: '2000124779',
   branch: '',
-  swift: '',
+  swift: 'CCEYLKLX',
   instructions: 'Please complete the bank transfer and upload your payment slip for verification.',
 }
 

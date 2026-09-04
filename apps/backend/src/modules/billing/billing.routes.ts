@@ -16,7 +16,7 @@ import {
   submitSubscriptionPayment,
 } from './billing.service'
 import { getBillingConfig } from './billing-config'
-import { buildSubscriptionInvoicePdf } from '../../utils/subscription-invoice-pdf'
+import { renderSubscriptionInvoicePdf } from '../../utils/render-subscription-invoice-pdf'
 import {
   createHelaposQrSession,
   getHelaposPaymentStatus,
@@ -186,27 +186,7 @@ router.get('/invoices/:id/pdf', async (req: Request, res: Response, next: NextFu
   try {
     const invoice = await getInvoiceForTenant(req.tenantId!, req.params.id)
     const config = await getBillingConfig()
-    const pdf = buildSubscriptionInvoicePdf({
-      invoiceNo: invoice.invoiceNumber,
-      shopName: invoice.tenant.name,
-      ownerName: invoice.tenant.ownerName,
-      ownerEmail: invoice.tenant.ownerEmail,
-      plan: invoice.plan,
-      months: invoice.months,
-      mrr: invoice.mrrSnapshot,
-      total: invoice.total,
-      periodStart: invoice.billingPeriodStart,
-      periodEnd: invoice.billingPeriodEnd,
-      issueDate: invoice.issueDate,
-      dueDate: invoice.dueDate,
-      status: invoice.status,
-      discount: invoice.discount,
-      tax: invoice.tax,
-      subtotal: invoice.subtotal,
-      paidAt: invoice.paidAt,
-      paidByName: (invoice as any).paidByName || null,
-      bank: config.bank,
-    })
+    const pdf = renderSubscriptionInvoicePdf(invoice, config.bank)
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`)
     res.send(pdf)

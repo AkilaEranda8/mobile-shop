@@ -9,11 +9,27 @@ export default function SubscriptionInvoicePrint({
   sub,
   inv,
   id = 'hx-invoice-print',
+  bank,
 }: {
   sub: SubscriptionRow
   inv: SubscriptionInvoiceData
   id?: string
+  bank?: {
+    bankName?: string
+    accountName?: string
+    accountNumber?: string
+    branch?: string
+    swift?: string
+  } | null
 }) {
+  const bankRows = [
+    ['Bank', bank?.bankName || 'Commercial Bank'],
+    ['Account Name', bank?.accountName || 'Akila Eranda Gankewela'],
+    ['Account Number', bank?.accountNumber || '2000124779'],
+    ['SWIFT Code', bank?.swift || 'CCEYLKLX'],
+  ]
+  if (bank?.branch) bankRows.push(['Branch', bank.branch])
+
   return (
     <div id={id} style={{ width: 595, margin: '0 auto', background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)', padding: '40px 48px' }}>
       <div style={{ fontFamily: 'system-ui, sans-serif', width: '100%', background: '#fff', color: '#111' }}>
@@ -92,12 +108,7 @@ export default function SubscriptionInvoicePrint({
         <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 20px', marginBottom: 28 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Bank Transfer Details</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 20px' }}>
-            {[
-              ['Bank', 'Commercial Bank'],
-              ['Account Name', 'Akila Eranda Gankewela'],
-              ['Account Number', '2000124779'],
-              ['SWIFT Code', 'CCEYLKLX'],
-            ].map(([label, value]) => (
+            {bankRows.map(([label, value]) => (
               <div key={label} style={{ display: 'flex', gap: 6 }}>
                 <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 110 }}>{label}:</span>
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#111' }}>{value}</span>

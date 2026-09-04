@@ -15,7 +15,8 @@ import {
   fetchSubscriptions, fetchStats, fetchMrrChart, updateSubscription,
   fetchPlatformConfig, savePlatformConfig,
   markSubscriptionPaymentDue, confirmSubscriptionPayment, clearSubscriptionPaymentDue,
-  type SubscriptionRow, type PlatformStats, type MrrPoint,
+  downloadSubscriptionInvoicePdf, fetchBillingSettings,
+  type SubscriptionRow, type PlatformStats, type MrrPoint, type BillingSettings,
 } from '@/lib/api'
 import { buildSubscriptionInvoice } from '@/lib/subscription-invoice'
 import { formatMoney as fmt } from '@/lib/format-money'
@@ -164,18 +165,21 @@ function ChangePlanModal({ sub, onClose, onSaved, planMrr, planFeatures }: {
 
 /* ── Invoice Modal — next-period invoice WITHOUT extending subscription ─ */
 function InvoiceModal({
-  sub, onClose, onSaved, onSendWhatsApp,
+  sub, onClose, onSaved, onSendWhatsApp, bank,
 }: {
   sub: SubscriptionRow
   onClose: () => void
   onSaved: () => void
   onSendWhatsApp: (s: SubscriptionRow) => void
+  bank?: BillingSettings['bank'] | null
 }) {
   const [months, setMonths] = useState(sub.paymentDueMonths ?? 1)
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [err, setErr] = useState('')
   const [localSub, setLocalSub] = useState(sub)
+  const [ledgerInvoiceId, setLedgerInvoiceId] = useState<string | null>(sub.paymentDueInvoiceId ?? null)
 
   const inv = useMemo(() => buildSubscriptionInvoice(localSub, { months }), [localSub, months])
 
@@ -204,6 +208,21 @@ function InvoiceModal({
     setTimeout(() => { w.print(); w.close() }, 400)
   }
 
+  const handleDownloadPdf = async () => {
+    if (!ledgerInvoiceId) {
+      setErr('Mark payment due first to create the ledger invoice PDF (same file shops download).')
+      return
+    }
+    setDownloading(true); setErr('')
+    try {
+      await downloadSubscriptionInvoicePdf(ledgerInvoiceId, inv.invoiceNo)
+    } catch (e: any) {
+      setErr(e.message ?? 'Download failed')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const handleMarkDue = async () => {
     setSaving(true); setErr('')
     try {
@@ -214,7 +233,9 @@ function InvoiceModal({
         periodStart: inv.periodStartIso,
         periodEnd: inv.periodEndIso,
       })
-      setLocalSub({ ...localSub, ...updated, paymentDue: true })
+      const { invoice, ...rest } = updated as SubscriptionRow & { invoice?: { id: string; invoiceNumber: string } }
+      setLocalSub({ ...localSub, ...rest, paymentDue: true })
+      if (invoice?.id) setLedgerInvoiceId(invoice.id)
       onSaved()
     } catch (e: any) {
       setErr(e.message ?? 'Failed to mark payment due')
@@ -283,14 +304,24 @@ function InvoiceModal({
         )}
 
         <div className="overflow-y-auto flex-1 bg-gray-100 p-6">
-          <SubscriptionInvoicePrint sub={localSub} inv={inv} />
+          <SubscriptionInvoicePrint sub={localSub} inv={inv} bank={bank} />
         </div>
 
         {err && <p className="px-6 py-2 text-xs text-red-500 border-t border-red-50">{err}</p>}
 
         <div className="px-6 py-4 border-t border-gray-100 bg-white flex flex-wrap items-center gap-2">
           <button onClick={handlePrint} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium">
-            <Printer size={12} /> Print / PDF
+            <Printer size={12} /> Print
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleDownloadPdf()}
+            disabled={downloading || !ledgerInvoiceId}
+            title={ledgerInvoiceId ? 'Same PDF the shop downloads' : 'Mark payment due first to create ledger PDF'}
+            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50"
+          >
+            {downloading ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+            Download PDF
           </button>
           <button
             onClick={() => onSendWhatsApp(isDue ? { ...localSub, paymentDueMonths: months } : { ...localSub, paymentDueMonths: months })}
@@ -463,6 +494,12 @@ export default function SubscriptionsPage() {
   const [editingPlan, setEditingPlan] = useState<string | null>(null)
   const [planMrr, setPlanMrr]         = useState<Record<string, number>>({ ...DEFAULT_MRR })
   const [planFeatures, setPlanFeatures] = useState<Record<string, string[]>>({ ...DEFAULT_FEATURES })
+  const [billingBank, setBillingBank] = useState<BillingSettings['bank'] | null>(null)
+
+  // Billing bank details (same source as PDF downloads)
+  useEffect(() => {
+    fetchBillingSettings().then((s) => setBillingBank(s.bank ?? null)).catch(() => {})
+  }, [])
 
   // Load saved plan config from platform config
   useEffect(() => {
@@ -534,6 +571,7 @@ export default function SubscriptionsPage() {
       {invoiceSub && (
         <InvoiceModal
           sub={invoiceSub}
+          bank={billingBank}
           onClose={() => setInvoiceSub(null)}
           onSaved={load}
           onSendWhatsApp={(s) => {

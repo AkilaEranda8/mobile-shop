@@ -124,10 +124,14 @@ export default function SubscriptionInvoiceViewer({ invoice, onClose, onDownload
             style={{ width: '100%', maxWidth: 595, padding: '36px 40px', fontFamily: 'system-ui, sans-serif' }}
           >
             <div className="flex justify-between items-start gap-4 mb-8">
-              <div>
-                <p className="text-sm font-bold">Hexalyte Innovation (Pvt) Ltd</p>
-                <p className="text-[11px] text-gray-500 mt-1">www.hexalyte.com</p>
-                <p className="text-[11px] text-gray-500">info@hexalyte.com · +94 70 3130100</p>
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Hexalyte" className="h-14 w-auto object-contain" />
+                <div className="border-l border-gray-200 pl-3">
+                  <p className="text-sm font-bold">Hexalyte Innovation (Pvt) Ltd</p>
+                  <p className="text-[11px] text-gray-500 mt-1">www.hexalyte.com</p>
+                  <p className="text-[11px] text-gray-500">info@hexalyte.com · +94 70 3130100</p>
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-black tracking-tight">INVOICE</p>

@@ -50,7 +50,7 @@ import {
 } from '../billing/billing.service'
 import { getBillingConfig, upsertBillingConfig } from '../billing/billing-config'
 import { getHelaposAdminConfig, upsertHelaposConfig } from '../billing/helapos-config'
-import { buildSubscriptionInvoicePdf } from '../../utils/subscription-invoice-pdf'
+import { renderSubscriptionInvoicePdf } from '../../utils/render-subscription-invoice-pdf'
 
 const router = Router()
 router.use(authenticate)
@@ -683,6 +683,18 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
       },
       orderBy: { mrr: 'desc' },
     })
+    const invoiceNos = tenants
+      .map((t) => t.paymentDueInvoiceNo)
+      .filter((n): n is string => !!n)
+    const dueInvoices = invoiceNos.length
+      ? await prisma.subscriptionInvoice.findMany({
+          where: { invoiceNumber: { in: invoiceNos } },
+          select: { id: true, invoiceNumber: true, tenantId: true },
+        })
+      : []
+    const invoiceIdByTenant = new Map(
+      dueInvoices.map((i) => [`${i.tenantId}:${i.invoiceNumber}`, i.id]),
+    )
     const data = tenants.map(t => ({
       id: t.id,
       name: t.name,
@@ -697,6 +709,9 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
       paymentDue: t.paymentDue,
       paymentDueAmount: t.paymentDueAmount,
       paymentDueInvoiceNo: t.paymentDueInvoiceNo,
+      paymentDueInvoiceId: t.paymentDueInvoiceNo
+        ? (invoiceIdByTenant.get(`${t.id}:${t.paymentDueInvoiceNo}`) ?? null)
+        : null,
       paymentDueMonths: t.paymentDueMonths,
       paymentDuePeriodStart: t.paymentDuePeriodStart,
       paymentDuePeriodEnd: t.paymentDuePeriodEnd,
@@ -952,32 +967,12 @@ router.post('/payments/:id/reject', async (req: Request, res: Response, next: Ne
   } catch (e) { next(e) }
 })
 
-/** Download Hexalyte subscription invoice PDF (platform → tenant) */
+/** Download Hexalyte subscription invoice PDF (platform → tenant) — same bytes as shop /billing/invoices/:id/pdf */
 router.get('/subscriptions/invoices/:id/pdf', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await getSubscriptionInvoiceById(req.params.id)
     const config = await getBillingConfig()
-    const pdf = buildSubscriptionInvoicePdf({
-      invoiceNo: invoice.invoiceNumber,
-      shopName: invoice.tenant.name,
-      ownerName: invoice.tenant.ownerName,
-      ownerEmail: invoice.tenant.ownerEmail,
-      plan: invoice.plan,
-      months: invoice.months,
-      mrr: invoice.mrrSnapshot,
-      total: invoice.total,
-      periodStart: invoice.billingPeriodStart,
-      periodEnd: invoice.billingPeriodEnd,
-      issueDate: invoice.issueDate,
-      dueDate: invoice.dueDate,
-      status: invoice.status,
-      discount: invoice.discount,
-      tax: invoice.tax,
-      subtotal: invoice.subtotal,
-      paidAt: invoice.paidAt,
-      paidByName: (invoice as any).paidByName || null,
-      bank: config.bank,
-    })
+    const pdf = renderSubscriptionInvoicePdf(invoice, config.bank)
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`)
     res.send(pdf)
