@@ -793,16 +793,19 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                   }
                 >
                   {plan.popular && !isCurrent && (
-                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white tracking-wide inline-flex items-center gap-1">
-                      <Sparkles size={9} /> Popular
+                    <span
+                      className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-600 tracking-wide inline-flex items-center gap-1"
+                      style={{ color: '#ffffff' }}
+                    >
+                      <Sparkles size={9} color="#ffffff" /> Popular
                     </span>
                   )}
                   {isCurrent && (
                     <span
-                      className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2.5 py-0.5 rounded-full text-white tracking-wide inline-flex items-center gap-1"
-                      style={{ background: plan.color }}
+                      className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2.5 py-0.5 rounded-full tracking-wide inline-flex items-center gap-1"
+                      style={{ background: plan.color, color: '#ffffff' }}
                     >
-                      <CheckCircle2 size={9} /> Current
+                      <CheckCircle2 size={9} color="#ffffff" /> Current
                     </span>
                   )}
 
@@ -874,7 +877,10 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                         {p.price}
                       </div>
                       {p.key === currentKey && (
-                        <span className="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white">
+                        <span
+                          className="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-600"
+                          style={{ color: '#ffffff' }}
+                        >
                           YOU
                         </span>
                       )}

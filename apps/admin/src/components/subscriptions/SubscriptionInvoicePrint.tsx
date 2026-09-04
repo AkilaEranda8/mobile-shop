@@ -24,9 +24,9 @@ export default function SubscriptionInvoicePrint({
 }) {
   const bankRows = [
     ['Bank', bank?.bankName || 'Commercial Bank'],
-    ['Account Name', bank?.accountName || 'Akila Eranda Gankewela'],
-    ['Account Number', bank?.accountNumber || '2000124779'],
-    ['SWIFT Code', bank?.swift || 'CCEYLKLX'],
+    ['Account Name', bank?.accountName || 'Hexalyte Innovation (Pvt) Ltd'],
+    ['Account Number', bank?.accountNumber || '—'],
+    ['SWIFT Code', bank?.swift || '—'],
   ]
   if (bank?.branch) bankRows.push(['Branch', bank.branch])
 
