@@ -495,42 +495,62 @@
   font-size: 11px !important;
   font-weight: 700 !important;
   letter-spacing: 0.01em;
-  border: 1px solid var(--nova-line) !important;
-  background: var(--nova-elevated) !important;
-  color: var(--nova-secondary) !important;
+  border: 1px solid transparent !important;
   box-shadow: none !important;
   background-image: none !important;
-  transition: background-color var(--nova-ease), border-color var(--nova-ease), color var(--nova-ease),
-    transform var(--nova-ease-fast);
+  transition: filter var(--nova-ease), transform var(--nova-ease-fast), box-shadow var(--nova-ease);
 }
 
 [data-pos='nova'] .nova-bottom button:hover {
-  background: var(--nova-elevated-2) !important;
-  border-color: var(--nova-line-strong) !important;
-  color: var(--nova-text) !important;
-  filter: none;
+  filter: brightness(1.1);
 }
 
 [data-pos='nova'] .nova-bottom button:active {
   transform: scale(0.985);
 }
 
+/* Distinct action colors */
 [data-pos='nova'] .nova-bottom button[data-pos-action='newSale'] {
-  background: var(--nova-blue) !important;
-  border-color: transparent !important;
+  background: #3b82f6 !important;
   color: #fff !important;
   box-shadow: 0 6px 14px -8px rgba(37, 99, 235, 0.7) !important;
 }
-
-[data-pos='nova'] .nova-bottom button[data-pos-action='newSale']:hover {
-  background: var(--nova-blue-deep) !important;
+[data-pos='nova'] .nova-bottom button[data-pos-action='recent'] {
+  background: #0d9488 !important;
   color: #fff !important;
 }
-
+[data-pos='nova'] .nova-bottom button[data-pos-action='reload'] {
+  background: #0891b2 !important;
+  color: #fff !important;
+}
 [data-pos='nova'] .nova-bottom button[data-pos-action='dayStart'] {
-  border-color: rgba(34, 197, 94, 0.35) !important;
-  color: #86efac !important;
-  background: rgba(34, 197, 94, 0.1) !important;
+  background: #16a34a !important;
+  color: #fff !important;
+}
+[data-pos='nova'] .nova-bottom button[data-pos-action='dayEnd'] {
+  background: #dc2626 !important;
+  color: #fff !important;
+}
+[data-pos='nova'] .nova-bottom button[data-pos-action='hold'] {
+  background: #d97706 !important;
+  color: #fff !important;
+}
+[data-pos='nova'] .nova-bottom button[data-pos-action='cashFlow'] {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  color: var(--nova-secondary) !important;
+}
+[data-pos='nova'] .nova-bottom button[data-pos-action='more'] {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  color: var(--nova-secondary) !important;
+}
+
+[data-pos='nova'] .nova-bottom button[data-pos-action='cashFlow']:hover,
+[data-pos='nova'] .nova-bottom button[data-pos-action='more']:hover {
+  background: var(--nova-elevated-2) !important;
+  color: var(--nova-text) !important;
+  filter: none;
 }
 
 [data-pos='nova'] .nova-bottom button:focus-visible,
