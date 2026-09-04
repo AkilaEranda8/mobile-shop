@@ -1319,7 +1319,7 @@ export function WholesalePricingPage() {
                 </>
               ) : (
                 <>
-                  {activeTiers} tiers · {activeLists} lists ·{' '}
+                  {activeTier} tiers · {activeLists} lists ·{' '}
                   <span className="text-sky-500">{activeSeg.label}</span>
                 </>
               )}
