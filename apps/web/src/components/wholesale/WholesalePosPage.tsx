@@ -11,11 +11,13 @@ import {
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
+  Banknote,
   Building2,
   Check,
   Clock,
   CreditCard,
   History,
+  Landmark,
   Loader2,
   Lock,
   Minus,
@@ -28,6 +30,7 @@ import {
   Share2,
   Trash2,
   UserPlus,
+  Wallet,
   X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -264,6 +267,8 @@ export function WholesalePosPage() {
 
   const [productQuery, setProductQuery] = useState('')
   const [category, setCategory] = useState('All')
+  const [brandFilter, setBrandFilter] = useState('All')
+  const [discountPct, setDiscountPct] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
   const [cartDiscount, setCartDiscount] = useState(0)
   const [notes, setNotes] = useState('')
@@ -354,6 +359,14 @@ export function WholesalePosPage() {
       .slice(0, 12)
   }, [dealers, dealerQuery])
 
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of products) {
+      if (p.brandName?.trim()) set.add(p.brandName.trim())
+    }
+    return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))]
+  }, [products])
+
   const gridProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase()
     let list = products
@@ -371,11 +384,14 @@ export function WholesalePosPage() {
         list = list.filter((p) => (p.categoryName || '').toLowerCase().includes(needle))
       }
     }
+    if (brandFilter !== 'All') {
+      list = list.filter((p) => (p.brandName || '').trim() === brandFilter)
+    }
     if (q) {
       list = list.filter((p) => productSearchHaystack(p).includes(q))
     }
     return list.slice(0, 120)
-  }, [products, productQuery, category])
+  }, [products, productQuery, category, brandFilter])
 
   const subtotal = useMemo(() => cart.reduce((s, l) => s + lineTotal(l), 0), [cart])
   const tax = 0
@@ -1154,14 +1170,14 @@ export function WholesalePosPage() {
             </select>
           </label>
 
+          <button type="button" className="wpos-util" onClick={() => setRecentOpen(true)}>
+            <History size={14} />
+            Recent Sales
+          </button>
           <button type="button" className="wpos-util" onClick={() => setHoldOpen(true)}>
             <Clock size={14} />
             Hold Orders
             {holds.length > 0 && <span className="badge">{holds.length}</span>}
-          </button>
-          <button type="button" className="wpos-util" onClick={() => setRecentOpen(true)}>
-            <History size={14} />
-            Recent Sales
           </button>
           <button
             type="button"
@@ -1201,7 +1217,7 @@ export function WholesalePosPage() {
                 value={productQuery}
                 onChange={(e) => setProductQuery(e.target.value)}
                 onKeyDown={onProductKeyDown}
-                placeholder="Search product, SKU, barcode, IMEI... (F1)"
+                placeholder="Scan barcode / IMEI or search product, SKU, model... (F1)"
                 autoFocus
               />
             </div>
@@ -1216,8 +1232,30 @@ export function WholesalePosPage() {
               <ScanLine size={15} />
               Scan
             </button>
+            <select
+              className="wpos-filter"
+              value={category === 'All' ? 'All' : category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="All">All Categories</option>
+              {CATEGORY_CHIPS.filter((c) => c !== 'All').map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <select
+              className="wpos-filter"
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+            >
+              {brandOptions.map((b) => (
+                <option key={b} value={b}>
+                  {b === 'All' ? 'All Brands' : b}
+                </option>
+              ))}
+            </select>
           </div>
-
           <div className="wpos-cats">
             {CATEGORY_CHIPS.map((c) => (
               <button
@@ -1247,7 +1285,11 @@ export function WholesalePosPage() {
               const isAcc =
                 (p.categoryName || '').toLowerCase().includes('accessor') ||
                 (p.categoryName || '').toLowerCase().includes('cable') ||
-                (p.categoryName || '').toLowerCase().includes('charger')
+                (p.categoryName || '').toLowerCase().includes('charger') ||
+                Boolean(p.unitsPerBox)
+              const typeLabel = p.trackImei
+                ? 'Phone'
+                : p.categoryName?.split(/\s|\/|-/)[0] || 'Product'
               return (
                 <article key={p.id} className="wpos-pcard">
                   <div className="wpos-pthumb">
@@ -1255,41 +1297,49 @@ export function WholesalePosPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.imageUrl} alt="" />
                     ) : (
-                      <Package size={22} />
+                      <Package size={26} />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[0.78rem] font-semibold leading-snug line-clamp-2">
+                    <div className="text-[0.8rem] font-semibold leading-snug line-clamp-2">
                       {p.name}
                     </div>
                     <div className="text-[0.62rem] text-[var(--wpos-faint)] mt-0.5">
                       SKU: {p.sku || '—'}
-                      {p.brandName ? ` · ${p.brandName}` : ''}
                     </div>
+                    {p.brandName ? (
+                      <div className="text-[0.62rem] text-[var(--wpos-muted)]">{p.brandName}</div>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {p.trackImei && <span className="wpos-chip is-imei">IMEI</span>}
-                    <span className="wpos-chip">{p.categoryName || (p.trackImei ? 'Phone' : 'Product')}</span>
+                    <span className="wpos-chip">{typeLabel}</span>
+                    {isAcc && !p.trackImei ? <span className="wpos-chip">Accessory</span> : null}
                   </div>
                   <div className="mt-auto">
                     {wp != null ? (
-                      <div className="text-[0.9rem] font-bold text-[#93c5fd]">
-                        {formatCurrency(wp)}
+                      <div>
                         {isAcc && p.unitsPerBox ? (
-                          <div className="text-[0.65rem] font-medium text-[var(--wpos-muted)] mt-0.5">
-                            {formatCurrency(wp)} / Piece
-                            <br />
-                            {formatCurrency(wp * p.unitsPerBox)} / Box ({p.unitsPerBox})
+                          <div className="wpos-price leading-snug" style={{ fontSize: '0.82rem' }}>
+                            <div>
+                              {formatCurrency(wp)} <span className="text-[0.65rem] font-semibold text-[var(--wpos-muted)]">/ Piece</span>
+                            </div>
+                            <div className="text-[0.72rem] font-bold text-[var(--wpos-text)] mt-0.5">
+                              {formatCurrency(wp * p.unitsPerBox)}{' '}
+                              <span className="text-[0.62rem] font-semibold text-[var(--wpos-muted)]">
+                                / Box ({p.unitsPerBox})
+                              </span>
+                            </div>
                           </div>
-                        ) : null}
+                        ) : (
+                          <div className="wpos-price">{formatCurrency(wp)}</div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-[0.75rem] text-[var(--wpos-faint)]">Price on add</div>
                     )}
                     <div className="flex items-center justify-between gap-2 mt-2">
-                      <span className="text-[0.65rem] text-[var(--wpos-muted)]">
-                        Stock: {p.stock ?? '—'}
-                      </span>
+                      <span className="wpos-stock">Stock: {p.stock ?? '—'}</span>
                       <button
                         type="button"
                         className="wpos-btn wpos-btn-primary !h-8 !px-2.5 !text-[0.7rem]"
@@ -1479,7 +1529,7 @@ export function WholesalePosPage() {
                       </div>
                       {line.trackImei && (
                         <div className="mt-1 flex items-center gap-1.5">
-                          <span className={`wpos-chip ${line.imei ? 'is-ok' : 'is-imei'}`}>
+                          <span className={`wpos-chip ${line.imei ? 'is-ok' : 'is-imei-warn'}`}>
                             {line.imei ? `IMEI ${line.imei}` : 'IMEI Required'}
                           </span>
                           {line.imeiReserved && <span className="wpos-chip is-ok">Reserved</span>}
@@ -1551,19 +1601,49 @@ export function WholesalePosPage() {
               </div>
 
               <div className="mt-2 space-y-1.5 text-[0.78rem]">
+                <input
+                  className="wpos-note"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add note to this sale..."
+                />
                 <div className="flex justify-between">
                   <span className="text-[var(--wpos-muted)]">Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-[var(--wpos-muted)]">Discount</span>
-                  <input
-                    type="number"
-                    min={0}
-                    className="w-28 h-8 rounded-md bg-[var(--wpos-elevated)] border border-[var(--wpos-border)] px-2 text-right text-[0.78rem]"
-                    value={cartDiscount || ''}
-                    onChange={(e) => setCartDiscount(Math.max(0, Number(e.target.value) || 0))}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="w-14 h-8 rounded-md bg-[var(--wpos-elevated)] border border-[var(--wpos-border)] px-1.5 text-right text-[0.72rem]"
+                      placeholder="%"
+                      value={discountPct}
+                      onChange={(e) => {
+                        const pct = e.target.value
+                        setDiscountPct(pct)
+                        const n = Number(pct)
+                        if (Number.isFinite(n) && n >= 0) {
+                          setCartDiscount(round2((subtotal * Math.min(100, n)) / 100))
+                        }
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-24 h-8 rounded-md bg-[var(--wpos-elevated)] border border-[var(--wpos-border)] px-2 text-right text-[0.78rem]"
+                      value={cartDiscount || ''}
+                      onChange={(e) => {
+                        const amt = Math.max(0, Number(e.target.value) || 0)
+                        setCartDiscount(amt)
+                        setDiscountPct(
+                          subtotal > 0 ? String(round2((amt / subtotal) * 100)) : '',
+                        )
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--wpos-muted)]">Tax</span>
@@ -1638,18 +1718,28 @@ export function WholesalePosPage() {
               )}
 
               <div className="wpos-pay-grid mt-2">
-                {PAY_KEYS.map((p) => (
-                  <button
-                    key={p.key}
-                    type="button"
-                    className={`wpos-pay-btn${activePayMethod === p.key || Number(pay[p.key]) > 0 ? ' is-active' : ''}`}
-                    onClick={() => fillPayMethod(p.key)}
-                    disabled={p.key === 'CREDIT' && creditExceeded && !splitPayment}
-                  >
-                    <CreditCard size={12} className="inline mr-1 opacity-70" />
-                    {p.label}
-                  </button>
-                ))}
+                {PAY_KEYS.map((p) => {
+                  const Icon =
+                    p.key === 'CASH'
+                      ? Banknote
+                      : p.key === 'CARD'
+                        ? CreditCard
+                        : p.key === 'BANK_TRANSFER'
+                          ? Landmark
+                          : Wallet
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      className={`wpos-pay-btn${activePayMethod === p.key || Number(pay[p.key]) > 0 ? ' is-active' : ''}`}
+                      onClick={() => fillPayMethod(p.key)}
+                      disabled={p.key === 'CREDIT' && creditExceeded && !splitPayment}
+                    >
+                      <Icon size={16} />
+                      {p.label}
+                    </button>
+                  )
+                })}
               </div>
 
               {(splitPayment || paidTotal > 0) && (
@@ -1681,10 +1771,10 @@ export function WholesalePosPage() {
                 </div>
               )}
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="wpos-checkout-row">
                 <button
                   type="button"
-                  className="wpos-btn wpos-btn-ghost !h-10 !text-[0.72rem]"
+                  className="wpos-btn wpos-btn-ghost !h-11 !text-[0.72rem]"
                   onClick={() => {
                     if (!cart.length) {
                       toast.error('Nothing to save')
@@ -1698,7 +1788,7 @@ export function WholesalePosPage() {
                 </button>
                 <button
                   type="button"
-                  className="wpos-btn wpos-btn-amber !h-10 !text-[0.72rem]"
+                  className="wpos-btn wpos-btn-amber !h-11 !text-[0.72rem]"
                   onClick={holdCart}
                 >
                   Hold
@@ -1706,8 +1796,7 @@ export function WholesalePosPage() {
                 <button
                   id="wholesale-pos-checkout"
                   type="button"
-                  className="wpos-btn wpos-btn-primary !h-10 !text-[0.75rem] col-span-3 sm:col-span-1"
-                  style={{ gridColumn: '1 / -1' }}
+                  className="wpos-btn wpos-btn-primary !h-11 !text-[0.8rem]"
                   disabled={checkingOut || !dealer || !cart.length || creditExceeded}
                   onClick={() => void checkout()}
                 >
@@ -1716,7 +1805,7 @@ export function WholesalePosPage() {
                   ) : (
                     <Check size={16} />
                   )}
-                  Complete Wholesale Sale
+                  Complete Sale
                 </button>
               </div>
             </div>
@@ -1739,31 +1828,43 @@ export function WholesalePosPage() {
       {/* Footer */}
       <footer className="wpos-footer">
         <div className="wpos-stat">
+          <div className="wpos-stat-ico" style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+            <Banknote size={14} />
+          </div>
           <div>
             <strong>{formatCurrency(todayStats.sales)}</strong>
             <span>Today&apos;s Wholesale Sales</span>
           </div>
         </div>
         <div className="wpos-stat">
+          <div className="wpos-stat-ico" style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa' }}>
+            <Package size={14} />
+          </div>
           <div>
             <strong>{todayStats.invoices}</strong>
             <span>Invoices</span>
           </div>
         </div>
         <div className="wpos-stat">
+          <div className="wpos-stat-ico" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }}>
+            <Wallet size={14} />
+          </div>
           <div>
             <strong>{formatCurrency(todayStats.credit)}</strong>
             <span>Credit Sales</span>
           </div>
         </div>
         <div className="wpos-stat">
+          <div className="wpos-stat-ico" style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc' }}>
+            <Landmark size={14} />
+          </div>
           <div>
             <strong>{formatCurrency(todayStats.collected)}</strong>
             <span>Outstanding Collected</span>
           </div>
         </div>
         <div className="ml-auto text-[0.62rem] text-[var(--wpos-faint)] hidden lg:block">
-          F1 Search · F2 Dealer · F3 Scan · F4 Hold · F9 Checkout · ESC Close
+          F1 Search | F2 Dealer | F3 Scan | F4 Hold | F9 Checkout | ESC Close
           {branchLabel ? ` · ${branchLabel}` : ''}
         </div>
       </footer>

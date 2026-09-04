@@ -1,19 +1,19 @@
 /* Wholesale Counter POS — scoped; does not affect Retail POS */
 
 .wpos-shell {
-  --wpos-bg: #0b0f14;
-  --wpos-panel: #121820;
-  --wpos-card: #161d27;
-  --wpos-elevated: #1a2330;
-  --wpos-border: rgba(255, 255, 255, 0.08);
-  --wpos-border-strong: rgba(255, 255, 255, 0.14);
-  --wpos-text: #e8eef6;
-  --wpos-muted: #8b9bb0;
-  --wpos-faint: #5c6b7e;
+  --wpos-bg: #0b1220;
+  --wpos-panel: #111827;
+  --wpos-card: #1a2332;
+  --wpos-elevated: #1e293b;
+  --wpos-border: rgba(148, 163, 184, 0.14);
+  --wpos-border-strong: rgba(148, 163, 184, 0.28);
+  --wpos-text: #f1f5f9;
+  --wpos-muted: #94a3b8;
+  --wpos-faint: #64748b;
   --wpos-accent: #3b82f6;
-  --wpos-accent-soft: rgba(59, 130, 246, 0.15);
+  --wpos-accent-soft: rgba(59, 130, 246, 0.18);
   --wpos-green: #22c55e;
-  --wpos-green-soft: rgba(34, 197, 94, 0.15);
+  --wpos-green-soft: rgba(34, 197, 94, 0.16);
   --wpos-amber: #f59e0b;
   --wpos-rose: #f43f5e;
   --wpos-gold: #eab308;
@@ -102,9 +102,68 @@
 }
 
 .wpos-mode-btn.is-active {
-  background: var(--wpos-accent-soft);
-  border-color: rgba(59, 130, 246, 0.45);
-  color: #93c5fd;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.wpos-chip.is-imei-warn {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+
+.wpos-filter {
+  height: 2.6rem;
+  padding: 0 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--wpos-border-strong);
+  background: var(--wpos-card);
+  color: var(--wpos-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  min-width: 8.5rem;
+}
+
+.wpos-price {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.wpos-stock {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.wpos-checkout-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.6fr;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.wpos-stat-ico {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.45rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.wpos-note {
+  width: 100%;
+  height: 2.1rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--wpos-border);
+  background: var(--wpos-elevated);
+  color: var(--wpos-text);
+  padding: 0 0.65rem;
+  font-size: 0.75rem;
+  margin-top: 0.55rem;
 }
 
 .wpos-chip {
@@ -311,12 +370,13 @@
 .wpos-pcard {
   background: var(--wpos-card);
   border: 1px solid var(--wpos-border);
-  border-radius: 0.85rem;
-  padding: 0.7rem;
+  border-radius: 0.95rem;
+  padding: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
   min-height: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .wpos-pcard:hover {
@@ -324,9 +384,9 @@
 }
 
 .wpos-pthumb {
-  height: 72px;
-  border-radius: 0.55rem;
-  background: var(--wpos-elevated);
+  height: 96px;
+  border-radius: 0.65rem;
+  background: linear-gradient(160deg, #1e293b, #0f172a);
   display: grid;
   place-items: center;
   color: var(--wpos-faint);
@@ -344,9 +404,9 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #121820 !important;
-  color: #e8eef6 !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111827 !important;
+  color: #f1f5f9 !important;
+  border-left: 1px solid rgba(148, 163, 184, 0.14);
   box-shadow: none !important;
 }
 
@@ -442,19 +502,23 @@
 
 .wpos-pay-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.4rem;
 }
 
 .wpos-pay-btn {
-  padding: 0.55rem 0.45rem;
-  border-radius: 0.55rem;
+  padding: 0.65rem 0.35rem;
+  border-radius: 0.65rem;
   border: 1px solid var(--wpos-border);
   background: var(--wpos-elevated);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--wpos-muted);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .wpos-pay-btn.is-active {
