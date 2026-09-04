@@ -3,11 +3,12 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import {
-  Loader2, LifeBuoy, Plus, Send, Ticket, X, AlertCircle,
+  Loader2, LifeBuoy, Plus, Send, Ticket, X, AlertCircle, MessageCircle, Users,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   supportTicketsApi,
+  type SupportAgent,
   type SupportTicket,
   type SupportTicketCategory,
   type SupportTicketPriority,
@@ -30,6 +31,15 @@ function statusTone(status: string) {
   return 'bg-slate-500/15 text-slate-600 border-slate-500/25'
 }
 
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('') || '?'
+}
+
 function SupportPageInner() {
   const [items, setItems] = useState<SupportTicket[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,7 +51,11 @@ function SupportPageInner() {
   const [priority, setPriority] = useState<SupportTicketPriority>('MEDIUM')
   const [reply, setReply] = useState('')
   const [saving, setSaving] = useState(false)
-  const [mobilePane, setMobilePane] = useState<'tickets' | 'detail' | 'chat'>('tickets')
+  const [mobilePane, setMobilePane] = useState<'tickets' | 'detail' | 'chat'>('detail')
+  const [agents, setAgents] = useState<SupportAgent[]>([])
+  const [requestAgentEmail, setRequestAgentEmail] = useState<string | null>(null)
+
+  const onlineCount = agents.filter((a) => a.isOnline).length
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -106,6 +120,11 @@ function SupportPageInner() {
     }
   }
 
+  const startWithAgent = (agent: SupportAgent) => {
+    setRequestAgentEmail(agent.email)
+    setMobilePane('chat')
+  }
+
   return (
     <div
       className="support-page flex flex-col"
@@ -118,40 +137,60 @@ function SupportPageInner() {
         color: 'var(--text-primary)',
       }}
     >
-      {/* Top bar */}
       <header
-        className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-3 md:px-5"
+        className="relative flex shrink-0 flex-wrap items-center justify-between gap-3 overflow-hidden border-b px-4 py-3.5 md:px-6"
         style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-elevated, var(--bg-card))' }}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/15 text-sky-600">
-            <LifeBuoy size={20} />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-90"
+          style={{
+            background:
+              'radial-gradient(ellipse 60% 120% at 0% 50%, rgba(14,165,233,0.12), transparent 55%), radial-gradient(ellipse 40% 80% at 100% 0%, rgba(16,185,129,0.08), transparent 50%)',
+          }}
+        />
+        <div className="relative flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500 text-white shadow-lg shadow-sky-500/25">
+            <LifeBuoy size={22} />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-bold leading-tight">Support Center</h1>
-            <p className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>
-              Tickets & live chat with Hexalyte
+            <h1 className="truncate text-xl font-bold tracking-tight leading-tight">Support Center</h1>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+              <span>Tickets & live chat with Hexalyte</span>
+              <span className="hidden sm:inline text-slate-300">·</span>
+              <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+                {onlineCount > 0 ? `${onlineCount} online now` : 'Team offline'}
+              </span>
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-500"
-        >
-          <Plus size={16} /> New ticket
-        </button>
+        <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMobilePane('chat')}
+            className="hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold sm:inline-flex lg:hidden"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <MessageCircle size={15} className="text-sky-500" /> Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-sky-600/20 hover:bg-sky-500"
+          >
+            <Plus size={16} /> New ticket
+          </button>
+        </div>
       </header>
 
-      {/* Mobile tabs */}
-      <div
-        className="flex shrink-0 border-b lg:hidden"
-        style={{ borderColor: 'var(--border-subtle)' }}
-      >
+      <div className="flex shrink-0 border-b lg:hidden" style={{ borderColor: 'var(--border-subtle)' }}>
         {(
           [
             ['tickets', 'Tickets'],
-            ['detail', 'Details'],
+            ['detail', 'Team / Ticket'],
             ['chat', 'Live Chat'],
           ] as const
         ).map(([key, label]) => (
@@ -167,26 +206,30 @@ function SupportPageInner() {
         ))}
       </div>
 
-      {/* 3-column workspace */}
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_minmax(280px,360px)]">
-        {/* Ticket list */}
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(300px,380px)]">
+        {/* Tickets */}
         <aside
           className={`min-h-0 flex-col border-r ${mobilePane === 'tickets' ? 'flex' : 'hidden'} lg:flex`}
           style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-elevated, var(--bg-card))' }}
         >
-          <div className="flex items-center justify-between px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-            <span className="inline-flex items-center gap-1.5"><Ticket size={12} /> Your tickets</span>
-            <span>{items.length}</span>
+          <div
+            className="flex items-center justify-between px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em]"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Ticket size={12} /> Your tickets
+            </span>
+            <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-600">{items.length}</span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
             {loading && (
               <div className="flex justify-center py-12" style={{ color: 'var(--text-muted)' }}>
                 <Loader2 className="animate-spin" size={20} />
               </div>
             )}
             {!loading && items.length === 0 && (
-              <p className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                No tickets yet — create one or use live chat.
+              <p className="px-3 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                No tickets yet — create one or chat live.
               </p>
             )}
             {items.map((t) => (
@@ -194,14 +237,16 @@ function SupportPageInner() {
                 key={t.id}
                 type="button"
                 onClick={() => void openTicket(t.id)}
-                className="block w-full border-b px-4 py-3 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+                className="mb-1.5 block w-full rounded-xl border px-3.5 py-3 text-left transition hover:border-sky-300/80"
                 style={{
-                  borderColor: 'var(--border-subtle)',
-                  background: selected?.id === t.id ? 'rgba(14,165,233,0.08)' : undefined,
+                  borderColor: selected?.id === t.id ? 'rgba(14,165,233,0.45)' : 'var(--border-subtle)',
+                  background: selected?.id === t.id ? 'rgba(14,165,233,0.08)' : 'transparent',
                 }}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>{t.ticketNumber}</span>
+                  <span className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    {t.ticketNumber}
+                  </span>
                   <span className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase ${statusTone(t.status)}`}>
                     {t.status.replace(/_/g, ' ')}
                   </span>
@@ -222,25 +267,42 @@ function SupportPageInner() {
           </div>
         </aside>
 
-        {/* Detail / empty */}
+        {/* Detail / team hub */}
         <section
           className={`min-h-0 flex-col ${mobilePane === 'detail' ? 'flex' : 'hidden'} lg:flex`}
           style={{ background: 'var(--bg-primary)' }}
         >
           {selected ? (
             <>
-              <div className="shrink-0 border-b px-5 py-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-elevated, var(--bg-card))' }}>
-                <div className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>{selected.ticketNumber}</div>
-                <h2 className="mt-0.5 text-lg font-bold leading-snug">{selected.subject}</h2>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                  <span className={`rounded-md border px-1.5 py-0.5 font-bold uppercase ${statusTone(selected.status)}`}>
-                    {selected.status.replace(/_/g, ' ')}
-                  </span>
-                  <span>{selected.priority}</span>
-                  <span>·</span>
-                  <span>{selected.category}</span>
-                  <span>·</span>
-                  <span>SLA {new Date(selected.slaDueAt).toLocaleString()}</span>
+              <div
+                className="shrink-0 border-b px-5 py-4"
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-elevated, var(--bg-card))' }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      {selected.ticketNumber}
+                    </div>
+                    <h2 className="mt-0.5 text-lg font-bold leading-snug">{selected.subject}</h2>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      <span className={`rounded-md border px-1.5 py-0.5 font-bold uppercase ${statusTone(selected.status)}`}>
+                        {selected.status.replace(/_/g, ' ')}
+                      </span>
+                      <span>{selected.priority}</span>
+                      <span>·</span>
+                      <span>{selected.category}</span>
+                      <span>·</span>
+                      <span>SLA {new Date(selected.slaDueAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold"
+                    style={{ color: 'var(--text-muted)' }}
+                    onClick={() => setSelected(null)}
+                  >
+                    Back to team
+                  </button>
                 </div>
               </div>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
@@ -259,14 +321,19 @@ function SupportPageInner() {
                 ))}
               </div>
               {selected.status !== 'CLOSED' && (
-                <div className="flex shrink-0 gap-2 border-t p-3" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-elevated, var(--bg-card))' }}>
+                <div
+                  className="flex shrink-0 gap-2 border-t p-3"
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-elevated, var(--bg-card))' }}
+                >
                   <input
                     className="h-11 flex-1 rounded-xl border bg-transparent px-3 text-sm outline-none focus:border-sky-500"
                     style={{ borderColor: 'var(--border-subtle)' }}
                     placeholder="Write a reply…"
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') void sendReply() }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void sendReply()
+                    }}
                   />
                   <button
                     type="button"
@@ -295,28 +362,131 @@ function SupportPageInner() {
               )}
             </>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-              <div className="w-full max-w-[280px]">
-                <SupportLottie
-                  src="/lottie/customer-support.json"
-                  autoplay
-                  loop
-                  style={{ width: '100%', height: 'auto' }}
-                />
+            <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(14,165,233,0.14), transparent 60%), radial-gradient(ellipse 50% 40% at 80% 80%, rgba(16,185,129,0.08), transparent 55%)',
+                }}
+              />
+              <div className="relative flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-5 py-6 md:px-8">
+                <div className="w-full max-w-[220px] shrink-0 animate-[scHubIn_0.45s_ease]">
+                  <SupportLottie
+                    src="/lottie/customer-support.json"
+                    autoplay
+                    loop
+                    style={{ width: '100%', height: 'auto' }}
+                  />
+                </div>
+                <div className="mt-1 max-w-lg text-center">
+                  <h2 className="text-2xl font-bold tracking-tight">Meet the Hexalyte team</h2>
+                  <p className="mt-1.5 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                    Pick who you want to talk to — online agents reply in live chat. Or open a ticket for billing,
+                    bugs, and how-to help.
+                  </p>
+                </div>
+
+                <div className="mt-6 w-full max-w-2xl">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+                      <Users size={13} /> Support team
+                    </div>
+                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      {onlineCount > 0 ? `${onlineCount} online` : 'All offline'}
+                    </span>
+                  </div>
+
+                  {agents.length === 0 ? (
+                    <div
+                      className="rounded-2xl border border-dashed px-4 py-10 text-center text-sm"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
+                    >
+                      Support agents will appear here when available.
+                    </div>
+                  ) : (
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      {agents.map((agent, i) => (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => startWithAgent(agent)}
+                          className="group flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md hover:shadow-sky-500/10 animate-[scHubUp_0.4s_ease_both]"
+                          style={{
+                            borderColor: 'var(--border-subtle)',
+                            background: 'var(--bg-elevated, var(--bg-card))',
+                            animationDelay: `${i * 55}ms`,
+                          }}
+                        >
+                          <div className="relative shrink-0">
+                            <div
+                              className={`flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white ${
+                                agent.isOnline ? 'bg-sky-600' : 'bg-slate-400'
+                              }`}
+                            >
+                              {initials(agent.name)}
+                            </div>
+                            <span
+                              className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                                agent.isOnline ? 'bg-emerald-500 sc-hub-pulse' : 'bg-slate-400'
+                              }`}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold">{agent.name}</div>
+                            <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                              {agent.title}
+                            </div>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                              agent.isOnline
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                            }`}
+                          >
+                            {agent.isOnline ? 'Online' : 'Offline'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500"
+                  >
+                    <Plus size={16} /> Create ticket
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobilePane('chat')}
+                    className="inline-flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-semibold lg:hidden"
+                    style={{ borderColor: 'var(--border-subtle)' }}
+                  >
+                    <MessageCircle size={15} /> Open live chat
+                  </button>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold">We&apos;re here to help</h2>
-                <p className="mt-1 max-w-sm text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Open a support ticket for billing, bugs, or how-to help — or chat live with Hexalyte on the right.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCreateOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500"
-              >
-                <Plus size={16} /> Create ticket
-              </button>
+              <style>{`
+                @keyframes scHubIn {
+                  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+                  to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @keyframes scHubUp {
+                  from { opacity: 0; transform: translateY(10px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes scHubPulse {
+                  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+                  70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+                  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                }
+                .sc-hub-pulse { animation: scHubPulse 1.6s ease-out infinite; }
+              `}</style>
             </div>
           )}
         </section>
@@ -326,11 +496,17 @@ function SupportPageInner() {
           className={`min-h-0 border-l ${mobilePane === 'chat' ? 'flex' : 'hidden'} lg:flex`}
           style={{ borderColor: 'var(--border-subtle)' }}
         >
-          <SupportLiveChatPanel embedded className="h-full w-full" />
+          <SupportLiveChatPanel
+            embedded
+            teamPickerCompact
+            className="h-full w-full"
+            requestAgentEmail={requestAgentEmail}
+            onRequestHandled={() => setRequestAgentEmail(null)}
+            onAgentsChange={setAgents}
+          />
         </aside>
       </div>
 
-      {/* Create ticket modal */}
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
           <button
@@ -353,7 +529,9 @@ function SupportPageInner() {
             <div className="flex items-center justify-between border-b px-5 py-3.5" style={{ borderColor: 'var(--border-subtle)' }}>
               <div>
                 <div className="text-base font-bold">New support ticket</div>
-                <div className="text-[12px]" style={{ color: 'var(--text-muted)' }}>Hexalyte will respond by SLA priority</div>
+                <div className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                  Hexalyte will respond by SLA priority
+                </div>
               </div>
               <button type="button" className="rounded-lg p-2 hover:bg-black/5" onClick={() => setCreateOpen(false)}>
                 <X size={18} />
@@ -375,7 +553,11 @@ function SupportPageInner() {
                   value={category}
                   onChange={(e) => setCategory(e.target.value as SupportTicketCategory)}
                 >
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace(/_/g, ' ')}
+                    </option>
+                  ))}
                 </select>
                 <select
                   className="h-11 rounded-xl border bg-transparent px-2 text-sm"
@@ -383,7 +565,11 @@ function SupportPageInner() {
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as SupportTicketPriority)}
                 >
-                  {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                  {PRIORITIES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
                 </select>
               </div>
               <textarea

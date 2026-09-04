@@ -2915,17 +2915,20 @@ model UserNotification {
 }
 
 model SupportAgentPresence {
-  id          String   @id @default(cuid())
-  adminUserId String   @unique
-  email       String   @unique
-  displayName String
-  title       String   @default("Support Specialist")
-  isOnline    Boolean  @default(false)
-  lastSeenAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  adminUserId    String   @unique
+  email          String   @unique
+  displayName    String
+  title          String   @default("Support Specialist")
+  /// When true, this admin appears in tenant Live Chat team picker
+  visibleOnTeam  Boolean  @default(false)
+  isOnline       Boolean  @default(false)
+  lastSeenAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([isOnline, lastSeenAt])
+  @@index([visibleOnTeam, isOnline])
 }
 
 // ── Platform Support Tickets + Live Chat ─────────────────────────────────────

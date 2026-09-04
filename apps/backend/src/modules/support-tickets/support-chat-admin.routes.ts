@@ -4,7 +4,7 @@ import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { supportChatService } from './support-chat.service'
 import { supportAgentsService } from './support-agents.service'
-import { agentPresenceSchema, chatMessageSchema, convertChatSchema } from './support.validators'
+import { agentPresenceSchema, adminPatchAgentSchema, chatMessageSchema, convertChatSchema } from './support.validators'
 import { initSseHeaders, supportSseHub, writeSse } from './support-sse'
 import { prisma } from '../../config/database'
 
@@ -62,6 +62,18 @@ router.patch(
           req.body,
         ),
       )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.patch(
+  '/agents/:adminUserId',
+  validate(adminPatchAgentSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      sendSuccess(res, await supportAgentsService.updateAgent(req.params.adminUserId, req.body))
     } catch (e) {
       next(e)
     }

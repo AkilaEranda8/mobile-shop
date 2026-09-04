@@ -20,11 +20,17 @@ import { SuspendedAccountGate } from '@/components/layout/SuspendedAccountGate'
 import { ShopQuestUnlockProvider } from '@/lib/shop-quest-unlock'
 import { OnboardingQuest } from '@/components/shop-quest/OnboardingQuest'
 import { PinMustChangeGate } from '@/components/pos/PinMustChangeGate'
+import { SupportLiveChatWidget } from '@/components/support/SupportLiveChatWidget'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const isRepShell = pathname === '/rep' || pathname.startsWith('/rep/')
+  const hideLiveChatPopup =
+    pathname.includes('/support-tickets') ||
+    pathname === '/pos' ||
+    pathname.startsWith('/pos/') ||
+    pathname.includes('/dashboard/wholesale/pos')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [checked, setChecked] = useState(false)
@@ -125,6 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <PosGlobalShortcuts />
       <POSOverlay />
+      {!hideLiveChatPopup && <SupportLiveChatWidget />}
     </div>
     </ShopQuestUnlockProvider>
   )

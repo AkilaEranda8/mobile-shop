@@ -79,9 +79,18 @@ export default function AdminLiveChatPage() {
     setPresenceBusy(true)
     setPresenceMsg(null)
     try {
-      const next = await supportChatAdminApi.setPresence({ isOnline: !me?.isOnline })
+      const goingOnline = !me?.isOnline
+      const next = await supportChatAdminApi.setPresence({
+        isOnline: goingOnline,
+        // Going online also puts you on the tenant-visible team
+        ...(goingOnline ? { visibleOnTeam: true } : {}),
+      })
       setMe(next)
-      setPresenceMsg(next.isOnline ? 'You are online for tenants' : 'You are offline')
+      setPresenceMsg(
+        next.isOnline
+          ? 'You are online and visible to tenants'
+          : 'You are offline',
+      )
       void loadPresence()
     } catch (e: any) {
       setPresenceMsg(e?.message || 'Could not update status')
@@ -90,12 +99,37 @@ export default function AdminLiveChatPage() {
     }
   }
 
+  const patchAgent = async (
+    agent: SupportAgent,
+    body: { isOnline?: boolean; visibleOnTeam?: boolean },
+  ) => {
+    setPresenceBusy(true)
+    setPresenceMsg(null)
+    try {
+      const isSelf = me?.id === agent.id
+      const next = isSelf
+        ? await supportChatAdminApi.setPresence(body)
+        : await supportChatAdminApi.updateAgent(agent.id, body)
+      if (isSelf) setMe(next)
+      setTeam((prev) => prev.map((a) => (a.id === next.id ? next : a)))
+      setPresenceMsg('Team updated')
+    } catch (e: any) {
+      setPresenceMsg(e?.message || 'Could not update agent')
+    } finally {
+      setPresenceBusy(false)
+    }
+  }
+
+  const visibleCount = team.filter((a) => a.visibleOnTeam).length
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Live Chat</h1>
-          <p className="text-sm text-gray-500">Claim waiting sessions and chat with tenants</p>
+          <p className="text-sm text-gray-500">
+            Choose who appears on the tenant Support team, then set Online / Offline
+          </p>
           {presenceMsg && <p className="mt-1 text-xs text-emerald-700">{presenceMsg}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -118,20 +152,87 @@ export default function AdminLiveChatPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white p-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Support team</div>
-        <div className="flex flex-wrap gap-2">
-          {team.length === 0 && <span className="text-sm text-gray-400">No agents yet</span>}
-          {team.map((a) => (
-            <div
-              key={a.id}
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs"
-            >
-              <span className={`h-2 w-2 rounded-full ${a.isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-              <span className="font-semibold text-gray-800">{a.name}</span>
-              <span className="text-gray-400">{a.isOnline ? 'online' : 'offline'}</span>
+      <div className="rounded-xl border bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Support team roster
             </div>
-          ))}
+            <p className="mt-0.5 text-sm text-gray-500">
+              Only people with <span className="font-semibold text-gray-700">Show on team</span> appear for
+              tenants. {visibleCount} visible now.
+            </p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {team.length === 0 && <span className="text-sm text-gray-400">No platform admins found</span>}
+          {team.map((a) => {
+            const isSelf = me?.id === a.id
+            return (
+              <div
+                key={a.id}
+                className={`flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                  a.visibleOnTeam ? 'border-sky-200 bg-sky-50/40' : 'border-gray-100 bg-white'
+                }`}
+              >
+                <div className="relative shrink-0">
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white ${
+                      a.isOnline ? 'bg-sky-600' : 'bg-slate-400'
+                    }`}
+                  >
+                    {a.name
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map((p) => p[0]?.toUpperCase() ?? '')
+                      .join('') || '?'}
+                  </div>
+                  <span
+                    className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
+                      a.isOnline ? 'bg-emerald-500' : 'bg-slate-300'
+                    }`}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-gray-900">
+                    {a.name}
+                    {isSelf ? <span className="ml-1 text-[11px] font-normal text-sky-600">(you)</span> : null}
+                  </div>
+                  <div className="truncate text-[11px] text-gray-500">
+                    {a.title} · {a.email}
+                  </div>
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                    checked={Boolean(a.visibleOnTeam)}
+                    disabled={presenceBusy}
+                    onChange={(e) =>
+                      void patchAgent(a, {
+                        visibleOnTeam: e.target.checked,
+                        ...(e.target.checked ? {} : { isOnline: false }),
+                      })
+                    }
+                  />
+                  Show on team
+                </label>
+                <button
+                  type="button"
+                  disabled={presenceBusy || !a.visibleOnTeam}
+                  onClick={() => void patchAgent(a, { isOnline: !a.isOnline })}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wide disabled:opacity-40 ${
+                    a.isOnline
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  title={!a.visibleOnTeam ? 'Enable Show on team first' : undefined}
+                >
+                  {a.isOnline ? 'Online' : 'Offline'}
+                </button>
+              </div>
+            )
+          })}
         </div>
       </div>
 

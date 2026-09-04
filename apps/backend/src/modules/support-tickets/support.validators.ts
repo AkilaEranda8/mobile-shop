@@ -28,6 +28,13 @@ export const agentPresenceSchema = z.object({
   isOnline: z.boolean().optional(),
   title: z.string().min(2).max(80).optional(),
   heartbeat: z.boolean().optional(),
+  visibleOnTeam: z.boolean().optional(),
+})
+
+export const adminPatchAgentSchema = z.object({
+  isOnline: z.boolean().optional(),
+  title: z.string().min(2).max(80).optional(),
+  visibleOnTeam: z.boolean().optional(),
 })
 
 export const chatMessageSchema = z.object({

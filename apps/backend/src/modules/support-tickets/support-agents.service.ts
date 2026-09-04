@@ -15,6 +15,7 @@ function mapAgent(row: {
   email: string
   displayName: string
   title: string
+  visibleOnTeam: boolean
   isOnline: boolean
   lastSeenAt: Date
 }) {
@@ -24,6 +25,7 @@ function mapAgent(row: {
     email: row.email,
     name: row.displayName,
     title: row.title,
+    visibleOnTeam: row.visibleOnTeam,
     isOnline: online,
     lastSeenAt: row.lastSeenAt,
   }
@@ -42,6 +44,7 @@ async function ensurePresenceForAdmins() {
         email: a.email,
         displayName: a.name || a.email.split('@')[0],
         title: 'Support Specialist',
+        visibleOnTeam: false,
         isOnline: false,
       },
       update: {
@@ -53,17 +56,31 @@ async function ensurePresenceForAdmins() {
   return admins
 }
 
+function publishPresence(mapped: ReturnType<typeof mapAgent>) {
+  supportSseHub.publish(supportSseHub.adminInboxChannel(), 'presence', { agents: [mapped] })
+  supportSseHub.publish('chat:agents', 'presence', { agents: [mapped] })
+}
+
 export const supportAgentsService = {
+  /** Tenant-facing: only admins marked visible on the support team */
   async listForTenant() {
     await ensurePresenceForAdmins()
     const rows = await prisma.supportAgentPresence.findMany({
+      where: { visibleOnTeam: true },
       orderBy: [{ isOnline: 'desc' }, { displayName: 'asc' }],
     })
-    return rows.map(mapAgent).sort((a, b) => Number(b.isOnline) - Number(a.isOnline) || a.name.localeCompare(b.name))
+    return rows
+      .map(mapAgent)
+      .sort((a, b) => Number(b.isOnline) - Number(a.isOnline) || a.name.localeCompare(b.name))
   },
 
+  /** Admin roster: every platform admin with team + presence flags */
   async listForAdmin() {
-    return this.listForTenant()
+    await ensurePresenceForAdmins()
+    const rows = await prisma.supportAgentPresence.findMany({
+      orderBy: [{ visibleOnTeam: 'desc' }, { displayName: 'asc' }],
+    })
+    return rows.map(mapAgent)
   },
 
   async getMine(adminUserId: string, email: string, name: string) {
@@ -74,6 +91,7 @@ export const supportAgentsService = {
         email,
         displayName: name || email.split('@')[0],
         title: 'Support Specialist',
+        visibleOnTeam: false,
         isOnline: false,
       },
       update: { email, displayName: name || email.split('@')[0] },
@@ -85,7 +103,12 @@ export const supportAgentsService = {
     adminUserId: string,
     email: string,
     name: string,
-    input: { isOnline?: boolean; title?: string; heartbeat?: boolean },
+    input: {
+      isOnline?: boolean
+      title?: string
+      heartbeat?: boolean
+      visibleOnTeam?: boolean
+    },
   ) {
     await this.getMine(adminUserId, email, name)
     const current = await prisma.supportAgentPresence.findUniqueOrThrow({ where: { adminUserId } })
@@ -96,18 +119,47 @@ export const supportAgentsService = {
         isOnline: nextOnline,
         lastSeenAt: new Date(),
         ...(input.title ? { title: input.title.slice(0, 80) } : {}),
+        ...(input.visibleOnTeam !== undefined ? { visibleOnTeam: input.visibleOnTeam } : {}),
       },
     })
     const mapped = mapAgent(row)
-    supportSseHub.publish(supportSseHub.adminInboxChannel(), 'presence', { agents: [mapped] })
-    supportSseHub.publish('chat:agents', 'presence', { agents: [mapped] })
+    publishPresence(mapped)
+    return mapped
+  },
+
+  /** Update any platform admin's team visibility / online status */
+  async updateAgent(
+    targetAdminUserId: string,
+    input: { isOnline?: boolean; title?: string; visibleOnTeam?: boolean },
+  ) {
+    await ensurePresenceForAdmins()
+    const current = await prisma.supportAgentPresence.findUnique({
+      where: { adminUserId: targetAdminUserId },
+    })
+    if (!current) throw new AppError('Support agent not found', 404)
+
+    const row = await prisma.supportAgentPresence.update({
+      where: { adminUserId: targetAdminUserId },
+      data: {
+        ...(input.isOnline !== undefined
+          ? { isOnline: input.isOnline, lastSeenAt: new Date() }
+          : {}),
+        ...(input.title ? { title: input.title.slice(0, 80) } : {}),
+        ...(input.visibleOnTeam !== undefined ? { visibleOnTeam: input.visibleOnTeam } : {}),
+      },
+    })
+    const mapped = mapAgent(row)
+    publishPresence(mapped)
     return mapped
   },
 
   async requireOnlineAgent(email: string) {
     await ensurePresenceForAdmins()
     const row = await prisma.supportAgentPresence.findFirst({
-      where: { email: { equals: email, mode: 'insensitive' } },
+      where: {
+        email: { equals: email, mode: 'insensitive' },
+        visibleOnTeam: true,
+      },
     })
     if (!row) throw new AppError('Support agent not found', 404)
     return mapAgent(row)

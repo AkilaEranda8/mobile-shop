@@ -1117,6 +1117,7 @@ export type SupportAgent = {
   email: string
   name: string
   title: string
+  visibleOnTeam?: boolean
   isOnline: boolean
   lastSeenAt: string
 }
@@ -1150,8 +1151,21 @@ export const supportChatAdminApi = {
     }),
   agents: () => req<SupportAgent[]>(ADMIN_BASE, '/support-chat/agents'),
   myPresence: () => req<SupportAgent>(ADMIN_BASE, '/support-chat/agents/me'),
-  setPresence: (body: { isOnline?: boolean; title?: string; heartbeat?: boolean }) =>
+  setPresence: (body: {
+    isOnline?: boolean
+    title?: string
+    heartbeat?: boolean
+    visibleOnTeam?: boolean
+  }) =>
     req<SupportAgent>(ADMIN_BASE, '/support-chat/agents/me', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  updateAgent: (
+    adminUserId: string,
+    body: { isOnline?: boolean; title?: string; visibleOnTeam?: boolean },
+  ) =>
+    req<SupportAgent>(ADMIN_BASE, `/support-chat/agents/${adminUserId}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
