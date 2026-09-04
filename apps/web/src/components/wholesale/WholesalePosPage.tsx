@@ -455,16 +455,26 @@ export function WholesalePosPage() {
             dealer.tradingName ||
             dealer.legalName,
           customerPhone: inv?.dealer?.phone || dealer.phone,
-          items: (inv?.lines || cart).map((l) => ({
-            productName: 'productName' in l ? String(l.productName) : (l as CartLine).productName,
-            quantity: Number(l.quantity),
-            unitPrice: Number(
-              'unitPrice' in l ? l.unitPrice : (l as CartLine).unitPrice,
-            ),
-            total: Number('total' in l ? l.total : Number((l as CartLine).unitPrice) * Number(l.quantity)),
-            sku: ('sku' in l ? l.sku : (l as CartLine).sku) || undefined,
-            imei: ('imei' in l ? l.imei : (l as CartLine).imei) || undefined,
-          })),
+          items: (inv?.lines || cart).map((l) => {
+            const row = l as {
+              productName?: string
+              quantity?: number
+              unitPrice?: number
+              total?: number
+              sku?: string | null
+              imei?: string | null
+            }
+            const quantity = Number(row.quantity ?? 0)
+            const unitPrice = Number(row.unitPrice ?? 0)
+            return {
+              productName: String(row.productName ?? ''),
+              quantity,
+              unitPrice,
+              total: Number(row.total ?? unitPrice * quantity),
+              sku: row.sku || undefined,
+              imei: row.imei || undefined,
+            }
+          }),
           subtotal: Number(inv?.subtotal ?? cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0)),
           discountAmount: Number(inv?.discount ?? 0),
           total: Number(inv?.total ?? cartTotal),
