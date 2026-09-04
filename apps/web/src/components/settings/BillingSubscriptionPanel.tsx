@@ -545,8 +545,8 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Payment due</p>
-                <p className="text-xs mt-0.5 text-amber-700/80 dark:text-slate-400">
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Payment due</p>
+                <p className="text-xs mt-0.5 text-slate-600 dark:text-slate-400">
                   {tenant.paymentDueAmount != null
                     ? `Amount ${formatCurrency(tenant.paymentDueAmount)}`
                     : 'Outstanding subscription payment'}

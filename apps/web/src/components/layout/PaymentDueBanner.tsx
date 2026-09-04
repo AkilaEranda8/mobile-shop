@@ -122,7 +122,7 @@ export function PaymentDueBanner() {
             </>
           ) : grace ? (
             <>
-              <span className="font-semibold text-amber-700 dark:text-amber-300">Subscription Payment Due</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-100">Subscription Payment Due</span>
               {' '}
               <span style={{ color: 'var(--text-muted)' }}>
                 You have {grace.daysRemaining} day{grace.daysRemaining === 1 ? '' : 's'} remaining before suspension.
@@ -131,7 +131,7 @@ export function PaymentDueBanner() {
             </>
           ) : (
             <>
-              <span className="font-semibold text-amber-700 dark:text-amber-300">Your Hexalyte subscription payment is due.</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-100">Your Hexalyte subscription payment is due.</span>
               {' '}
               <span style={{ color: 'var(--text-muted)' }}>
                 {amount != null ? `Amount: ${formatCurrency(amount)}. ` : ''}

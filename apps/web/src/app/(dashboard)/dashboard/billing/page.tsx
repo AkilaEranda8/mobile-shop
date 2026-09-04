@@ -545,8 +545,8 @@ export default function BillingPage() {
                 <div className="flex gap-3 min-w-0">
                   <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={18} />
                   <div>
-                    <p className="text-sm font-bold text-amber-900 dark:text-amber-300">Grace period active</p>
-                    <p className="text-xs text-amber-800/90 dark:text-amber-100/70 mt-0.5">
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Grace period active</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                       <strong>{grace.daysRemaining}</strong> day{grace.daysRemaining === 1 ? '' : 's'} left ·{' '}
                       {formatCurrency(grace.amount)} outstanding
                     </p>
