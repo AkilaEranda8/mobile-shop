@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  CheckCircle2,
   Copy,
   Loader2,
   Lock,
@@ -15,6 +14,7 @@ import {
 import toast from 'react-hot-toast'
 import { billingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
+import BillingLottie from '@/components/billing/BillingLottie'
 
 const SESSION_TTL_MS = 15 * 60 * 1000
 
@@ -185,15 +185,15 @@ export default function HelaposQrModal({
               <motion.div
                 initial={{ scale: 0.92, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-7 text-center space-y-3"
+                className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-6 text-center space-y-3"
               >
-                <motion.div
-                  initial={{ scale: 0.6 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 18 }}
-                >
-                  <CheckCircle2 className="mx-auto text-emerald-400" size={44} />
-                </motion.div>
+                <div className="mx-auto w-[160px] h-[160px]">
+                  <BillingLottie
+                    src="/lottie/payment-successful.json"
+                    loop={false}
+                    style={{ width: 160, height: 160 }}
+                  />
+                </div>
                 <p className="text-lg font-black text-white">Payment verified</p>
                 <p className="text-xs text-emerald-100/65 leading-relaxed">
                   Webhook signature checked · invoice marked paid · subscription extended.

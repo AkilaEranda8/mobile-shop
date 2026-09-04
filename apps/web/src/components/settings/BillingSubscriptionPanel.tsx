@@ -32,6 +32,7 @@ import type { Tenant } from '@/types'
 import { billingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { calculateHelaposCustomerPayable } from '@/lib/helapos-fees'
+import BillingLottie from '@/components/billing/BillingLottie'
 
 export type BillingPlan = {
   key: string
@@ -443,26 +444,15 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
 
   return (
     <div className="space-y-5">
-      {/* Hero */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[var(--bg-card)] shadow-sm"
-        style={{
-          backgroundImage:
-            'radial-gradient(1000px 260px at 8% -30%, rgba(139,92,246,0.12), transparent 55%), radial-gradient(800px 220px at 95% 0%, rgba(59,130,246,0.08), transparent 50%)',
-        }}
-      >
+      {/* Hero — matches Settings card language + Revenue Lottie */}
+      <section className="card relative overflow-hidden !p-0">
         <div
-          className="absolute inset-0 pointer-events-none opacity-[0.45] dark:opacity-[0.04]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(15,23,42,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.06) 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
+          className="pointer-events-none absolute -right-6 -top-10 h-44 w-44 rounded-full opacity-40 blur-2xl dark:opacity-25"
+          style={{ background: 'rgba(99,102,241,0.22)' }}
         />
-
         <div className="relative p-5 sm:p-6 space-y-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] px-2 py-1 rounded-md bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25">
                   <CreditCard size={11} /> Billing & Subscription
@@ -481,22 +471,32 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 {tenant.name}
                 {tenant.ownerEmail ? ` · ${tenant.ownerEmail}` : ''}
               </p>
+              <div className="mt-4 flex flex-wrap items-end gap-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-500 dark:text-slate-400">
+                    Monthly rate
+                  </p>
+                  <p className="text-2xl font-black" style={{ color: currentPlan?.color ?? undefined }}>
+                    <span className={!currentPlan?.color ? 'text-gray-900 dark:text-white' : undefined}>
+                      {tenant.mrr
+                        ? formatCurrency(tenant.mrr)
+                        : currentPlan?.price ?? '—'}
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">
+                    {currentPlan?.period === 'contact us' ? 'Custom billing' : 'Billed monthly'}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-500 dark:text-slate-400">
-                Monthly rate
-              </p>
-              <p className="text-2xl font-black" style={{ color: currentPlan?.color ?? undefined }}>
-                <span className={!currentPlan?.color ? 'text-gray-900 dark:text-white' : undefined}>
-                  {tenant.mrr
-                    ? formatCurrency(tenant.mrr)
-                    : currentPlan?.price ?? '—'}
-                </span>
-              </p>
-              <p className="text-xs text-gray-500 dark:text-slate-400">
-                {currentPlan?.period === 'contact us' ? 'Custom billing' : 'Billed monthly'}
-              </p>
+            <div className="w-[100px] h-[100px] sm:w-[140px] sm:h-[140px] shrink-0 mx-auto sm:mx-0" aria-hidden>
+              <BillingLottie
+                src="/lottie/revenue.json"
+                loop
+                className="w-full h-full"
+                style={{ width: '100%', height: '100%' }}
+              />
             </div>
           </div>
 
@@ -611,7 +611,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       </section>
 
       {/* Invoice history */}
-      <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[var(--bg-card)] shadow-sm overflow-hidden">
+      <section className="card overflow-hidden !p-0">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
@@ -1027,7 +1027,13 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                 <>
                   {qrPaid ? (
                     <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 p-4 text-center space-y-2">
-                      <CheckCircle2 className="mx-auto text-emerald-600" size={28} />
+                      <div className="mx-auto w-[120px] h-[120px]">
+                        <BillingLottie
+                          src="/lottie/payment-successful.json"
+                          loop={false}
+                          style={{ width: 120, height: 120 }}
+                        />
+                      </div>
                       <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
                         Payment received — {upgradePlan.label} is active
                       </p>
