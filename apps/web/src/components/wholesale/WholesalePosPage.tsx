@@ -284,6 +284,10 @@ export function WholesalePosPage() {
   const [sideOpen, setSideOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [clock, setClock] = useState('')
+  const [sideWidth, setSideWidth] = useState(420)
+  const [resizingSide, setResizingSide] = useState(false)
+  const sideResizeRef = useRef<{ startX: number; startW: number } | null>(null)
+  const sideWidthRef = useRef(420)
 
   const [holdOpen, setHoldOpen] = useState(false)
   const [recentOpen, setRecentOpen] = useState(false)
@@ -304,6 +308,49 @@ export function WholesalePosPage() {
   const dealerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`wpos_side_w_${storageScope()}`)
+      const n = Number(raw)
+      if (Number.isFinite(n) && n >= 320 && n <= 640) {
+        setSideWidth(n)
+        sideWidthRef.current = n
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!resizingSide) return
+    const onMove = (e: MouseEvent) => {
+      const start = sideResizeRef.current
+      if (!start) return
+      const next = Math.min(640, Math.max(320, start.startW + (start.startX - e.clientX)))
+      sideWidthRef.current = next
+      setSideWidth(next)
+    }
+    const onUp = () => {
+      setResizingSide(false)
+      sideResizeRef.current = null
+      try {
+        localStorage.setItem(`wpos_side_w_${storageScope()}`, String(sideWidthRef.current))
+      } catch {
+        /* ignore */
+      }
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [resizingSide])
 
   useEffect(() => {
     if (!mounted) return
@@ -1207,7 +1254,10 @@ export function WholesalePosPage() {
       </header>
 
       {/* Body */}
-      <div className="wpos-body">
+      <div
+        className="wpos-body"
+        style={{ ['--wpos-side-w' as string]: `${sideWidth}px` }}
+      >
         <section className="wpos-catalog">
           <div className="wpos-search-row">
             <div className="wpos-search">
@@ -1356,6 +1406,15 @@ export function WholesalePosPage() {
         </section>
 
         <div className={`wpos-side${sideOpen ? ' is-open' : ''}`} role="complementary">
+          <div
+            className={`wpos-side-resize${resizingSide ? ' is-dragging' : ''}`}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              sideResizeRef.current = { startX: e.clientX, startW: sideWidthRef.current }
+              setResizingSide(true)
+            }}
+            title="Drag to resize cart panel"
+          />
           <div className="wpos-side-scroll">
             {/* Dealer */}
             <div className="wpos-block">
@@ -1514,13 +1573,13 @@ export function WholesalePosPage() {
             </div>
 
             {/* Cart */}
-            <div className="wpos-block">
+            <div className="wpos-block wpos-block-cart">
               <div className="wpos-section-title !mb-2">
                 <span>
                   2. Cart · {itemCount} Items · {unitCount} Units
                 </span>
               </div>
-              <div>
+              <div className="wpos-cart-list">
                 {cart.length === 0 && (
                   <div className="wpos-empty-hint">Scan or add products to start</div>
                 )}
