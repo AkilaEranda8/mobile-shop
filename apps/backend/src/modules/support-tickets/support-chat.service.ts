@@ -5,6 +5,7 @@ import { sanitizeText } from './support.util'
 import { notifySupportInbox, notifyTenantUser } from './support-notify'
 import { supportSseHub } from './support-sse'
 import { supportTicketsService } from './support-tickets.service'
+import { supportAgentsService } from './support-agents.service'
 import type { SupportTicketCategory, SupportTicketPriority } from '@prisma/client'
 
 type SessionRow = SupportChatSession & {
@@ -50,7 +51,7 @@ export const supportChatService = {
     tenantId: string,
     userId: string,
     userEmail: string,
-    input?: { subject?: string; body?: string },
+    input?: { subject?: string; body?: string; preferredAgentEmail?: string },
   ) {
     const open = await prisma.supportChatSession.findFirst({
       where: {
@@ -67,26 +68,50 @@ export const supportChatService = {
     })
     if (open) return mapSession(open)
 
+    let preferredEmail: string | null = null
+    let preferredLabel = 'an agent'
+    let preferredOnline = true
+    if (input?.preferredAgentEmail) {
+      const agent = await supportAgentsService.requireOnlineAgent(input.preferredAgentEmail)
+      preferredEmail = agent.email
+      preferredLabel = agent.name
+      preferredOnline = agent.isOnline
+    }
+
     const subject = input?.subject ? sanitizeText(input.subject, 200) : 'Live support'
     const body = input?.body ? sanitizeText(input.body) : null
+    const systemIntro = preferredEmail
+      ? preferredOnline
+        ? `Chat started — waiting for ${preferredLabel}.`
+        : `Chat started — ${preferredLabel} is offline right now; they'll reply when available.`
+      : 'Chat started — an agent will join shortly.'
+
     const session = await prisma.supportChatSession.create({
       data: {
         tenantId,
         startedById: userId,
         subject,
         status: 'WAITING',
+        assigneeAdminEmail: preferredEmail,
         messages: body
           ? {
-              create: {
-                body,
-                authorType: 'TENANT_USER',
-                authorUserId: userId,
-                authorEmail: userEmail,
-              },
+              create: [
+                {
+                  body: systemIntro,
+                  authorType: 'SYSTEM' as const,
+                  authorEmail: 'system',
+                },
+                {
+                  body,
+                  authorType: 'TENANT_USER' as const,
+                  authorUserId: userId,
+                  authorEmail: userEmail,
+                },
+              ],
             }
           : {
               create: {
-                body: 'Chat started — an agent will join shortly.',
+                body: systemIntro,
                 authorType: 'SYSTEM',
                 authorEmail: 'system',
               },
@@ -106,7 +131,7 @@ export const supportChatService = {
     })
     void notifySupportInbox(
       `[Chat] New live chat — ${session.tenant?.name ?? tenantId}`,
-      `<p>A tenant started a live chat.</p><p>Subject: ${subject}</p>`,
+      `<p>A tenant started a live chat${preferredEmail ? ` (requested: ${preferredEmail})` : ''}.</p><p>Subject: ${subject}</p>`,
     )
 
     return mapSession(session)

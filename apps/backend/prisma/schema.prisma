@@ -2914,6 +2914,20 @@ model UserNotification {
   @@index([relatedId])
 }
 
+model SupportAgentPresence {
+  id          String   @id @default(cuid())
+  adminUserId String   @unique
+  email       String   @unique
+  displayName String
+  title       String   @default("Support Specialist")
+  isOnline    Boolean  @default(false)
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isOnline, lastSeenAt])
+}
+
 // ── Platform Support Tickets + Live Chat ─────────────────────────────────────
 
 enum SupportTicketStatus {

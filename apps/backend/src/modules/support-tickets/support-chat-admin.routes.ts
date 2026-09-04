@@ -3,8 +3,10 @@ import { randomUUID } from 'crypto'
 import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 import { supportChatService } from './support-chat.service'
-import { chatMessageSchema, convertChatSchema } from './support.validators'
+import { supportAgentsService } from './support-agents.service'
+import { agentPresenceSchema, chatMessageSchema, convertChatSchema } from './support.validators'
 import { initSseHeaders, supportSseHub, writeSse } from './support-sse'
+import { prisma } from '../../config/database'
 
 const router = Router()
 
@@ -14,6 +16,57 @@ router.use((req, _res, next) => {
   }
   next()
 })
+
+router.get('/agents', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await supportAgentsService.listForAdmin())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/agents/me', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { name: true, email: true },
+    })
+    sendSuccess(
+      res,
+      await supportAgentsService.getMine(
+        req.user!.userId,
+        req.user!.email,
+        user?.name || req.user!.email,
+      ),
+    )
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.patch(
+  '/agents/me',
+  validate(agentPresenceSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        select: { name: true, email: true },
+      })
+      sendSuccess(
+        res,
+        await supportAgentsService.setPresence(
+          req.user!.userId,
+          req.user!.email,
+          user?.name || req.user!.email,
+          req.body,
+        ),
+      )
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.get('/sessions', async (req: Request, res: Response, next: NextFunction) => {
   try {

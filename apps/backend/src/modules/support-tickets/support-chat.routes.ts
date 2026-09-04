@@ -4,6 +4,7 @@ import { authenticate } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
 import { sendSuccess } from '../../utils/response'
 import { supportChatService } from './support-chat.service'
+import { supportAgentsService } from './support-agents.service'
 import { chatMessageSchema, createChatSessionSchema } from './support.validators'
 import { initSseHeaders, supportSseHub, writeSse } from './support-sse'
 
@@ -16,6 +17,14 @@ router.use((req, _res, next) => {
   next()
 })
 router.use(authenticate)
+
+router.get('/agents', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await supportAgentsService.listForTenant())
+  } catch (e) {
+    next(e)
+  }
+})
 
 router.post(
   '/sessions',

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, Wrench,
   Shield, Truck, BarChart3, Settings, LogOut,
   CreditCard, Smartphone,   FileText, Building2,
-  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag, AlertTriangle, Clock, Briefcase, Contact2, Undo2, LifeBuoy, Headphones,
+  UserCheck, ChevronLeft, ChevronRight, ChevronDown, Receipt, MessageSquare, MessageSquarePlus, PackageCheck, RotateCcw, ArrowLeftRight, Layers, RefreshCw, Lock, PieChart, Sparkles, BookOpen, TrendingUp, Landmark, Wallet, Calendar, ReceiptText, Plus, ClipboardList, DollarSign, Activity, PhoneCall, Tag, AlertTriangle, Clock, Briefcase, Contact2, Undo2, LifeBuoy,
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
@@ -287,8 +287,7 @@ const navItems: NavGroup[] = [
     items: [
       { href: '/dashboard/user-manual', icon: BookOpen, label: 'User Manual' },
       { href: '/dashboard/release-notes', icon: Sparkles, label: 'Release Notes', badge: 'NEW' },
-      { href: '/dashboard/support-tickets', icon: LifeBuoy, label: 'Support Tickets' },
-      { href: '/dashboard/customer-service-tickets', icon: Headphones, label: 'Customer SR' },
+      { href: '/dashboard/support-tickets', icon: LifeBuoy, label: 'Support' },
       { href: '/dashboard/feature-suggestions', icon: MessageSquarePlus, label: 'Feature Suggestions' },
       { href: '/dashboard/branches', icon: Building2, label: 'Branches', badge: 'NEW', permission: 'BRANCHES' },
       { href: '/dashboard/settings', icon: Settings,  label: 'Settings', permission: 'SETTINGS' },

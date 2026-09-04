@@ -1170,8 +1170,18 @@ export const supportTicketsApi = {
   close: (id: string) => api.patch<{ data: SupportTicket }>(`/support-tickets/${id}/close`, {}),
 }
 
+export type SupportAgent = {
+  id: string
+  email: string
+  name: string
+  title: string
+  isOnline: boolean
+  lastSeenAt: string
+}
+
 export const supportChatApi = {
-  start: (body?: { subject?: string; body?: string }) =>
+  agents: () => api.get<{ data: SupportAgent[] }>('/support-chat/agents'),
+  start: (body?: { subject?: string; body?: string; preferredAgentEmail?: string }) =>
     api.post<{ data: SupportChatSession }>('/support-chat/sessions', body ?? {}),
   mine: () => api.get<{ data: SupportChatSession[] }>('/support-chat/sessions/mine'),
   get: (id: string) => api.get<{ data: SupportChatSession }>(`/support-chat/sessions/${id}/messages`),

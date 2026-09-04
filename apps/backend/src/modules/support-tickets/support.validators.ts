@@ -21,6 +21,13 @@ export const adminPatchTicketSchema = z.object({
 export const createChatSessionSchema = z.object({
   subject: z.string().max(200).optional(),
   body: z.string().max(8000).optional(),
+  preferredAgentEmail: z.string().email().optional(),
+})
+
+export const agentPresenceSchema = z.object({
+  isOnline: z.boolean().optional(),
+  title: z.string().min(2).max(80).optional(),
+  heartbeat: z.boolean().optional(),
 })
 
 export const chatMessageSchema = z.object({

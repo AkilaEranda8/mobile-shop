@@ -993,7 +993,7 @@ function VariationPickerModal({
               <div className="grid grid-cols-[1fr_5.5rem] gap-2">
                 {allowPriceEdit ? (
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price</p>
                     <input
                       ref={priceInputRef}
                       type="text"
@@ -1247,55 +1247,52 @@ function PricePromptModal({
               />
             </div>
           )}
-          <div className={`grid gap-3 ${novaSkin ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-[1fr_5.5rem]'}`}>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price</p>
-              <div className="flex items-center gap-1.5">
+          <div className={`grid gap-3 ${novaSkin ? 'grid-cols-1' : 'grid-cols-[1fr_5.5rem]'}`}>
+            <div className={novaSkin ? 'min-w-0' : undefined}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>
+                Sale price
+              </p>
+              <div className="flex items-center gap-1.5 min-w-0">
                 {novaSkin && (
                   <button type="button" tabIndex={-1} onClick={() => bumpPrice(-100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease price">−</button>
                 )}
-                <div className="relative flex-1 min-w-0">
-                  {novaSkin && (
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold z-[1]" style={{ color: POS_THEME.muted }}>LKR</span>
-                  )}
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className={`nova-typeable w-full h-11 rounded-[10px] text-lg font-extrabold outline-none border tabular-nums ${novaSkin ? 'pl-11 pr-3' : 'px-3'}`}
-                    style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
-                    value={value}
-                    onChange={e => {
-                      const next = e.target.value.replace(/[^\d.]/g, '')
-                      const parts = next.split('.')
-                      const cleaned = parts.length > 2
-                        ? `${parts[0]}.${parts.slice(1).join('')}`
-                        : next
-                      onChange(cleaned)
-                    }}
-                    onFocus={e => e.target.select()}
-                    onKeyDown={e => {
-                      e.stopPropagation()
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        if (!qtyLocked) { qtyRef.current?.focus(); qtyRef.current?.select(); return }
-                        if (valid) onConfirm()
-                      }
-                      if (e.key === 'Escape') { e.preventDefault(); onClose() }
-                    }}
-                  />
-                </div>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="nova-typeable min-w-0 flex-1 h-11 px-3 rounded-[10px] text-base sm:text-lg font-extrabold outline-none border tabular-nums"
+                  style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                  value={value}
+                  onChange={e => {
+                    const next = e.target.value.replace(/[^\d.]/g, '')
+                    const parts = next.split('.')
+                    const cleaned = parts.length > 2
+                      ? `${parts[0]}.${parts.slice(1).join('')}`
+                      : next
+                    onChange(cleaned)
+                  }}
+                  onFocus={e => e.target.select()}
+                  onKeyDown={e => {
+                    e.stopPropagation()
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (!qtyLocked) { qtyRef.current?.focus(); qtyRef.current?.select(); return }
+                      if (valid) onConfirm()
+                    }
+                    if (e.key === 'Escape') { e.preventDefault(); onClose() }
+                  }}
+                />
                 {novaSkin && (
                   <button type="button" tabIndex={-1} onClick={() => bumpPrice(100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Increase price">+</button>
                 )}
               </div>
             </div>
-            <div>
+            <div className={novaSkin ? 'min-w-0' : undefined}>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Quantity</p>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {novaSkin && (
                   <button type="button" tabIndex={-1} disabled={qtyLocked} onClick={() => bumpQty(-1)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold disabled:opacity-40" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease quantity">−</button>
                 )}
@@ -1307,7 +1304,7 @@ function PricePromptModal({
                   autoCorrect="off"
                   spellCheck={false}
                   disabled={qtyLocked}
-                  className="nova-typeable w-full h-11 px-2 rounded-[10px] text-lg font-extrabold outline-none border text-center disabled:opacity-60 tabular-nums"
+                  className="nova-typeable min-w-0 flex-1 h-11 px-3 rounded-[10px] text-base sm:text-lg font-extrabold outline-none border text-center disabled:opacity-60 tabular-nums"
                   style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                   value={qty}
                   onChange={e => onQtyChange(e.target.value.replace(/[^\d]/g, ''))}
@@ -1325,9 +1322,9 @@ function PricePromptModal({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" style={{ color: POS_THEME.muted }}>
-            <span>Catalog <strong style={{ color: POS_THEME.text }} className="font-semibold">{formatCurrency(catalogPrice)}</strong></span>
+            <span>Catalog <strong style={{ color: POS_THEME.text }} className="font-semibold tabular-nums">{Number(catalogPrice).toLocaleString('en-LK')}</strong></span>
             {lineTotal != null && (
-              <span>Line total <strong className="font-extrabold tabular-nums" style={{ color: POS_THEME.text }}>{formatCurrency(lineTotal)}</strong></span>
+              <span>Line total <strong className="font-extrabold tabular-nums" style={{ color: POS_THEME.text }}>{Number(lineTotal).toLocaleString('en-LK')}</strong></span>
             )}
             {qtyLocked && <span>IMEI qty fixed at 1</span>}
           </div>

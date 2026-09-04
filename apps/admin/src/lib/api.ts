@@ -1112,6 +1112,15 @@ export const supportTicketsAdminApi = {
   reports: () => req<Record<string, unknown>>(ADMIN_BASE, '/support-tickets/reports/summary'),
 }
 
+export type SupportAgent = {
+  id: string
+  email: string
+  name: string
+  title: string
+  isOnline: boolean
+  lastSeenAt: string
+}
+
 export const supportChatAdminApi = {
   list: (params?: Record<string, string>) => {
     const qs = params && Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''
@@ -1138,6 +1147,13 @@ export const supportChatAdminApi = {
     req<AdminSupportTicket>(ADMIN_BASE, `/support-chat/sessions/${id}/convert-to-ticket`, {
       method: 'POST',
       body: JSON.stringify(body ?? {}),
+    }),
+  agents: () => req<SupportAgent[]>(ADMIN_BASE, '/support-chat/agents'),
+  myPresence: () => req<SupportAgent>(ADMIN_BASE, '/support-chat/agents/me'),
+  setPresence: (body: { isOnline?: boolean; title?: string; heartbeat?: boolean }) =>
+    req<SupportAgent>(ADMIN_BASE, '/support-chat/agents/me', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
     }),
 }
 
