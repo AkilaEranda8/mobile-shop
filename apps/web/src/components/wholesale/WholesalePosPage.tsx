@@ -1358,7 +1358,7 @@ export function WholesalePosPage() {
         <div className={`wpos-side${sideOpen ? ' is-open' : ''}`} role="complementary">
           <div className="wpos-side-scroll">
             {/* Dealer */}
-            <div>
+            <div className="wpos-block">
               <div className="wpos-section-title">
                 <span>1. Select Dealer (F2)</span>
                 <button
@@ -1369,7 +1369,7 @@ export function WholesalePosPage() {
                   <UserPlus size={12} /> New Dealer
                 </button>
               </div>
-              <div className="mt-2 relative">
+              <div className="relative">
                 <div className="wpos-search !h-9">
                   <Search size={14} className="text-[var(--wpos-faint)]" />
                   <input
@@ -1419,17 +1419,24 @@ export function WholesalePosPage() {
               </div>
 
               {dealer ? (
-                <div className="wpos-dealer-card mt-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-[0.88rem] truncate">
-                        {dealer.tradingName || dealer.legalName}
-                      </div>
-                      <div className="text-[0.65rem] text-[var(--wpos-faint)]">
-                        Dealer Code: {dealer.dealerCode}
+                <div className="wpos-dealer-card mt-3">
+                  <div className="wpos-dealer-head">
+                    <div className="wpos-dealer-avatar">
+                      {(dealer.tradingName || dealer.legalName).slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-[0.9rem] truncate leading-tight">
+                            {dealer.tradingName || dealer.legalName}
+                          </div>
+                          <div className="text-[0.65rem] text-[var(--wpos-faint)] mt-0.5">
+                            {dealer.dealerCode}
+                          </div>
+                        </div>
+                        <span className="wpos-chip is-ok">{dealer.status}</span>
                       </div>
                     </div>
-                    <span className="wpos-chip is-ok">{dealer.status}</span>
                   </div>
                   <div className="wpos-metric-grid">
                     <div className="wpos-metric">
@@ -1449,47 +1456,47 @@ export function WholesalePosPage() {
                       </strong>
                     </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[0.68rem]">
+                  <div className="wpos-dealer-meta">
                     <div>
-                      <span className="text-[var(--wpos-faint)]">Price Tier</span>
+                      <span>Price Tier</span>
                       <div className="font-semibold text-[var(--wpos-gold)]">
                         {dealer.tier?.name || 'Standard'}
                       </div>
                     </div>
                     <div>
-                      <span className="text-[var(--wpos-faint)]">Payment Terms</span>
+                      <span>Payment Terms</span>
                       <div className="font-semibold">{dealer.paymentTermsDays} Days</div>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-[var(--wpos-faint)]">Contact</span>
+                      <span>Contact</span>
                       <div className="font-semibold">{dealer.phone}</div>
                     </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="wpos-dealer-actions">
                     <button
                       type="button"
-                      className="wpos-btn wpos-btn-ghost !h-7 !text-[0.65rem]"
+                      className="wpos-btn wpos-btn-ghost"
                       onClick={() => router.push(`/dashboard/wholesale/dealers?id=${dealer.id}`)}
                     >
                       Profile
                     </button>
                     <button
                       type="button"
-                      className="wpos-btn wpos-btn-ghost !h-7 !text-[0.65rem]"
+                      className="wpos-btn wpos-btn-ghost"
                       onClick={() => router.push('/dashboard/wholesale/collections')}
                     >
                       Outstanding
                     </button>
                     <button
                       type="button"
-                      className="wpos-btn wpos-btn-ghost !h-7 !text-[0.65rem]"
+                      className="wpos-btn wpos-btn-ghost"
                       onClick={() => setRecentOpen(true)}
                     >
                       Sales History
                     </button>
                     <button
                       type="button"
-                      className="wpos-btn wpos-btn-ghost !h-7 !text-[0.65rem]"
+                      className="wpos-btn wpos-btn-secondary"
                       onClick={() => {
                         setDealer(null)
                         setDealerQuery('')
@@ -1500,45 +1507,49 @@ export function WholesalePosPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-2 rounded-xl border border-dashed border-[var(--wpos-border)] p-3 text-[0.75rem] text-[var(--wpos-muted)]">
-                  Dealer selection is required before checkout.
+                <div className="wpos-empty-hint mt-3">
+                  Select a dealer to unlock wholesale pricing and checkout.
                 </div>
               )}
             </div>
 
             {/* Cart */}
-            <div>
-              <div className="wpos-section-title">
+            <div className="wpos-block">
+              <div className="wpos-section-title !mb-2">
                 <span>
                   2. Cart · {itemCount} Items · {unitCount} Units
                 </span>
               </div>
-              <div className="mt-1">
+              <div>
                 {cart.length === 0 && (
-                  <div className="text-[0.75rem] text-[var(--wpos-muted)] py-4 text-center">
-                    Scan or add products to start
-                  </div>
+                  <div className="wpos-empty-hint">Scan or add products to start</div>
                 )}
                 {cart.map((line) => (
                   <div key={line.key} className="wpos-cart-line">
                     <div className="min-w-0">
-                      <div className="text-[0.78rem] font-semibold truncate">{line.productName}</div>
-                      <div className="text-[0.62rem] text-[var(--wpos-faint)]">
+                      <div className="text-[0.8rem] font-semibold truncate leading-snug">
+                        {line.productName}
+                      </div>
+                      <div className="text-[0.62rem] text-[var(--wpos-faint)] mt-0.5">
                         {line.sku || '—'}
-                        {line.resolving ? ' · pricing…' : line.priceSource ? ` · ${priceSourceLabel(line.priceSource)}` : ''}
+                        {line.resolving
+                          ? ' · pricing…'
+                          : line.priceSource
+                            ? ` · ${priceSourceLabel(line.priceSource)}`
+                            : ''}
                       </div>
                       {line.trackImei && (
-                        <div className="mt-1 flex items-center gap-1.5">
+                        <div className="mt-1.5 flex items-center gap-1.5">
                           <span className={`wpos-chip ${line.imei ? 'is-ok' : 'is-imei-warn'}`}>
                             {line.imei ? `IMEI ${line.imei}` : 'IMEI Required'}
                           </span>
                           {line.imeiReserved && <span className="wpos-chip is-ok">Reserved</span>}
                         </div>
                       )}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         {!line.trackImei && (
                           <select
-                            className="h-7 rounded-md bg-[var(--wpos-elevated)] border border-[var(--wpos-border)] text-[0.65rem] px-1.5"
+                            className="h-7 rounded-md bg-[rgba(15,23,42,0.85)] border border-[rgba(148,163,184,0.18)] text-[0.65rem] px-1.5"
                             value={line.sellUnit}
                             onChange={(e) =>
                               void updateSellUnit(line.key, e.target.value as WholesaleSellUnit)
@@ -1577,21 +1588,24 @@ export function WholesalePosPage() {
                           </div>
                         )}
                         {line.atp != null && (
-                          <span className="text-[0.6rem] text-[var(--wpos-faint)]">
+                          <span className="text-[0.6rem] font-semibold text-[var(--wpos-faint)]">
                             ATP {line.atp}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[0.72rem] text-[var(--wpos-muted)]">
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <div className="text-[0.68rem] text-[var(--wpos-muted)] tabular-nums">
                         {formatCurrency(line.unitPrice)}
                       </div>
-                      <div className="text-[0.85rem] font-bold">{formatCurrency(lineTotal(line))}</div>
+                      <div className="text-[0.9rem] font-bold tabular-nums">
+                        {formatCurrency(lineTotal(line))}
+                      </div>
                       <button
                         type="button"
-                        className="mt-1 text-[var(--wpos-rose)]"
+                        className="mt-auto text-[var(--wpos-rose)] opacity-80 hover:opacity-100"
                         onClick={() => removeLine(line.key)}
+                        title="Remove"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -1600,25 +1614,25 @@ export function WholesalePosPage() {
                 ))}
               </div>
 
-              <div className="mt-2 space-y-1.5 text-[0.78rem]">
+              <div className="wpos-totals">
                 <input
-                  className="wpos-note"
+                  className="wpos-note !mt-0 !mb-2"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add note to this sale..."
                 />
-                <div className="flex justify-between">
+                <div className="wpos-totals-row">
                   <span className="text-[var(--wpos-muted)]">Subtotal</span>
-                  <span>{formatCurrency(subtotal)}</span>
+                  <span className="tabular-nums font-semibold">{formatCurrency(subtotal)}</span>
                 </div>
-                <div className="flex justify-between items-center gap-2">
+                <div className="wpos-totals-row">
                   <span className="text-[var(--wpos-muted)]">Discount</span>
                   <div className="flex items-center gap-1.5">
                     <input
                       type="number"
                       min={0}
                       max={100}
-                      className="w-14 h-8 rounded-md bg-[var(--wpos-elevated)] border border-[var(--wpos-border)] px-1.5 text-right text-[0.72rem]"
+                      className="w-14 h-8 rounded-md bg-[rgba(15,23,42,0.85)] border border-[rgba(148,163,184,0.16)] px-1.5 text-right text-[0.72rem]"
                       placeholder="%"
                       value={discountPct}
                       onChange={(e) => {
@@ -1633,7 +1647,7 @@ export function WholesalePosPage() {
                     <input
                       type="number"
                       min={0}
-                      className="w-24 h-8 rounded-md bg-[var(--wpos-elevated)] border border-[var(--wpos-border)] px-2 text-right text-[0.78rem]"
+                      className="w-24 h-8 rounded-md bg-[rgba(15,23,42,0.85)] border border-[rgba(148,163,184,0.16)] px-2 text-right text-[0.78rem]"
                       value={cartDiscount || ''}
                       onChange={(e) => {
                         const amt = Math.max(0, Number(e.target.value) || 0)
@@ -1645,26 +1659,24 @@ export function WholesalePosPage() {
                     />
                   </div>
                 </div>
-                <div className="flex justify-between">
+                <div className="wpos-totals-row">
                   <span className="text-[var(--wpos-muted)]">Tax</span>
-                  <span>{formatCurrency(tax)}</span>
+                  <span className="tabular-nums">{formatCurrency(tax)}</span>
                 </div>
-                <div className="flex justify-between items-end pt-1 border-t border-[var(--wpos-border)]">
-                  <span className="font-bold text-[0.7rem] uppercase tracking-wide text-[var(--wpos-faint)]">
+                <div className="wpos-totals-grand">
+                  <span className="font-bold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748b]">
                     Total
                   </span>
-                  <span className="text-xl font-extrabold text-[var(--wpos-green)]">
-                    {formatCurrency(grandTotal)}
-                  </span>
+                  <strong className="tabular-nums">{formatCurrency(grandTotal)}</strong>
                 </div>
               </div>
             </div>
 
             {/* Payment */}
-            <div>
+            <div className="wpos-block">
               <div className="wpos-section-title">
                 <span>3. Payment (F9)</span>
-                <label className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-[var(--wpos-muted)] normal-case tracking-normal">
+                <label className="wpos-toggle">
                   <input
                     type="checkbox"
                     checked={splitPayment}
@@ -1675,28 +1687,30 @@ export function WholesalePosPage() {
               </div>
 
               {dealer && Number(pay.CREDIT) > 0 && (
-                <div className="mt-2 rounded-xl border border-[var(--wpos-border)] bg-[var(--wpos-card)] p-2.5 text-[0.7rem] space-y-1">
+                <div className="mb-2 rounded-xl border border-[rgba(148,163,184,0.12)] bg-[rgba(15,23,42,0.65)] p-2.5 text-[0.7rem] space-y-1">
                   <div className="flex justify-between">
                     <span className="text-[var(--wpos-faint)]">Outstanding</span>
-                    <span>{formatCurrency(dealer.totalDue)}</span>
+                    <span className="tabular-nums">{formatCurrency(dealer.totalDue)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--wpos-faint)]">Current Invoice (credit)</span>
-                    <span>{formatCurrency(Number(pay.CREDIT) || 0)}</span>
+                    <span className="tabular-nums">{formatCurrency(Number(pay.CREDIT) || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--wpos-faint)]">After Sale</span>
-                    <span>{formatCurrency(creditAfter)}</span>
+                    <span className="tabular-nums">{formatCurrency(creditAfter)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--wpos-faint)]">Available Credit</span>
-                    <span className="text-[var(--wpos-green)]">{formatCurrency(creditHeadroom)}</span>
+                    <span className="text-[var(--wpos-green)] tabular-nums">
+                      {formatCurrency(creditHeadroom)}
+                    </span>
                   </div>
                 </div>
               )}
 
               {creditExceeded && (
-                <div className="wpos-warn mt-2">
+                <div className="wpos-warn mb-2">
                   CREDIT LIMIT EXCEEDED — change payment or request approval.
                   <div className="mt-2 flex gap-2">
                     <button
@@ -1717,7 +1731,7 @@ export function WholesalePosPage() {
                 </div>
               )}
 
-              <div className="wpos-pay-grid mt-2">
+              <div className="wpos-pay-grid">
                 {PAY_KEYS.map((p) => {
                   const Icon =
                     p.key === 'CASH'
@@ -1743,14 +1757,13 @@ export function WholesalePosPage() {
               </div>
 
               {(splitPayment || paidTotal > 0) && (
-                <div className="mt-2 space-y-1.5">
+                <div className="wpos-pay-fields">
                   {PAY_KEYS.map((p) => (
-                    <div key={p.key} className="flex items-center gap-2">
-                      <span className="w-16 text-[0.68rem] text-[var(--wpos-muted)]">{p.label}</span>
+                    <div key={p.key} className="wpos-pay-field">
+                      <span>{p.label}</span>
                       <input
                         type="number"
                         min={0}
-                        className="flex-1 h-8 rounded-md bg-[var(--wpos-elevated)] border border-[var(--wpos-border)] px-2 text-[0.78rem]"
                         value={pay[p.key]}
                         onChange={(e) =>
                           setPay((prev) => ({ ...prev, [p.key]: e.target.value }))
@@ -1761,7 +1774,7 @@ export function WholesalePosPage() {
                   ))}
                   <div className="flex justify-between text-[0.75rem] pt-1">
                     <span className="text-[var(--wpos-muted)]">Paid / Balance</span>
-                    <span>
+                    <span className="tabular-nums font-semibold">
                       {formatCurrency(paidTotal)} /{' '}
                       <span className={dueLeft > 0.05 ? 'text-[var(--wpos-rose)]' : 'text-[var(--wpos-green)]'}>
                         {formatCurrency(dueLeft)}
