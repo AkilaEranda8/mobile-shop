@@ -32,8 +32,9 @@ const HEXA_DARK: PosThemeTokens = {
   border: '#2a3344',
   muted: '#9CA3AF',
   text: '#FFFFFF',
-  purple: '#7C3AED',
-  purpleDark: '#6D28D9',
+  /* primary accent slot (legacy name; blue — no purple chrome) */
+  purple: '#3B82F6',
+  purpleDark: '#2563EB',
   green: '#10B981',
   greenDark: '#059669',
   blue: '#3B82F6',
@@ -54,8 +55,8 @@ const HEXA_LIGHT: PosThemeTokens = {
   border: '#D8DEE9',
   muted: '#64748B',
   text: '#0F172A',
-  purple: '#6D28D9',
-  purpleDark: '#5B21B6',
+  purple: '#2563EB',
+  purpleDark: '#1D4ED8',
   green: '#059669',
   greenDark: '#047857',
   blue: '#2563EB',
@@ -69,7 +70,7 @@ const HEXA_LIGHT: PosThemeTokens = {
   tealDark: '#115E59',
 }
 
-/** Cool ink + teal — distinct from Hexa purple rail chrome. */
+/** Cool ink + teal — distinct from Hexa blue rail chrome. */
 const STUDIO: PosThemeTokens = {
   bg: '#081012',
   panel: '#0C1618',
@@ -92,16 +93,16 @@ const STUDIO: PosThemeTokens = {
   tealDark: '#0F766E',
 }
 
-/** Top-bar counter template — blue accent, no left rail (screenshot style). */
+/** Top-bar counter template — 2026 premium retail terminal. */
 const NOVA: PosThemeTokens = {
-  bg: '#0A0C10',
-  panel: '#0E1117',
-  card: '#151A22',
-  cardHover: '#1B2230',
-  border: '#2A3344',
-  muted: '#9CA3AF',
-  text: '#FFFFFF',
-  /* purple slot = primary accent for shared POS cards / checkout */
+  bg: '#080B12',
+  panel: '#0D1119',
+  card: '#141A24',
+  cardHover: '#1A2230',
+  border: '#1E2633',
+  muted: '#94A3B8',
+  text: '#F8FAFC',
+  /* primary accent slot (legacy name) */
   purple: '#3B82F6',
   purpleDark: '#2563EB',
   green: '#22C55E',
@@ -120,6 +121,11 @@ function isHexAccent(v?: string): v is string {
   return !!v && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(v)
 }
 
+/** Legacy Hexa purple accents — ignore so Nova/Hexa blue skins stay blue. */
+const LEGACY_PURPLE_ACCENTS = new Set([
+  '#7C3AED', '#6D28D9', '#5B21B6', '#8B5CF6', '#A855F7', '#7C3AEDFF',
+].map((s) => s.toUpperCase()))
+
 export function resolvePosTheme(theme?: PosThemeId | string, accent?: string): PosThemeTokens {
   const base =
     theme === 'studio' ? STUDIO
@@ -127,7 +133,9 @@ export function resolvePosTheme(theme?: PosThemeId | string, accent?: string): P
     : theme === 'hexa-light' ? HEXA_LIGHT
     : HEXA_DARK
 
-  if (!isHexAccent(accent)) return { ...base }
+  if (!isHexAccent(accent) || LEGACY_PURPLE_ACCENTS.has(accent.toUpperCase())) {
+    return { ...base }
+  }
   return {
     ...base,
     purple: accent,

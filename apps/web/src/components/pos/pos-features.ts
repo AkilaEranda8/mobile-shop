@@ -39,6 +39,7 @@ export function buildCategoryTabs(
 }
 
 export interface BottomAction {
+  id?: string
   label: string
   onClick: () => void
   bg: string
@@ -72,20 +73,20 @@ export function buildBottomActions(opts: {
   }
 
   const catalog: Record<string, BottomAction | null> = {
-    newSale: { label: 'New Sale (F10)', onClick: handlers.newSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
-    hold: { label: 'Hold Sales (F4)', onClick: handlers.holdSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
-    recent: { label: 'Recent Sales (F5)', onClick: handlers.recentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
+    newSale: { id: 'newSale', label: 'New Sale (F10)', onClick: handlers.newSale, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` },
+    hold: { id: 'hold', label: 'Hold Sales (F4)', onClick: handlers.holdSales, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
+    recent: { id: 'recent', label: 'Recent Sales (F5)', onClick: handlers.recentSales, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` },
     reload: flags.hasDailyReload
-      ? { label: 'Reload (F6)', onClick: handlers.reload, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }
+      ? { id: 'reload', label: 'Reload (F6)', onClick: handlers.reload, bg: `linear-gradient(135deg, ${POS_THEME.teal}, ${POS_THEME.tealDark})` }
       : null,
     dayStart: flags.hasDailyClosing
-      ? { label: dayStarted ? 'Day Started ✓ (F7)' : 'Day Start (F7)', onClick: handlers.dayStart, bg: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` }
-      : { label: 'Opening Cash (F7)', onClick: handlers.dayStart, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
+      ? { id: 'dayStart', label: dayStarted ? 'Day Started ✓ (F7)' : 'Day Start (F7)', onClick: handlers.dayStart, bg: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` }
+      : { id: 'dayStart', label: 'Opening Cash (F7)', onClick: handlers.dayStart, bg: `linear-gradient(135deg, ${POS_THEME.blue}, ${POS_THEME.blueDark})` },
     dayEnd: flags.hasDailyClosing
-      ? { label: dayIsClosed ? 'Day Closed ✓ (F11)' : 'Day End (F11)', onClick: handlers.dayEnd, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }
+      ? { id: 'dayEnd', label: dayIsClosed ? 'Day Closed ✓ (F11)' : 'Day End (F11)', onClick: handlers.dayEnd, bg: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})` }
       : null,
-    cashFlow: { label: 'Cash In/Out (F8)', onClick: handlers.cashFlow, ...secondary },
-    more: { label: heldCount > 0 ? `More (${heldCount})` : 'More', onClick: handlers.moreMenu, ...secondary },
+    cashFlow: { id: 'cashFlow', label: 'Cash In/Out (F8)', onClick: handlers.cashFlow, ...secondary },
+    more: { id: 'more', label: heldCount > 0 ? `More (${heldCount})` : 'More', onClick: handlers.moreMenu, ...secondary },
   }
 
   const order = visibleIds?.length

@@ -194,10 +194,7 @@ export async function adminLogin(email: string, password: string) {
     accessToken: string
     user: { id?: string; name?: string; email?: string; role: string }
   }>(
-    API_BASE, '/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email: email.trim(), password }),
-    },
+    API_BASE, '/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) },
   )
   if (data.user.role !== 'PLATFORM_ADMIN') {
     throw new Error('This account is not a platform admin. Use your platform admin email, not a shop login.')

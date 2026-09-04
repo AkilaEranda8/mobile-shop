@@ -209,14 +209,51 @@ function coerce(raw: unknown): PosUiSettings {
   }
 }
 
+const POS_UI_CACHE_PREFIX = 'hx_pos_ui_settings:'
+
+/** Survives POS close/reopen in the same tab (POSContent remounts every open). */
+let posUiMemory: { tenantId: string; settings: PosUiSettings } | null = null
+
+function posUiCacheKey(tenantId: string) {
+  return `${POS_UI_CACHE_PREFIX}${tenantId}`
+}
+
+function readCachedPosUi(tenantId: string | null | undefined): PosUiSettings | null {
+  if (!tenantId) return null
+  if (posUiMemory?.tenantId === tenantId) return posUiMemory.settings
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(posUiCacheKey(tenantId))
+    if (!raw) return null
+    const next = coerce(JSON.parse(raw))
+    posUiMemory = { tenantId, settings: next }
+    return next
+  } catch {
+    return null
+  }
+}
+
+function writeCachedPosUi(tenantId: string | null | undefined, settings: PosUiSettings) {
+  if (!tenantId) return
+  posUiMemory = { tenantId, settings }
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(posUiCacheKey(tenantId), JSON.stringify(settings))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
 export async function fetchPosUiSettings(): Promise<PosUiSettings> {
   const tenantId = authStorage.getUser()?.tenantId
   if (!tenantId) return coerce(null)
   try {
     const res: any = await tenantApi.getPosUiSettings(tenantId)
-    return coerce(res?.data ?? res)
+    const next = coerce(res?.data ?? res)
+    writeCachedPosUi(tenantId, next)
+    return next
   } catch {
-    return coerce(null)
+    return readCachedPosUi(tenantId) ?? coerce(null)
   }
 }
 
@@ -224,15 +261,20 @@ export async function pushPosUiSettings(settings: PosUiSettings): Promise<PosUiS
   const tenantId = authStorage.getUser()?.tenantId
   if (!tenantId) return coerce(settings)
   const res: any = await tenantApi.updatePosUiSettings(tenantId, settings)
-  return coerce(res?.data ?? res)
+  const next = coerce(res?.data ?? res)
+  writeCachedPosUi(tenantId, next)
+  return next
 }
 
 export function usePosUiSettings(): PosUiSettings {
-  const [settings, setSettings] = useState<PosUiSettings>(() => coerce(null))
+  const tenantId = authStorage.getUser()?.tenantId ?? null
+  const [settings, setSettings] = useState<PosUiSettings>(
+    () => readCachedPosUi(tenantId) ?? coerce(null),
+  )
   useEffect(() => {
     let alive = true
     fetchPosUiSettings().then(s => { if (alive) setSettings(s) })
     return () => { alive = false }
-  }, [])
+  }, [tenantId])
   return settings
 }

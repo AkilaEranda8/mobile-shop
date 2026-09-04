@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Nova POS — premium top-bar retail counter template.
+ * Nova POS — 2026 premium mobile-shop checkout terminal.
  * Visual chrome only. Same HexaPosLayoutProps / slots / callbacks as Hexa & Studio.
  */
 import React, { useEffect } from 'react'
@@ -11,10 +11,10 @@ import {
   Pause,
   Plus,
   ScanLine,
+  Search,
   Settings,
   ShoppingCart,
   SlidersHorizontal,
-  UserRound,
   X,
 } from 'lucide-react'
 import type { HexaPosLayoutProps } from './HexaPosLayout'
@@ -22,8 +22,8 @@ import { resolvePosTheme } from './pos-theme'
 import { PosCartResizeHandle, usePosCartResize } from './usePosCartResize'
 import './nova-pos-skin.css'
 
-const BTN =
-  'relative h-10 px-2.5 sm:px-3 rounded-[10px] text-[11px] font-semibold border flex items-center gap-1.5 touch-manipulation transition-[background-color,border-color,color,box-shadow] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40 disabled:pointer-events-none'
+const CTRL =
+  'relative h-10 px-3 rounded-[10px] text-[12px] font-semibold border flex items-center gap-1.5 touch-manipulation transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98]'
 
 export function NovaPosLayout(props: HexaPosLayoutProps) {
   const {
@@ -76,47 +76,43 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
     }
   }, [])
 
-  const topBtn = (opts: {
+  const surfaceBtn = (opts: {
     id: string
     label: string
     icon: React.ReactNode
     badge?: number
     active?: boolean
-  }) => (
-    <button
-      key={opts.id}
-      type="button"
-      onClick={() => onNavAction?.(opts.id)}
-      className={BTN}
-      style={{
-        borderColor: opts.active ? T.blue : T.border,
-        background: opts.active ? `${T.blue}24` : T.card,
-        color: opts.active ? T.text : T.muted,
-        outlineColor: T.blue,
-      }}
-    >
-      {opts.icon}
-      <span className="hidden md:inline">{opts.label}</span>
-      {opts.badge != null && opts.badge > 0 && (
-        <span
-          className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center ring-2"
-          style={{ background: T.red, color: '#fff', boxShadow: `0 0 0 2px ${T.panel}` }}
-        >
-          {opts.badge > 9 ? '9+' : opts.badge}
-        </span>
-      )}
-    </button>
-  )
+    primary?: boolean
+  }) => {
+    const on = !!opts.active
+    const primary = !!opts.primary
+    return (
+      <button
+        key={opts.id}
+        type="button"
+        onClick={() => onNavAction?.(opts.id)}
+        className={`${CTRL} nova-ctrl ${primary ? 'nova-ctrl--primary' : ''} ${on ? 'nova-ctrl--active' : ''}`}
+        aria-pressed={on || undefined}
+      >
+        {opts.icon}
+        <span className="hidden lg:inline">{opts.label}</span>
+        {opts.badge != null && opts.badge > 0 && (
+          <span className="nova-badge absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center">
+            {opts.badge > 9 ? '9+' : opts.badge}
+          </span>
+        )}
+      </button>
+    )
+  }
 
   const productsCol = (
     <div
-      className={`flex-1 flex-col min-w-0 min-h-0 ${showProductsPane ? 'flex' : 'hidden'} lg:flex`}
-      style={{ background: T.bg }}
+      className={`nova-catalog flex-1 flex-col min-w-0 min-h-0 ${showProductsPane ? 'flex' : 'hidden'} lg:flex`}
     >
       <div className="nova-category shrink-0">{categoryBar}</div>
       <div
-        className={`nova-products flex-1 overflow-y-auto overscroll-contain px-2 sm:px-3 py-2 sm:py-2.5 ${
-          cartItemCount > 0 && showProductsPane ? 'pb-4' : 'pb-2.5'
+        className={`nova-products flex-1 overflow-y-auto overscroll-contain px-2 sm:px-3 py-2 ${
+          cartItemCount > 0 && showProductsPane ? 'pb-3' : 'pb-2'
         }`}
       >
         {productGrid}
@@ -132,8 +128,6 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
         showCartPane ? 'flex' : 'hidden'
       } lg:flex w-full lg:w-[var(--pos-cart-w)] shrink-0 ${cartLeft ? 'border-r' : 'border-l'}`}
       style={{
-        borderColor: T.border,
-        background: T.card,
         ['--pos-cart-w' as string]: `${widthPx}px`,
       }}
     >
@@ -147,71 +141,53 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
       onDoubleClick={resetWidth}
       dragging={dragging}
       accent={T.blue}
-      border={T.border}
+      border="#1E2633"
     />
   )
 
   return (
     <div
       data-pos="nova"
-      className="pos-shell flex h-full w-full min-h-0 flex-col overflow-hidden [&_input]:text-white [&_select]:text-white"
+      className="pos-shell nova-shell flex h-full w-full min-h-0 flex-col overflow-hidden [&_input]:text-white [&_select]:text-white"
       style={{
-        background: T.bg,
-        color: T.text,
-        fontFamily: "'Segoe UI', system-ui, sans-serif",
         ['--pos-accent' as string]: T.blue,
       }}
     >
-      {/* ── Command bar ── */}
-      <div
-        role="banner"
-        className="nova-command shrink-0 border-b z-10"
-        style={{ borderColor: T.border, background: T.panel }}
-      >
-        <div className="flex items-center gap-2 px-2.5 sm:px-3 py-2 w-full min-w-0">
-          {/* Left: close + brand */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
+      {/* ── Command header ── */}
+      <div role="banner" className="nova-command shrink-0 z-20">
+        <div className="nova-command-row flex items-center gap-2 px-2 sm:px-3 py-2 w-full min-w-0">
+          {/* Brand */}
+          <div className="nova-brand-block flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
+            <div className="nova-brand hidden sm:flex items-center gap-2.5 min-w-0">
+              <div className="nova-brand-mark w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0" aria-hidden>
+                <ShoppingCart size={16} strokeWidth={2.25} />
+              </div>
+              <div className="min-w-0 leading-tight pr-0.5">
+                <p className="nova-brand-title text-[13px] font-extrabold tracking-tight truncate">
+                  Hexa POS
+                </p>
+                <p className="nova-brand-shop text-[11px] font-medium truncate max-w-[9rem] lg:max-w-[12rem]" title={shopName}>
+                  {shopName}
+                </p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="h-10 w-10 rounded-[10px] flex items-center justify-center border touch-manipulation transition-colors hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ borderColor: T.border, color: T.muted, background: T.card, outlineColor: T.blue }}
+              className={`${CTRL} nova-ctrl w-10 px-0 justify-center`}
               title="Close POS"
               aria-label="Close POS"
             >
               <X size={15} />
             </button>
-
-            <div className="nova-brand hidden sm:flex items-center gap-2.5 min-w-0">
-              <div
-                className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
-                style={{ background: T.blue }}
-                aria-hidden
-              >
-                <ShoppingCart size={15} style={{ color: '#ffffff' }} />
-              </div>
-              <div className="min-w-0 leading-tight pr-1">
-                <p className="text-[13px] font-extrabold tracking-tight truncate" style={{ color: '#ffffff' }}>
-                  Hexa POS
-                </p>
-                <p
-                  className="text-[10px] font-medium truncate max-w-[10rem]"
-                  style={{ color: T.muted }}
-                  title={shopName}
-                >
-                  {shopName}
-                </p>
-              </div>
-            </div>
           </div>
 
-          {/* Center: search + scan */}
-          <div className="flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 max-w-2xl mx-auto">
-            <div className="relative flex-1 min-w-0">
-              <ScanLine
+          {/* Search / Scan */}
+          <div className="nova-search-cluster flex-1 min-w-0 flex items-center gap-1.5 sm:gap-2 max-w-3xl mx-auto">
+            <div className="nova-search relative flex-1 min-w-0">
+              <Search
                 size={15}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ color: T.muted }}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none nova-search-icon"
                 aria-hidden
               />
               <input
@@ -220,46 +196,41 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
                 onChange={(e) => onSearchChange(e.target.value)}
                 onKeyDown={onSearchKeyDown}
                 placeholder="Search product name, SKU, barcode, IMEI..."
-                className="w-full h-10 pl-10 pr-12 rounded-full text-[13px] outline-none border placeholder:opacity-40 transition-[border-color,box-shadow] focus:border-[color:var(--pos-accent)]"
-                style={{
-                  background: T.card,
-                  borderColor: T.border,
-                  color: T.text,
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
-                }}
+                className="nova-search-input w-full h-10 pl-10 pr-12 rounded-[10px] text-[13px] outline-none border placeholder:opacity-40"
                 aria-label="Search products"
               />
-              <kbd
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded-md font-mono hidden sm:inline border"
-                style={{ background: T.bg, color: T.muted, borderColor: T.border }}
-              >
+              <kbd className="nova-kbd absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0.5 rounded-md font-mono hidden sm:inline border">
                 F1
               </kbd>
             </div>
             <button
               type="button"
               onClick={onScanClick}
-              className={`${BTN} shrink-0`}
-              style={{ borderColor: T.border, background: T.card, color: T.text, outlineColor: T.blue }}
+              className={`${CTRL} nova-ctrl shrink-0`}
               title="Scan barcode / IMEI"
               aria-label="Scan"
             >
-              <ScanLine size={15} style={{ color: T.blue }} />
+              <ScanLine size={15} />
               <span className="hidden lg:inline">Scan</span>
             </button>
             {imeiSlot}
           </div>
 
-          {/* Right: actions */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {topBtn({ id: 'newSale', label: 'New Sale', icon: <Plus size={14} style={{ color: T.blue }} /> })}
-            {topBtn({
+          {/* Actions */}
+          <div className="nova-actions flex items-center gap-1.5 shrink-0">
+            {surfaceBtn({
+              id: 'newSale',
+              label: 'New Sale',
+              icon: <Plus size={14} />,
+              primary: true,
+            })}
+            {surfaceBtn({
               id: 'sales',
               label: 'Sales History',
               icon: <History size={14} />,
               active: activeNavId === 'sales',
             })}
-            {topBtn({
+            {surfaceBtn({
               id: 'hold',
               label: 'Hold',
               icon: <Pause size={14} />,
@@ -268,24 +239,20 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
             <button
               type="button"
               onClick={onFiltersClick}
-              className={BTN}
-              style={{
-                borderColor: filtersActive ? T.blue : T.border,
-                background: filtersActive ? `${T.blue}24` : T.card,
-                color: filtersActive ? T.text : T.muted,
-                outlineColor: T.blue,
-              }}
+              className={`${CTRL} nova-ctrl ${filtersActive ? 'nova-ctrl--active' : ''}`}
               aria-pressed={!!filtersActive}
             >
               <SlidersHorizontal size={14} />
               <span className="hidden lg:inline">Filters</span>
             </button>
-            {toolbarActions}
+            <div className="nova-toolbar flex items-center gap-1.5">{toolbarActions}</div>
+            <div className="hidden xl:block w-[15rem] 2xl:w-[17rem] shrink-0">
+              <div className="nova-customer w-full">{customerSlot}</div>
+            </div>
             <button
               type="button"
               onClick={() => onNavAction?.('settings')}
-              className="h-10 w-10 rounded-[10px] border flex items-center justify-center touch-manipulation transition-colors hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ borderColor: T.border, background: T.card, color: T.muted, outlineColor: T.blue }}
+              className={`${CTRL} nova-ctrl w-10 px-0 justify-center`}
               title="Settings"
               aria-label="Settings"
             >
@@ -294,40 +261,23 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
             <button
               type="button"
               onClick={() => onMobileViewChange?.('cart')}
-              className="lg:hidden relative h-10 w-10 rounded-[10px] border flex items-center justify-center touch-manipulation focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ borderColor: T.border, background: T.card, color: T.text, outlineColor: T.blue }}
+              className={`${CTRL} nova-ctrl lg:hidden relative w-10 px-0 justify-center`}
               aria-label="Open cart"
             >
               <Archive size={15} />
               {cartItemCount > 0 && (
-                <span
-                  className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
-                  style={{ background: T.blue, color: '#fff' }}
-                >
+                <span className="nova-badge absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center">
                   {cartItemCount > 9 ? '9+' : cartItemCount}
                 </span>
               )}
             </button>
-            <div
-              className="hidden xl:flex items-center gap-2 pl-2 ml-0.5 border-l min-w-0 max-w-[13rem]"
-              style={{ borderColor: T.border }}
-            >
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 border"
-                style={{ background: `${T.blue}18`, color: T.blue, borderColor: `${T.blue}33` }}
-                aria-hidden
-              >
-                <UserRound size={15} />
-              </div>
-              <div className="min-w-0 flex-1 nova-customer">{customerSlot}</div>
-            </div>
           </div>
         </div>
-        {filtersPanel ? <div className="nova-filters border-t" style={{ borderColor: T.border }}>{filtersPanel}</div> : null}
+        {filtersPanel ? <div className="nova-filters">{filtersPanel}</div> : null}
       </div>
 
       {/* ── Body ── */}
-      <div className="flex-1 flex min-h-0 min-w-0 relative">
+      <div className="nova-body flex-1 flex min-h-0 min-w-0 relative">
         {cartLeft ? (
           <>
             {cartCol}
@@ -344,26 +294,15 @@ export function NovaPosLayout(props: HexaPosLayoutProps) {
         {mainOverlay}
       </div>
 
-      {/* ── Status bar ── */}
-      <footer
-        className="hidden sm:flex shrink-0 items-center justify-between gap-3 px-3 py-1 border-t text-[10px] leading-none"
-        style={{ borderColor: T.border, background: '#0b0e14', color: T.muted }}
-      >
-        <span className="opacity-50 truncate">Hexa POS</span>
+      {/* ── Status ── */}
+      <footer className="nova-status hidden sm:flex shrink-0 items-center justify-between gap-3 px-3 text-[11px] leading-none">
+        <span className="nova-status-muted truncate">Hexa POS · Terminal</span>
         <span className="inline-flex items-center gap-2 min-w-0">
-          <span className="truncate max-w-[10rem] font-medium" style={{ color: T.text }}>
-            {cashierName}
-          </span>
-          <span className="opacity-30" aria-hidden>
-            ·
-          </span>
-          <span className="truncate">Last sync {syncTime}</span>
-          <span
-            className="inline-flex items-center gap-1.5 font-semibold"
-            style={{ color: T.green }}
-            role="status"
-          >
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: T.green }} />
+          <span className="truncate max-w-[10rem] font-semibold nova-status-text">{cashierName}</span>
+          <span className="nova-status-dot" aria-hidden>·</span>
+          <span className="nova-status-muted truncate">Last sync {syncTime}</span>
+          <span className="nova-status-live inline-flex items-center gap-1.5 font-semibold" role="status">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" />
             Synced
           </span>
         </span>

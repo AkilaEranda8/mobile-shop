@@ -1259,12 +1259,12 @@ export default function SettingsPage() {
                             aria-label="Pick accent color"
                             className="h-10 w-10 shrink-0 rounded-lg border cursor-pointer bg-transparent p-0.5"
                             style={{ borderColor: 'var(--border)' }}
-                            value={/^#[0-9A-Fa-f]{6}$/.test(posUiForm.accent) ? posUiForm.accent : '#7C3AED'}
+                            value={/^#[0-9A-Fa-f]{6}$/.test(posUiForm.accent) ? posUiForm.accent : '#3B82F6'}
                             onChange={e => setPosUiForm(p => ({ ...p, accent: e.target.value.toUpperCase() }))}
                           />
                           <input
                             className="input-field h-10 flex-1 min-w-0 font-mono text-sm"
-                            placeholder="#7C3AED"
+                            placeholder="#3B82F6"
                             value={posUiForm.accent}
                             onChange={e => setPosUiForm(p => ({ ...p, accent: e.target.value }))}
                           />

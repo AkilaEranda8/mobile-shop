@@ -178,7 +178,7 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
           </div>
         ) : (
           <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            <button type="button" onClick={() => { setStep('search'); setSale(null) }} className="text-[11px] text-violet-400 hover:underline">← Back to search</button>
+            <button type="button" onClick={() => { setStep('search'); setSale(null) }} className="text-[11px] text-sky-400 hover:underline">← Back to search</button>
             <div className="rounded-xl border p-3" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
               <p className="text-xs font-bold text-white">{sale?.invoiceNumber}</p>
               <p className="text-[10px] text-white/60">
@@ -226,7 +226,7 @@ export function PosReturnModal({ onClose, onDone }: { onClose: () => void; onDon
                     style={{
                       borderColor: refundMethodId === m.id ? `${POS_THEME.purple}99` : POS_THEME.border,
                       background: refundMethodId === m.id ? `${POS_THEME.purple}22` : POS_THEME.bg,
-                      color: refundMethodId === m.id ? '#c4b5fd' : POS_THEME.muted,
+                      color: refundMethodId === m.id ? '#93c5fd' : POS_THEME.muted,
                     }}
                   >
                     {m.label}

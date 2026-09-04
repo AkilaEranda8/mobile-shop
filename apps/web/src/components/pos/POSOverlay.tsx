@@ -49,6 +49,7 @@ import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/c
 import { HirePurchaseWizard } from '@/components/hire-purchase/HirePurchaseWizard'
 import {
   usePosUiSettings,
+  fetchPosUiSettings,
   gridColsClass,
   resolvePosShortcutAction,
   type PosShortcutActionId,
@@ -256,7 +257,7 @@ function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: st
             label: 'Bill To',
             name: sale.customerName || 'Walk-in Customer',
             lines: [sale.customerPhone].filter(Boolean),
-            color: '#6366f1',
+            color: '#2563eb',
           },
         ].map((col, i) => (
           <div key={i} style={{ flex: 1, padding: '20px 40px', borderRight: i === 0 ? `1px solid ${IV.border}` : undefined }}>
@@ -410,7 +411,7 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
         <button type="button" onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/5 text-white/70" title="Back">
           <ChevronLeft size={18} />
         </button>
-        <UserPlus size={16} className="text-violet-400" />
+        <UserPlus size={16} className="text-sky-400" />
         <span className="text-sm font-bold text-white">New Customer</span>
       </div>
       <div>
@@ -710,9 +711,9 @@ function VariationPickerModal({
 
   const { gradient, Icon: CardIcon, iconColor } = (() => {
     const cat = (product.categoryName ?? '').toLowerCase()
-    if (cat.includes('mobile') || cat.includes('phone')) return { gradient: 'linear-gradient(135deg,#3b1fa5,#1d2fb5)', Icon: Smartphone, iconColor: '#818cf8' }
+    if (cat.includes('mobile') || cat.includes('phone')) return { gradient: 'linear-gradient(135deg,#1e3a8a,#1d4ed8)', Icon: Smartphone, iconColor: '#60a5fa' }
     if (cat.includes('tablet')) return { gradient: 'linear-gradient(135deg,#0e4f6e,#0e6e5a)', Icon: Tablet, iconColor: '#34d399' }
-    if (cat.includes('accessor') || cat.includes('headphone')) return { gradient: 'linear-gradient(135deg,#5b1fa5,#8b1fa5)', Icon: Headphones, iconColor: '#c084fc' }
+    if (cat.includes('accessor') || cat.includes('headphone')) return { gradient: 'linear-gradient(135deg,#0e7490,#0891b2)', Icon: Headphones, iconColor: '#67e8f9' }
     return { gradient: 'linear-gradient(135deg,#1c2333,#151921)', Icon: Package, iconColor: '#9CA3AF' }
   })()
 
@@ -1148,40 +1149,62 @@ function PricePromptModal({
   const qtyValid = qtyLocked || (Number.isFinite(parsedQty) && parsedQty >= 1)
   const valid = priceValid && qtyValid
   const lineTotal = priceValid && qtyValid ? parsed * (qtyLocked ? 1 : parsedQty) : null
+  const novaSkin =
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-pos-skin') === 'nova'
+
+  const bumpPrice = (delta: number) => {
+    const base = Number.isFinite(parsed) ? parsed : catalogPrice
+    onChange(String(Math.max(0, Math.round((base + delta) * 100) / 100)))
+  }
+  const bumpQty = (delta: number) => {
+    if (qtyLocked) return
+    const base = Number.isFinite(parsedQty) && parsedQty >= 1 ? parsedQty : 1
+    onQtyChange(String(Math.max(1, base + delta)))
+  }
 
   return (
     <div
       className="fixed inset-0 z-[210] flex items-end sm:items-center justify-center p-0 sm:p-3"
-      style={{ background: 'rgba(4,10,12,0.72)', backdropFilter: 'blur(10px)' }}
+      style={{ background: novaSkin ? 'rgba(8,11,18,0.78)' : 'rgba(4,10,12,0.72)', backdropFilter: 'blur(10px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* Compact dialog sized for laptop — content-height, not a tall sheet */}
       <div
-        className="relative w-full sm:w-[min(100%,380px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Set Sale Price — ${productName}`}
+        className={`relative w-full sm:w-[min(100%,400px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden ${novaSkin ? 'nova-price-modal' : ''}`}
         style={{
-          background: `radial-gradient(640px 180px at 50% -30%, ${POS_THEME.purple}1a 0%, transparent 55%), ${POS_THEME.card}`,
+          background: novaSkin ? POS_THEME.card : `radial-gradient(640px 180px at 50% -30%, ${POS_THEME.purple}1a 0%, transparent 55%), ${POS_THEME.card}`,
           borderColor: POS_THEME.border,
-          boxShadow: `0 20px 50px rgba(0,0,0,0.45), 0 0 0 1px ${POS_THEME.border}`,
+          boxShadow: novaSkin
+            ? '0 28px 64px -24px rgba(0,0,0,0.78), 0 0 0 1px rgba(59,130,246,0.08)'
+            : `0 20px 50px rgba(0,0,0,0.45), 0 0 0 1px ${POS_THEME.border}`,
+          borderRadius: novaSkin ? 16 : undefined,
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="shrink-0 flex items-center gap-2.5 px-3.5 sm:px-4 pt-3 pb-2.5 border-b" style={{ borderColor: POS_THEME.border }}>
+        <div className="shrink-0 flex items-center gap-2.5 px-3.5 sm:px-4 pt-3.5 pb-3 border-b" style={{ borderColor: POS_THEME.border }}>
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `linear-gradient(145deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 6px 14px ${POS_THEME.purple}28` }}
+            className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
+            style={{
+              background: novaSkin ? POS_THEME.blue : `linear-gradient(145deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`,
+              boxShadow: novaSkin ? '0 6px 14px -6px rgba(37,99,235,0.55)' : `0 6px 14px ${POS_THEME.purple}28`,
+            }}
           >
             <Tag size={15} className="text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>Set sale price</h3>
-            <p className="text-[11px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
+            <h3 className="text-[15px] font-extrabold leading-tight truncate" style={{ color: POS_THEME.text }}>
+              Set Sale Price
+            </h3>
+            <p className="text-[12px] mt-0.5 truncate" style={{ color: POS_THEME.muted }}>
               {productName}{subtitle ? ` · ${subtitle}` : ''}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border hover:bg-black/5"
+            className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 border hover:bg-white/[0.04]"
             style={{ borderColor: POS_THEME.border, color: POS_THEME.muted, background: POS_THEME.bg }}
             aria-label="Close"
           >
@@ -1189,10 +1212,10 @@ function PricePromptModal({
           </button>
         </div>
 
-        <div className="px-3.5 sm:px-4 py-3 space-y-3">
+        <div className="px-3.5 sm:px-4 py-3.5 space-y-3">
           {(showWholesale || showCredit) && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: POS_THEME.muted }}>Price type</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: POS_THEME.muted }}>Price type</p>
               <PriceModeToggle
                 mode={priceMode}
                 onChange={mode => onPriceModeChange?.(mode)}
@@ -1201,69 +1224,88 @@ function PricePromptModal({
               />
             </div>
           )}
-          <div className="grid grid-cols-[1fr_5.5rem] gap-2.5">
+          <div className={`grid gap-3 ${novaSkin ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-[1fr_5.5rem]'}`}>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
-              <input
-                ref={inputRef}
-                type="number"
-                min={0}
-                step="0.01"
-                inputMode="decimal"
-                className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
-                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    if (!qtyLocked) { qtyRef.current?.focus(); qtyRef.current?.select(); return }
-                    if (valid) onConfirm()
-                  }
-                  if (e.key === 'Escape') { e.preventDefault(); onClose() }
-                }}
-              />
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price</p>
+              <div className="flex items-center gap-1.5">
+                {novaSkin && (
+                  <button type="button" onClick={() => bumpPrice(-100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease price">−</button>
+                )}
+                <div className="relative flex-1 min-w-0">
+                  {novaSkin && (
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold" style={{ color: POS_THEME.muted }}>LKR</span>
+                  )}
+                  <input
+                    ref={inputRef}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    className={`w-full h-11 rounded-[10px] text-lg font-extrabold outline-none border tabular-nums ${novaSkin ? 'pl-11 pr-3' : 'px-3'}`}
+                    style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (!qtyLocked) { qtyRef.current?.focus(); qtyRef.current?.select(); return }
+                        if (valid) onConfirm()
+                      }
+                      if (e.key === 'Escape') { e.preventDefault(); onClose() }
+                    }}
+                  />
+                </div>
+                {novaSkin && (
+                  <button type="button" onClick={() => bumpPrice(100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Increase price">+</button>
+                )}
+              </div>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Qty</p>
-              <input
-                ref={qtyRef}
-                type="number"
-                min={1}
-                step={1}
-                inputMode="numeric"
-                disabled={qtyLocked}
-                className="w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60"
-                style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
-                value={qty}
-                onChange={e => onQtyChange(e.target.value.replace(/[^\d]/g, ''))}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { e.preventDefault(); if (valid) onConfirm() }
-                  if (e.key === 'Escape') { e.preventDefault(); onClose() }
-                }}
-              />
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Quantity</p>
+              <div className="flex items-center gap-1.5">
+                {novaSkin && (
+                  <button type="button" disabled={qtyLocked} onClick={() => bumpQty(-1)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold disabled:opacity-40" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease quantity">−</button>
+                )}
+                <input
+                  ref={qtyRef}
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  disabled={qtyLocked}
+                  className="w-full h-11 px-2 rounded-[10px] text-lg font-extrabold outline-none border text-center disabled:opacity-60 tabular-nums"
+                  style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
+                  value={qty}
+                  onChange={e => onQtyChange(e.target.value.replace(/[^\d]/g, ''))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); if (valid) onConfirm() }
+                    if (e.key === 'Escape') { e.preventDefault(); onClose() }
+                  }}
+                />
+                {novaSkin && (
+                  <button type="button" disabled={qtyLocked} onClick={() => bumpQty(1)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold disabled:opacity-40" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Increase quantity">+</button>
+                )}
+              </div>
             </div>
           </div>
-          <p className="text-[11px]" style={{ color: POS_THEME.muted }}>
-            Catalog {formatCurrency(catalogPrice)}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" style={{ color: POS_THEME.muted }}>
+            <span>Catalog <strong style={{ color: POS_THEME.text }} className="font-semibold">{formatCurrency(catalogPrice)}</strong></span>
             {lineTotal != null && (
-              <span className="font-semibold" style={{ color: POS_THEME.text }}>
-                {' · '}Line {formatCurrency(lineTotal)}
-              </span>
+              <span>Line total <strong className="font-extrabold tabular-nums" style={{ color: POS_THEME.text }}>{formatCurrency(lineTotal)}</strong></span>
             )}
-            {qtyLocked && <span>{' · '}IMEI qty fixed at 1</span>}
-          </p>
+            {qtyLocked && <span>IMEI qty fixed at 1</span>}
+          </div>
         </div>
 
         <div
-          className="shrink-0 border-t px-3.5 sm:px-4 pt-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom))]"
-          style={{ borderColor: POS_THEME.border, background: `${POS_THEME.panel}ee` }}
+          className="shrink-0 border-t px-3.5 sm:px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          style={{ borderColor: POS_THEME.border, background: novaSkin ? POS_THEME.panel : `${POS_THEME.panel}ee` }}
         >
           <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-10 rounded-xl text-xs font-bold border"
+              className="flex-1 h-11 rounded-[10px] text-xs font-bold border"
               style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }}
             >
               Cancel
@@ -1272,10 +1314,13 @@ function PricePromptModal({
               type="button"
               disabled={!valid}
               onClick={onConfirm}
-              className="flex-[1.5] h-10 rounded-xl text-xs font-extrabold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
-              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 8px 18px ${POS_THEME.purple}35` }}
+              className="flex-[1.6] h-11 rounded-[10px] text-[13px] font-extrabold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
+              style={{
+                background: novaSkin ? POS_THEME.blue : `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`,
+                boxShadow: novaSkin ? '0 8px 20px -10px rgba(37,99,235,0.7)' : `0 8px 18px ${POS_THEME.purple}35`,
+              }}
             >
-              <ShoppingCart size={14} /> Add to Cart
+              <ShoppingCart size={14} /> Add to Cart →
             </button>
           </div>
         </div>
@@ -2214,11 +2259,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const getProductCardStyle = (product: any) => {
     const cat = (product.categoryName ?? '').toLowerCase()
     if (cat.includes('mobile') || cat.includes('phone') || cat.includes('smartphone'))
-      return { gradient: 'linear-gradient(135deg, #3b1fa5 0%, #1d2fb5 100%)', iconColor: '#818cf8', Icon: Smartphone }
+      return { gradient: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)', iconColor: '#60a5fa', Icon: Smartphone }
     if (cat.includes('tablet') || cat.includes('ipad'))
       return { gradient: 'linear-gradient(135deg, #0e4f6e 0%, #0e6e5a 100%)', iconColor: '#34d399', Icon: Tablet }
     if (cat.includes('accessor') || cat.includes('earphone') || cat.includes('headphone') || cat.includes('audio'))
-      return { gradient: 'linear-gradient(135deg, #5b1fa5 0%, #8b1fa5 100%)', iconColor: '#c084fc', Icon: Headphones }
+      return { gradient: 'linear-gradient(135deg, #0e7490 0%, #0891b2 100%)', iconColor: '#67e8f9', Icon: Headphones }
     if (cat.includes('part') || cat.includes('battery') || cat.includes('screen') || cat.includes('display'))
       return { gradient: 'linear-gradient(135deg, #7c2d12 0%, #a16207 100%)', iconColor: '#fb923c', Icon: Wrench }
     return { gradient: 'linear-gradient(160deg, #1c2333 0%, #151921 100%)', iconColor: '#9CA3AF', Icon: Package }
@@ -3592,7 +3637,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-[#0a0f1a]/95 border-b border-white/10 backdrop-blur">
               <div className="flex items-center gap-2">
-                <Receipt size={15} className="text-violet-400" />
+                <Receipt size={15} className="text-sky-400" />
                 <span className="text-sm font-bold text-white">A4 Invoice</span>
                 <span className="text-xs text-slate-500 font-mono">{completedSale.invoiceNumber}</span>
               </div>
@@ -3700,17 +3745,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
         imeiSlot={imeiSlot}
         customerSlot={customerSlot}
         categoryBar={(
-          <div className="flex items-center gap-2 px-2 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+          <div className="pos-cat-bar flex items-center gap-2 px-2 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {categoryTabs.map(({ id, name, icon: Icon }) => (
-              <button key={id} onClick={() => setSelectedCategory(id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
+              <button key={id} type="button" onClick={() => setSelectedCategory(id)}
+                className="pos-cat-pill flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex-shrink-0 whitespace-nowrap"
                 style={selectedCategory === id
                   ? { background: POS_THEME.purple, color: '#fff', boxShadow: `0 2px 10px ${POS_THEME.purple}59`, border: 'none' }
                   : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
                 <Icon size={11} />{name}
               </button>
             ))}
-            <div className="ml-auto flex items-center gap-1 p-0.5 rounded-xl border shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
+            <div className="pos-view-toggle ml-auto flex items-center gap-1 p-0.5 rounded-xl border shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}>
               <button
                 type="button"
                 onClick={() => setGridView(true)}
@@ -3757,7 +3802,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   const isOut  = !isService && stockInfo.isOut
                   const isLow  = !isService && stockInfo.isLow
                   const isHot  = !isService && !isOut && posSellableStock(item, hasIMEI) >= 25
-                  const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench } : getProductCardStyle(item)
+                  const { gradient, iconColor, Icon: CardIcon } = isService ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#93c5fd', Icon: Wrench } : getProductCardStyle(item)
                   const isFav  = favorites.has(item.id)
                   const price  = formatCurrency(isService ? item.price : resolveCatalogPrice(item, effectivePriceMode))
                   const stockLabel = stockInfo.label
@@ -3771,7 +3816,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   if (!gridView) {
                     return (
                       <div key={item.id}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/[0.04] hover:border-violet-500/30'}`}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${isOut ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/[0.04] hover:border-sky-500/30'}`}
                         style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                         onClick={handlePick}>
                         <div className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0">
@@ -3895,46 +3940,109 @@ function POSContent({ onClose }: { onClose: () => void }) {
           )
         )}
         pagination={selectedCategory === 'RELOAD' ? null : (
-          <div className="flex items-center justify-between gap-2 px-2 sm:px-4 py-2 sm:py-2.5 border-t shrink-0" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
-            <span className="hidden md:inline text-xs truncate" style={{ color: POS_THEME.muted }}>Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, displayItems.length)} of {displayItems.length}</span>
-            <div className="flex items-center gap-1 mx-auto md:mx-0">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border hover:bg-black/5 disabled:opacity-30 transition-colors touch-manipulation"
-                style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}>
-                <ChevronLeft size={12} />
+          <div
+            className="pos-pager flex items-center justify-between gap-3 px-3 sm:px-4 py-2 border-t shrink-0"
+            style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}
+          >
+            <span
+              className="hidden md:inline text-[11px] font-medium tabular-nums tracking-tight truncate"
+              style={{ color: POS_THEME.muted }}
+            >
+              {(page - 1) * perPage + 1}–{Math.min(page * perPage, displayItems.length)}
+              <span className="opacity-50"> / </span>
+              {displayItems.length}
+            </span>
+
+            <div
+              className="pos-pager-controls inline-flex items-center p-0.5 rounded-xl border gap-0.5 mx-auto md:mx-0"
+              style={{ borderColor: POS_THEME.border, background: POS_THEME.bg }}
+            >
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                aria-label="Previous page"
+                className="h-8 w-8 rounded-[10px] flex items-center justify-center disabled:opacity-25 transition-colors touch-manipulation hover:bg-white/[0.06]"
+                style={{ color: POS_THEME.text }}
+              >
+                <ChevronLeft size={14} />
               </button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i
+                const active = page === p
                 return (
-                  <button key={p} onClick={() => setPage(p)}
-                    className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border transition-colors touch-manipulation"
-                    style={page === p
-                      ? { background: POS_THEME.purple, borderColor: POS_THEME.purple, color: '#fff' }
-                      : { borderColor: POS_THEME.border, color: POS_THEME.text, background: POS_THEME.card }}>{p}</button>
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    aria-label={`Page ${p}`}
+                    aria-current={active ? 'page' : undefined}
+                    className="h-8 min-w-8 px-2 rounded-[10px] text-[12px] font-bold tabular-nums flex items-center justify-center transition-colors touch-manipulation"
+                    style={active
+                      ? { background: POS_THEME.purple, color: '#fff', boxShadow: `0 4px 12px ${POS_THEME.purple}40` }
+                      : { color: POS_THEME.muted, background: 'transparent' }}
+                  >
+                    {p}
+                  </button>
                 )
               })}
-              {totalPages > 5 && page < totalPages - 2 && <>
-                <span className="text-xs px-0.5" style={{ color: POS_THEME.muted }}>…</span>
-                <button onClick={() => setPage(totalPages)} className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg text-xs font-bold flex items-center justify-center border hover:bg-black/5 transition-colors touch-manipulation" style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}>{totalPages}</button>
-              </>}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="w-8 h-8 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border hover:bg-black/5 disabled:opacity-30 transition-colors touch-manipulation"
-                style={{ borderColor: POS_THEME.border, color: POS_THEME.text }}>
-                <ChevronRight size={12} />
+              {totalPages > 5 && page < totalPages - 2 && (
+                <>
+                  <span className="text-[11px] px-0.5 opacity-40" style={{ color: POS_THEME.muted }}>…</span>
+                  <button
+                    type="button"
+                    onClick={() => setPage(totalPages)}
+                    aria-label={`Page ${totalPages}`}
+                    className="h-8 min-w-8 px-2 rounded-[10px] text-[12px] font-bold tabular-nums flex items-center justify-center transition-colors touch-manipulation hover:bg-white/[0.06]"
+                    style={{ color: POS_THEME.muted }}
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                aria-label="Next page"
+                className="h-8 w-8 rounded-[10px] flex items-center justify-center disabled:opacity-25 transition-colors touch-manipulation hover:bg-white/[0.06]"
+                style={{ color: POS_THEME.text }}
+              >
+                <ChevronRight size={14} />
               </button>
             </div>
-            <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
-              className="text-xs py-1 h-8 sm:h-7 rounded-lg px-1.5 sm:px-2 border outline-none shrink-0" style={{ width: 78, background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}>
-              {[15, 20, 30, 50].map(n => <option key={n} value={n}>{n}/pg</option>)}
-            </select>
+
+            <label className="pos-pager-size relative inline-flex items-center shrink-0">
+              <span className="sr-only">Items per page</span>
+              <select
+                value={perPage}
+                onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+                className="appearance-none text-[11px] font-semibold h-8 pl-2.5 pr-7 rounded-xl border outline-none cursor-pointer"
+                style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
+              >
+                {[15, 20, 30, 50].map(n => (
+                  <option key={n} value={n}>{n} / page</option>
+                ))}
+              </select>
+              <ChevronDown
+                size={12}
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-50"
+                style={{ color: POS_THEME.muted }}
+              />
+            </label>
           </div>
         )}
         bottomActions={(
-          <div className="flex flex-nowrap gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
+          <div className="pos-bottom-bar flex flex-nowrap gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
             {bottomActionButtons.map(btn => (
-              <button key={btn.label} type="button" onClick={btn.onClick}
+              <button
+                key={btn.label}
+                type="button"
+                data-pos-action={btn.id || undefined}
+                onClick={btn.onClick}
                 className="flex-none min-w-[5.5rem] sm:flex-1 sm:min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold border touch-manipulation whitespace-nowrap"
-                style={{ background: btn.bg, borderColor: POS_THEME.border, color: btn.color ?? '#ffffff' }}>
+                style={{ background: btn.bg, borderColor: POS_THEME.border, color: btn.color ?? '#ffffff' }}
+              >
                 {btn.label}
               </button>
             ))}
@@ -4011,7 +4119,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <Printer size={12} /> {invoiceSettings.thermalWidthPOS === 'stockForm' ? 'Stock Form Print' : 'Thermal Print'}
                   </button>
                 </div>
-                <button onClick={downloadInvoice} disabled={downloading} className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50">
+                <button onClick={downloadInvoice} disabled={downloading} className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/20 transition-colors disabled:opacity-50">
                   {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   {downloading ? 'Generating PDF…' : 'Download Invoice PDF'}
                 </button>
@@ -4119,7 +4227,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       }
                       const cartProduct = products.find((p: any) => p.id === item.productId)
                       const { gradient, iconColor, Icon: TIcon } = item.isService
-                        ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#c4b5fd', Icon: Wrench }
+                        ? { gradient: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, iconColor: '#93c5fd', Icon: Wrench }
                         : getProductCardStyle(cartProduct ?? {})
                       return (
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative" style={{ background: gradient }}>
@@ -4174,7 +4282,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         value={item.quantity}
                         onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQty(item.cartId, v) }}
                         onFocus={e => e.target.select()}
-                        className="w-8 h-8 sm:h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-violet-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-8 h-8 sm:h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                         style={{ color: POS_THEME.text, background: POS_THEME.card, borderColor: POS_THEME.border }}
                         aria-label="Quantity"
                       />
@@ -4302,13 +4410,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm flex-1" style={{ color: POS_THEME.muted }}>Discount</span>
                     <input type="number" min="0" placeholder="0.00"
-                      className="w-20 text-sm text-center py-1 h-8 rounded-lg border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
+                      className="w-20 text-sm text-center py-1 h-8 rounded-lg border outline-none focus:border-sky-500/50 text-white placeholder:text-white/50"
                       style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       value={discountMode === '%' ? (discountPct || '') : (discountFlat || '')}
                       onChange={e => discountMode === '%' ? setDiscountPct(Math.min(100, Number(e.target.value))) : setDiscountFlat(Number(e.target.value))} />
                     <div className="flex rounded-lg border overflow-hidden text-[10px] font-bold flex-shrink-0" style={{ borderColor: POS_THEME.border }}>
-                      <button onClick={() => setDiscountMode('%')} className={`px-2.5 py-1.5 transition-colors text-white ${discountMode === '%' ? 'bg-violet-500/20' : 'hover:bg-white/5'}`}>%</button>
-                      <button onClick={() => setDiscountMode('flat')} className={`px-2.5 py-1.5 transition-colors text-white ${discountMode === 'flat' ? 'bg-violet-500/20' : 'hover:bg-white/5'}`}>Rs</button>
+                      <button onClick={() => setDiscountMode('%')} className={`px-2.5 py-1.5 transition-colors text-white ${discountMode === '%' ? 'bg-sky-500/20' : 'hover:bg-white/5'}`}>%</button>
+                      <button onClick={() => setDiscountMode('flat')} className={`px-2.5 py-1.5 transition-colors text-white ${discountMode === 'flat' ? 'bg-sky-500/20' : 'hover:bg-white/5'}`}>Rs</button>
                     </div>
                   </div>
                   {discountAmount > 0 && (
@@ -4364,7 +4472,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-white">Amount to collect</span>
                             <button type="button" onClick={() => setOutstandingPayAmount(customerOutstanding.toFixed(2))}
-                              className="text-[10px] font-bold text-violet-400 hover:underline">
+                              className="text-[10px] font-bold text-sky-400 hover:underline">
                               Full {formatCurrency(customerOutstanding)}
                             </button>
                           </div>
@@ -4377,7 +4485,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                             value={outstandingPayAmount}
                             onChange={e => setOutstandingPayAmount(e.target.value)}
                             onKeyDown={submitCheckoutFromInput}
-                            className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
+                            className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-sky-500/50 text-white placeholder:text-white/50"
                             style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
                           />
                           {outstandingPaying > 0 && outstandingPaying < customerOutstanding && (
@@ -4415,7 +4523,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         onChange={e => setAmountPaying(e.target.value)}
                         onKeyDown={submitCheckoutFromInput}
                         placeholder="Amount customer pays now"
-                        className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
+                        className="w-full px-3 py-2 rounded-lg text-sm font-bold border outline-none focus:border-sky-500/50 text-white placeholder:text-white/50"
                         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       />
                       {storeCreditApplied > 0 && (
@@ -4501,7 +4609,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         max={businessDateStr}
                         value={billDate}
                         onChange={e => setBillDate(e.target.value || businessDateStr)}
-                        className="w-full px-3 py-2 rounded-xl text-sm font-semibold border outline-none focus:border-violet-500/50"
+                        className="w-full px-3 py-2 rounded-xl text-sm font-semibold border outline-none focus:border-sky-500/50"
                         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text, colorScheme: 'dark' }}
                       />
                       {billDate !== businessDateStr && (
@@ -4623,7 +4731,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         onChange={e => setCustomerPaid(e.target.value)}
                         onKeyDown={submitCheckoutFromInput}
                         placeholder="0.00"
-                        className="w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none focus:border-violet-500/50 text-white placeholder:text-white/50"
+                        className="w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none focus:border-sky-500/50 text-white placeholder:text-white/50"
                         style={{ background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       />
                       <div className="flex flex-wrap gap-1.5">
@@ -4712,7 +4820,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
         <div data-pos="dark" className="fixed bottom-20 right-3 left-3 sm:left-auto sm:bottom-4 sm:right-4 z-[115] w-auto sm:w-72 rounded-2xl shadow-2xl overflow-hidden border" style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}>
           <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-2">
-              <Calculator size={13} className="text-violet-400" />
+              <Calculator size={13} className="text-sky-400" />
               <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Calculator</span>
             </div>
             <button onClick={() => setShowCalc(false)} className="p-1 rounded hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={13} /></button>
@@ -4728,23 +4836,23 @@ function POSContent({ onClose }: { onClose: () => void }) {
               { l: 'AC',  fn: calcClear,     cls: 'text-red-400 hover:bg-red-500/10' },
               { l: '+/-', fn: calcSign,      cls: 'text-slate-400 hover:bg-white/5' },
               { l: '%',   fn: calcPercent,   cls: 'text-slate-400 hover:bg-white/5' },
-              { l: '÷',   fn: () => calcSetOp('÷'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '÷',   fn: () => calcSetOp('÷'), cls: 'text-sky-400 bg-sky-500/10 hover:bg-sky-500/20' },
               { l: '7',   fn: () => calcInput('7'), cls: 'hover:bg-white/5' },
               { l: '8',   fn: () => calcInput('8'), cls: 'hover:bg-white/5' },
               { l: '9',   fn: () => calcInput('9'), cls: 'hover:bg-white/5' },
-              { l: '×',   fn: () => calcSetOp('×'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '×',   fn: () => calcSetOp('×'), cls: 'text-sky-400 bg-sky-500/10 hover:bg-sky-500/20' },
               { l: '4',   fn: () => calcInput('4'), cls: 'hover:bg-white/5' },
               { l: '5',   fn: () => calcInput('5'), cls: 'hover:bg-white/5' },
               { l: '6',   fn: () => calcInput('6'), cls: 'hover:bg-white/5' },
-              { l: '−',   fn: () => calcSetOp('-'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '−',   fn: () => calcSetOp('-'), cls: 'text-sky-400 bg-sky-500/10 hover:bg-sky-500/20' },
               { l: '1',   fn: () => calcInput('1'), cls: 'hover:bg-white/5' },
               { l: '2',   fn: () => calcInput('2'), cls: 'hover:bg-white/5' },
               { l: '3',   fn: () => calcInput('3'), cls: 'hover:bg-white/5' },
-              { l: '+',   fn: () => calcSetOp('+'), cls: 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/20' },
+              { l: '+',   fn: () => calcSetOp('+'), cls: 'text-sky-400 bg-sky-500/10 hover:bg-sky-500/20' },
               { l: '⌫',   fn: calcBackspace,  cls: 'hover:bg-white/5 text-slate-400' },
               { l: '0',   fn: () => calcInput('0'), cls: 'hover:bg-white/5' },
               { l: '.',   fn: calcDot,        cls: 'hover:bg-white/5' },
-              { l: '=',   fn: calcEqual,      cls: 'text-white bg-violet-600 hover:bg-violet-500' },
+              { l: '=',   fn: calcEqual,      cls: 'text-white bg-sky-600 hover:bg-sky-500' },
             ].map(({ l, fn, cls }) => (
               <button key={l} onClick={fn}
                 className={`h-12 rounded-xl text-sm font-bold transition-all active:scale-95 ${cls}`}
@@ -5095,10 +5203,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{h.label}</p>
                     <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{h.customer?.name ?? 'Walk-in'} · {h.items.length} item(s) · {new Date(h.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
-                    <p className="text-[10px] font-bold text-violet-400">{formatCurrency(h.items.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
+                    <p className="text-[10px] font-bold text-sky-400">{formatCurrency(h.items.reduce((s, i) => s + i.price * i.quantity, 0))}</p>
                   </div>
                   <div className="flex gap-1.5">
-                    <button onClick={() => restoreHeldCart(h)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-500/15 text-violet-400 hover:bg-violet-500/25 transition-colors">Restore</button>
+                    <button onClick={() => restoreHeldCart(h)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500/15 text-sky-400 hover:bg-sky-500/25 transition-colors">Restore</button>
                     <button onClick={() => saveHeldCarts(heldCarts.filter(x => x.id !== h.id))} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"><X size={12} /></button>
                   </div>
                 </div>
@@ -5112,7 +5220,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
       {showDocPreview && typeof document !== 'undefined' && createPortal((() => {
         const isQuote = showDocPreview === 'QUOTE'
         const label   = isQuote ? 'QUOTATION' : 'DRAFT INVOICE'
-        const accent  = isQuote ? '#2563eb' : '#7C3AED'
+        const accent  = isQuote ? '#2563eb' : '#0D9488'
         const docSale = {
           invoiceNumber: docNum,
           createdAt: new Date().toISOString(),
@@ -5142,7 +5250,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
               <div className="max-w-[900px] mx-auto flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${accent}26`, border: `1px solid ${accent}44` }}>
-                    {isQuote ? <FileText size={14} style={{ color: '#60a5fa' }} /> : <FilePlus2 size={14} style={{ color: '#a78bfa' }} />}
+                    {isQuote ? <FileText size={14} style={{ color: '#60a5fa' }} /> : <FilePlus2 size={14} style={{ color: '#2dd4bf' }} />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold leading-tight" style={{ color: '#fff' }}>{isQuote ? 'Quotation' : 'Draft Invoice'}</p>
@@ -5207,14 +5315,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
           <div className="w-full sm:w-[min(480px,100vw)] flex flex-col shadow-2xl max-h-dvh" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
             <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
-                <Receipt size={15} className="text-violet-400" />
+                <Receipt size={15} className="text-sky-400" />
                 <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Recent Invoices</h3>
               </div>
               <button onClick={() => setShowRecentInvoices(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
             </div>
             <div className="flex-1 overflow-y-auto overscroll-contain">
               {recentLoading ? (
-                <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-violet-400" /></div>
+                <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-sky-400" /></div>
               ) : recentSales.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-32 opacity-30">
                   <Receipt size={28} className="text-slate-600 mb-2" />
@@ -5222,8 +5330,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 </div>
               ) : recentSales.map((sale: any) => (
                 <div key={sale.id} className="flex items-center gap-3 px-5 py-3.5 border-b hover:bg-white/3 transition-colors" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/15 flex items-center justify-center flex-shrink-0">
-                    <Receipt size={14} className="text-violet-400" />
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/15 flex items-center justify-center flex-shrink-0">
+                    <Receipt size={14} className="text-sky-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -5233,10 +5341,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
                     <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{sale.customerName ?? 'Walk-in Customer'} · {new Date(sale.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-violet-400">{formatCurrency(sale.total)}</p>
+                    <p className="text-sm font-bold text-sky-400">{formatCurrency(sale.total)}</p>
                     <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{(sale.items?.length ?? sale.itemCount ?? 0)} item(s)</p>
                   </div>
-                  <button type="button" onClick={() => reprintSale(sale)} title="Reprint" className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-violet-500/15 hover:text-violet-400 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                  <button type="button" onClick={() => reprintSale(sale)} title="Reprint" className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-sky-500/15 hover:text-sky-400 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
                     <Printer size={12} />
                   </button>
                 </div>
@@ -5253,6 +5361,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
 export function POSOverlay() {
   const { posOpen, closePos } = useUIStore()
   const hasPos = useFeatureFlag('POS')
+
+  // Prefetch POS UI (theme) so reopen does not flash hexa-dark while API returns.
+  useEffect(() => {
+    if (!hasPos) return
+    void fetchPosUiSettings()
+  }, [hasPos])
 
   useEffect(() => {
     if (posOpen && !hasPos) closePos()

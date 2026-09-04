@@ -10,9 +10,9 @@ const TEMPLATES = [
   {
     id: 'hexa-dark',
     name: 'Hexa Dark',
-    blurb: 'Classic left rail + purple accent. Default Hexalyte POS.',
+    blurb: 'Classic left rail + blue accent. Default Hexalyte POS.',
     status: 'Live',
-    accent: '#7C3AED',
+    accent: '#3B82F6',
   },
   {
     id: 'hexa-light',

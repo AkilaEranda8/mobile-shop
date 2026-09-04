@@ -1,173 +1,630 @@
-/* Nova Counter skin — modern dark retail POS.
-   Scoped to [data-pos="nova"] / [data-pos-skin="nova"]. Visual only. */
+/* Nova POS — 2026 premium retail terminal skin (visual only). */
 
 [data-pos='nova'] {
-  --nova-radius: 12px;
-  --nova-radius-lg: 14px;
-  --nova-ease: 150ms ease;
-  --nova-surface: #12161e;
-  --nova-elevated: #171c26;
+  /* Surfaces */
+  --nova-bg: #080b12;
+  --nova-panel: #0d1119;
+  --nova-elevated: #141a24;
+  --nova-elevated-2: #1a2230;
+  --nova-line: #1e2633;
+  --nova-line-strong: #2a3444;
+
+  /* Text */
+  --nova-text: #f8fafc;
+  --nova-secondary: #cbd5e1;
+  --nova-muted: #94a3b8;
+
+  /* Accents */
+  --nova-blue: #3b82f6;
+  --nova-blue-deep: #2563eb;
+  --nova-green: #22c55e;
+  --nova-amber: #f59e0b;
+  --nova-red: #ef4444;
+
+  --nova-radius: 10px;
+  --nova-radius-card: 14px;
+  --nova-radius-lg: 16px;
+  --nova-ease: 140ms ease;
+  --nova-ease-fast: 120ms ease;
+
+  color: var(--nova-text);
+  background: var(--nova-bg);
   color-scheme: dark;
+  font-size: 13px;
 }
 
-/* Command bar — never inherit app light header white */
+.nova-shell {
+  background: var(--nova-bg) !important;
+  color: var(--nova-text) !important;
+  font-family: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ═══════════════════════════════════════════
+   Command header
+   ═══════════════════════════════════════════ */
 [data-pos='nova'] .nova-command {
-  background: #0c1017 !important;
-  border-bottom: 1px solid #252b36 !important;
-  box-shadow: none !important;
+  background: var(--nova-panel) !important;
+  border-bottom: 1px solid var(--nova-line) !important;
+}
+
+[data-pos='nova'] .nova-command-row {
+  min-height: 3.5rem;
 }
 
 [data-pos='nova'] .nova-brand {
-  background: #151a23;
-  border: 1px solid #2a3344;
-  border-radius: 12px;
-  padding: 0.35rem 0.65rem 0.35rem 0.35rem;
+  padding: 0;
+  background: transparent;
+  border: none;
 }
 
-/* Category pills */
-[data-pos='nova'] .nova-category {
-  background: #0c1017 !important;
-  border-bottom: 1px solid #252b36 !important;
+[data-pos='nova'] .nova-brand-mark {
+  background: var(--nova-blue);
+  color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(37, 99, 235, 0.7);
 }
 
-[data-pos='nova'] .nova-category :is(button) {
+[data-pos='nova'] .nova-brand-title {
+  color: var(--nova-text);
+}
+
+[data-pos='nova'] .nova-brand-shop {
+  color: var(--nova-muted);
+}
+
+/* Shared 40px controls — dark surface, blue only when primary/active */
+[data-pos='nova'] .nova-ctrl {
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  border-radius: var(--nova-radius) !important;
+  border: 1px solid var(--nova-line) !important;
+  background: var(--nova-elevated) !important;
+  color: var(--nova-secondary) !important;
+  box-shadow: none !important;
+}
+
+[data-pos='nova'] .nova-ctrl:hover {
+  border-color: var(--nova-line-strong) !important;
+  background: var(--nova-elevated-2) !important;
+  color: var(--nova-text) !important;
+}
+
+[data-pos='nova'] .nova-ctrl--active {
+  border-color: rgba(59, 130, 246, 0.55) !important;
+  background: rgba(59, 130, 246, 0.16) !important;
+  color: #93c5fd !important;
+}
+
+[data-pos='nova'] .nova-ctrl--primary {
+  border-color: transparent !important;
+  background: var(--nova-blue) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 16px -8px rgba(37, 99, 235, 0.75) !important;
+}
+
+[data-pos='nova'] .nova-ctrl--primary:hover {
+  background: var(--nova-blue-deep) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+[data-pos='nova'] .nova-badge {
+  background: var(--nova-red);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--nova-panel);
+}
+
+[data-pos='nova'] .nova-search-input {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  color: var(--nova-text) !important;
+  border-radius: var(--nova-radius) !important;
+  transition: border-color var(--nova-ease), box-shadow var(--nova-ease);
+}
+
+[data-pos='nova'] .nova-search-input:focus {
+  border-color: var(--nova-blue) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
+}
+
+[data-pos='nova'] .nova-search-icon {
+  color: var(--nova-muted);
+}
+
+[data-pos='nova'] .nova-kbd {
+  background: var(--nova-bg);
+  color: var(--nova-muted);
+  border-color: var(--nova-line);
+}
+
+[data-pos='nova'] .nova-toolbar button {
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  width: auto !important;
+  min-width: 2.5rem;
+  border-radius: var(--nova-radius) !important;
+  border: 1px solid var(--nova-line) !important;
+  background: var(--nova-elevated) !important;
+  color: var(--nova-secondary) !important;
+  box-shadow: none !important;
+  transition: background-color var(--nova-ease), border-color var(--nova-ease), color var(--nova-ease);
+}
+
+[data-pos='nova'] .nova-toolbar button:hover {
+  background: var(--nova-elevated-2) !important;
+  border-color: var(--nova-line-strong) !important;
+  color: var(--nova-text) !important;
+}
+
+[data-pos='nova'] .nova-customer > div > button {
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  border-radius: var(--nova-radius) !important;
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  color: var(--nova-text) !important;
+  font-size: 12px !important;
+  box-shadow: none !important;
+}
+
+[data-pos='nova'] .nova-customer input {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  color: var(--nova-text) !important;
+}
+
+[data-pos='nova'] .nova-filters {
+  background: var(--nova-bg) !important;
+  border-top: 1px solid var(--nova-line);
+  padding: 0.5rem 0.75rem;
+}
+
+/* ═══════════════════════════════════════════
+   Category chips
+   ═══════════════════════════════════════════ */
+[data-pos='nova'] .nova-catalog {
+  background: var(--nova-bg);
+}
+
+[data-pos='nova'] .nova-category,
+[data-pos='nova'] .nova-category .pos-cat-bar {
+  background: var(--nova-panel) !important;
+  border-bottom: 1px solid var(--nova-line) !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  gap: 0.5rem !important;
+}
+
+[data-pos='nova'] .nova-category .pos-cat-pill {
+  height: 2rem !important;
+  padding-inline: 0.85rem !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.01em;
   transition: background-color var(--nova-ease), border-color var(--nova-ease), color var(--nova-ease),
-    box-shadow var(--nova-ease), transform var(--nova-ease);
+    box-shadow var(--nova-ease) !important;
 }
 
-[data-pos='nova'] .nova-category :is(button):hover {
-  filter: brightness(1.1);
+/* Inactive chips: elevate + subtle border (inline styles overridden where possible) */
+[data-pos='nova'] .nova-category .pos-cat-pill:not([style*='rgb(59']):hover {
+  border-color: rgba(59, 130, 246, 0.45) !important;
 }
 
-[data-pos='nova'] .nova-category :is(button):focus-visible {
-  outline: 2px solid var(--pos-accent, #3b82f6);
+[data-pos='nova'] .nova-category .pos-cat-pill:focus-visible {
+  outline: 2px solid var(--nova-blue);
   outline-offset: 2px;
 }
 
-/* Product grid cards */
+[data-pos='nova'] .nova-category .pos-view-toggle {
+  background: var(--nova-bg) !important;
+  border-color: var(--nova-line) !important;
+  border-radius: var(--nova-radius) !important;
+  padding: 2px !important;
+}
+
+/* ═══════════════════════════════════════════
+   Product catalog
+   ═══════════════════════════════════════════ */
+[data-pos='nova'] .nova-products {
+  background: var(--nova-bg);
+}
+
+[data-pos='nova'] .nova-products > .grid {
+  gap: 0.5rem !important;
+}
+
+@media (min-width: 1280px) {
+  [data-pos='nova'] .nova-products > .grid {
+    gap: 0.6rem !important;
+  }
+}
+
+/* Grid cards */
 [data-pos='nova'] .nova-products .group.cursor-pointer {
-  border-radius: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: var(--nova-radius-card) !important;
   background: var(--nova-elevated) !important;
-  border-color: #2a3344 !important;
-  transition: border-color var(--nova-ease), box-shadow var(--nova-ease), transform var(--nova-ease),
-    background-color var(--nova-ease) !important;
+  border: 1px solid var(--nova-line) !important;
+  overflow: hidden;
+  min-height: 0;
+  transition: border-color var(--nova-ease), box-shadow var(--nova-ease), transform var(--nova-ease) !important;
 }
 
 [data-pos='nova'] .nova-products .group.cursor-pointer:not(.opacity-40):hover {
-  border-color: color-mix(in srgb, var(--pos-accent, #3b82f6) 55%, transparent) !important;
-  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.55), 0 0 0 1px color-mix(in srgb, var(--pos-accent, #3b82f6) 25%, transparent) !important;
-  transform: translateY(-1px);
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.7) !important;
+  transform: translateY(-2px);
 }
 
-/* Keep product photos from flashing white into the dark UI */
-[data-pos='nova'] .nova-products .group.cursor-pointer img {
-  background: #0e1219;
+[data-pos='nova'] .nova-products .group.cursor-pointer:not(.opacity-40):active {
+  transform: translateY(0);
 }
 
+/* Image plane ~100–120px */
 [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[5\/3\],
 [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[16\/10\] {
-  max-height: 7.25rem;
-  background: #0e1219;
+  height: 7rem;
+  max-height: 7.5rem;
+  aspect-ratio: auto !important;
+  background: linear-gradient(180deg, #121722 0%, #0c1018 100%);
 }
 
+@media (min-width: 1536px) {
+  [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[5\/3\],
+  [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[16\/10\] {
+    height: 7.5rem;
+  }
+}
+
+[data-pos='nova'] .nova-products .group.cursor-pointer img {
+  background: #0c1018;
+  object-fit: cover;
+}
+
+/* Compact body */
+[data-pos='nova'] .nova-products .group.cursor-pointer > .p-2,
+[data-pos='nova'] .nova-products .group.cursor-pointer > .p-2\.5,
+[data-pos='nova'] .nova-products .group.cursor-pointer > .px-2\.5 {
+  padding: 0.55rem 0.65rem 0.65rem !important;
+}
+
+[data-pos='nova'] .nova-products .group.cursor-pointer .text-xs.font-semibold,
+[data-pos='nova'] .nova-products .group.cursor-pointer .text-sm.font-semibold {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  color: var(--nova-text) !important;
+}
+
+[data-pos='nova'] .nova-products .group.cursor-pointer .pos-price,
+[data-pos='nova'] .nova-products .group.cursor-pointer .text-sm.font-bold,
+[data-pos='nova'] .nova-products .group.cursor-pointer .text-xs.font-bold {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+  font-weight: 800 !important;
+  color: var(--nova-text) !important;
+}
+
+/* Add (+) control */
+[data-pos='nova'] .nova-products .group.cursor-pointer button:last-child {
+  border-radius: 9px !important;
+  background: var(--nova-blue) !important;
+  box-shadow: 0 4px 12px -4px rgba(37, 99, 235, 0.65) !important;
+  transition: background-color var(--nova-ease), transform var(--nova-ease-fast) !important;
+}
+
+[data-pos='nova'] .nova-products .group.cursor-pointer button:last-child:hover {
+  background: var(--nova-blue-deep) !important;
+}
+
+[data-pos='nova'] .nova-products .group.cursor-pointer:focus-visible,
 [data-pos='nova'] .nova-products .group.cursor-pointer button:focus-visible {
-  outline: 2px solid var(--pos-accent, #3b82f6);
-  outline-offset: 1px;
+  outline: 2px solid var(--nova-blue);
+  outline-offset: 2px;
 }
 
-/* List-row product items */
+/* List rows */
 [data-pos='nova'] .nova-products .flex.items-center.gap-3.rounded-xl {
   border-radius: 12px !important;
   background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
   transition: border-color var(--nova-ease), background-color var(--nova-ease);
 }
 
 [data-pos='nova'] .nova-products .flex.items-center.gap-3.rounded-xl:hover {
-  border-color: color-mix(in srgb, var(--pos-accent, #3b82f6) 40%, transparent) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  background: var(--nova-elevated-2) !important;
 }
 
-/* Cart panel workspace */
+/* ═══════════════════════════════════════════
+   Cart workspace
+   ═══════════════════════════════════════════ */
 [data-pos='nova'] .nova-cart {
-  background: #0b0e14 !important;
-  border-color: #252b36 !important;
+  background: var(--nova-panel) !important;
+  border-color: var(--nova-line) !important;
 }
 
 [data-pos='nova'] .nova-cart > div {
   background: transparent !important;
 }
 
+/* Cart header strip */
+[data-pos='nova'] .nova-cart > div > .flex.items-center.justify-between.border-b {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  padding: 0.7rem 1rem !important;
+  min-height: 3rem;
+}
+
+[data-pos='nova'] .nova-cart > div > .flex.items-center.justify-between.border-b .font-bold {
+  font-size: 13px !important;
+  letter-spacing: -0.01em;
+}
+
+/* Line items */
 [data-pos='nova'] .nova-cart .rounded-xl.border {
   border-radius: 12px !important;
   background: var(--nova-elevated) !important;
-  transition: border-color var(--nova-ease), background-color var(--nova-ease);
+  border-color: var(--nova-line) !important;
+  transition: border-color var(--nova-ease);
 }
 
 [data-pos='nova'] .nova-cart .rounded-xl.border:hover {
-  border-color: color-mix(in srgb, var(--pos-accent, #3b82f6) 28%, transparent) !important;
+  border-color: var(--nova-line-strong) !important;
+}
+
+[data-pos='nova'] .nova-cart .flex-1.overflow-y-auto {
+  padding: 0.5rem !important;
+  gap: 0.4rem;
+}
+
+[data-pos='nova'] .nova-cart .pos-price,
+[data-pos='nova'] .nova-cart .text-sm.font-bold,
+[data-pos='nova'] .nova-cart .text-xl.font-extrabold,
+[data-pos='nova'] .nova-cart .text-2xl {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Summary / total block — strengthen checkout CTA */
+[data-pos='nova'] .nova-cart .border-t.shrink-0,
+[data-pos='nova'] .nova-cart .border-t.flex-shrink-0 {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  padding: 0.75rem 0.85rem !important;
 }
 
 [data-pos='nova'] .nova-cart button[style*='brand-gradient'],
 [data-pos='nova'] .nova-cart button[style*='var(--brand-gradient)'] {
-  background: linear-gradient(180deg, #3b82f6, #2563eb) !important;
-  box-shadow: 0 6px 18px -6px rgba(37, 99, 235, 0.55) !important;
-}
-
-/* Bottom action bar — compact modern strip */
-[data-pos='nova'] .nova-bottom {
-  gap: 0.45rem !important;
-  padding-top: 0.45rem !important;
-  padding-bottom: 0.45rem !important;
-  background: #0c1017 !important;
-  border-top: 1px solid #252b36 !important;
-}
-
-[data-pos='nova'] .nova-bottom > button {
-  height: 2.4rem !important;
-  border-radius: 10px !important;
-  font-size: 11px !important;
+  background: var(--nova-blue) !important;
+  background-image: none !important;
+  border: none !important;
+  border-radius: 12px !important;
+  min-height: 2.85rem;
+  font-size: 14px !important;
+  font-weight: 800 !important;
   letter-spacing: 0.01em;
-  transition: filter var(--nova-ease), transform var(--nova-ease), border-color var(--nova-ease);
+  box-shadow: 0 10px 24px -10px rgba(37, 99, 235, 0.75) !important;
+  transition: background-color var(--nova-ease), transform var(--nova-ease-fast), box-shadow var(--nova-ease) !important;
 }
 
-[data-pos='nova'] .nova-bottom > button:hover {
-  filter: brightness(1.1);
+[data-pos='nova'] .nova-cart button[style*='brand-gradient']:hover,
+[data-pos='nova'] .nova-cart button[style*='var(--brand-gradient)']:hover {
+  background: var(--nova-blue-deep) !important;
 }
 
-[data-pos='nova'] .nova-bottom > button:active {
-  transform: scale(0.98);
+[data-pos='nova'] .nova-cart button[style*='brand-gradient']:active,
+[data-pos='nova'] .nova-cart button[style*='var(--brand-gradient)']:active {
+  transform: scale(0.985);
 }
 
-[data-pos='nova'] .nova-bottom > button:focus-visible {
-  outline: 2px solid var(--pos-accent, #3b82f6);
+/* Secondary cart actions under checkout */
+[data-pos='nova'] .nova-cart .grid.grid-cols-3 button,
+[data-pos='nova'] .nova-cart .flex.gap-2 > button:not([style*='brand-gradient']) {
+  border-radius: 10px !important;
+  border-color: var(--nova-line) !important;
+  background: var(--nova-bg) !important;
+  color: var(--nova-secondary) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+}
+
+[data-pos='nova'] .nova-cart .pos-price.text-xl {
+  font-size: 1.5rem !important;
+  line-height: 1.15 !important;
+  color: var(--nova-text) !important;
+}
+
+/* ═══════════════════════════════════════════
+   Pagination
+   ═══════════════════════════════════════════ */
+[data-pos='nova'] .nova-pagination {
+  background: var(--nova-panel) !important;
+  border-top: 1px solid var(--nova-line) !important;
+}
+
+[data-pos='nova'] .nova-pagination .pos-pager {
+  background: transparent !important;
+  border-top: none !important;
+  padding: 0.4rem 0.75rem !important;
+}
+
+[data-pos='nova'] .nova-pagination .pos-pager-controls {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  border-radius: var(--nova-radius) !important;
+}
+
+[data-pos='nova'] .nova-pagination .pos-pager-controls button {
+  border-radius: 8px !important;
+  color: var(--nova-secondary);
+  transition: background-color var(--nova-ease), color var(--nova-ease);
+}
+
+[data-pos='nova'] .nova-pagination .pos-pager-controls button[aria-current='page'] {
+  background: var(--nova-blue) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.55) !important;
+}
+
+[data-pos='nova'] .nova-pagination .pos-pager-size select {
+  background: var(--nova-elevated) !important;
+  border-color: var(--nova-line) !important;
+  color: var(--nova-secondary) !important;
+  border-radius: 8px !important;
+  height: 2rem;
+}
+
+/* ═══════════════════════════════════════════
+   Bottom command strip
+   ═══════════════════════════════════════════ */
+[data-pos='nova'] .nova-bottom,
+[data-pos='nova'] .nova-bottom .pos-bottom-bar {
+  gap: 0.4rem !important;
+  padding: 0.45rem 0.65rem !important;
+  background: var(--nova-panel) !important;
+  border-top: 1px solid var(--nova-line) !important;
+}
+
+[data-pos='nova'] .nova-bottom button {
+  height: 2.35rem !important;
+  min-height: 2.35rem !important;
+  border-radius: var(--nova-radius) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--nova-line) !important;
+  background: var(--nova-elevated) !important;
+  color: var(--nova-secondary) !important;
+  box-shadow: none !important;
+  background-image: none !important;
+  transition: background-color var(--nova-ease), border-color var(--nova-ease), color var(--nova-ease),
+    transform var(--nova-ease-fast);
+}
+
+[data-pos='nova'] .nova-bottom button:hover {
+  background: var(--nova-elevated-2) !important;
+  border-color: var(--nova-line-strong) !important;
+  color: var(--nova-text) !important;
+  filter: none;
+}
+
+[data-pos='nova'] .nova-bottom button:active {
+  transform: scale(0.985);
+}
+
+[data-pos='nova'] .nova-bottom button[data-pos-action='newSale'] {
+  background: var(--nova-blue) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 6px 14px -8px rgba(37, 99, 235, 0.7) !important;
+}
+
+[data-pos='nova'] .nova-bottom button[data-pos-action='newSale']:hover {
+  background: var(--nova-blue-deep) !important;
+  color: #fff !important;
+}
+
+[data-pos='nova'] .nova-bottom button[data-pos-action='dayStart'] {
+  border-color: rgba(34, 197, 94, 0.35) !important;
+  color: #86efac !important;
+  background: rgba(34, 197, 94, 0.1) !important;
+}
+
+[data-pos='nova'] .nova-bottom button:focus-visible,
+[data-pos='nova'] .nova-pagination button:focus-visible,
+[data-pos='nova'] .nova-ctrl:focus-visible {
+  outline: 2px solid var(--nova-blue);
   outline-offset: 2px;
 }
 
-[data-pos='nova'] .nova-pagination {
-  background: #0c1017 !important;
-  border-top: 1px solid #252b36 !important;
+/* ═══════════════════════════════════════════
+   Status bar
+   ═══════════════════════════════════════════ */
+[data-pos='nova'] .nova-status {
+  min-height: 1.75rem;
+  background: #06080e;
+  border-top: 1px solid var(--nova-line);
+  color: var(--nova-muted);
 }
 
-[data-pos='nova'] .nova-pagination button:focus-visible {
-  outline: 2px solid var(--pos-accent, #3b82f6);
-  outline-offset: 1px;
+[data-pos='nova'] .nova-status-muted {
+  color: var(--nova-muted);
+  opacity: 0.85;
 }
 
-[data-pos='nova'] .nova-customer button,
-[data-pos='nova'] .nova-customer input {
-  background: #151a23 !important;
-  border-color: #2a3344 !important;
-  color: #ffffff !important;
+[data-pos='nova'] .nova-status-text {
+  color: var(--nova-secondary);
 }
 
-/* Sale price / variation modal while Nova skin is active */
+[data-pos='nova'] .nova-status-dot {
+  opacity: 0.35;
+}
+
+[data-pos='nova'] .nova-status-live {
+  color: var(--nova-green);
+}
+
+[data-pos='nova'] .nova-status-live > span {
+  background: var(--nova-green);
+}
+
+/* ═══════════════════════════════════════════
+   Set Sale Price + dialogs
+   ═══════════════════════════════════════════ */
 [data-pos-skin='nova'] [role='dialog'][aria-modal='true'] {
-  border-radius: 16px !important;
-  border-color: #2a3344 !important;
-  background: #151a23 !important;
-  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(59, 130, 246, 0.12) !important;
+  border-radius: var(--nova-radius-lg) !important;
+  border: 1px solid var(--nova-line) !important;
+  background: var(--nova-elevated) !important;
+  box-shadow: 0 28px 64px -24px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(59, 130, 246, 0.08) !important;
 }
 
 [data-pos-skin='nova'] [role='dialog'][aria-modal='true'] button:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--nova-blue);
   outline-offset: 2px;
+}
+
+/* Modal primary actions → solid blue, no brand purple glow */
+[data-pos-skin='nova'] [role='dialog'][aria-modal='true'] button[style*='brand-gradient'],
+[data-pos-skin='nova'] [role='dialog'][aria-modal='true'] button[style*='linear-gradient(135deg'] {
+  background: var(--nova-blue) !important;
+  background-image: none !important;
+  box-shadow: 0 8px 20px -10px rgba(37, 99, 235, 0.7) !important;
+  border-radius: 12px !important;
+}
+
+/* ═══════════════════════════════════════════
+   Responsive density
+   ═══════════════════════════════════════════ */
+@media (max-width: 1280px) {
+  [data-pos='nova'] .nova-search-cluster {
+    max-width: 28rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  [data-pos='nova'] .nova-command-row {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  [data-pos='nova'] .nova-search-cluster {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  [data-pos='nova'] .nova-products {
+    padding-inline: 0.5rem !important;
+  }
+
+  [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[5\/3\],
+  [data-pos='nova'] .nova-products .group.cursor-pointer .aspect-\[16\/10\] {
+    height: 5.75rem;
+  }
 }
