@@ -6,6 +6,7 @@ import {
   generateVanSettlementNumber,
 } from '../../../utils/counters'
 import { stockTransferService } from '../../inventory/stock-transfer.service'
+import { nextEmployeeCode } from '../../hr/hr.util'
 import { createWholesaleInvoice } from '../sale/wholesale-sale.service'
 import { round2 } from '../wholesale-uom.util'
 import type {
@@ -162,7 +163,7 @@ async function ensureHrEmployeeLinkedToRep(
   })
   if (linked) return linked
 
-  let primaryBranchId = user.branches[0]?.branchId
+  let primaryBranchId: string | undefined = user.branches[0]?.branchId
   if (!primaryBranchId) {
     const branch = await prisma.branch.findFirst({
       where: { tenantId, isActive: true, kind: { not: 'VEHICLE' } },
@@ -175,7 +176,6 @@ async function ensureHrEmployeeLinkedToRep(
     throw new AppError('Cannot link HR employee — assign the user to a branch first', 400)
   }
 
-  const { nextEmployeeCode } = await import('../../hr/hr.util')
   const employeeCode = await nextEmployeeCode(tenantId)
   return prisma.employee.create({
     data: {
