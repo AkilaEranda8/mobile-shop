@@ -10,6 +10,9 @@ import {
   Check,
   CheckCircle2,
   CreditCard,
+  Download,
+  Eye,
+  FileText,
   LayoutGrid,
   Loader2,
   Mail,
@@ -236,6 +239,17 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
   const [upgradePlan, setUpgradePlan] = useState<BillingPlan | null>(null)
   const [helaposEnabled, setHelaposEnabled] = useState(false)
   const [upgradeBusy, setUpgradeBusy] = useState(false)
+  const [invoices, setInvoices] = useState<Array<{
+    id: string
+    invoiceNumber: string
+    billingPeriodStart: string
+    total: number
+    status: string
+    effectiveStatus?: string
+    paidAt?: string | null
+  }>>([])
+  const [invoicesLoading, setInvoicesLoading] = useState(true)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [qrImage, setQrImage] = useState<string | null>(null)
   const [qrSession, setQrSession] = useState<{
     paymentId: string
@@ -256,6 +270,37 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
       .then((r: any) => setHelaposEnabled(!!(r?.data?.helapos?.enabled ?? r?.helapos?.enabled)))
       .catch(() => setHelaposEnabled(false))
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setInvoicesLoading(true)
+    billingApi.overview()
+      .then((r: any) => {
+        if (cancelled) return
+        const data = r?.data ?? r
+        const list = Array.isArray(data?.invoices) ? data.invoices : []
+        setInvoices(list)
+      })
+      .catch(() => {
+        if (!cancelled) setInvoices([])
+      })
+      .finally(() => {
+        if (!cancelled) setInvoicesLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [tenant?.id, tenant?.mrr, tenant?.plan])
+
+  const downloadInvoice = async (inv: { id: string; invoiceNumber: string }) => {
+    setDownloadingId(inv.id)
+    try {
+      await billingApi.downloadPdf(inv.id, inv.invoiceNumber)
+      toast.success('Invoice downloaded')
+    } catch (e: any) {
+      toast.error(e?.message || 'Download failed')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   useEffect(() => {
     if (!qrSession?.paymentId || qrPaid) return
@@ -565,6 +610,126 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
         </div>
       </section>
 
+      {/* Invoice history */}
+      <section className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[var(--bg-card)] shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+              <FileText size={16} className="text-violet-600 dark:text-violet-300" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">Invoice history</h3>
+              <p className="text-[11px] text-gray-500 dark:text-slate-400">
+                Past months from when your paid plan started
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/billing')}
+            className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-500"
+          >
+            <CreditCard size={13} /> Open Billing & pay
+          </button>
+        </div>
+
+        {invoicesLoading ? (
+          <div className="p-8 flex justify-center text-gray-400">
+            <Loader2 size={22} className="animate-spin" />
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="p-6 text-sm text-gray-500 dark:text-slate-400 space-y-2">
+            <p>No invoices yet.</p>
+            <p className="text-xs">
+              They appear after your paid plan starts (trial months are not billed). Open Billing to pay the current period when due.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[520px]">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-slate-400 bg-gray-50/80 dark:bg-white/[0.03]">
+                  <th className="px-5 py-2.5 font-semibold">Invoice</th>
+                  <th className="px-3 py-2.5 font-semibold">Period</th>
+                  <th className="px-3 py-2.5 font-semibold">Amount</th>
+                  <th className="px-3 py-2.5 font-semibold">Status</th>
+                  <th className="px-5 py-2.5 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.slice(0, 12).map((inv) => {
+                  const st = inv.effectiveStatus || inv.status
+                  const period = inv.billingPeriodStart
+                    ? new Date(inv.billingPeriodStart).toLocaleDateString('en-LK', { month: 'short', year: 'numeric' })
+                    : '—'
+                  return (
+                    <tr key={inv.id} className="border-t border-gray-100 dark:border-white/5">
+                      <td className="px-5 py-3 font-semibold text-gray-900 dark:text-white">
+                        {inv.invoiceNumber}
+                      </td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-300">{period}</td>
+                      <td className="px-3 py-3 font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(inv.total)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-flex text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border ${
+                            st === 'PAID'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
+                              : st === 'OVERDUE'
+                                ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30'
+                                : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30'
+                          }`}
+                        >
+                          {st}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => router.push('/dashboard/billing')}
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
+                            title="View in Billing"
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={downloadingId === inv.id}
+                            onClick={() => void downloadInvoice(inv)}
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 disabled:opacity-50"
+                            title="Download PDF"
+                          >
+                            {downloadingId === inv.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Download size={14} />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {invoices.length > 12 && (
+              <div className="px-5 py-3 border-t border-gray-100 dark:border-white/5 text-xs text-gray-500">
+                Showing latest 12 of {invoices.length}.{' '}
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard/billing')}
+                  className="font-semibold text-violet-600 dark:text-violet-300 hover:underline"
+                >
+                  See all on Billing
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
       {/* Plans */}
       <section className="card p-5 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -774,7 +939,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
             Need help with billing?
           </p>
           <p className="text-xs mt-0.5 text-gray-500 dark:text-slate-400">
-            Invoices, renewals, and plan changes are handled by Hexalyte support.
+            View and download invoices above, or open Billing for LankaQR / bank payment.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
