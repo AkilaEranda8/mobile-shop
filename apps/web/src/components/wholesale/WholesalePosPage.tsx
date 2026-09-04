@@ -1091,7 +1091,11 @@ export function WholesalePosPage() {
   const cashierRole = user?.role || 'CASHIER'
 
   const shell = (
-    <div className="wpos-shell fixed inset-0 z-[100] flex flex-col overflow-hidden h-dvh max-h-dvh">
+    <div
+      className="wpos-shell fixed inset-0 z-[100] flex flex-col overflow-hidden h-dvh max-h-dvh"
+      data-wpos="dark"
+      data-pos="dark"
+    >
       {/* Header */}
       <header className="wpos-header">
         <div className="wpos-brand">
@@ -1301,7 +1305,7 @@ export function WholesalePosPage() {
           </div>
         </section>
 
-        <aside className={`wpos-side${sideOpen ? ' is-open' : ''}`}>
+        <div className={`wpos-side${sideOpen ? ' is-open' : ''}`} role="complementary">
           <div className="wpos-side-scroll">
             {/* Dealer */}
             <div>
@@ -1729,7 +1733,7 @@ export function WholesalePosPage() {
               </button>
             </div>
           )}
-        </aside>
+        </div>
       </div>
 
       {/* Footer */}

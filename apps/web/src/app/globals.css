@@ -548,6 +548,16 @@ html:not(.dark) [data-pos="dark"] aside {
   box-shadow: none !important;
   color: #ffffff !important;
 }
+/* Wholesale Counter POS panel — never inherit light app aside styles */
+html:not(.dark) [data-wpos="dark"],
+html:not(.dark) [data-wpos="dark"] .wpos-side {
+  background: #0b0f14 !important;
+  color: #e8eef6 !important;
+  box-shadow: none !important;
+}
+html:not(.dark) [data-wpos="dark"] .wpos-side {
+  background: #121820 !important;
+}
 
 /* ── Light mode: slightly bolder system text ───────────────────────── */
 html:not(.dark) body {
