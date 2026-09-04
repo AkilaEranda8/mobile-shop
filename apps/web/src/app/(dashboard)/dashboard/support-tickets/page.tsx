@@ -32,7 +32,7 @@ const TOPICS: Array<{
   key: SupportTicketCategory
   title: string
   blurb: string
-  icon: typeof Bug
+  icon: typeof Wrench
 }> = [
   { key: 'BUG', title: 'Technical Issues', blurb: 'Bugs, errors, and system problems', icon: Wrench },
   { key: 'BILLING', title: 'Billing & Payments', blurb: 'Invoices, subscriptions, payments', icon: CreditCard },
