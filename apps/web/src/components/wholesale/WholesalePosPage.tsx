@@ -8,14 +8,26 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import {
-  Building2, Loader2, Lock, Minus, Package, Plus, Search, ShoppingCart, Trash2, X,
+  Building2,
+  Loader2,
+  Lock,
+  Minus,
+  Package,
+  Plus,
+  ScanLine,
+  ShoppingCart,
+  Trash2,
+  X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { ToolbarSearch } from '@/components/ui/toolbar-search'
+import { HexaPosLayout, categoryIcon } from '@/components/pos/HexaPosLayout'
+import { POS_THEME, syncPosThemeRuntime } from '@/components/pos/pos-theme'
 import { printThermalReceipt, type ThermalSale } from '@/components/invoice/ThermalReceipt'
 import { productsApi } from '@/lib/api'
-import { getInvoiceSettings } from '@/lib/invoiceSettings'
+import { authStorage } from '@/lib/auth'
 import {
   findProductByCode,
   isImeiCode,
@@ -24,6 +36,8 @@ import {
 } from '@/lib/barcode-scan'
 import { useActiveBranchId, useFeatureFlag, useProducts } from '@/lib/hooks'
 import { useCanEditModule } from '@/lib/module-access'
+import { getInvoiceSettings } from '@/lib/invoiceSettings'
+import { gridColsClass, usePosUiSettings } from '@/lib/posUiSettings'
 import { formatCurrency } from '@/lib/utils'
 import {
   wholesaleApi,
@@ -31,7 +45,7 @@ import {
   type WholesalePaymentMethod,
   type WholesaleSellUnit,
 } from '@/lib/wholesale-api'
-import { WholesaleFeatureGate, fieldClass, fieldStyle } from './wholesale-ui'
+import { WholesaleFeatureGate } from './wholesale-ui'
 
 type PosProduct = {
   id: string
@@ -94,15 +108,33 @@ function stockQtyFor(line: CartLine) {
 }
 
 export function WholesalePosPage() {
+  const router = useRouter()
   const wholesaleOn = useFeatureFlag('WHOLESALE')
   const canPos = useCanEditModule('WHOLESALE_POS')
   const branchId = useActiveBranchId()
+  const posUi = usePosUiSettings()
+  const T = POS_THEME
 
-  const { data: productsData, loading: productsLoading } = useProducts({ isActive: 'true' })
-  const products = useMemo(
-    () => ((productsData?.data ?? []) as PosProduct[]).filter((p) => p.isActive !== false),
-    [productsData],
+  const productQueryParams = useMemo(
+    (): Record<string, string> => ({
+      ...(branchId ? { branchId } : {}),
+    }),
+    [branchId],
   )
+  const {
+    data: productsData,
+    loading: productsLoading,
+    error: productsError,
+  } = useProducts(productQueryParams)
+  const products = useMemo(() => {
+    const raw = (productsData as { data?: PosProduct[] } | null)?.data
+    const list = Array.isArray(raw) ? raw : []
+    return list.filter((p) => p.isActive !== false)
+  }, [productsData])
+
+  useEffect(() => {
+    if (productsError) toast.error(`Products: ${productsError}`)
+  }, [productsError])
 
   const [dealers, setDealers] = useState<WholesaleDealer[]>([])
   const [dealerQuery, setDealerQuery] = useState('')
@@ -110,6 +142,7 @@ export function WholesalePosPage() {
   const [dealer, setDealer] = useState<WholesaleDealer | null>(null)
 
   const [productQuery, setProductQuery] = useState('')
+  const [category, setCategory] = useState<string>('All')
   const [cart, setCart] = useState<CartLine[]>([])
   const [notes, setNotes] = useState('')
   const [pay, setPay] = useState<PayAmounts>({
@@ -119,7 +152,24 @@ export function WholesalePosPage() {
     CREDIT: '',
   })
   const [checkingOut, setCheckingOut] = useState(false)
+  const [mobileView, setMobileView] = useState<'products' | 'cart'>('products')
+  const [mounted, setMounted] = useState(false)
   const productInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    syncPosThemeRuntime(posUi.theme, posUi.accent)
+  }, [posUi.theme, posUi.accent])
+
+  useEffect(() => {
+    if (!mounted) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [mounted])
 
   useEffect(() => {
     wholesaleApi
@@ -127,6 +177,14 @@ export function WholesalePosPage() {
       .then((res) => setDealers(res.data ?? []))
       .catch((e: Error) => toast.error(e.message))
   }, [branchId])
+
+  const categories = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of products) {
+      if (p.categoryName?.trim()) set.add(p.categoryName.trim())
+    }
+    return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))]
+  }, [products])
 
   const dealerMatches = useMemo(() => {
     const q = dealerQuery.trim().toLowerCase()
@@ -142,24 +200,34 @@ export function WholesalePosPage() {
       .slice(0, 12)
   }, [dealers, dealerQuery])
 
-  const productMatches = useMemo(() => {
+  const gridProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase()
-    if (!q || q.length < 1) return []
-    return products
-      .filter((p) => productSearchHaystack(p).includes(q))
-      .slice(0, 10)
-  }, [products, productQuery])
+    let list = products
+    if (category !== 'All') {
+      list = list.filter((p) => (p.categoryName || '').trim() === category)
+    }
+    if (q) {
+      list = list.filter((p) => productSearchHaystack(p).includes(q))
+    }
+    return list.slice(0, 120)
+  }, [products, productQuery, category])
 
   const cartTotal = useMemo(() => cart.reduce((s, l) => s + lineTotal(l), 0), [cart])
   const paidTotal = useMemo(
-    () =>
-      PAY_KEYS.reduce((s, p) => s + (Number(pay[p.key]) || 0), 0),
+    () => PAY_KEYS.reduce((s, p) => s + (Number(pay[p.key]) || 0), 0),
     [pay],
   )
   const dueLeft = Math.max(0, cartTotal - paidTotal)
   const creditHeadroom = dealer
     ? Math.max(0, Number(dealer.creditLimit) - Number(dealer.totalDue))
     : 0
+
+  const closePos = useCallback(() => {
+    if (cart.length > 0 && posUi.behavior.confirmLeaveWithCart) {
+      if (!window.confirm('Cart has items. Leave Wholesale POS?')) return
+    }
+    router.push('/dashboard/wholesale')
+  }, [cart.length, posUi.behavior.confirmLeaveWithCart, router])
 
   const refreshLinePricing = useCallback(
     async (line: CartLine, dealerId: string) => {
@@ -206,6 +274,7 @@ export function WholesalePosPage() {
     async (product: PosProduct, opts?: { sku?: string | null; imei?: string }) => {
       if (!dealer) {
         toast.error('Select a dealer first')
+        setDealerOpen(true)
         return
       }
       if (product.trackImei) {
@@ -229,6 +298,7 @@ export function WholesalePosPage() {
           resolving: true,
         }
         setCart((prev) => [...prev, line])
+        setMobileView('cart')
         await refreshLinePricing(line, dealer.id)
         setProductQuery('')
         productInputRef.current?.focus()
@@ -273,6 +343,7 @@ export function WholesalePosPage() {
         setCart((prev) => [...prev, line])
         await refreshLinePricing(line, dealer.id)
       }
+      setMobileView('cart')
       setProductQuery('')
       productInputRef.current?.focus()
     },
@@ -284,6 +355,7 @@ export function WholesalePosPage() {
     if (!raw) return
     if (!dealer) {
       toast.error('Select a dealer first')
+      setDealerOpen(true)
       return
     }
 
@@ -297,7 +369,7 @@ export function WholesalePosPage() {
           return
         }
       } catch {
-        /* fall through to local scan */
+        /* fall through */
       }
     }
 
@@ -310,8 +382,8 @@ export function WholesalePosPage() {
       return
     }
 
-    if (productMatches[0]) {
-      await addProduct(productMatches[0])
+    if (gridProducts[0] && productQuery.trim()) {
+      await addProduct(gridProducts[0])
       return
     }
 
@@ -367,6 +439,7 @@ export function WholesalePosPage() {
   const checkout = async () => {
     if (!dealer) {
       toast.error('Select a dealer')
+      setDealerOpen(true)
       return
     }
     if (!branchId) {
@@ -437,7 +510,6 @@ export function WholesalePosPage() {
             sku?: string | null
             imei?: string | null
           }>
-          payments?: Array<{ method: string; amount: number }>
           dealer?: { tradingName?: string | null; legalName?: string; phone?: string }
         }
       }).data
@@ -482,18 +554,18 @@ export function WholesalePosPage() {
         }
         printThermalReceipt(receipt, settings)
       } catch {
-        // print is best-effort
+        /* print best-effort */
       }
 
       setCart([])
       setPay({ CASH: '', CARD: '', BANK_TRANSFER: '', CREDIT: '' })
       setNotes('')
-      // refresh dealer dues
       const refreshed = await wholesaleApi.dealer(dealer.id)
       setDealer(refreshed.data)
       setDealers((prev) =>
         prev.map((d) => (d.id === refreshed.data.id ? refreshed.data : d)),
       )
+      setMobileView('products')
       productInputRef.current?.focus()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Checkout failed')
@@ -507,7 +579,22 @@ export function WholesalePosPage() {
       e.preventDefault()
       void handleProductEnter()
     }
+    if (e.key === 'Escape') {
+      setProductQuery('')
+    }
   }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !dealerOpen) closePos()
+      if (e.key === 'F9') {
+        e.preventDefault()
+        document.getElementById('wholesale-pos-checkout')?.click()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [closePos, dealerOpen])
 
   if (!wholesaleOn) {
     return (
@@ -529,38 +616,62 @@ export function WholesalePosPage() {
     )
   }
 
-  return (
-    <WholesaleFeatureGate>
-      <div className="flex flex-col gap-3 h-[calc(100vh-7rem)] min-h-[560px]">
-        {/* Top bar — dealer */}
-        <div
-          className="card px-4 py-3 flex flex-col lg:flex-row lg:items-center gap-3"
-          style={{ borderColor: 'var(--border-subtle)' }}
-        >
-          <div className="flex items-center gap-2 shrink-0">
-            <ShoppingCart size={18} className="text-sky-600" />
-            <div>
-              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                Wholesale Counter POS
-              </p>
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                B2B · keyboard-first · Fulfillment branch active
-              </p>
-            </div>
-          </div>
+  if (!mounted) return null
 
-          <div className="relative flex-1 max-w-xl">
+  const cashierName = authStorage.getUser()?.name || authStorage.getUser()?.email || 'Cashier'
+  const cols = gridColsClass(posUi.productGrid.columnsDesktop)
+
+  const shell = (
+    <div
+      className="pos-shell fixed inset-0 z-[100] flex flex-col overflow-hidden h-dvh max-h-dvh"
+      data-pos={posUi.theme === 'hexa-light' ? 'light' : 'dark'}
+    >
+      <HexaPosLayout
+        shopName="Wholesale"
+        onClose={closePos}
+        cashierName={cashierName}
+        syncTime="Counter · B2B"
+        search={productQuery}
+        onSearchChange={setProductQuery}
+        onSearchKeyDown={onProductKeyDown}
+        searchRef={productInputRef}
+        onScanClick={() => productInputRef.current?.focus()}
+        navItems={[
+          { id: 'products', label: 'Products', icon: Package },
+          { id: 'cart', label: 'Cart', icon: ShoppingCart },
+        ]}
+        activeNavId={mobileView === 'cart' ? 'cart' : 'products'}
+        onNavAction={(id) => {
+          if (id === 'cart') setMobileView('cart')
+          else setMobileView('products')
+        }}
+        layoutPrefs={{
+          theme: posUi.theme,
+          accent: posUi.accent,
+          density: posUi.density,
+          showSidebar: posUi.layout.showSidebar,
+          showBottomActions: false,
+          cartPosition: posUi.layout.cartPosition,
+          cartWidth: posUi.layout.cartWidth,
+        }}
+        mobileView={mobileView}
+        cartItemCount={cart.length}
+        onMobileViewChange={setMobileView}
+        customerSlot={
+          <div className="relative w-full min-w-0">
             {dealer ? (
-              <div className="flex items-center gap-3 rounded-xl px-3 py-2" style={{ background: 'var(--bg-subtle)' }}>
-                <Building2 size={16} className="text-sky-600 shrink-0" />
+              <div
+                className="flex items-center gap-2 rounded-xl px-3 py-2 border"
+                style={{ background: T.cardHover, borderColor: T.border }}
+              >
+                <Building2 size={15} style={{ color: T.purple }} className="shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold truncate">
+                  <p className="text-xs font-bold truncate" style={{ color: T.text }}>
                     {dealer.tradingName || dealer.legalName}
-                    <span className="ml-2 font-mono text-[11px] opacity-70">{dealer.dealerCode}</span>
+                    <span className="ml-1.5 font-mono text-[10px] opacity-70">{dealer.dealerCode}</span>
                   </p>
-                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                    Outstanding {formatCurrency(Number(dealer.totalDue))} · Limit{' '}
-                    {formatCurrency(Number(dealer.creditLimit))} · Available{' '}
+                  <p className="text-[10px] truncate" style={{ color: T.muted }}>
+                    Due {formatCurrency(Number(dealer.totalDue))} · Avail{' '}
                     {formatCurrency(creditHeadroom)}
                     {dealer.cashOnly ? ' · Cash only' : ''}
                   </p>
@@ -572,7 +683,8 @@ export function WholesalePosPage() {
                     setDealerQuery('')
                     setDealerOpen(true)
                   }}
-                  className="p-1 rounded-md hover:opacity-80"
+                  className="p-1 rounded-md"
+                  style={{ color: T.muted }}
                   aria-label="Change dealer"
                 >
                   <X size={14} />
@@ -580,38 +692,49 @@ export function WholesalePosPage() {
               </div>
             ) : (
               <>
-                <ToolbarSearch
-                  value={dealerQuery}
-                  onChange={(v) => {
-                    setDealerQuery(v)
-                    setDealerOpen(true)
-                  }}
-                  placeholder="Search dealer by name, code, phone…"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && dealerMatches[0]) {
-                      e.preventDefault()
-                      setDealer(dealerMatches[0])
-                      setDealerOpen(false)
-                      setDealerQuery('')
-                      productInputRef.current?.focus()
-                    }
-                  }}
-                />
+                <div className="relative">
+                  <Building2
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ color: T.muted }}
+                  />
+                  <input
+                    value={dealerQuery}
+                    onChange={(e) => {
+                      setDealerQuery(e.target.value)
+                      setDealerOpen(true)
+                    }}
+                    onFocus={() => setDealerOpen(true)}
+                    placeholder="Select dealer…"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none border"
+                    style={{
+                      background: T.bg,
+                      borderColor: T.border,
+                      color: T.text,
+                    }}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && dealerMatches[0]) {
+                        e.preventDefault()
+                        setDealer(dealerMatches[0])
+                        setDealerOpen(false)
+                        setDealerQuery('')
+                        productInputRef.current?.focus()
+                      }
+                    }}
+                  />
+                </div>
                 {dealerOpen && dealerMatches.length > 0 && (
                   <div
-                    className="absolute z-20 mt-1 w-full rounded-xl border shadow-lg overflow-hidden"
-                    style={{
-                      background: 'var(--bg-elevated, #fff)',
-                      borderColor: 'var(--border-subtle)',
-                    }}
+                    className="absolute z-40 mt-1 w-full min-w-[260px] rounded-xl border shadow-2xl overflow-hidden max-h-64 overflow-y-auto"
+                    style={{ background: T.card, borderColor: T.border }}
                   >
                     {dealerMatches.map((d) => (
                       <button
                         key={d.id}
                         type="button"
-                        className="w-full text-left px-3 py-2.5 hover:bg-sky-500/10 border-b last:border-0"
-                        style={{ borderColor: 'var(--border-subtle)' }}
+                        className="w-full text-left px-3 py-2.5 border-b last:border-0 hover:opacity-90"
+                        style={{ borderColor: T.border }}
                         onClick={() => {
                           setDealer(d)
                           setDealerOpen(false)
@@ -619,11 +742,11 @@ export function WholesalePosPage() {
                           productInputRef.current?.focus()
                         }}
                       >
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium" style={{ color: T.text }}>
                           {d.tradingName || d.legalName}{' '}
                           <span className="font-mono text-[11px] opacity-60">{d.dealerCode}</span>
                         </p>
-                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-[11px]" style={{ color: T.muted }}>
                           Due {formatCurrency(Number(d.totalDue))} · Limit{' '}
                           {formatCurrency(Number(d.creditLimit))}
                         </p>
@@ -634,290 +757,365 @@ export function WholesalePosPage() {
               </>
             )}
           </div>
-        </div>
-
-        {/* Main grid */}
-        <div className="flex-1 grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] gap-3 min-h-0">
-          {/* Products + cart */}
-          <div className="card flex flex-col min-h-0 overflow-hidden">
-            <div className="p-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: 'var(--text-muted)' }}
-                />
-                <input
-                  ref={productInputRef}
-                  type="search"
-                  value={productQuery}
-                  onChange={(e) => setProductQuery(e.target.value)}
-                  onKeyDown={onProductKeyDown}
-                  disabled={!dealer}
-                  placeholder={
-                    dealer
-                      ? 'Scan barcode / IMEI or search product — Enter to add'
-                      : 'Select a dealer to start'
+        }
+        categoryBar={
+          <div
+            className="flex gap-1.5 overflow-x-auto px-2 sm:px-3 py-2 border-b shrink-0"
+            style={{ borderColor: T.border }}
+          >
+            {categories.map((c) => {
+              const active = c === category
+              const Icon = c === 'All' ? Package : categoryIcon(c)
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+                  style={
+                    active
+                      ? {
+                          background: `${T.purple}28`,
+                          color: T.text,
+                          boxShadow: `inset 0 0 0 1px ${T.purple}66`,
+                        }
+                      : { color: T.muted, background: T.card }
                   }
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                  style={fieldStyle()}
-                  autoComplete="off"
-                />
+                >
+                  <Icon size={12} style={{ color: active ? T.purple : T.muted }} />
+                  {c}
+                </button>
+              )
+            })}
+          </div>
+        }
+        productGrid={
+          <div className={`grid gap-2 sm:gap-3 ${cols}`}>
+            {!dealer && (
+              <div
+                className="col-span-full rounded-xl border px-3 py-2 text-xs font-medium"
+                style={{ borderColor: T.border, background: `${T.amber}14`, color: T.amber }}
+              >
+                Select a dealer above before checkout — you can browse products now.
               </div>
-              {productQuery && productMatches.length > 0 && (
-                <div className="mt-2 rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {productMatches.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-sky-500/10 flex items-center justify-between gap-2 border-b last:border-0"
-                      style={{ borderColor: 'var(--border-subtle)' }}
-                      onClick={() => void addProduct(p)}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{p.name}</p>
-                        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                          {p.sku}
-                          {p.trackImei ? ' · IMEI' : ''}
-                          {p.unitsPerBox ? ` · box×${p.unitsPerBox}` : ''}
-                          {p.unitsPerCarton ? ` · carton×${p.unitsPerCarton}` : ''}
-                        </p>
-                      </div>
-                      <Package size={14} className="text-sky-600 shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              )}
-              {productsLoading && (
-                <p className="mt-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                  Loading catalog…
+            )}
+            {productsLoading && (
+              <p className="col-span-full text-xs flex items-center gap-2" style={{ color: T.muted }}>
+                <Loader2 size={14} className="animate-spin" /> Loading inventory…
+              </p>
+            )}
+            {!productsLoading &&
+              gridProducts.map((p) => {
+                const stock = p.stock ?? 0
+                const out = stock <= 0
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => void addProduct(p)}
+                    className="rounded-2xl border p-3 text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
+                    style={{
+                      background: T.card,
+                      borderColor: T.border,
+                      boxShadow: out ? undefined : `0 0 0 1px ${T.border}`,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-bold leading-snug line-clamp-2" style={{ color: T.text }}>
+                        {p.name}
+                      </p>
+                      {p.trackImei && (
+                        <span
+                          className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-md shrink-0"
+                          style={{ background: `${T.blue}22`, color: T.blue }}
+                        >
+                          IMEI
+                        </span>
+                      )}
+                    </div>
+                    {posUi.productGrid.showSku && (
+                      <p className="mt-1 text-[10px] font-mono truncate" style={{ color: T.muted }}>
+                        {p.sku}
+                      </p>
+                    )}
+                    <div className="mt-2 flex items-end justify-between gap-2">
+                      <p className="text-sm font-extrabold tabular-nums" style={{ color: T.purple }}>
+                        {formatCurrency(Number(p.wholesalePrice ?? 0))}
+                      </p>
+                      {posUi.productGrid.showStockBadge && (
+                        <span
+                          className="text-[10px] font-semibold"
+                          style={{ color: out ? T.red : stock <= 4 ? T.amber : T.green }}
+                        >
+                          {out ? 'Out' : `${stock}`}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            {!productsLoading && gridProducts.length === 0 && (
+              <p className="col-span-full text-center text-xs py-10" style={{ color: T.muted }}>
+                {productsError
+                  ? `Could not load products: ${productsError}`
+                  : products.length === 0
+                    ? 'No products in this branch inventory yet'
+                    : 'No products match this search'}
+              </p>
+            )}
+          </div>
+        }
+        pagination={<div />}
+        bottomActions={null}
+        cartPanel={
+          <div className="flex flex-col h-full min-h-0">
+            <div
+              className="px-4 py-3 border-b flex items-center justify-between shrink-0"
+              style={{ borderColor: T.border }}
+            >
+              <div>
+                <p className="text-sm font-bold" style={{ color: T.text }}>
+                  Cart
                 </p>
+                <p className="text-[10px]" style={{ color: T.muted }}>
+                  {cart.length} line{cart.length === 1 ? '' : 's'} · Wholesale invoice
+                </p>
+              </div>
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  className="text-[11px] font-semibold"
+                  style={{ color: T.red }}
+                  onClick={() => setCart([])}
+                >
+                  Clear
+                </button>
               )}
             </div>
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-y-auto min-h-0 px-3 py-2 space-y-2">
               {cart.length === 0 ? (
-                <div className="h-full flex items-center justify-center p-8 text-center">
+                <div className="h-full flex items-center justify-center p-6 text-center">
                   <div>
-                    <Package className="mx-auto text-sky-500/50" size={32} />
-                    <p className="mt-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    <ScanLine className="mx-auto opacity-40" style={{ color: T.purple }} size={28} />
+                    <p className="mt-3 text-sm font-medium" style={{ color: T.text }}>
                       Cart is empty
                     </p>
-                    <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                      Search or scan to add wholesale lines
+                    <p className="mt-1 text-xs" style={{ color: T.muted }}>
+                      Search, scan, or tap a product
                     </p>
                   </div>
                 </div>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr
-                      className="text-[11px] uppercase tracking-wide text-left"
-                      style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}
-                    >
-                      <th className="px-3 py-2 font-semibold">Product</th>
-                      <th className="px-2 py-2 font-semibold w-24">UOM</th>
-                      <th className="px-2 py-2 font-semibold w-28">Qty</th>
-                      <th className="px-2 py-2 font-semibold w-28 text-right">Unit</th>
-                      <th className="px-2 py-2 font-semibold w-28 text-right">Total</th>
-                      <th className="px-2 py-2 w-10" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.map((line) => (
-                      <tr
-                        key={line.key}
-                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                cart.map((line) => (
+                  <div
+                    key={line.key}
+                    className="rounded-xl border p-3 space-y-2"
+                    style={{ borderColor: T.border, background: T.bg }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold leading-snug" style={{ color: T.text }}>
+                          {line.productName}
+                        </p>
+                        <p className="text-[10px] mt-0.5" style={{ color: T.muted }}>
+                          {line.sku || '—'}
+                          {line.priceSource ? ` · ${line.priceSource}` : ''}
+                          {line.atp != null ? ` · ATP ${line.atp}` : ''}
+                          {line.resolving ? ' · …' : ''}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCart((prev) => prev.filter((l) => l.key !== line.key))}
+                        className="p-1 rounded-md"
+                        style={{ color: T.red }}
+                        aria-label="Remove"
                       >
-                        <td className="px-3 py-2 align-top">
-                          <p className="font-medium">{line.productName}</p>
-                          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                            {line.sku || '—'}
-                            {line.priceSource ? ` · ${line.priceSource}` : ''}
-                            {line.atp != null ? ` · ATP ${line.atp}` : ''}
-                            {line.resolving ? ' · …' : ''}
-                          </p>
-                          {line.trackImei && (
-                            <div className="mt-1.5 flex items-center gap-2">
-                              <input
-                                className={`${fieldClass()} !py-1.5 !text-xs font-mono max-w-[180px]`}
-                                style={fieldStyle()}
-                                placeholder="IMEI"
-                                value={line.imei}
-                                onChange={(e) =>
-                                  setCart((prev) =>
-                                    prev.map((l) =>
-                                      l.key === line.key
-                                        ? { ...l, imei: e.target.value, imeiReserved: false }
-                                        : l,
-                                    ),
-                                  )
-                                }
-                              />
-                              <button
-                                type="button"
-                                onClick={() => void softReserve(line.key)}
-                                className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-sky-500/15 text-sky-700"
-                              >
-                                {line.imeiReserved ? 'Held' : 'Reserve'}
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          <select
-                            className={`${fieldClass()} !py-1.5 !text-xs`}
-                            style={fieldStyle()}
-                            value={line.sellUnit}
-                            disabled={line.trackImei}
-                            onChange={(e) =>
-                              void updateSellUnit(line.key, e.target.value as WholesaleSellUnit)
-                            }
-                          >
-                            <option value="PIECE">Piece</option>
-                            <option value="BOX" disabled={!line.unitsPerBox}>
-                              Box
-                            </option>
-                            <option value="CARTON" disabled={!line.unitsPerCarton}>
-                              Carton
-                            </option>
-                          </select>
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              className="p-1 rounded-md border"
-                              style={{ borderColor: 'var(--border-subtle)' }}
-                              onClick={() => void updateQty(line.key, line.quantity - 1)}
-                              disabled={line.trackImei || line.quantity <= 1}
-                            >
-                              <Minus size={12} />
-                            </button>
-                            <input
-                              type="number"
-                              min={line.trackImei ? 1 : 0.01}
-                              step={line.trackImei ? 1 : 1}
-                              className={`${fieldClass()} !py-1 !text-xs !px-1 w-14 text-center`}
-                              style={fieldStyle()}
-                              value={line.quantity}
-                              disabled={line.trackImei}
-                              onChange={(e) => void updateQty(line.key, Number(e.target.value))}
-                            />
-                            <button
-                              type="button"
-                              className="p-1 rounded-md border"
-                              style={{ borderColor: 'var(--border-subtle)' }}
-                              onClick={() => void updateQty(line.key, line.quantity + 1)}
-                              disabled={line.trackImei}
-                            >
-                              <Plus size={12} />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 align-top text-right font-medium tabular-nums">
-                          {formatCurrency(line.unitPrice)}
-                        </td>
-                        <td className="px-2 py-2 align-top text-right font-semibold tabular-nums">
-                          {formatCurrency(lineTotal(line))}
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          <button
-                            type="button"
-                            onClick={() => setCart((prev) => prev.filter((l) => l.key !== line.key))}
-                            className="p-1 rounded-md text-rose-500 hover:bg-rose-500/10"
-                            aria-label="Remove line"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+
+                    {line.trackImei && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="flex-1 rounded-lg px-2 py-1.5 text-xs font-mono border outline-none"
+                          style={{ background: T.card, borderColor: T.border, color: T.text }}
+                          placeholder="IMEI"
+                          value={line.imei}
+                          onChange={(e) =>
+                            setCart((prev) =>
+                              prev.map((l) =>
+                                l.key === line.key
+                                  ? { ...l, imei: e.target.value, imeiReserved: false }
+                                  : l,
+                              ),
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void softReserve(line.key)}
+                          className="text-[10px] font-bold px-2 py-1.5 rounded-lg shrink-0"
+                          style={{ background: `${T.blue}22`, color: T.blue }}
+                        >
+                          {line.imeiReserved ? 'Held' : 'Reserve'}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="rounded-lg px-2 py-1.5 text-[11px] border outline-none"
+                        style={{ background: T.card, borderColor: T.border, color: T.text }}
+                        value={line.sellUnit}
+                        disabled={line.trackImei}
+                        onChange={(e) =>
+                          void updateSellUnit(line.key, e.target.value as WholesaleSellUnit)
+                        }
+                      >
+                        <option value="PIECE">Piece</option>
+                        <option value="BOX" disabled={!line.unitsPerBox}>
+                          Box
+                        </option>
+                        <option value="CARTON" disabled={!line.unitsPerCarton}>
+                          Carton
+                        </option>
+                      </select>
+                      <div className="flex items-center gap-1 ml-auto">
+                        <button
+                          type="button"
+                          className="p-1 rounded-md border"
+                          style={{ borderColor: T.border, color: T.text }}
+                          onClick={() => void updateQty(line.key, line.quantity - 1)}
+                          disabled={line.trackImei || line.quantity <= 1}
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <input
+                          type="number"
+                          min={line.trackImei ? 1 : 0.01}
+                          className="w-12 text-center rounded-lg py-1 text-xs border outline-none tabular-nums"
+                          style={{ background: T.card, borderColor: T.border, color: T.text }}
+                          value={line.quantity}
+                          disabled={line.trackImei}
+                          onChange={(e) => void updateQty(line.key, Number(e.target.value))}
+                        />
+                        <button
+                          type="button"
+                          className="p-1 rounded-md border"
+                          style={{ borderColor: T.border, color: T.text }}
+                          onClick={() => void updateQty(line.key, line.quantity + 1)}
+                          disabled={line.trackImei}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between text-xs font-semibold tabular-nums">
+                      <span style={{ color: T.muted }}>{formatCurrency(line.unitPrice)} / u</span>
+                      <span style={{ color: T.text }}>{formatCurrency(lineTotal(line))}</span>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
-          </div>
 
-          {/* Payment panel */}
-          <div className="card flex flex-col min-h-0 overflow-hidden">
-            <div className="p-4 border-b space-y-3" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div
+              className="shrink-0 border-t p-3 space-y-3"
+              style={{ borderColor: T.border, background: T.card }}
+            >
               <div className="flex justify-between items-baseline">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                  Cart total
+                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+                  Total
                 </span>
-                <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                <span className="text-xl font-extrabold tabular-nums" style={{ color: T.text }}>
                   {formatCurrency(cartTotal)}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                <div>Lines: {cart.length}</div>
-                <div className="text-right">Paid: {formatCurrency(paidTotal)}</div>
-                <div>Due left: {formatCurrency(dueLeft)}</div>
-                <div className="text-right">Credit headroom: {formatCurrency(creditHeadroom)}</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]" style={{ color: T.muted }}>
+                <span>Paid {formatCurrency(paidTotal)}</span>
+                <span className="text-right">Due {formatCurrency(dueLeft)}</span>
+                <span>Credit headroom</span>
+                <span className="text-right">{formatCurrency(creditHeadroom)}</span>
               </div>
-            </div>
 
-            <div className="p-4 space-y-3 flex-1 overflow-auto">
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                Payments
-              </p>
-              {PAY_KEYS.map((p) => (
-                <label key={p.key} className="flex items-center gap-3">
-                  <span className="w-16 text-xs font-medium">{p.label}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    className={fieldClass()}
-                    style={fieldStyle()}
-                    value={pay[p.key]}
-                    onChange={(e) => setPay((prev) => ({ ...prev, [p.key]: e.target.value }))}
-                    placeholder="0.00"
-                    disabled={p.key === 'CREDIT' && !!dealer?.cashOnly}
-                  />
-                </label>
-              ))}
+              <div className="grid grid-cols-2 gap-2">
+                {PAY_KEYS.map((p) => (
+                  <label key={p.key} className="block">
+                    <span className="text-[10px] font-semibold" style={{ color: T.muted }}>
+                      {p.label}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="mt-0.5 w-full rounded-lg px-2 py-1.5 text-xs border outline-none tabular-nums"
+                      style={{ background: T.bg, borderColor: T.border, color: T.text }}
+                      value={pay[p.key]}
+                      onChange={(e) => setPay((prev) => ({ ...prev, [p.key]: e.target.value }))}
+                      placeholder="0"
+                      disabled={p.key === 'CREDIT' && !!dealer?.cashOnly}
+                    />
+                  </label>
+                ))}
+              </div>
+
               <button
                 type="button"
-                className="text-[11px] font-semibold text-sky-700"
+                className="text-[10px] font-semibold"
+                style={{ color: T.purple }}
                 onClick={() => {
-                  const remaining = Math.max(0, cartTotal - (Number(pay.CARD) || 0) - (Number(pay.BANK_TRANSFER) || 0) - (Number(pay.CREDIT) || 0))
+                  const remaining = Math.max(
+                    0,
+                    cartTotal -
+                      (Number(pay.CARD) || 0) -
+                      (Number(pay.BANK_TRANSFER) || 0) -
+                      (Number(pay.CREDIT) || 0),
+                  )
                   setPay((prev) => ({ ...prev, CASH: remaining ? String(remaining) : '' }))
                 }}
               >
                 Fill remaining as cash
               </button>
 
-              <label className="block text-xs space-y-1 pt-2">
-                <span style={{ color: 'var(--text-muted)' }}>Notes</span>
-                <textarea
-                  className={fieldClass()}
-                  style={fieldStyle()}
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </label>
-            </div>
+              <textarea
+                className="w-full rounded-lg px-2 py-1.5 text-xs border outline-none resize-none"
+                style={{ background: T.bg, borderColor: T.border, color: T.text }}
+                rows={2}
+                placeholder="Notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
 
-            <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
               <button
+                id="wholesale-pos-checkout"
                 type="button"
                 onClick={() => void checkout()}
                 disabled={checkingOut || !dealer || cart.length === 0}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white bg-sky-600 hover:bg-sky-500 disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-extrabold text-white disabled:opacity-50"
+                style={{
+                  background: `linear-gradient(135deg, ${T.purple}, ${T.purpleDark})`,
+                  boxShadow: `0 8px 24px ${T.purple}40`,
+                }}
               >
-                {checkingOut ? <Loader2 size={16} className="animate-spin" /> : <ShoppingCart size={16} />}
-                Checkout
+                {checkingOut ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ShoppingCart size={16} />
+                )}
+                Checkout · F9
               </button>
-              <p className="mt-2 text-[10px] text-center" style={{ color: 'var(--text-muted)' }}>
-                Posts wholesale invoice · source COUNTER · consumes ATP / IMEI
+              <p className="text-[9px] text-center" style={{ color: T.muted }}>
+                Wholesale invoice · COUNTER · same inventory as retail
               </p>
             </div>
           </div>
-        </div>
-      </div>
-    </WholesaleFeatureGate>
+        }
+      />
+    </div>
   )
+
+  return createPortal(shell, document.body)
 }
