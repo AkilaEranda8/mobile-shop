@@ -285,9 +285,13 @@ export function WholesalePosPage() {
   const [mounted, setMounted] = useState(false)
   const [clock, setClock] = useState('')
   const [sideWidth, setSideWidth] = useState(420)
+  const [cartFlex, setCartFlex] = useState(1.35)
   const [resizingSide, setResizingSide] = useState(false)
+  const [resizingCartH, setResizingCartH] = useState(false)
   const sideResizeRef = useRef<{ startX: number; startW: number } | null>(null)
+  const cartHResizeRef = useRef<{ startY: number; startFlex: number } | null>(null)
   const sideWidthRef = useRef(420)
+  const cartFlexRef = useRef(1.35)
 
   const [holdOpen, setHoldOpen] = useState(false)
   const [recentOpen, setRecentOpen] = useState(false)
@@ -311,11 +315,17 @@ export function WholesalePosPage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(`wpos_side_w_${storageScope()}`)
-      const n = Number(raw)
-      if (Number.isFinite(n) && n >= 320 && n <= 640) {
-        setSideWidth(n)
-        sideWidthRef.current = n
+      const wRaw = localStorage.getItem(`wpos_side_w_${storageScope()}`)
+      const w = Number(wRaw)
+      if (Number.isFinite(w) && w >= 320 && w <= 720) {
+        setSideWidth(w)
+        sideWidthRef.current = w
+      }
+      const fRaw = localStorage.getItem(`wpos_cart_flex_${storageScope()}`)
+      const f = Number(fRaw)
+      if (Number.isFinite(f) && f >= 0.7 && f <= 3) {
+        setCartFlex(f)
+        cartFlexRef.current = f
       }
     } catch {
       /* ignore */
@@ -324,10 +334,10 @@ export function WholesalePosPage() {
 
   useEffect(() => {
     if (!resizingSide) return
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const start = sideResizeRef.current
       if (!start) return
-      const next = Math.min(640, Math.max(320, start.startW + (start.startX - e.clientX)))
+      const next = Math.min(720, Math.max(320, start.startW + (start.startX - e.clientX)))
       sideWidthRef.current = next
       setSideWidth(next)
     }
@@ -344,13 +354,49 @@ export function WholesalePosPage() {
     }
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
     return () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
     }
   }, [resizingSide])
+
+  useEffect(() => {
+    if (!resizingCartH) return
+    const onMove = (e: PointerEvent) => {
+      const start = cartHResizeRef.current
+      if (!start) return
+      // Drag down = more cart space
+      const delta = (e.clientY - start.startY) / 140
+      const next = Math.min(3, Math.max(0.7, start.startFlex + delta))
+      cartFlexRef.current = next
+      setCartFlex(next)
+    }
+    const onUp = () => {
+      setResizingCartH(false)
+      cartHResizeRef.current = null
+      try {
+        localStorage.setItem(`wpos_cart_flex_${storageScope()}`, String(cartFlexRef.current))
+      } catch {
+        /* ignore */
+      }
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'row-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [resizingCartH])
 
   useEffect(() => {
     if (!mounted) return
@@ -1408,13 +1454,20 @@ export function WholesalePosPage() {
         <div className={`wpos-side${sideOpen ? ' is-open' : ''}`} role="complementary">
           <div
             className={`wpos-side-resize${resizingSide ? ' is-dragging' : ''}`}
-            onMouseDown={(e) => {
+            onPointerDown={(e) => {
               e.preventDefault()
+              ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
               sideResizeRef.current = { startX: e.clientX, startW: sideWidthRef.current }
               setResizingSide(true)
             }}
-            title="Drag to resize cart panel"
-          />
+            title="Drag left/right to resize cart width"
+          >
+            <span className="wpos-side-resize-grip" aria-hidden>
+              <span />
+              <span />
+              <span />
+            </span>
+          </div>
           <div className="wpos-side-scroll">
             {/* Dealer */}
             <div className="wpos-block">
@@ -1573,7 +1626,10 @@ export function WholesalePosPage() {
             </div>
 
             {/* Cart */}
-            <div className="wpos-block wpos-block-cart">
+            <div
+              className="wpos-block wpos-block-cart"
+              style={{ flex: `${cartFlex} 1 0`, minHeight: `${Math.round(140 * cartFlex)}px` }}
+            >
               <div className="wpos-section-title !mb-2">
                 <span>
                   2. Cart · {itemCount} Items · {unitCount} Units
@@ -1729,6 +1785,19 @@ export function WholesalePosPage() {
                   <strong className="tabular-nums">{formatCurrency(grandTotal)}</strong>
                 </div>
               </div>
+            </div>
+
+            <div
+              className={`wpos-cart-h-resize${resizingCartH ? ' is-dragging' : ''}`}
+              onPointerDown={(e) => {
+                e.preventDefault()
+                ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+                cartHResizeRef.current = { startY: e.clientY, startFlex: cartFlexRef.current }
+                setResizingCartH(true)
+              }}
+              title="Drag up/down to resize cart height"
+            >
+              <span />
             </div>
 
             {/* Payment */}
