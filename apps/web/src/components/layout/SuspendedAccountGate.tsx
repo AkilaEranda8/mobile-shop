@@ -8,6 +8,8 @@ import { formatCurrency } from '@/lib/utils'
 
 const ALLOWED_WHEN_SUSPENDED = [
   '/dashboard/billing',
+  '/dashboard/settings',
+  '/settings',
   '/login',
 ]
 
@@ -65,7 +67,7 @@ export function SuspendedAccountGate({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!suspended || checking) return
     if (!isAllowedPath(pathname)) {
-      router.replace('/dashboard/billing?suspended=1')
+      router.replace('/dashboard/settings?tab=billing&suspended=1')
     }
   }, [suspended, checking, pathname, router])
 
@@ -92,10 +94,10 @@ export function SuspendedAccountGate({ children }: { children: React.ReactNode }
           </div>
           <button
             type="button"
-            onClick={() => router.replace('/dashboard/billing?suspended=1')}
+            onClick={() => router.replace('/dashboard/settings?tab=billing&suspended=1')}
             className="inline-flex items-center justify-center gap-2 w-full text-sm font-bold py-2.5 rounded-xl bg-violet-600 text-white"
           >
-            <CreditCard size={15} /> Go to Billing & Pay
+            <CreditCard size={15} /> Go to Settings → Billing
           </button>
           <p className="text-[11px] text-gray-400 flex items-center justify-center gap-1">
             <Loader2 size={11} className="animate-spin" /> Checking payment status…

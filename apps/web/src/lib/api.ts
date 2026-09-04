@@ -108,10 +108,11 @@ async function request<T = unknown>(
       err.code === 'ACCOUNT_SUSPENDED_PAYMENT'
       && typeof window !== 'undefined'
       && !window.location.pathname.startsWith('/dashboard/billing')
+      && !window.location.pathname.includes('/settings')
       && !path.startsWith('/billing')
       && !path.startsWith('/tenants/me')
     ) {
-      window.location.href = '/dashboard/billing?suspended=1'
+      window.location.href = '/dashboard/settings?tab=billing&suspended=1'
     }
     throw err
   }

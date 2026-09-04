@@ -140,7 +140,7 @@ export function PaymentDueBanner() {
         </p>
       </div>
       <Link
-        href="/dashboard/billing"
+        href="/dashboard/settings?tab=billing"
         className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border flex-shrink-0 ${
           suspended
             ? 'border-red-500/40 text-red-800 dark:text-red-200 hover:bg-red-500/10'
