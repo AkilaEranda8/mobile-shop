@@ -455,7 +455,7 @@ export default function BillingPage() {
     : []
 
   return (
-    <div className="max-w-6xl mx-auto pb-10 space-y-6">
+    <div className="w-full pb-10 space-y-6">
       {/* ── Hero: one composition ── */}
       <section
         className="card relative overflow-hidden !p-0"
