@@ -758,7 +758,8 @@ function VariationPickerModal({
         role="dialog"
         aria-modal="true"
         aria-label={novaSkin ? `Set Sale Price — ${product.name}` : `Configure ${product.name}`}
-        className="relative w-full sm:max-w-lg max-h-[min(88dvh,680px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden"
+        className={`relative w-full sm:max-w-lg max-h-[min(88dvh,680px)] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl border overflow-hidden ${novaSkin ? 'nova-price-modal' : ''}`}
+        data-pos-dialog={novaSkin ? 'native' : undefined}
         style={{
           background: novaSkin
             ? POS_THEME.card
@@ -995,14 +996,19 @@ function VariationPickerModal({
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price (LKR)</p>
                     <input
                       ref={priceInputRef}
-                      type="number"
-                      min={0}
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
-                      className="w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border"
+                      autoComplete="off"
+                      className="nova-typeable w-full h-11 px-3 rounded-xl text-lg font-extrabold outline-none border tabular-nums"
                       style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                       value={salePrice}
-                      onChange={e => setSalePrice(e.target.value)}
+                      onChange={e => {
+                        const next = e.target.value.replace(/[^\d.]/g, '')
+                        const parts = next.split('.')
+                        setSalePrice(parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : next)
+                      }}
+                      onFocus={e => e.target.select()}
+                      onKeyDown={e => e.stopPropagation()}
                     />
                   </div>
                 ) : (
@@ -1015,15 +1021,16 @@ function VariationPickerModal({
                   <p className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Qty</p>
                   <input
                     ref={qtyInputRef}
-                    type="number"
-                    min={1}
-                    step={1}
+                    type="text"
                     inputMode="numeric"
+                    autoComplete="off"
                     disabled={qtyLocked}
-                    className="w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60"
+                    className="nova-typeable w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60 tabular-nums"
                     style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                     value={qtyLocked ? '1' : qtyVal}
                     onChange={e => setQtyVal(e.target.value.replace(/[^\d]/g, ''))}
+                    onFocus={e => { if (!qtyLocked) e.target.select() }}
+                    onKeyDown={e => e.stopPropagation()}
                   />
                 </div>
               </div>
@@ -1045,15 +1052,16 @@ function VariationPickerModal({
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-1.5" style={{ color: POS_THEME.muted }}>Qty</p>
                 <input
-                  type="number"
-                  min={1}
-                  step={1}
+                  type="text"
                   inputMode="numeric"
+                  autoComplete="off"
                   disabled={qtyLocked}
-                  className="w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60"
+                  className="nova-typeable w-full h-11 px-2 rounded-xl text-lg font-extrabold outline-none border text-center disabled:opacity-60 tabular-nums"
                   style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                   value={qtyLocked ? '1' : qtyVal}
                   onChange={e => setQtyVal(e.target.value.replace(/[^\d]/g, ''))}
+                  onFocus={e => { if (!qtyLocked) e.target.select() }}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
             </div>
@@ -1088,8 +1096,23 @@ function VariationPickerModal({
               type="button"
               disabled={!canAdd}
               onClick={confirmAdd}
-              className="flex-[1.5] h-10 rounded-xl text-xs font-extrabold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
-              style={{ background: `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`, boxShadow: `0 8px 18px ${POS_THEME.purple}35` }}
+              className="nova-btn-add-cart flex-[1.5] h-11 rounded-xl text-[13px] font-extrabold flex items-center justify-center gap-1.5 disabled:cursor-not-allowed"
+              style={canAdd
+                ? {
+                    backgroundColor: '#2563EB',
+                    backgroundImage: 'none',
+                    color: '#FFFFFF',
+                    boxShadow: '0 8px 20px -8px rgba(37,99,235,0.75)',
+                    border: 'none',
+                    opacity: 1,
+                  }
+                : {
+                    backgroundColor: '#1E3A5F',
+                    backgroundImage: 'none',
+                    color: '#93C5FD',
+                    border: '1px solid #3B82F666',
+                    opacity: 1,
+                  }}
             >
               <ShoppingCart size={14} /> Add to cart
             </button>
@@ -1229,23 +1252,33 @@ function PricePromptModal({
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Sale price</p>
               <div className="flex items-center gap-1.5">
                 {novaSkin && (
-                  <button type="button" onClick={() => bumpPrice(-100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease price">−</button>
+                  <button type="button" tabIndex={-1} onClick={() => bumpPrice(-100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease price">−</button>
                 )}
                 <div className="relative flex-1 min-w-0">
                   {novaSkin && (
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold" style={{ color: POS_THEME.muted }}>LKR</span>
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold z-[1]" style={{ color: POS_THEME.muted }}>LKR</span>
                   )}
                   <input
                     ref={inputRef}
-                    type="number"
-                    min={0}
-                    step="0.01"
+                    type="text"
                     inputMode="decimal"
-                    className={`w-full h-11 rounded-[10px] text-lg font-extrabold outline-none border tabular-nums ${novaSkin ? 'pl-11 pr-3' : 'px-3'}`}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className={`nova-typeable w-full h-11 rounded-[10px] text-lg font-extrabold outline-none border tabular-nums ${novaSkin ? 'pl-11 pr-3' : 'px-3'}`}
                     style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                     value={value}
-                    onChange={e => onChange(e.target.value)}
+                    onChange={e => {
+                      const next = e.target.value.replace(/[^\d.]/g, '')
+                      const parts = next.split('.')
+                      const cleaned = parts.length > 2
+                        ? `${parts[0]}.${parts.slice(1).join('')}`
+                        : next
+                      onChange(cleaned)
+                    }}
+                    onFocus={e => e.target.select()}
                     onKeyDown={e => {
+                      e.stopPropagation()
                       if (e.key === 'Enter') {
                         e.preventDefault()
                         if (!qtyLocked) { qtyRef.current?.focus(); qtyRef.current?.select(); return }
@@ -1256,7 +1289,7 @@ function PricePromptModal({
                   />
                 </div>
                 {novaSkin && (
-                  <button type="button" onClick={() => bumpPrice(100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Increase price">+</button>
+                  <button type="button" tabIndex={-1} onClick={() => bumpPrice(100)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Increase price">+</button>
                 )}
               </div>
             </div>
@@ -1264,26 +1297,29 @@ function PricePromptModal({
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: POS_THEME.muted }}>Quantity</p>
               <div className="flex items-center gap-1.5">
                 {novaSkin && (
-                  <button type="button" disabled={qtyLocked} onClick={() => bumpQty(-1)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold disabled:opacity-40" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease quantity">−</button>
+                  <button type="button" tabIndex={-1} disabled={qtyLocked} onClick={() => bumpQty(-1)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold disabled:opacity-40" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Decrease quantity">−</button>
                 )}
                 <input
                   ref={qtyRef}
-                  type="number"
-                  min={1}
-                  step={1}
+                  type="text"
                   inputMode="numeric"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   disabled={qtyLocked}
-                  className="w-full h-11 px-2 rounded-[10px] text-lg font-extrabold outline-none border text-center disabled:opacity-60 tabular-nums"
+                  className="nova-typeable w-full h-11 px-2 rounded-[10px] text-lg font-extrabold outline-none border text-center disabled:opacity-60 tabular-nums"
                   style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
                   value={qty}
                   onChange={e => onQtyChange(e.target.value.replace(/[^\d]/g, ''))}
+                  onFocus={e => { if (!qtyLocked) e.target.select() }}
                   onKeyDown={e => {
+                    e.stopPropagation()
                     if (e.key === 'Enter') { e.preventDefault(); if (valid) onConfirm() }
                     if (e.key === 'Escape') { e.preventDefault(); onClose() }
                   }}
                 />
                 {novaSkin && (
-                  <button type="button" disabled={qtyLocked} onClick={() => bumpQty(1)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold disabled:opacity-40" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Increase quantity">+</button>
+                  <button type="button" tabIndex={-1} disabled={qtyLocked} onClick={() => bumpQty(1)} className="h-11 w-10 rounded-[10px] border shrink-0 text-sm font-bold disabled:opacity-40" style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.muted }} aria-label="Increase quantity">+</button>
                 )}
               </div>
             </div>
@@ -1314,11 +1350,23 @@ function PricePromptModal({
               type="button"
               disabled={!valid}
               onClick={onConfirm}
-              className="flex-[1.6] h-11 rounded-[10px] text-[13px] font-extrabold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
-              style={{
-                background: novaSkin ? POS_THEME.blue : `linear-gradient(135deg, ${POS_THEME.purple}, ${POS_THEME.purpleDark})`,
-                boxShadow: novaSkin ? '0 8px 20px -10px rgba(37,99,235,0.7)' : `0 8px 18px ${POS_THEME.purple}35`,
-              }}
+              className="nova-btn-add-cart flex-[1.6] h-11 rounded-[10px] text-[13px] font-extrabold flex items-center justify-center gap-1.5 disabled:cursor-not-allowed"
+              style={valid
+                ? {
+                    backgroundColor: '#2563EB',
+                    backgroundImage: 'none',
+                    color: '#FFFFFF',
+                    boxShadow: '0 8px 20px -10px rgba(37,99,235,0.7)',
+                    border: 'none',
+                    opacity: 1,
+                  }
+                : {
+                    backgroundColor: '#1E3A5F',
+                    backgroundImage: 'none',
+                    color: '#93C5FD',
+                    border: '1px solid #3B82F666',
+                    opacity: 1,
+                  }}
             >
               <ShoppingCart size={14} /> Add to Cart →
             </button>
@@ -4034,18 +4082,34 @@ function POSContent({ onClose }: { onClose: () => void }) {
         )}
         bottomActions={(
           <div className="pos-bottom-bar flex flex-nowrap gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t shrink-0 overflow-x-auto scrollbar-none" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
-            {bottomActionButtons.map(btn => (
-              <button
-                key={btn.label}
-                type="button"
-                data-pos-action={btn.id || undefined}
-                onClick={btn.onClick}
-                className="flex-none min-w-[5.5rem] sm:flex-1 sm:min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold border touch-manipulation whitespace-nowrap"
-                style={{ background: btn.bg, borderColor: POS_THEME.border, color: btn.color ?? '#ffffff' }}
-              >
-                {btn.label}
-              </button>
-            ))}
+            {bottomActionButtons.map(btn => {
+              const actionId = btn.id ?? ''
+              const solid: Record<string, { bg: string; color: string; border: string }> = {
+                newSale:  { bg: '#2563EB', color: '#FFFFFF', border: 'transparent' },
+                recent:   { bg: '#0F766E', color: '#FFFFFF', border: 'transparent' },
+                reload:   { bg: '#0E7490', color: '#FFFFFF', border: 'transparent' },
+                dayStart: { bg: '#15803D', color: '#FFFFFF', border: 'transparent' },
+                dayEnd:   { bg: '#B91C1C', color: '#FFFFFF', border: 'transparent' },
+                hold:     { bg: '#C2410C', color: '#FFFFFF', border: 'transparent' },
+                cashFlow: { bg: POS_THEME.card, color: POS_THEME.muted, border: POS_THEME.border },
+                more:     { bg: POS_THEME.card, color: POS_THEME.muted, border: POS_THEME.border },
+              }
+              const tone = solid[actionId]
+              return (
+                <button
+                  key={btn.label}
+                  type="button"
+                  data-pos-action={actionId || undefined}
+                  onClick={btn.onClick}
+                  className="flex-none min-w-[5.5rem] sm:flex-1 sm:min-w-[88px] h-10 rounded-xl text-[11px] sm:text-xs font-bold border touch-manipulation whitespace-nowrap"
+                  style={tone
+                    ? { backgroundColor: tone.bg, backgroundImage: 'none', borderColor: tone.border, color: tone.color }
+                    : { background: btn.bg, borderColor: POS_THEME.border, color: btn.color ?? '#ffffff' }}
+                >
+                  {btn.label}
+                </button>
+              )
+            })}
           </div>
         )}
         cartPanel={(
@@ -5308,19 +5372,30 @@ function POSContent({ onClose }: { onClose: () => void }) {
         )
       })(), document.body)}
 
-      {/* ── Recent Invoices Slide-over ── */}
-      {showRecentInvoices && (
-        <div className="fixed inset-0 z-[110] flex" data-pos="dark">
-          <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setShowRecentInvoices(false)} />
-          <div className="w-full sm:w-[min(480px,100vw)] flex flex-col shadow-2xl max-h-dvh" style={{ background: POS_THEME.card, borderLeft: `1px solid ${POS_THEME.border}` }}>
+      {/* ── Recent Invoices (centered popup, like Calculator / Held Carts) ── */}
+      {showRecentInvoices && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setShowRecentInvoices(false)}
+        >
+          <div
+            data-pos="dark"
+            className="w-full sm:w-[min(440px,100%)] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden border max-h-[88dvh] flex flex-col"
+            style={{ background: POS_THEME.card, borderColor: POS_THEME.border }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Recent Invoices"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <Receipt size={15} className="text-sky-400" />
                 <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Recent Invoices</h3>
               </div>
-              <button onClick={() => setShowRecentInvoices(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
+              <button type="button" onClick={() => setShowRecentInvoices(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={14} /></button>
             </div>
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div className="flex-1 overflow-y-auto overscroll-contain" style={{ maxHeight: 420 }}>
               {recentLoading ? (
                 <div className="flex items-center justify-center h-32"><Loader2 size={20} className="animate-spin text-sky-400" /></div>
               ) : recentSales.length === 0 ? (
@@ -5351,7 +5426,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
     </>

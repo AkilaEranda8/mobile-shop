@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ArrowLeft, ArrowRight, Check, Loader2, ShieldCheck, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { CartItem } from '@/components/pos/types'
@@ -124,57 +125,71 @@ export function HirePurchaseWizard({ cart, branchId, selectedCustomer, onClose, 
 
   const inputClass = 'input-field'
   const stepLabels = ['Customer', 'Guarantor', 'Device', 'Finance', 'Review']
-  return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl border shadow-2xl" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }} onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 sm:px-5 py-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+  const ui = (
+    <div
+      data-hp-wizard
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 p-3 sm:p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        data-hp-panel
+        role="dialog"
+        aria-modal="true"
+        aria-label="Hire Purchase Wizard"
+        className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl border shadow-2xl"
+        style={{ background: '#ffffff', borderColor: '#e2e8f0', color: '#0f172a' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 sm:px-5 py-3" style={{ background: '#ffffff', borderColor: '#e2e8f0' }}>
           <div className="flex items-start gap-2 min-w-0">
             <ShieldCheck size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">Hire Purchase Wizard</p>
-              <p className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>Step {step} of 5 · {stepLabels[step - 1]}</p>
+              <p className="text-sm font-semibold truncate" style={{ color: '#0f172a' }}>Hire Purchase Wizard</p>
+              <p className="text-[11px] truncate" style={{ color: '#64748b' }}>Step {step} of 5 · {stepLabels[step - 1]}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: 'var(--text-muted)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            className="p-1.5 rounded-lg transition-colors hover:bg-slate-100"
+            style={{ color: '#64748b' }}
+            aria-label="Close"
           >
             <X size={16} />
           </button>
         </div>
-        <div className="flex gap-1 px-4 sm:px-5 pt-4">{[1, 2, 3, 4, 5].map(n => <div key={n} className={`h-1 flex-1 rounded ${n <= step ? 'bg-emerald-500' : ''}`} style={n > step ? { background: 'var(--bg-subtle)' } : undefined} />)}</div>
-        <div className="min-h-[420px] p-5">
-          {step === 1 && <div className="space-y-4"><h3 className="text-lg font-bold">Customer & KYC</h3><div className="grid gap-3 sm:grid-cols-2">{[
+        <div className="flex gap-1 px-4 sm:px-5 pt-4">{[1, 2, 3, 4, 5].map(n => <div key={n} className={`h-1 flex-1 rounded ${n <= step ? 'bg-emerald-500' : 'bg-slate-200'}`} />)}</div>
+        <div className="min-h-[420px] p-5" style={{ color: '#0f172a' }}>
+          {step === 1 && <div className="space-y-4"><h3 className="text-lg font-bold" style={{ color: '#0f172a' }}>Customer & KYC</h3><div className="grid gap-3 sm:grid-cols-2">{[
             ['name', 'Full Name *'], ['nic', 'NIC *'], ['phone', 'Mobile Number *'], ['email', 'Email'],
             ['address', 'Address'], ['dateOfBirth', 'Date of Birth'], ['occupation', 'Occupation'],
             ['monthlyIncome', 'Monthly Income'], ['employer', 'Employer'],
-          ].map(([key, label]) => <label key={key} className="text-xs">{label}<input type={key === 'dateOfBirth' ? 'date' : key === 'monthlyIncome' ? 'number' : 'text'} className={`${inputClass} mt-1`} value={(customer as any)[key]} onChange={setCustomerField(key)} /></label>)}</div><p className="text-xs" style={{ color: 'var(--text-muted)' }}>Customer photo, NIC and proof-of-address can be uploaded from the agreement after creation.</p></div>}
-          {step === 2 && <div className="space-y-4"><h3 className="text-lg font-bold">Guarantor <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}>(optional)</span></h3><div className="grid gap-3 sm:grid-cols-2">{[
+          ].map(([key, label]) => <label key={key} className="text-xs font-medium" style={{ color: '#334155' }}>{label}<input type={key === 'dateOfBirth' ? 'date' : key === 'monthlyIncome' ? 'number' : 'text'} className={`${inputClass} mt-1`} style={{ color: '#0f172a', background: '#fff' }} value={(customer as any)[key]} onChange={setCustomerField(key)} /></label>)}</div><p className="text-xs" style={{ color: '#64748b' }}>Customer photo, NIC and proof-of-address can be uploaded from the agreement after creation.</p></div>}
+          {step === 2 && <div className="space-y-4"><h3 className="text-lg font-bold" style={{ color: '#0f172a' }}>Guarantor <span className="text-sm font-normal" style={{ color: '#64748b' }}>(optional)</span></h3><div className="grid gap-3 sm:grid-cols-2">{[
             ['name', 'Name'], ['nic', 'NIC'], ['phone', 'Phone'], ['address', 'Address'], ['relationship', 'Relationship'],
-          ].map(([key, label]) => <label key={key} className="text-xs">{label}<input className={`${inputClass} mt-1`} value={(guarantor as any)[key]} onChange={setGuarantorField(key)} /></label>)}</div></div>}
-          {step === 3 && <div className="space-y-5"><h3 className="text-lg font-bold">Device</h3>{device && <div className="border-l-2 border-emerald-500 pl-5"><SmartphoneIcon /><h4 className="mt-3 text-xl font-bold">{device.name}</h4><p className="mt-1 font-mono text-sm">{device.imei || 'No IMEI selected'}</p><p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{device.variationLabel || 'Default variation'} · {formatCurrency(device.price)}</p></div>}<p className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-600">The IMEI is locked atomically when the agreement is created and cannot be sold twice.</p></div>}
-          {step === 4 && <div className="space-y-4"><h3 className="text-lg font-bold">Finance</h3><div className="grid gap-3 sm:grid-cols-3">{[
+          ].map(([key, label]) => <label key={key} className="text-xs font-medium" style={{ color: '#334155' }}>{label}<input className={`${inputClass} mt-1`} style={{ color: '#0f172a', background: '#fff' }} value={(guarantor as any)[key]} onChange={setGuarantorField(key)} /></label>)}</div></div>}
+          {step === 3 && <div className="space-y-5"><h3 className="text-lg font-bold" style={{ color: '#0f172a' }}>Device</h3>{device && <div className="border-l-2 border-emerald-500 pl-5"><SmartphoneIcon /><h4 className="mt-3 text-xl font-bold" style={{ color: '#0f172a' }}>{device.name}</h4><p className="mt-1 font-mono text-sm" style={{ color: '#0f172a' }}>{device.imei || 'No IMEI selected'}</p><p className="mt-1 text-sm" style={{ color: '#64748b' }}>{device.variationLabel || 'Default variation'} · {formatCurrency(device.price)}</p></div>}<p className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700">The IMEI is locked atomically when the agreement is created and cannot be sold twice.</p></div>}
+          {step === 4 && <div className="space-y-4"><h3 className="text-lg font-bold" style={{ color: '#0f172a' }}>Finance</h3><div className="grid gap-3 sm:grid-cols-3">{[
             ['cashPrice', 'Cash Price'], ['downPayment', 'Down Payment'], ['interestRate', 'Interest %'],
             ['processingFee', 'Processing Fee'], ['insuranceFee', 'Insurance Fee'], ['documentFee', 'Document Fee'],
             ['otherCharges', 'Other Charges'], ['gracePeriodDays', 'Grace Period (days)'], ['lateFee', 'Late Fee'],
             ['dueDay', 'Due Day'], ['firstDueDate', 'First Due Date'],
-          ].map(([key, label]) => <label key={key} className="text-xs">{label}<input type={key === 'firstDueDate' ? 'date' : 'number'} className={`${inputClass} mt-1`} value={(finance as any)[key]} onChange={setFinanceField(key)} /></label>)}
-            <label className="text-xs">Interest Type<select className={`${inputClass} mt-1`} value={finance.interestType} onChange={setFinanceField('interestType')}><option value="NONE">No Interest</option><option value="FLAT">Flat Rate</option><option value="REDUCING">Reducing Balance</option></select></label>
-            <label className="text-xs">Period<select className={`${inputClass} mt-1`} value={finance.installmentMonths} onChange={setFinanceField('installmentMonths')}>{periods.map(p => <option key={p} value={p}>{p} Months</option>)}</select></label>
-          </div>{calculation && <div className="grid grid-cols-2 gap-3 border-t pt-4 sm:grid-cols-4" style={{ borderColor: 'var(--border-subtle)' }}>{[['Finance Amount', calculation.financeAmount], ['Interest', calculation.interestAmount], ['Monthly', calculation.monthlyInstallment], ['Total Payable', calculation.totalPayable]].map(([l, v]) => <div key={String(l)}><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{l}</p><p className="mt-1 font-bold">{formatCurrency(Number(v))}</p></div>)}</div>}</div>}
-          {step === 5 && <div className="space-y-5"><div className="flex items-center gap-3"><ShieldCheck className="text-emerald-600" /><div><h3 className="text-lg font-bold">Review agreement</h3><p className="text-xs" style={{ color: 'var(--text-muted)' }}>Confirm before creating the sale, agreement and installment schedule.</p></div></div><div className="grid gap-3 sm:grid-cols-2"><Summary label="Customer" value={`${customer.name} · ${customer.nic}`} /><Summary label="Device" value={`${device.name} · ${device.imei}`} /><Summary label="Finance Amount" value={formatCurrency(calculation?.financeAmount ?? 0)} /><Summary label="Monthly Installment" value={`${formatCurrency(calculation?.monthlyInstallment ?? 0)} × ${finance.installmentMonths}`} /><Summary label="Total Payable" value={formatCurrency(calculation?.totalPayable ?? 0)} /><Summary label="First Due Date" value={finance.firstDueDate} /></div><label className="block text-xs">Down payment method<select className={`${inputClass} mt-1 max-w-sm`} value={downPaymentMethod} onChange={e => setDownPaymentMethod(e.target.value)}>{methods.map(m => <option key={m.id} value={m.key}>{m.label}</option>)}</select></label></div>}
+          ].map(([key, label]) => <label key={key} className="text-xs font-medium" style={{ color: '#334155' }}>{label}<input type={key === 'firstDueDate' ? 'date' : 'number'} className={`${inputClass} mt-1`} style={{ color: '#0f172a', background: '#fff' }} value={(finance as any)[key]} onChange={setFinanceField(key)} /></label>)}
+            <label className="text-xs font-medium" style={{ color: '#334155' }}>Interest Type<select className={`${inputClass} mt-1`} style={{ color: '#0f172a', background: '#fff' }} value={finance.interestType} onChange={setFinanceField('interestType')}><option value="NONE">No Interest</option><option value="FLAT">Flat Rate</option><option value="REDUCING">Reducing Balance</option></select></label>
+            <label className="text-xs font-medium" style={{ color: '#334155' }}>Period<select className={`${inputClass} mt-1`} style={{ color: '#0f172a', background: '#fff' }} value={finance.installmentMonths} onChange={setFinanceField('installmentMonths')}>{periods.map(p => <option key={p} value={p}>{p} Months</option>)}</select></label>
+          </div>{calculation && <div className="grid grid-cols-2 gap-3 border-t pt-4 sm:grid-cols-4" style={{ borderColor: '#e2e8f0' }}>{[['Finance Amount', calculation.financeAmount], ['Interest', calculation.interestAmount], ['Monthly', calculation.monthlyInstallment], ['Total Payable', calculation.totalPayable]].map(([l, v]) => <div key={String(l)}><p className="text-xs" style={{ color: '#64748b' }}>{l}</p><p className="mt-1 font-bold" style={{ color: '#0f172a' }}>{formatCurrency(Number(v))}</p></div>)}</div>}</div>}
+          {step === 5 && <div className="space-y-5"><div className="flex items-center gap-3"><ShieldCheck className="text-emerald-600" /><div><h3 className="text-lg font-bold" style={{ color: '#0f172a' }}>Review agreement</h3><p className="text-xs" style={{ color: '#64748b' }}>Confirm before creating the sale, agreement and installment schedule.</p></div></div><div className="grid gap-3 sm:grid-cols-2"><Summary label="Customer" value={`${customer.name} · ${customer.nic}`} /><Summary label="Device" value={`${device.name} · ${device.imei}`} /><Summary label="Finance Amount" value={formatCurrency(calculation?.financeAmount ?? 0)} /><Summary label="Monthly Installment" value={`${formatCurrency(calculation?.monthlyInstallment ?? 0)} × ${finance.installmentMonths}`} /><Summary label="Total Payable" value={formatCurrency(calculation?.totalPayable ?? 0)} /><Summary label="First Due Date" value={finance.firstDueDate} /></div><label className="block text-xs font-medium" style={{ color: '#334155' }}>Down payment method<select className={`${inputClass} mt-1 max-w-sm`} style={{ color: '#0f172a', background: '#fff' }} value={downPaymentMethod} onChange={e => setDownPaymentMethod(e.target.value)}>{methods.map(m => <option key={m.id} value={m.key}>{m.label}</option>)}</select></label></div>}
         </div>
-        <div className="flex items-center justify-between border-t p-5" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="flex items-center justify-between border-t p-5" style={{ borderColor: '#e2e8f0', background: '#ffffff' }}>
           <button type="button" onClick={() => step === 1 ? onClose() : setStep(p => p - 1)} className="btn-secondary"><ArrowLeft size={15} /> {step === 1 ? 'Cancel' : 'Back'}</button>
           {step < 5 ? <button type="button" onClick={next} className="btn-primary">Next <ArrowRight size={15} /></button> : <button type="button" onClick={submit} disabled={loading || !calculation} className="btn-primary">{loading ? <Loader2 className="animate-spin" size={15} /> : <Check size={15} />} Create Agreement</button>}
         </div>
       </div>
     </div>
   )
+
+  if (typeof document === 'undefined') return null
+  return createPortal(ui, document.body)
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

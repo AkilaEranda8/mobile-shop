@@ -495,62 +495,16 @@
   font-size: 11px !important;
   font-weight: 700 !important;
   letter-spacing: 0.01em;
-  border: 1px solid transparent !important;
   box-shadow: none !important;
-  background-image: none !important;
-  transition: filter var(--nova-ease), transform var(--nova-ease-fast), box-shadow var(--nova-ease);
+  transition: filter var(--nova-ease), transform var(--nova-ease-fast);
 }
 
 [data-pos='nova'] .nova-bottom button:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.12);
 }
 
 [data-pos='nova'] .nova-bottom button:active {
   transform: scale(0.985);
-}
-
-/* Distinct action colors */
-[data-pos='nova'] .nova-bottom button[data-pos-action='newSale'] {
-  background: #3b82f6 !important;
-  color: #fff !important;
-  box-shadow: 0 6px 14px -8px rgba(37, 99, 235, 0.7) !important;
-}
-[data-pos='nova'] .nova-bottom button[data-pos-action='recent'] {
-  background: #0d9488 !important;
-  color: #fff !important;
-}
-[data-pos='nova'] .nova-bottom button[data-pos-action='reload'] {
-  background: #0891b2 !important;
-  color: #fff !important;
-}
-[data-pos='nova'] .nova-bottom button[data-pos-action='dayStart'] {
-  background: #16a34a !important;
-  color: #fff !important;
-}
-[data-pos='nova'] .nova-bottom button[data-pos-action='dayEnd'] {
-  background: #dc2626 !important;
-  color: #fff !important;
-}
-[data-pos='nova'] .nova-bottom button[data-pos-action='hold'] {
-  background: #d97706 !important;
-  color: #fff !important;
-}
-[data-pos='nova'] .nova-bottom button[data-pos-action='cashFlow'] {
-  background: var(--nova-elevated) !important;
-  border-color: var(--nova-line) !important;
-  color: var(--nova-secondary) !important;
-}
-[data-pos='nova'] .nova-bottom button[data-pos-action='more'] {
-  background: var(--nova-elevated) !important;
-  border-color: var(--nova-line) !important;
-  color: var(--nova-secondary) !important;
-}
-
-[data-pos='nova'] .nova-bottom button[data-pos-action='cashFlow']:hover,
-[data-pos='nova'] .nova-bottom button[data-pos-action='more']:hover {
-  background: var(--nova-elevated-2) !important;
-  color: var(--nova-text) !important;
-  filter: none;
 }
 
 [data-pos='nova'] .nova-bottom button:focus-visible,
@@ -592,27 +546,75 @@
 }
 
 /* ═══════════════════════════════════════════
-   Set Sale Price + dialogs
+   POS-native dialogs only (not Hire Purchase / external wizards)
    ═══════════════════════════════════════════ */
-[data-pos-skin='nova'] [role='dialog'][aria-modal='true'] {
+[data-pos-skin='nova'] [role='dialog'][aria-modal='true'].nova-price-modal,
+[data-pos-skin='nova'] [data-pos-dialog='native'][role='dialog'] {
   border-radius: var(--nova-radius-lg) !important;
   border: 1px solid var(--nova-line) !important;
   background: var(--nova-elevated) !important;
   box-shadow: 0 28px 64px -24px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(59, 130, 246, 0.08) !important;
 }
 
-[data-pos-skin='nova'] [role='dialog'][aria-modal='true'] button:focus-visible {
+[data-pos-skin='nova'] [role='dialog'][aria-modal='true'].nova-price-modal button:focus-visible,
+[data-pos-skin='nova'] [data-pos-dialog='native'] button:focus-visible {
   outline: 2px solid var(--nova-blue);
   outline-offset: 2px;
 }
 
-/* Modal primary actions → solid blue, no brand purple glow */
-[data-pos-skin='nova'] [role='dialog'][aria-modal='true'] button[style*='brand-gradient'],
-[data-pos-skin='nova'] [role='dialog'][aria-modal='true'] button[style*='linear-gradient(135deg'] {
-  background: var(--nova-blue) !important;
+/* Modal primary actions → solid blue */
+[data-pos-skin='nova'] button.nova-btn-add-cart {
+  background-color: #2563eb !important;
   background-image: none !important;
+  color: #fff !important;
   box-shadow: 0 8px 20px -10px rgba(37, 99, 235, 0.7) !important;
   border-radius: 12px !important;
+}
+
+[data-pos-skin='nova'] button.nova-btn-add-cart:disabled {
+  background-color: #1e3a5f !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Typeable price/qty — no native spinners, clear caret */
+[data-pos-skin='nova'] .nova-typeable,
+[data-pos='nova'] .nova-typeable {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  cursor: text;
+}
+[data-pos-skin='nova'] .nova-typeable::-webkit-outer-spin-button,
+[data-pos-skin='nova'] .nova-typeable::-webkit-inner-spin-button,
+[data-pos='nova'] .nova-typeable::-webkit-outer-spin-button,
+[data-pos='nova'] .nova-typeable::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Isolate Hire Purchase wizard from Nova POS chrome */
+[data-hp-wizard] {
+  color-scheme: light;
+}
+[data-hp-wizard] [data-hp-panel] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+[data-hp-wizard] [data-hp-panel] input,
+[data-hp-wizard] [data-hp-panel] select,
+[data-hp-wizard] [data-hp-panel] textarea {
+  color: #0f172a !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+[data-hp-wizard] [data-hp-panel] label,
+[data-hp-wizard] [data-hp-panel] h3,
+[data-hp-wizard] [data-hp-panel] h4,
+[data-hp-wizard] [data-hp-panel] p {
+  color: inherit;
 }
 
 /* ═══════════════════════════════════════════
