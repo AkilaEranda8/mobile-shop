@@ -101,7 +101,7 @@ export function DesktopUpdateBanner() {
               style={{ background: 'var(--brand-primary, #2563eb)' }}
             >
               <Download size={13} />
-              Download update
+              Install update
             </button>
             <button
               type="button"

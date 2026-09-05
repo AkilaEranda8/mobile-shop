@@ -1,6 +1,6 @@
 {
   "name": "@hexalyte/desktop",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "private": true,
   "description": "Hexalyte desktop shell — full web app in a native Windows window",
   "main": "src/main.js",
@@ -55,7 +55,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Hexalyte"
+      "shortcutName": "Hexalyte",
+      "runAfterFinish": true
     },
     "portable": {
       "artifactName": "Hexalyte-Portable-${version}.${ext}"

@@ -11,6 +11,24 @@ export type HexalyteDesktopBridge = {
   platform?: string
   version?: string
   getVersion?: () => Promise<string>
+  getShopSlug?: () => Promise<string | null>
+  setShopSlug?: (slug: string) => Promise<string | null>
+  clearShopSlug?: () => Promise<boolean>
+  openShopLogin?: (slug: string) => Promise<{ slug: string | null; url: string }>
+  installUpdate?: (
+    url?: string,
+    meta?: { version?: string },
+  ) => Promise<{ ok: boolean; reason?: string }>
+  checkUpdate?: () => Promise<void>
+  onUpdateProgress?: (
+    callback: (payload: {
+      phase?: string
+      progress?: number
+      version?: string
+      label?: string
+      message?: string
+    }) => void,
+  ) => () => void
 }
 
 export function getHexalyteDesktopBridge(): HexalyteDesktopBridge | null {

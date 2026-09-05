@@ -18,6 +18,7 @@ import {
 } from '@/lib/tenant-url'
 import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
 import { applyPosPinSession } from '@/components/pos/PosPinGate'
+import { getHexalyteDesktopBridge } from '@/lib/desktop-version'
 
 const features = [
   { icon: ShoppingCart, label: 'Point of Sale',    desc: 'Fast POS with invoice generation'   },
@@ -64,65 +65,145 @@ export default function LoginPage() {
   const [pin, setPin]                   = useState('')
   const [hostSlug, setHostSlug]         = useState<string | null>(null)
   const [shopSlug, setShopSlug]         = useState('')
+  const [shopLocked, setShopLocked]     = useState(false)
+  const [desktopFirstSetup, setDesktopFirstSetup] = useState(false)
   const [showPinOption, setShowPinOption] = useState(false)
   const [branchOptions, setBranchOptions] = useState<BranchSummary[]>([])
   const [pinUserName, setPinUserName] = useState('')
   const [pinLength, setPinLength] = useState<4 | 6>(6)
   const submittingPinRef = useRef(false)
 
-  useEffect(() => {
-    const fromHost = getTenantSlugFromHost()
-    setHostSlug(fromHost)
-    const hostAllowsPin = canUsePinLoginOnHost()
-    const resolved = resolvePinShopSlug()
-    if (resolved.slug) setShopSlug(resolved.slug)
-    const desktop = isHexalyteDesktopShell()
-
-    fetchPlatformStatus()
-      .then(s => setMaintenance(s.maintenance))
-      .catch(() => {})
-
-    // PIN UI only when host allows AND Security policy has PIN + cold login enabled.
-    if (!hostAllowsPin) {
-      setShowPinOption(false)
-      setMode('password')
-      return
+  const persistShopSlug = async (raw: string) => {
+    const slug = raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+    if (!slug || slug === 'platform') return
+    try {
+      localStorage.setItem(SHOP_SLUG_KEY, slug)
+    } catch { /* noop */ }
+    const bridge = getHexalyteDesktopBridge()
+    if (bridge?.setShopSlug) {
+      try { await bridge.setShopSlug(slug) } catch { /* noop */ }
     }
+  }
 
-    const slug = (fromHost || resolved.slug || '').trim().toLowerCase()
-    // Desktop (or shared test host): allow PIN UI even before shop slug is known —
-    // user enters shop code on the PIN screen.
-    if (!slug) {
-      if (desktop) {
-        setShowPinOption(true)
-        setMode('pin')
-      } else {
+  useEffect(() => {
+    let cancelled = false
+
+    const boot = async () => {
+      const fromHost = getTenantSlugFromHost()
+      setHostSlug(fromHost)
+      const hostAllowsPin = canUsePinLoginOnHost()
+      const resolved = resolvePinShopSlug()
+      const desktop = isHexalyteDesktopShell()
+
+      fetchPlatformStatus()
+        .then(s => { if (!cancelled) setMaintenance(s.maintenance) })
+        .catch(() => {})
+
+      // ── Web (browser): unchanged — if PIN enabled for this shop host, open PIN ──
+      if (!desktop) {
+        setDesktopFirstSetup(false)
+        if (resolved.slug) setShopSlug(resolved.slug)
+        if (fromHost) setShopLocked(true)
+
+        if (!hostAllowsPin) {
+          setShowPinOption(false)
+          setMode('password')
+          return
+        }
+
+        const slug = (fromHost || resolved.slug || '').trim().toLowerCase()
+        if (!slug) {
+          setShowPinOption(false)
+          setMode('password')
+          return
+        }
+
+        try {
+          const av = await authApi.posPinAvailability(slug)
+          if (cancelled) return
+          setPinLength(av.pinLength)
+          setShowPinOption(av.available)
+          setMode(av.available ? 'pin' : 'password')
+        } catch {
+          if (cancelled) return
+          setShowPinOption(false)
+          setMode('password')
+        }
+        return
+      }
+
+      // ── Desktop shell only ────────────────────────────────────────────────
+      const bridge = getHexalyteDesktopBridge()
+      let desktopSlug: string | null = null
+      if (bridge?.getShopSlug) {
+        try {
+          desktopSlug = (await bridge.getShopSlug())?.trim().toLowerCase() || null
+        } catch { /* noop */ }
+      }
+
+      if (cancelled) return
+
+      // First desktop setup: password login; shop slug saved from that response.
+      if (!fromHost && !desktopSlug) {
+        setShopSlug('')
+        setShopLocked(false)
+        setShowPinOption(false)
+        setDesktopFirstSetup(true)
+        setMode('password')
+        return
+      }
+
+      setDesktopFirstSetup(false)
+      const autoSlug = (fromHost || desktopSlug || '').trim().toLowerCase()
+      if (autoSlug) setShopSlug(autoSlug)
+      setShopLocked(true)
+
+      if (
+        !fromHost
+        && desktopSlug
+        && !['app', 'test', 'www', 'api', 'admin', 'platform'].includes(desktopSlug)
+        && bridge?.openShopLogin
+        && (window.location.hostname === 'app.hexalyte.com' || window.location.hostname === 'localhost')
+      ) {
+        try {
+          await bridge.openShopLogin(desktopSlug)
+          return
+        } catch { /* stay */ }
+      }
+
+      if (!hostAllowsPin) {
         setShowPinOption(false)
         setMode('password')
+        return
       }
-      return
-    }
 
-    let cancelled = false
-    authApi.posPinAvailability(slug)
-      .then(av => {
+      if (!autoSlug) {
+        setShowPinOption(false)
+        setMode('password')
+        return
+      }
+
+      try {
+        const av = await authApi.posPinAvailability(autoSlug)
         if (cancelled) return
         setPinLength(av.pinLength)
         setShowPinOption(av.available)
         setMode(av.available ? 'pin' : 'password')
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return
         setShowPinOption(false)
         setMode('password')
-      })
+      }
+    }
 
+    void boot()
     return () => { cancelled = true }
   }, [])
 
-  // When shop slug is typed (desktop), re-check PIN availability for that tenant.
+  // Desktop only: typed shop slug (unlocked) → re-check PIN availability.
   useEffect(() => {
-    if (hostSlug) return
+    if (!isHexalyteDesktopShell()) return
+    if (hostSlug || shopLocked) return
     if (!canUsePinLoginOnHost()) return
     const slug = shopSlug.trim().toLowerCase()
     if (!slug || slug.length < 2) return
@@ -146,7 +227,7 @@ export default function LoginPage() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [shopSlug, hostSlug, mode])
+  }, [shopSlug, hostSlug, shopLocked, mode])
 
   const effectiveSlug = (hostSlug || shopSlug).trim().toLowerCase()
 
@@ -156,7 +237,11 @@ export default function LoginPage() {
     try {
       localStorage.removeItem('hx_tenant_features')
       const slug = (user?.tenantSlug || loginUser?.tenantSlug || '').trim().toLowerCase()
-      if (slug && slug !== 'platform') localStorage.setItem(SHOP_SLUG_KEY, slug)
+      if (slug && slug !== 'platform') {
+        try { localStorage.setItem(SHOP_SLUG_KEY, slug) } catch { /* noop */ }
+        // Electron only: remember shop for next desktop PIN unlock
+        if (isHexalyteDesktopShell()) void persistShopSlug(slug)
+      }
     } catch { /* noop */ }
     goDashboard()
   }
@@ -206,9 +291,15 @@ export default function LoginPage() {
     try {
       if (!hostSlug && shopSlug.trim()) {
         try { localStorage.setItem(SHOP_SLUG_KEY, shopSlug.trim().toLowerCase()) } catch { /* noop */ }
+        if (isHexalyteDesktopShell()) await persistShopSlug(shopSlug)
       }
       const res = await authApi.posPinLogin(pin, effectiveSlug)
       const user = applyPosPinSession(res.data)
+      const tenantSlug = (user?.tenantSlug || effectiveSlug || '').trim().toLowerCase()
+      if (tenantSlug) {
+        try { localStorage.setItem(SHOP_SLUG_KEY, tenantSlug) } catch { /* noop */ }
+        if (isHexalyteDesktopShell()) await persistShopSlug(tenantSlug)
+      }
       finishPinSession(user)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid PIN')
@@ -377,11 +468,36 @@ export default function LoginPage() {
                   Enter PIN · then branch if needed · start work
                 </p>
 
-                {hostSlug ? (
-                  <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium" style={{ color: '#ffffff' }}>
-                    <Store size={13} style={{ color: '#ffffff' }} />
-                    <span>Shop: {hostSlug}</span>
-                  </p>
+                {hostSlug || (shopLocked && effectiveSlug) ? (
+                  <div className="mt-4 flex flex-col items-center gap-1.5">
+                    <p className="inline-flex items-center gap-2 text-xs font-medium" style={{ color: '#ffffff' }}>
+                      <Store size={13} style={{ color: '#ffffff' }} />
+                      <span>Shop: {hostSlug || effectiveSlug}</span>
+                    </p>
+                    {!hostSlug ? (
+                      <button
+                        type="button"
+                        className="text-[11px] font-medium underline-offset-2 hover:underline"
+                        style={{ color: '#94a3b8' }}
+                        onClick={async () => {
+                          setShopLocked(false)
+                          setShopSlug('')
+                          setPin('')
+                          setError('')
+                          setShowPinOption(false)
+                          setDesktopFirstSetup(true)
+                          setMode('password')
+                          const bridge = getHexalyteDesktopBridge()
+                          if (bridge?.clearShopSlug) {
+                            try { await bridge.clearShopSlug() } catch { /* noop */ }
+                          }
+                          try { localStorage.removeItem(SHOP_SLUG_KEY) } catch { /* noop */ }
+                        }}
+                      >
+                        Change shop
+                      </button>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="mt-4 w-full text-left">
                     <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>
@@ -402,10 +518,23 @@ export default function LoginPage() {
                           setError('')
                           setShopSlug(e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, ''))
                         }}
+                        onBlur={async () => {
+                          if (shopSlug.trim().length < 2) return
+                          await persistShopSlug(shopSlug)
+                          const bridge = getHexalyteDesktopBridge()
+                          if (
+                            bridge?.openShopLogin
+                            && !['app', 'test', 'www', 'api', 'admin', 'platform'].includes(shopSlug.trim().toLowerCase())
+                          ) {
+                            try { await bridge.openShopLogin(shopSlug) } catch { /* stay */ }
+                          } else {
+                            setShopLocked(true)
+                          }
+                        }}
                       />
                     </div>
                     <p className="mt-1.5 text-[11px]" style={{ color: '#64748b' }}>
-                      From your shop URL: yourshop.app.hexalyte.com
+                      From your shop URL: yourshop.app.hexalyte.com — saved for next launch
                     </p>
                   </div>
                 )}
@@ -436,7 +565,7 @@ export default function LoginPage() {
                   onSubmit={handlePinLogin}
                   loading={loading || !!maintenance?.enabled}
                   disabled={!!maintenance?.enabled}
-                  autoFocus={!!hostSlug}
+                  autoFocus={!!(hostSlug || shopLocked)}
                   showKeypad
                   showSubmit
                   variant="login"
@@ -537,7 +666,11 @@ export default function LoginPage() {
 
           <div className="mb-6">
             <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#ffffff' }}>Welcome back</h1>
-            <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>Sign in to your dashboard</p>
+            <p className="text-sm mt-1.5" style={{ color: '#ffffff' }}>
+              {desktopFirstSetup
+                ? 'First sign-in: use email & password. Shop is saved for PIN next time.'
+                : 'Sign in to your dashboard'}
+            </p>
           </div>
 
           {maintenance?.enabled && (

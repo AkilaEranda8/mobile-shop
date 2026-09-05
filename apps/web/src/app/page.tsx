@@ -1,12 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Smartphone, Wrench, BarChart3, Shield, Zap, Globe, CheckCircle,
   ArrowRight, Star, Users, TrendingUp, Package, QrCode, Wifi,
   Menu, X, ChevronRight, Building2, CreditCard, Bell, Mail, Phone
 } from 'lucide-react'
+import { isHexalyteDesktopShell } from '@/lib/tenant-url'
 
 const COMPANY = {
   name: 'Hexalyte Innovation (Pvt) Ltd',
@@ -180,7 +182,24 @@ function Logo({ className = 'h-10' }: { className?: string }) {
 }
 
 export default function LandingPage() {
+  const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [desktopShell, setDesktopShell] = useState(false)
+
+  // Desktop shell should never show the public marketing landing page.
+  useEffect(() => {
+    if (!isHexalyteDesktopShell()) return
+    setDesktopShell(true)
+    router.replace('/login')
+  }, [router])
+
+  if (desktopShell) {
+    return (
+      <div className="min-h-screen bg-[#080c14] flex items-center justify-center text-slate-400 text-sm">
+        Opening login…
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#080c14] text-slate-200 overflow-x-hidden">
