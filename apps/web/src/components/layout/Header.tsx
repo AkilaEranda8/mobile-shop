@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Bell, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp, BriefcaseBusiness, Lock } from 'lucide-react'
+import { Bell, Menu, X, ChevronDown, Settings, LogOut, User, Sun, Moon, AlertTriangle, Wrench, ShoppingBag, ShoppingCart, TrendingUp, BriefcaseBusiness, Lock, MonitorDown } from 'lucide-react'
 import { usePos } from '@/lib/use-pos'
 import { useTheme } from 'next-themes'
 import { useRouter } from 'next/navigation'
@@ -16,6 +16,7 @@ import { BranchControl } from '@/components/layout/BranchControl'
 import { viewOnlyToast } from '@/lib/module-access'
 import { QuestHeaderChip } from '@/components/shop-quest/QuestHeaderChip'
 import { useShopQuestUnlock } from '@/lib/shop-quest-unlock'
+import { getDesktopDownloadUrl } from '@/lib/desktop-download'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -124,6 +125,22 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
           <BriefcaseBusiness size={14} />
           <span className="hidden xl:inline">Business Services</span>
         </Link>
+
+        {/* Desktop app download */}
+        <a
+          href={getDesktopDownloadUrl()}
+          download
+          title="Download Hexalyte for Windows"
+          className="inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
+          style={{
+            background: 'var(--bg-subtle)',
+            color: 'var(--text-secondary)',
+            borderColor: 'var(--border-default)',
+          }}
+        >
+          <MonitorDown size={14} style={{ color: 'var(--brand-primary)' }} />
+          <span className="hidden xl:inline">Desktop App</span>
+        </a>
 
         {/* POS Terminal — requires POS Edit (feature flag alone is not enough) */}
         {canOpenPos && (

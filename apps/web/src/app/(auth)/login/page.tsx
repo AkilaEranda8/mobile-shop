@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   Eye, EyeOff, ArrowRight, AlertCircle, AlertTriangle, ShoppingCart,
   Wrench, BarChart3, Shield, Users, Package, KeyRound, Lock, Store,
-  Headset,
+  Headset, MonitorDown,
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage, type AuthUser, type BranchSummary } from '@/lib/auth'
@@ -13,6 +13,7 @@ import { initializeSessionBranch, resolveAutoBranchId, setActiveBranchId } from 
 import { canUsePinLoginOnHost, getTenantSlugFromHost, resolvePinShopSlug } from '@/lib/tenant-url'
 import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
 import { applyPosPinSession } from '@/components/pos/PosPinGate'
+import { getDesktopDownloadUrl } from '@/lib/desktop-download'
 
 const features = [
   { icon: ShoppingCart, label: 'Point of Sale',    desc: 'Fast POS with invoice generation'   },
@@ -47,6 +48,26 @@ function goAfterPinLogin(user: AuthUser) {
     return
   }
   goDashboard()
+}
+
+function DesktopDownloadChip() {
+  return (
+    <a
+      href={getDesktopDownloadUrl()}
+      download
+      title="Download Hexalyte for Windows"
+      className="fixed top-4 right-4 z-30 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-90"
+      style={{
+        background: 'rgba(37, 99, 235, 0.15)',
+        borderColor: 'rgba(37, 99, 235, 0.35)',
+        color: '#e2e8f0',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <MonitorDown size={14} className="text-blue-400" />
+      Download Desktop App
+    </a>
+  )
 }
 
 export default function LoginPage() {
@@ -265,6 +286,7 @@ export default function LoginPage() {
   if (mode === 'pin' && showPinOption) {
     return (
       <div className="min-h-screen bg-[#07090f] flex">
+        <DesktopDownloadChip />
         <div className="hidden lg:flex flex-col w-[52%] relative overflow-hidden px-14 py-12">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-blue-700/20 rounded-full blur-3xl" />
@@ -419,6 +441,7 @@ export default function LoginPage() {
   // ── Password login (split marketing layout) ───────────────────────────────
   return (
     <div className="min-h-screen bg-[#07090f] flex">
+      <DesktopDownloadChip />
 
       <div className="hidden lg:flex flex-col w-[52%] relative overflow-hidden px-14 py-12">
         <div className="absolute inset-0 pointer-events-none">

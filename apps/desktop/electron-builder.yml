@@ -1,0 +1,30 @@
+# Electron Builder config (also mirrored in package.json "build")
+appId: com.hexalyte.desktop
+productName: Hexalyte
+copyright: Copyright © Hexalyte
+npmRebuild: false
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+directories:
+  output: dist
+  buildResources: assets
+files:
+  - src/**/*
+  - assets/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: assets/icon.ico
+  artifactName: Hexalyte-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Hexalyte
+portable:
+  artifactName: Hexalyte-Portable-${version}.${ext}

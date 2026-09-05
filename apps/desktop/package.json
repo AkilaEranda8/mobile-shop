@@ -1,0 +1,64 @@
+{
+  "name": "@hexalyte/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hexalyte desktop shell — full web app in a native Windows window",
+  "main": "src/main.js",
+  "author": "Hexalyte",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "dist": "electron-builder --win --config.npmRebuild=false",
+    "dist:dir": "electron-builder --win --dir --config.npmRebuild=false"
+  },
+  "devDependencies": {
+    "electron": "34.5.8",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.hexalyte.desktop",
+    "productName": "Hexalyte",
+    "copyright": "Copyright © Hexalyte",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "Hexalyte-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Hexalyte"
+    },
+    "portable": {
+      "artifactName": "Hexalyte-Portable-${version}.${ext}"
+    }
+  }
+}
