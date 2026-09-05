@@ -1,13 +1,82 @@
-const { app, BrowserWindow, shell, Menu, nativeTheme } = require('electron')
+const { app, BrowserWindow, shell, Menu, nativeTheme, dialog, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
-const DEFAULT_URL = 'https://app.hexalyte.com'
+const DEFAULT_URL = 'https://app.hexalyte.com/login'
 const APP_URL = (process.env.HEXALYTE_DESKTOP_URL || DEFAULT_URL).replace(/\/$/, '')
+const VERSION_URL = 'https://app.hexalyte.com/downloads/desktop-version.json'
+const DOWNLOAD_URL = 'https://app.hexalyte.com/downloads/Hexalyte-Setup.exe'
 const STATE_FILE = 'window-state.json'
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null
+
+function compareSemver(a, b) {
+  const pa = String(a).replace(/^v/i, '').split(/[.+-]/).map((n) => parseInt(n, 10) || 0)
+  const pb = String(b).replace(/^v/i, '').split(/[.+-]/).map((n) => parseInt(n, 10) || 0)
+  const len = Math.max(pa.length, pb.length)
+  for (let i = 0; i < len; i++) {
+    const x = pa[i] ?? 0
+    const y = pb[i] ?? 0
+    if (x > y) return 1
+    if (x < y) return -1
+  }
+  return 0
+}
+
+async function checkForDesktopUpdate() {
+  if (process.env.HEXALYTE_DESKTOP_SKIP_UPDATE === '1') return
+  try {
+    const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: 'no-store' })
+    if (!res.ok) return
+    const remote = await res.json()
+    const latest = typeof remote?.version === 'string' ? remote.version.trim() : ''
+    if (!latest) return
+    const current = app.getVersion()
+    if (compareSemver(current, latest) >= 0) return
+
+    const download =
+      typeof remote.downloadUrl === 'string' && remote.downloadUrl.startsWith('http')
+        ? remote.downloadUrl
+        : DOWNLOAD_URL
+    const message =
+      typeof remote.message === 'string' && remote.message.trim()
+        ? remote.message.trim()
+        : 'A new Hexalyte desktop update is available. Please install it to continue.'
+
+    const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined
+    const result = await dialog.showMessageBox(win, {
+      type: 'info',
+      title: 'Desktop update available',
+      message: 'Update required',
+      detail: `${message}\n\nYou have v${current} → latest v${latest}`,
+      buttons: ['Download update', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    })
+    if (result.response === 0) {
+      if (win) {
+        const payload = JSON.stringify({
+          url: download,
+          version: latest,
+          label: 'Hexalyte Desktop update',
+        })
+        void win.webContents
+          .executeJavaScript(
+            `window.dispatchEvent(new CustomEvent('hx-desktop-download', { detail: ${payload} }))`,
+          )
+          .catch(() => {
+            void shell.openExternal(download)
+          })
+      } else {
+        void shell.openExternal(download)
+      }
+    }
+  } catch (err) {
+    console.warn('[hexalyte-desktop] update check failed:', err)
+  }
+}
 
 function statePath() {
   return path.join(app.getPath('userData'), STATE_FILE)
@@ -180,6 +249,12 @@ function buildMenu() {
       label: 'Help',
       submenu: [
         {
+          label: 'Check for Updates…',
+          click: () => {
+            void checkForDesktopUpdate()
+          },
+        },
+        {
           label: 'Hexalyte Website',
           click: () => {
             void shell.openExternal('https://hexalyte.com')
@@ -191,11 +266,18 @@ function buildMenu() {
             void shell.openExternal(APP_URL)
           },
         },
+        { type: 'separator' },
+        {
+          label: `Version ${app.getVersion()}`,
+          enabled: false,
+        },
       ],
     },
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
+
+ipcMain.handle('desktop:get-version', () => app.getVersion())
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
@@ -210,6 +292,9 @@ if (!gotLock) {
   app.whenReady().then(() => {
     buildMenu()
     createWindow()
+    setTimeout(() => {
+      void checkForDesktopUpdate()
+    }, 2500)
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
     })

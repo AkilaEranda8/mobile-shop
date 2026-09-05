@@ -17,6 +17,7 @@ import { viewOnlyToast } from '@/lib/module-access'
 import { QuestHeaderChip } from '@/components/shop-quest/QuestHeaderChip'
 import { useShopQuestUnlock } from '@/lib/shop-quest-unlock'
 import { getDesktopDownloadUrl } from '@/lib/desktop-download'
+import { startDesktopDownload } from '@/components/DesktopDownloadOverlay'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -127,10 +128,15 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
         </Link>
 
         {/* Desktop app download */}
-        <a
-          href={getDesktopDownloadUrl()}
-          download
+        <button
+          type="button"
           title="Download Hexalyte for Windows"
+          onClick={() =>
+            startDesktopDownload({
+              url: getDesktopDownloadUrl(),
+              label: 'Hexalyte Desktop',
+            })
+          }
           className="inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
           style={{
             background: 'var(--bg-subtle)',
@@ -140,7 +146,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
         >
           <MonitorDown size={14} style={{ color: 'var(--brand-primary)' }} />
           <span className="hidden xl:inline">Desktop App</span>
-        </a>
+        </button>
 
         {/* POS Terminal — requires POS Edit (feature flag alone is not enough) */}
         {canOpenPos && (

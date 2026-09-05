@@ -1,6 +1,6 @@
 {
   "name": "@hexalyte/desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Hexalyte desktop shell — full web app in a native Windows window",
   "main": "src/main.js",

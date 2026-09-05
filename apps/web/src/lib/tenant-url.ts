@@ -49,13 +49,25 @@ export function resolvePinShopSlug(hostname?: string): {
   return { slug: null, autoDetected: false }
 }
 
+/** True inside the Hexalyte Electron desktop shell (`window.hexalyteDesktop`). */
+export function isHexalyteDesktopShell(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return !!(window as Window & { hexalyteDesktop?: { isDesktop?: boolean } }).hexalyteDesktop?.isDesktop
+  } catch {
+    return false
+  }
+}
+
 /**
  * PIN login UI is available on shop subdomains always,
- * and on the shared test host / localhost.
- * Production shared host `app.hexalyte.com` stays password-only.
+ * on the shared test host / localhost, and in the Electron desktop shell
+ * (desktop opens `app.hexalyte.com` — shop slug comes from host, storage, or input).
+ * Browser on production shared host `app.hexalyte.com` stays password-only.
  */
 export function canUsePinLoginOnHost(hostname?: string): boolean {
   if (getTenantSlugFromHost(hostname)) return true
+  if (isHexalyteDesktopShell()) return true
   const host = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase()
   return host === 'test.app.hexalyte.com' || host === 'localhost' || host === '127.0.0.1'
 }

@@ -1,6 +1,6 @@
 # Hexalyte Desktop
 
-Native Windows shell for the full Hexalyte web app. Same UI as [app.hexalyte.com](https://app.hexalyte.com) — no redesign.
+Native Windows shell for the full Hexalyte web app. Opens directly at [login](https://app.hexalyte.com/login) — no marketing landing page.
 
 ## Requirements
 
@@ -27,7 +27,7 @@ npm run dev
 Optional local URL override:
 
 ```powershell
-$env:HEXALYTE_DESKTOP_URL = "http://localhost:3000"
+$env:HEXALYTE_DESKTOP_URL = "http://localhost:3000/login"
 npm run dev
 ```
 

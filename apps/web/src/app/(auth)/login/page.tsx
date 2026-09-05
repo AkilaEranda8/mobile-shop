@@ -5,15 +5,19 @@ import Link from 'next/link'
 import {
   Eye, EyeOff, ArrowRight, AlertCircle, AlertTriangle, ShoppingCart,
   Wrench, BarChart3, Shield, Users, Package, KeyRound, Lock, Store,
-  Headset, MonitorDown,
+  Headset,
 } from 'lucide-react'
 import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { authStorage, type AuthUser, type BranchSummary } from '@/lib/auth'
 import { initializeSessionBranch, resolveAutoBranchId, setActiveBranchId } from '@/lib/active-branch'
-import { canUsePinLoginOnHost, getTenantSlugFromHost, resolvePinShopSlug } from '@/lib/tenant-url'
+import {
+  canUsePinLoginOnHost,
+  getTenantSlugFromHost,
+  isHexalyteDesktopShell,
+  resolvePinShopSlug,
+} from '@/lib/tenant-url'
 import { PosPinKeypad } from '@/components/pos/PosPinKeypad'
 import { applyPosPinSession } from '@/components/pos/PosPinGate'
-import { getDesktopDownloadUrl } from '@/lib/desktop-download'
 
 const features = [
   { icon: ShoppingCart, label: 'Point of Sale',    desc: 'Fast POS with invoice generation'   },
@@ -50,26 +54,6 @@ function goAfterPinLogin(user: AuthUser) {
   goDashboard()
 }
 
-function DesktopDownloadChip() {
-  return (
-    <a
-      href={getDesktopDownloadUrl()}
-      download
-      title="Download Hexalyte for Windows"
-      className="fixed top-4 right-4 z-30 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-90"
-      style={{
-        background: 'rgba(37, 99, 235, 0.15)',
-        borderColor: 'rgba(37, 99, 235, 0.35)',
-        color: '#e2e8f0',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      <MonitorDown size={14} className="text-blue-400" />
-      Download Desktop App
-    </a>
-  )
-}
-
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading]           = useState(false)
@@ -92,6 +76,7 @@ export default function LoginPage() {
     const hostAllowsPin = canUsePinLoginOnHost()
     const resolved = resolvePinShopSlug()
     if (resolved.slug) setShopSlug(resolved.slug)
+    const desktop = isHexalyteDesktopShell()
 
     fetchPlatformStatus()
       .then(s => setMaintenance(s.maintenance))
@@ -105,9 +90,16 @@ export default function LoginPage() {
     }
 
     const slug = (fromHost || resolved.slug || '').trim().toLowerCase()
+    // Desktop (or shared test host): allow PIN UI even before shop slug is known —
+    // user enters shop code on the PIN screen.
     if (!slug) {
-      setShowPinOption(false)
-      setMode('password')
+      if (desktop) {
+        setShowPinOption(true)
+        setMode('pin')
+      } else {
+        setShowPinOption(false)
+        setMode('password')
+      }
       return
     }
 
@@ -127,6 +119,34 @@ export default function LoginPage() {
 
     return () => { cancelled = true }
   }, [])
+
+  // When shop slug is typed (desktop), re-check PIN availability for that tenant.
+  useEffect(() => {
+    if (hostSlug) return
+    if (!canUsePinLoginOnHost()) return
+    const slug = shopSlug.trim().toLowerCase()
+    if (!slug || slug.length < 2) return
+
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      authApi.posPinAvailability(slug)
+        .then(av => {
+          if (cancelled) return
+          setPinLength(av.pinLength)
+          if (av.available) setShowPinOption(true)
+          else if (mode === 'pin') setError('PIN login is not enabled for this shop')
+        })
+        .catch(() => {
+          if (cancelled) return
+          if (mode === 'pin') setError('Could not verify shop PIN settings')
+        })
+    }, 400)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [shopSlug, hostSlug, mode])
 
   const effectiveSlug = (hostSlug || shopSlug).trim().toLowerCase()
 
@@ -286,7 +306,6 @@ export default function LoginPage() {
   if (mode === 'pin' && showPinOption) {
     return (
       <div className="min-h-screen bg-[#07090f] flex">
-        <DesktopDownloadChip />
         <div className="hidden lg:flex flex-col w-[52%] relative overflow-hidden px-14 py-12">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-blue-700/20 rounded-full blur-3xl" />
@@ -358,12 +377,38 @@ export default function LoginPage() {
                   Enter PIN · then branch if needed · start work
                 </p>
 
-                {effectiveSlug ? (
+                {hostSlug ? (
                   <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium" style={{ color: '#ffffff' }}>
                     <Store size={13} style={{ color: '#ffffff' }} />
-                    <span>Shop: {effectiveSlug}</span>
+                    <span>Shop: {hostSlug}</span>
                   </p>
-                ) : null}
+                ) : (
+                  <div className="mt-4 w-full text-left">
+                    <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>
+                      Shop code
+                    </label>
+                    <div className="relative">
+                      <Store size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#64748b' }} />
+                      <input
+                        type="text"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        placeholder="yourshop"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all border"
+                        style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
+                        value={shopSlug}
+                        onChange={e => {
+                          setError('')
+                          setShopSlug(e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, ''))
+                        }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[11px]" style={{ color: '#64748b' }}>
+                      From your shop URL: yourshop.app.hexalyte.com
+                    </p>
+                  </div>
+                )}
               </div>
 
               {maintenance?.enabled && (
@@ -391,17 +436,14 @@ export default function LoginPage() {
                   onSubmit={handlePinLogin}
                   loading={loading || !!maintenance?.enabled}
                   disabled={!!maintenance?.enabled}
-                  autoFocus
+                  autoFocus={!!hostSlug}
                   showKeypad
                   showSubmit
                   variant="login"
                 />
               ) : (
                 <div className="px-1 py-4 text-center space-y-2 mb-4">
-                  <p className="text-sm" style={{ color: '#ffffff' }}>Open your shop link to use PIN</p>
-                  <p className="text-[11px]" style={{ color: '#ffffff' }}>
-                    Example: yourshop.app.hexalyte.com
-                  </p>
+                  <p className="text-sm" style={{ color: '#ffffff' }}>Enter your shop code above to unlock PIN</p>
                 </div>
               )}
 
@@ -441,8 +483,6 @@ export default function LoginPage() {
   // ── Password login (split marketing layout) ───────────────────────────────
   return (
     <div className="min-h-screen bg-[#07090f] flex">
-      <DesktopDownloadChip />
-
       <div className="hidden lg:flex flex-col w-[52%] relative overflow-hidden px-14 py-12">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-brand-700/20 rounded-full blur-3xl" />

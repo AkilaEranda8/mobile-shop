@@ -13,4 +13,5 @@ Copy-Item apps/desktop/dist/Hexalyte-Setup-*.exe apps/web/public/downloads/Hexal
 
 Or set `NEXT_PUBLIC_DESKTOP_DOWNLOAD_URL` to a CDN / GitHub Releases URL.
 
-Web UI: Header **Desktop App** button + login page download chip → `/downloads/Hexalyte-Setup.exe`
+Web UI: Header **Desktop App** button → `/downloads/Hexalyte-Setup.exe`
+Update check: `/downloads/desktop-version.json` (desktop shell + Help → Check for Updates)

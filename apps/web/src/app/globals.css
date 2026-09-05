@@ -2144,3 +2144,46 @@ html.dark .shop-quest-btn-secondary,
 }
 
 /* Spotlight ring handled by .shop-quest-spotlight */
+
+/* Desktop installer download overlay */
+.hx-desktop-dl-ring {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  animation: hx-desktop-dl-pulse 2.2s ease-out infinite;
+}
+.hx-desktop-dl-ring--delay {
+  animation-delay: 0.7s;
+  border-color: rgba(56, 189, 248, 0.28);
+}
+@keyframes hx-desktop-dl-pulse {
+  0% { transform: scale(0.85); opacity: 0.85; }
+  70% { transform: scale(1.15); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+.hx-desktop-dl-arrow {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  background: #fff;
+  border-radius: 2px;
+  animation: hx-desktop-dl-fall 1.15s ease-in-out infinite;
+}
+.hx-desktop-dl-arrow::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  margin-left: -4px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #fff;
+}
+@keyframes hx-desktop-dl-fall {
+  0% { transform: translateY(-6px); opacity: 0; }
+  30% { opacity: 1; }
+  70% { transform: translateY(4px); opacity: 1; }
+  100% { transform: translateY(8px); opacity: 0; }
+}
+
