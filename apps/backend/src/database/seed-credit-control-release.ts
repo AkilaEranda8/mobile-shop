@@ -7,7 +7,7 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-const VERSION = '2.16.0'
+const VERSION = '2.18.0'
 
 const ITEMS = [
   {
@@ -65,9 +65,9 @@ async function main() {
   const release = await prisma.release.create({
     data: {
       version: VERSION,
-      title: '5 September 2026 — Customer Credit Control',
+      title: '5 September 2026 - Customer Credit Control',
       summary:
-        'New Credit Control panel on Customers: SMS + WhatsApp overdue reminder templates, manual/bulk send, and optional hourly automation — when Customer Credit is enabled.',
+        'New Credit Control panel on Customers: SMS + WhatsApp overdue reminder templates, manual/bulk send, and optional hourly automation - when Customer Credit is enabled.',
       releaseDate: new Date('2026-09-05T00:00:00.000Z'),
       status: 'PUBLISHED',
       popupEnabled: true,
