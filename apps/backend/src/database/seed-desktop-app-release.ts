@@ -69,7 +69,7 @@ async function main() {
   const existing = await prisma.release.findFirst({ where: { version: VERSION } })
 
   const data = {
-    title: '5 September 2026 — Hexalyte Desktop App (Windows)',
+    title: '5 September 2026 - Hexalyte Desktop App (Windows)',
     summary:
       'New Windows desktop app: install once, open straight to login, PIN unlock after first sign-in, and silent auto-updates that restart Hexalyte for you.',
     releaseDate: new Date('2026-09-05T12:00:00.000Z'),
