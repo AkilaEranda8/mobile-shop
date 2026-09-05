@@ -234,15 +234,31 @@ export default function CreditControlPanel({
           style={{ borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Bell size={16} className="text-brand-500 mt-0.5 shrink-0" />
+            <span
+              className="mt-0.5 shrink-0 flex h-7 w-7 items-center justify-center rounded-lg border"
+              style={{
+                background: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)',
+                borderColor: 'color-mix(in srgb, var(--brand-primary) 25%, transparent)',
+                color: 'var(--brand-primary)',
+              }}
+            >
+              <Bell size={14} />
+            </span>
             <div className="min-w-0">
-              <p className="text-sm font-semibold">Credit Control</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Credit Control</p>
               <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                 Templates, automation, and overdue reminders (SMS + WhatsApp)
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[color:var(--bg-subtle)]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
             <X size={16} />
           </button>
         </div>
@@ -345,7 +361,8 @@ export default function CreditControlPanel({
                     <button
                       type="button"
                       disabled={!canEdit}
-                      className="text-xs flex items-center gap-1 text-brand-600"
+                      className="text-xs flex items-center gap-1 font-medium"
+                      style={{ color: 'var(--brand-primary)' }}
                       onClick={() => setSmsBody(DEFAULT_SMS_CREDIT_REMINDER_BODY)}
                     >
                       <RotateCcw size={12} /> Reset SMS default
@@ -418,7 +435,8 @@ export default function CreditControlPanel({
                     <button
                       type="button"
                       disabled={!canEdit}
-                      className="text-xs flex items-center gap-1 text-brand-600"
+                      className="text-xs flex items-center gap-1 font-medium"
+                      style={{ color: 'var(--brand-primary)' }}
                       onClick={() =>
                         setSettings(s => ({
                           ...s,
@@ -603,7 +621,7 @@ export default function CreditControlPanel({
                                 <p className="font-medium truncate max-w-[180px]">{c.name}</p>
                                 <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{c.phone}</p>
                               </td>
-                              <td className="px-3 py-2 text-right font-medium text-red-500">
+                              <td className="px-3 py-2 text-right font-medium text-red-600 dark:text-red-400">
                                 {formatCurrency(c.totalDue)}
                               </td>
                               <td className="px-3 py-2">

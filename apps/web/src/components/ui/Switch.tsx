@@ -3,11 +3,11 @@
 import type { ButtonHTMLAttributes, CSSProperties } from 'react'
 
 const VARIANTS = {
-  blue:    { on: 'bg-brand-600', off: 'bg-white/10' },
-  violet:  { on: 'bg-brand-600', off: 'bg-white/10' }, // legacy alias → brand blue
-  green:   { on: 'bg-green-500', off: 'bg-white/10' },
-  emerald: { on: 'bg-emerald-500', off: 'bg-slate-600' },
-  red:     { on: 'bg-red-500', off: 'bg-white/10' },
+  blue:    { on: 'bg-brand-600', off: 'bg-slate-300 dark:bg-white/15' },
+  violet:  { on: 'bg-brand-600', off: 'bg-slate-300 dark:bg-white/15' }, // legacy alias → brand blue
+  green:   { on: 'bg-emerald-500', off: 'bg-slate-300 dark:bg-white/15' },
+  emerald: { on: 'bg-emerald-500', off: 'bg-slate-500 dark:bg-slate-600' },
+  red:     { on: 'bg-red-500', off: 'bg-slate-300 dark:bg-white/15' },
 } as const
 
 export type SwitchVariant = keyof typeof VARIANTS

@@ -1087,9 +1087,13 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                   onClick={sendCreditSmsReminder}
                   disabled={smsReminderSending}
                   className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold disabled:opacity-50"
-                  style={{ borderColor: 'rgba(16,185,129,.35)', background: 'rgba(16,185,129,.08)', color: '#34d399' }}
+                  style={{
+                    borderColor: 'color-mix(in srgb, #10b981 35%, var(--border-default))',
+                    background: 'color-mix(in srgb, #10b981 10%, transparent)',
+                    color: 'var(--text-primary)',
+                  }}
                 >
-                  {smsReminderSending ? <Loader2 size={14} className="animate-spin" /> : <Phone size={14} />}
+                  {smsReminderSending ? <Loader2 size={14} className="animate-spin" /> : <Phone size={14} className="text-emerald-600 dark:text-emerald-400" />}
                   {smsReminderSending ? 'Sending…' : 'Send SMS Reminder'}
                 </button>
               )}
@@ -1099,9 +1103,13 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                   onClick={sendCreditWhatsAppReminder}
                   disabled={waReminderSending}
                   className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold disabled:opacity-50"
-                  style={{ borderColor: 'rgba(59,130,246,.35)', background: 'rgba(59,130,246,.08)', color: '#60a5fa' }}
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--brand-primary) 35%, var(--border-default))',
+                    background: 'color-mix(in srgb, var(--brand-primary) 10%, transparent)',
+                    color: 'var(--text-primary)',
+                  }}
                 >
-                  {waReminderSending ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+                  {waReminderSending ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} style={{ color: 'var(--brand-primary)' }} />}
                   {waReminderSending ? 'Sending…' : 'Send WhatsApp Reminder'}
                 </button>
               )}
