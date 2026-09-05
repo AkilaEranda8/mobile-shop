@@ -470,9 +470,9 @@ function SupportPageInner() {
             </>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="mx-auto flex max-w-2xl flex-col px-5 py-5 md:px-8 md:py-6">
+              <div className="mx-auto flex w-full max-w-5xl flex-col px-5 py-6 md:px-8 md:py-8 lg:px-10">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-full max-w-[160px]">
+                  <div className="w-full max-w-[240px] md:max-w-[280px]">
                     <SupportLottie
                       src="/lottie/customer-support.json"
                       autoplay
@@ -480,31 +480,31 @@ function SupportPageInner() {
                       style={{ width: '100%', height: 'auto' }}
                     />
                   </div>
-                  <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900">
+                  <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
                     How can we help?
                   </h2>
-                  <p className="mt-1 text-[13px] text-slate-500">
+                  <p className="mt-2 max-w-lg text-sm text-slate-500 md:text-base">
                     Pick live chat or open a ticket — we&apos;re here for you.
                   </p>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="mt-7 grid gap-4 sm:grid-cols-2 md:gap-5">
                   <button
                     type="button"
                     onClick={beginLiveChat}
-                    className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-sky-300 hover:shadow-sm"
+                    className="rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:border-sky-300 hover:shadow-md md:p-6"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
-                      <MessageCircle size={18} />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
+                      <MessageCircle size={24} />
                     </div>
-                    <div className="mt-2.5 text-sm font-bold text-slate-900">Live Chat</div>
-                    <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
+                    <div className="mt-4 text-lg font-bold text-slate-900">Live Chat</div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
                       Talk to a Hexalyte teammate in real time.
                     </p>
-                    <div className="mt-2 text-[11px] font-semibold text-emerald-600">
+                    <div className="mt-3 text-sm font-semibold text-emerald-600">
                       {onlineCount > 0 ? `${onlineCount} online now` : 'Leave a message anytime'}
                     </div>
-                    <span className="mt-3 inline-flex rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white">
+                    <span className="mt-5 inline-flex rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white">
                       Start Live Chat
                     </span>
                   </button>
@@ -512,26 +512,26 @@ function SupportPageInner() {
                   <button
                     type="button"
                     onClick={() => openCreate()}
-                    className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:shadow-sm"
+                    className="rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:border-emerald-300 hover:shadow-md md:p-6"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-                      <Ticket size={18} />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                      <Ticket size={24} />
                     </div>
-                    <div className="mt-2.5 text-sm font-bold text-slate-900">Support Ticket</div>
-                    <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
+                    <div className="mt-4 text-lg font-bold text-slate-900">Support Ticket</div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
                       Billing, bugs, account — tracked with SLA.
                     </p>
-                    <span className="mt-8 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
-                      <Plus size={13} /> Create Ticket
+                    <span className="mt-10 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white">
+                      <Plus size={16} /> Create Ticket
                     </span>
                   </button>
                 </div>
 
-                <div className="mt-6">
-                  <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                <div className="mt-8 md:mt-10">
+                  <div className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
                     Common topics
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {TOPICS.map((topic) => {
                       const Icon = topic.icon
                       return (
@@ -539,14 +539,18 @@ function SupportPageInner() {
                           key={topic.key}
                           type="button"
                           onClick={() => openCreate(topic.key)}
-                          className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-2.5 py-2 text-left transition hover:border-sky-300 hover:bg-sky-50/60"
+                          className="flex items-center gap-3.5 rounded-xl border border-slate-200 px-4 py-3.5 text-left transition hover:border-sky-300 hover:bg-sky-50/60"
                         >
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-50 text-sky-600">
-                            <Icon size={14} />
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-sky-600">
+                            <Icon size={20} />
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate text-[12px] font-semibold text-slate-800">{topic.title}</div>
-                            <div className="truncate text-[10px] text-slate-500">{topic.blurb}</div>
+                            <div className="truncate text-sm font-semibold text-slate-800 md:text-[15px]">
+                              {topic.title}
+                            </div>
+                            <div className="mt-0.5 truncate text-xs text-slate-500 md:text-[13px]">
+                              {topic.blurb}
+                            </div>
                           </div>
                         </button>
                       )
