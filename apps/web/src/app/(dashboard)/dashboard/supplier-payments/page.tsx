@@ -15,6 +15,7 @@ import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { RecordPaymentModal } from '@/components/suppliers/suppliers-shared'
 import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
 import type { PurchaseOrder, Supplier } from '@/types'
+import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
 
 interface PaymentRow {
   id: string
@@ -207,48 +208,35 @@ export default function SupplierPaymentsPage() {
         />
       )}
 
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Supplier Payments</h1>
-          <p className="page-subtitle">{filtered.length} payments this month ({periodFrom} → {periodTo})</p>
-        </div>
-        {canEdit && (
-          <button
-            onClick={() => openPayFor()}
-            className="btn-primary text-sm flex items-center gap-2 sm:ml-auto"
-            disabled={suppliers.length === 0}
-          >
-            <Plus size={14} />Record Payment
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Supplier Payments"
+        subtitle={`${filtered.length} payments this month (${periodFrom} → ${periodTo})`}
+        actions={
+          canEdit ? (
+            <button
+              onClick={() => openPayFor()}
+              className="btn-primary text-sm flex items-center gap-2"
+              disabled={suppliers.length === 0}
+            >
+              <Plus size={14} />Record Payment
+            </button>
+          ) : undefined
+        }
+      />
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Paid (MTD)', value: formatCurrency(paidMtd), icon: <Wallet size={16} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.20)' },
-          { label: 'Outstanding Dues', value: formatCurrency(outstanding), icon: <Scale size={16} />, color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)' },
-          { label: 'Payments (MTD)', value: String(filtered.length), icon: <CreditCard size={16} />, color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
-          { label: 'Suppliers with Due', value: String(suppliersWithDue.length), icon: <Truck size={16} />, color: '#b45309', bg: 'rgba(180,83,9,0.08)', border: 'rgba(180,83,9,0.20)' },
-        ].map(({ label, value, icon, color, bg, border }) => (
-          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>{icon}</div>
-            </div>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-          </div>
-        ))}
-      </div>
+      <StatGrid cols={4}>
+        <StatCard label="Paid (MTD)" value={formatCurrency(paidMtd)} icon={Wallet} tone="success" />
+        <StatCard label="Outstanding Dues" value={formatCurrency(outstanding)} icon={Scale} tone="danger" />
+        <StatCard label="Payments (MTD)" value={String(filtered.length)} icon={CreditCard} tone="brand" />
+        <StatCard label="Suppliers with Due" value={String(suppliersWithDue.length)} icon={Truck} tone="warning" />
+      </StatGrid>
 
-      {/* ── Toolbar ── */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <FilterBar>
         <ToolbarSearch
           value={search}
           onChange={setSearch}
           placeholder="Search supplier, invoice, reference…"
-          className="flex-1 sm:max-w-md"
+          className="flex-1 sm:max-w-md w-full sm:min-w-[220px]"
         />
         <select
           className="input-field sm:w-56"
@@ -260,7 +248,7 @@ export default function SupplierPaymentsPage() {
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
-      </div>
+      </FilterBar>
 
       {/* ── Payments table ── */}
       <ClientSideTable

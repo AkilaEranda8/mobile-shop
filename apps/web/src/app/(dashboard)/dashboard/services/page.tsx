@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/Switch'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useFeatureFlag } from '@/lib/hooks'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { PageHeader, StatCard, StatGrid } from '@/components/design-system'
 
 interface Service {
   id: string
@@ -176,38 +177,26 @@ export default function ServicesPage() {
   return (
     <div className="space-y-6">
 
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Services</h1>
-          <p className="page-subtitle">Manage billable services available in POS</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto">
-          <OpenPosButton label="Open POS" variant="secondary" />
-          {canEdit && (
-            <button onClick={openNew} className="btn-primary flex items-center gap-2">
-              <Plus size={14} />Add Service
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Services"
+        subtitle="Manage billable services available in POS"
+        actions={
+          <>
+            <OpenPosButton label="Open POS" variant="secondary" />
+            {canEdit && (
+              <button onClick={openNew} className="btn-primary text-sm flex items-center gap-2">
+                <Plus size={14} />Add Service
+              </button>
+            )}
+          </>
+        }
+      />
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        {[
-          { label: 'Total Services', value: String(services.length), icon: <Wrench size={15} />,       color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
-          { label: 'Active',         value: String(activeCount),      icon: <CheckCircle2 size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)'  },
-          { label: 'Inactive',       value: String(inactiveCount),    icon: <XCircle size={15} />,      color: '#b91c1c', bg: 'rgba(185,28,28,0.08)', border: 'rgba(185,28,28,0.20)'  },
-        ].map(({ label, value, icon, color, bg, border }) => (
-          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>{icon}</div>
-            </div>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-          </div>
-        ))}
-      </div>
+      <StatGrid cols={3}>
+        <StatCard label="Total Services" value={String(services.length)} icon={Wrench} tone="brand" />
+        <StatCard label="Active" value={String(activeCount)} icon={CheckCircle2} tone="success" />
+        <StatCard label="Inactive" value={String(inactiveCount)} icon={XCircle} tone="danger" />
+      </StatGrid>
 
       {/* ── Table ── */}
       <ClientSideTable

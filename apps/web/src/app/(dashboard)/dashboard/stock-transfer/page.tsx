@@ -18,6 +18,7 @@ import { inventoryApi, productsApi } from '@/lib/api'
 import { getActiveBranchId, getVisibleBranches } from '@/lib/active-branch'
 import { authStorage } from '@/lib/auth'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
 
 import type { ProductVariation } from '@/types'
 
@@ -961,10 +962,10 @@ export default function StockTransferPage() {
     const isOwner = user?.role === 'OWNER'
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="page-title">Stock Transfer</h1>
-          <p className="page-subtitle">Move inventory between your branch locations</p>
-        </div>
+        <PageHeader
+          title="Stock Transfer"
+          subtitle="Move inventory between your branch locations"
+        />
         <EmptyState
           icon={Building2}
           title="Multi-branch required"
@@ -992,51 +993,40 @@ export default function StockTransferPage() {
         />
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Stock Transfer</h1>
-          <p className="page-subtitle">Move stock between branches — use the header for day-to-day branch switching</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto">
-          <button type="button" onClick={handleRefresh} disabled={loadingTransfers || loadingProducts}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
-            <RefreshCw size={14} className={loadingTransfers ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-          {canTransfer && (
-            <button type="button" onClick={() => setShowTransfer(true)} className="btn-primary text-sm flex items-center gap-2">
-              <Plus size={14} />New Transfer
+      <PageHeader
+        title="Stock Transfer"
+        subtitle="Move stock between branches — use the header for day-to-day branch switching"
+        actions={
+          <>
+            <button type="button" onClick={handleRefresh} disabled={loadingTransfers || loadingProducts}
+              className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
+              <RefreshCw size={14} className={loadingTransfers ? 'animate-spin' : ''} />
+              Refresh
             </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Products Ready', value: loadingProducts ? '…' : String(productsReady), icon: <Package size={15} />, color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' },
-          { label: 'Transfers In', value: String(transferIn), icon: <ArrowDownRight size={15} />, color: '#15803d', bg: 'rgba(21,128,61,0.08)', border: 'rgba(21,128,61,0.22)' },
-          { label: 'Transfers Out', value: String(transferOut), icon: <ArrowUpRight size={15} />, color: '#b45309', bg: 'rgba(180,83,9,0.08)', border: 'rgba(180,83,9,0.22)' },
-          { label: 'Units Moved', value: String(totalQty), icon: <ArrowLeftRight size={15} />, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.22)' },
-        ].map(({ label, value, icon, color, bg, border }) => (
-          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>
-                {icon}
-              </div>
-            </div>
-            <p className="text-xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <ToolbarSearch
-        value={transferSearch}
-        onChange={setTransferSearch}
-        placeholder="Search product, branch, notes…"
-        className="max-w-md"
+            {canTransfer && (
+              <button type="button" onClick={() => setShowTransfer(true)} className="btn-primary text-sm flex items-center gap-2">
+                <Plus size={14} />New Transfer
+              </button>
+            )}
+          </>
+        }
       />
+
+      <StatGrid cols={4}>
+        <StatCard label="Products Ready" value={loadingProducts ? '…' : String(productsReady)} icon={Package} tone="brand" />
+        <StatCard label="Transfers In" value={String(transferIn)} icon={ArrowDownRight} tone="success" />
+        <StatCard label="Transfers Out" value={String(transferOut)} icon={ArrowUpRight} tone="warning" />
+        <StatCard label="Units Moved" value={String(totalQty)} icon={ArrowLeftRight} tone="info" />
+      </StatGrid>
+
+      <FilterBar>
+        <ToolbarSearch
+          value={transferSearch}
+          onChange={setTransferSearch}
+          placeholder="Search product, branch, notes…"
+          className="max-w-md w-full sm:min-w-[220px]"
+        />
+      </FilterBar>
 
       {/* Table or Empty */}
       {!loadingTransfers && transfers.length === 0 ? (
