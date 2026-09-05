@@ -319,7 +319,7 @@ export default function CashBankPage() {
       />
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" /></div>
       ) : registers.length === 0 ? (
         <AccountingPanel>
           <p className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -475,7 +475,7 @@ export default function CashBankPage() {
               <input type="text" placeholder="e.g. 1234567890" value={newAccountNo} onChange={e => setNewAccountNo(e.target.value)} className="input-field text-sm" />
             </label>
             {previewBankName && (
-              <p className="text-xs rounded-lg px-3 py-2 bg-violet-500/10 border border-violet-500/20 text-violet-300">
+              <p className="text-xs rounded-lg px-3 py-2 bg-brand-500/10 border border-brand-500/20 text-brand-300">
                 Will be saved as: <span className="font-semibold">{previewBankName}</span>
               </p>
             )}

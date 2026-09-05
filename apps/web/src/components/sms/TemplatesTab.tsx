@@ -53,7 +53,7 @@ function TemplateEditor({
             </button>
           ))}
         </div>
-        <button type="button" disabled={disabled} className="text-xs mt-2 flex items-center gap-1 text-violet-600"
+        <button type="button" disabled={disabled} className="text-xs mt-2 flex items-center gap-1 text-brand-600"
           onClick={() => onChange({ ...template, body: meta.defaultBody })}>
           <RotateCcw size={12} /> Reset to default
         </button>
@@ -104,7 +104,7 @@ export default function TemplatesTab({ config, canEdit, onConfigChange }: Props)
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card p-6 space-y-5 max-w-3xl">
       <div className="flex items-start gap-2">
-        <FileText size={15} className="text-violet-400 mt-0.5" />
+        <FileText size={15} className="text-brand-400 mt-0.5" />
         <div>
           <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Auto SMS templates</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>

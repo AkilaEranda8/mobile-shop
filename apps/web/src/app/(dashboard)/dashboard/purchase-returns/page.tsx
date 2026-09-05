@@ -13,6 +13,7 @@ import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
 import { TableActionsRow } from '@/components/table/table-actions-row'
+import { PageHeader, StatCard, StatGrid } from '@/components/design-system'
 
 type POItem = {
   id: string
@@ -113,7 +114,7 @@ function PurchaseReturnDetailModal({
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2">
-            <Undo2 size={16} className="text-violet-500 mt-0.5" />
+            <Undo2 size={16} className="text-brand-500 mt-0.5" />
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Return Details ( Return No : <span className="font-mono">{safeText(ret?.returnNumber)}</span> )
@@ -126,7 +127,7 @@ function PurchaseReturnDetailModal({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/25">
+            <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-brand-500/15 text-brand-700 dark:text-brand-400 border-brand-500/25">
               {isCredit ? 'AP credit' : 'Refund'}
             </span>
             <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25">
@@ -225,7 +226,7 @@ function PurchaseReturnDetailModal({
                   )}
                   <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                     <span className="font-semibold">Return value</span>
-                    <span className="font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(ret.creditAmount ?? 0)}</span>
+                    <span className="font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(ret.creditAmount ?? 0)}</span>
                   </div>
                 </div>
               </div>
@@ -234,7 +235,7 @@ function PurchaseReturnDetailModal({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2 space-y-4">
                 <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="bg-violet-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  <div className="bg-brand-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
                     Returned products
                   </div>
                   <div className="overflow-x-auto">
@@ -268,7 +269,7 @@ function PurchaseReturnDetailModal({
                               </td>
                               <td className="px-3 py-2 text-right">{qty ? `${qty} Qty` : '—'}</td>
                               <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(unit)}</td>
-                              <td className="px-3 py-2 text-right whitespace-nowrap font-semibold text-violet-600 dark:text-violet-400">
+                              <td className="px-3 py-2 text-right whitespace-nowrap font-semibold text-brand-600 dark:text-brand-400">
                                 {formatCurrency(subtotal)}
                               </td>
                             </tr>
@@ -285,7 +286,7 @@ function PurchaseReturnDetailModal({
                 </div>
 
                 <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="bg-violet-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                  <div className="bg-brand-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
                     Settlement info
                   </div>
                   <div className="overflow-x-auto">
@@ -305,7 +306,7 @@ function PurchaseReturnDetailModal({
                           <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>1</td>
                           <td className="px-3 py-2">{safeText(formatDate(ret.createdAt))}</td>
                           <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{safeText(ret.returnNumber)}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap font-medium text-violet-600 dark:text-violet-400">
+                          <td className="px-3 py-2 text-right whitespace-nowrap font-medium text-brand-600 dark:text-brand-400">
                             {formatCurrency(ret.creditAmount ?? 0)}
                           </td>
                           <td className="px-3 py-2">{settlementLabel(ret.settlementMethod)}</td>
@@ -333,7 +334,7 @@ function PurchaseReturnDetailModal({
                   <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Summary</p>
                   <div className="flex justify-between text-[13px]">
                     <span style={{ color: 'var(--text-muted)' }}>Return value</span>
-                    <span className="font-bold text-violet-600 dark:text-violet-400">{formatCurrency(ret.creditAmount ?? 0)}</span>
+                    <span className="font-bold text-brand-600 dark:text-brand-400">{formatCurrency(ret.creditAmount ?? 0)}</span>
                   </div>
                   <div className="flex justify-between text-[13px]">
                     <span style={{ color: 'var(--text-muted)' }}>AP reduced</span>
@@ -478,7 +479,7 @@ export default function PurchaseReturnsPage() {
       cell: ({ row }) => (
         <button
           type="button"
-          className="font-mono text-sm font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+          className="font-mono text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline"
           onClick={() => void openDetail(row.original)}
         >
           {row.original.returnNumber}
@@ -527,54 +528,23 @@ export default function PurchaseReturnsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-center">
-            <Undo2 size={18} className="text-violet-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Purchase Returns</h1>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Return received stock to suppliers — reduces AP or refunds cash
-            </p>
-          </div>
-        </div>
-        {canEdit && (
-          <button type="button" onClick={() => void openModal()} className="btn-primary text-sm flex items-center gap-2">
-            <Plus className="w-4 h-4" /> New return
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Purchase Returns"
+        subtitle="Return received stock to suppliers — reduces AP or refunds cash"
+        actions={
+          canEdit ? (
+            <button type="button" onClick={() => void openModal()} className="btn-primary text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" /> New return
+            </button>
+          ) : undefined
+        }
+      />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-            <FileText size={15} className="text-violet-400" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{rows.length}</p>
-            <p className="text-[11px] text-gray-500 dark:text-slate-500">Returns</p>
-          </div>
-        </div>
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-            <Package size={15} className="text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(totalCredit)}</p>
-            <p className="text-[11px] text-gray-500 dark:text-slate-500">Total credited</p>
-          </div>
-        </div>
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-            <Truck size={15} className="text-blue-400" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">{new Set(rows.map(r => r.supplierName)).size}</p>
-            <p className="text-[11px] text-gray-500 dark:text-slate-500">Suppliers</p>
-          </div>
-        </div>
-      </div>
+      <StatGrid cols={3}>
+        <StatCard label="Returns" value={rows.length} icon={FileText} tone="brand" />
+        <StatCard label="Total credited" value={formatCurrency(totalCredit)} icon={Package} tone="success" />
+        <StatCard label="Suppliers" value={new Set(rows.map(r => r.supplierName)).size} icon={Truck} tone="info" />
+      </StatGrid>
 
       <ClientSideTable
         data={rows}
@@ -601,8 +571,8 @@ export default function PurchaseReturnsPage() {
           >
             <div className="shrink-0 flex items-center justify-between px-5 sm:px-6 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20">
-                  <Undo2 size={18} className="text-violet-500" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-brand-500/10 border border-brand-500/20">
+                  <Undo2 size={18} className="text-brand-500" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>New purchase return</h3>

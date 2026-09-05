@@ -7,8 +7,8 @@ import { ArrowRight, MessageSquare } from 'lucide-react'
 export default function SmsSettingsPanel() {
   return (
     <div className="card p-8 max-w-xl space-y-4 text-center">
-      <div className="w-12 h-12 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center mx-auto">
-        <MessageSquare size={22} className="text-violet-400" />
+      <div className="w-12 h-12 rounded-xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center mx-auto">
+        <MessageSquare size={22} className="text-brand-400" />
       </div>
       <div>
         <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>SMS Gateway Hub</h2>

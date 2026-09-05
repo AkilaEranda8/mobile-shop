@@ -591,7 +591,7 @@ export function WholesaleQuotationsPage() {
               label: 'Pipeline value',
               value: formatCurrency(pipelineValue),
               icon: CreditCard,
-              color: 'violet',
+              color: 'blue',
             },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="card p-4 flex items-center gap-3">
@@ -712,7 +712,7 @@ function orderStatusPill(status: string) {
   if (s === 'DRAFT' || s === 'SUBMITTED' || s === 'PARTIAL') {
     return 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
   }
-  if (s === 'ON_HOLD') return 'bg-violet-500/10 border-violet-500/25 text-violet-500'
+  if (s === 'ON_HOLD') return 'bg-brand-500/10 border-brand-500/25 text-brand-500'
   if (s === 'CANCELLED' || s === 'CLOSED') {
     return 'bg-rose-500/10 border-rose-500/25 text-rose-500'
   }
@@ -855,7 +855,7 @@ export function WholesaleOrdersPage() {
           const dealer = dealerLabel(r)
           return (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-600 dark:text-violet-300 flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500/20 to-fuchsia-500/20 border border-brand-500/20 flex items-center justify-center text-sm font-bold text-brand-600 dark:text-brand-300 flex-shrink-0">
                 <ClipboardList size={14} />
               </div>
               <div className="min-w-0">
@@ -954,7 +954,7 @@ export function WholesaleOrdersPage() {
               {canEdit && st === 'CONFIRMED' && (
                 <Link
                   href="/dashboard/wholesale/warehouse"
-                  className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-violet-600/15 text-violet-500 border border-violet-500/25 hover:bg-violet-600/25"
+                  className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-brand-600/15 text-brand-500 border border-brand-500/25 hover:bg-brand-600/25"
                 >
                   Pick
                 </Link>
@@ -1075,7 +1075,7 @@ export function WholesaleOrdersPage() {
           {[
             { label: 'Draft', value: draftCount.toString(), icon: FileText, color: 'amber' },
             { label: 'Open pipeline', value: openCount.toString(), icon: ClipboardList, color: 'sky' },
-            { label: 'To pick', value: confirmedCount.toString(), icon: Package, color: 'violet' },
+            { label: 'To pick', value: confirmedCount.toString(), icon: Package, color: 'blue' },
             {
               label: 'Open value',
               value: formatCurrency(openValue),
@@ -1491,8 +1491,8 @@ export function WholesaleWarehousePage() {
             )
             return (
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                  <Package size={14} className="text-violet-600 dark:text-violet-300" />
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500/20 to-fuchsia-500/20 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                  <Package size={14} className="text-brand-600 dark:text-brand-300" />
                 </div>
                 <div className="min-w-0">
                   <button
@@ -1811,7 +1811,7 @@ export function WholesaleWarehousePage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Pick queue', value: queueRows.length.toString(), icon: ClipboardList, color: 'amber' },
-            { label: 'Open picks', value: openPicks.toString(), icon: Package, color: 'violet' },
+            { label: 'Open picks', value: openPicks.toString(), icon: Package, color: 'blue' },
             { label: 'Ready for DN', value: completedPicks.toString(), icon: Check, color: 'emerald' },
             { label: 'Draft DNs', value: draftDns.toString(), icon: Truck, color: 'sky' },
           ].map(({ label, value, icon: Icon, color }) => (
@@ -1962,7 +1962,7 @@ function tripStatusPill(status: string) {
     return 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
   }
   if (s === 'CANCELLED') return 'bg-rose-500/10 border-rose-500/25 text-rose-500'
-  return 'bg-violet-500/10 border-violet-500/25 text-violet-500'
+  return 'bg-brand-500/10 border-brand-500/25 text-brand-500'
 }
 
 function vehicleLabel(row: AnyRow) {
@@ -2351,7 +2351,7 @@ export function WholesaleDeliveryPage() {
             { label: 'Ready to start', value: plannedCount.toString(), icon: MapPin, color: 'amber' },
             { label: 'On the road', value: activeCount.toString(), icon: Truck, color: 'sky' },
             { label: 'Completed', value: completedCount.toString(), icon: Check, color: 'emerald' },
-            { label: 'Total stops', value: totalStops.toString(), icon: Building2, color: 'violet' },
+            { label: 'Total stops', value: totalStops.toString(), icon: Building2, color: 'blue' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="card p-4 flex items-center gap-3">
               <div
@@ -3363,8 +3363,8 @@ export function WholesaleCollectionsPage() {
           const r = row.original
           return (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                <ClipboardList size={14} className="text-violet-600 dark:text-violet-300" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500/20 to-fuchsia-500/20 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                <ClipboardList size={14} className="text-brand-600 dark:text-brand-300" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-gray-800 dark:text-slate-200 truncate">
@@ -3566,7 +3566,7 @@ export function WholesaleCollectionsPage() {
               icon: Wallet,
               color: 'emerald',
             },
-            { label: 'Open tasks', value: openTasks.toString(), icon: ClipboardList, color: 'violet' },
+            { label: 'Open tasks', value: openTasks.toString(), icon: ClipboardList, color: 'blue' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="card p-4 flex items-center gap-3">
               <div
@@ -4257,7 +4257,7 @@ export function WholesaleReportsPage() {
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <WholesaleKpiCard label="Channel revenue" value={formatCurrency(channelTotal)} icon={BarChart3} tone="sky" />
-              <WholesaleKpiCard label="Channels" value={channelRows.length} icon={ClipboardList} tone="violet" />
+              <WholesaleKpiCard label="Channels" value={channelRows.length} icon={ClipboardList} tone="blue" />
               <WholesaleKpiCard label="Top movers" value={movers.length} icon={Package} tone="emerald" />
               <WholesaleKpiCard label="AR dealers" value={outstanding.length} icon={Wallet} tone="amber" />
             </div>
@@ -4596,7 +4596,7 @@ export function WholesaleVanPage() {
             const name = String(u?.name ?? '—')
             return (
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-600 dark:text-violet-300 flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500/20 to-fuchsia-500/20 border border-brand-500/20 flex items-center justify-center text-sm font-bold text-brand-600 dark:text-brand-300 flex-shrink-0">
                   {name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -4958,7 +4958,7 @@ export function WholesaleVanPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Active vans', value: activeVehicles.toString(), icon: Truck, color: 'sky' },
-            { label: 'Active reps', value: activeReps.toString(), icon: Users, color: 'violet' },
+            { label: 'Active reps', value: activeReps.toString(), icon: Users, color: 'blue' },
             { label: 'Open settlements', value: openSettlements.toString(), icon: Wallet, color: 'amber' },
             {
               label: 'Declared cash',

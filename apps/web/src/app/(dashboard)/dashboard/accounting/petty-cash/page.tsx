@@ -119,13 +119,13 @@ export default function PettyCashPage() {
             Select an active branch to manage petty cash.
           </div>
         ) : loading ? (
-          <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
+          <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" /></div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
             <div className="dash-card dash-kpi p-4 flex flex-col dash-fade-1" style={{ ['--kpi-accent' as any]: 'var(--kpi-accent)' }}>
               <div className="flex items-start gap-2.5 mb-2">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--brand-glow)' }}>
-                  <Wallet size={16} className="text-violet-500 dark:text-violet-400" />
+                  <Wallet size={16} className="text-brand-500 dark:text-brand-400" />
                 </div>
                 <span className="text-xs font-medium dash-text-secondary leading-tight mt-0.5">Current Balance</span>
               </div>
@@ -206,7 +206,7 @@ export default function PettyCashPage() {
                   <tbody>
                     {recent.map((r, i) => (
                       <tr key={i}>
-                        <AccountingTd mono className="text-violet-400">{r.entryNo}</AccountingTd>
+                        <AccountingTd mono className="text-brand-400">{r.entryNo}</AccountingTd>
                         <AccountingTd>{r.entryDate}</AccountingTd>
                         <AccountingTd>{r.description ?? r.memo}</AccountingTd>
                         <AccountingTd align="right">

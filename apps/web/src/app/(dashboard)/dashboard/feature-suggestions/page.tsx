@@ -39,7 +39,7 @@ const STATUS_FLOW: FeatureSuggestionStatus[] = [
 const STATUS_STYLE: Record<FeatureSuggestionStatus, string> = {
   NEW: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
   UNDER_REVIEW: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
-  PLANNED: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+  PLANNED: 'bg-brand-500/15 text-brand-700 dark:text-brand-300 border-brand-500/30',
   IN_PROGRESS: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
   RELEASED: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
   DECLINED: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30',
@@ -227,7 +227,7 @@ function DetailModal({
               <h2 className="text-sm font-bold mt-0.5 truncate flex items-center gap-2">
                 <span className="truncate">{suggestion?.title ?? 'Loading…'}</span>
                 {suggestion?.hasUnreadUpdate && (
-                  <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                  <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-brand-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30">
                     NEW
                   </span>
                 )}
@@ -460,7 +460,7 @@ function FeatureSuggestionsContent() {
           <h1 className="page-title flex items-center gap-2">
             Feature Suggestions
             {unreadUpdateCount > 0 && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+              <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-brand-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30">
                 {unreadUpdateCount} new
               </span>
             )}
@@ -609,7 +609,7 @@ function FeatureSuggestionsContent() {
                         >
                           <Lightbulb size={14} style={{ color: 'var(--text-muted)' }} />
                           {row.hasUnreadUpdate && (
-                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-violet-500 ring-2 ring-[var(--bg-card)]" />
+                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-brand-500 ring-2 ring-[var(--bg-card)]" />
                           )}
                         </div>
                         <div className="min-w-0 flex items-center gap-2">
@@ -617,7 +617,7 @@ function FeatureSuggestionsContent() {
                             {row.title}
                           </span>
                           {row.hasUnreadUpdate && (
-                            <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                            <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-brand-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30">
                               NEW
                             </span>
                           )}

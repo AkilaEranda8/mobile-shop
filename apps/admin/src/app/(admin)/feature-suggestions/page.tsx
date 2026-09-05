@@ -28,7 +28,7 @@ const PRIORITIES: FeatureSuggestionPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITI
 const STATUS_BADGE: Record<FeatureSuggestionStatus, string> = {
   NEW: 'badge-blue',
   UNDER_REVIEW: 'badge-yellow',
-  PLANNED: 'badge-purple',
+  PLANNED: 'badge-brand',
   IN_PROGRESS: 'badge-blue',
   RELEASED: 'badge-green',
   DECLINED: 'badge-red',
@@ -188,7 +188,7 @@ export default function FeatureSuggestionsAdminPage() {
     { label: 'Total', value: summary?.total, icon: Inbox, color: 'text-gray-600', bg: 'bg-gray-100', border: 'border-gray-200' },
     { label: 'New', value: summary?.new, icon: AlertCircle, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100' },
     { label: 'Under Review', value: summary?.underReview, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
-    { label: 'Planned', value: summary?.planned, icon: CheckCircle2, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
+    { label: 'Planned', value: summary?.planned, icon: CheckCircle2, color: 'text-brand-600', bg: 'bg-brand-50', border: 'border-brand-100' },
     { label: 'Released', value: summary?.released, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
     { label: 'Declined', value: summary?.declined, icon: X, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
     { label: 'High Priority', value: summary?.highPriority, icon: Flame, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },

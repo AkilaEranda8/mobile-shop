@@ -60,18 +60,18 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
+        <div className="h-1 w-full bg-gradient-to-r from-brand-500 to-brand-600 flex-shrink-0" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 z-10 flex-shrink-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/15 shrink-0">
-              <Pencil size={18} className="text-violet-500" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-brand-500/10 border border-brand-500/15 shrink-0">
+              <Pencil size={18} className="text-brand-500" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
                 <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>Edit Repair Job</h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-400">{repair.ticketNumber}</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-brand-500/20 bg-brand-500/10 text-brand-400">{repair.ticketNumber}</span>
               </div>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 {locked ? 'This ticket is completed or cancelled and cannot be edited' : 'Update the details of this repair ticket'}
@@ -98,7 +98,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
           {/* Customer Information */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <User size={15} className="text-violet-500" />
+              <User size={15} className="text-brand-500" />
               <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Customer Information</h4>
             </div>
             <div className="p-4 grid grid-cols-2 gap-4">
@@ -122,7 +122,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
           {/* Device Information */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <Smartphone size={15} className="text-violet-500" />
+              <Smartphone size={15} className="text-brand-500" />
               <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Device Information</h4>
             </div>
             <div className="p-4 grid grid-cols-2 gap-4">
@@ -163,7 +163,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
           {/* Reported Issue */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <AlertTriangle size={15} className="text-violet-500" />
+              <AlertTriangle size={15} className="text-brand-500" />
               <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Reported Issue</h4>
             </div>
             <div className="p-4">
@@ -176,7 +176,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
           {/* Job Details */}
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-              <Wrench size={15} className="text-violet-500" />
+              <Wrench size={15} className="text-brand-500" />
               <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Job Details</h4>
             </div>
             <div className="p-4 grid grid-cols-2 gap-4">
@@ -229,7 +229,7 @@ export default function EditRepairModal({ repair, onClose, onSaved }: {
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
+              className="flex-1 h-11 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-brand-500/20 transition-all hover:opacity-90"
               style={{ background: 'var(--brand-gradient)' }}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               Save Changes

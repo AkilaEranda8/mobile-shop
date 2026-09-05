@@ -52,7 +52,7 @@ function badge(status: string) {
   if (['ACTIVE', 'PAID'].includes(s)) return 'badge-green'
   if (['TRIAL', 'DRAFT', 'PENDING'].includes(s)) return 'badge-yellow'
   if (['SUSPENDED', 'CANCELLED', 'OVERDUE'].includes(s)) return 'badge-red'
-  if (['ENTERPRISE', 'PROFESSIONAL', 'PRO'].includes(s)) return 'badge-purple'
+  if (['ENTERPRISE', 'PROFESSIONAL', 'PRO'].includes(s)) return 'badge-brand'
   return 'badge-gray'
 }
 

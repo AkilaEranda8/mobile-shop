@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -25,14 +25,15 @@ import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useModuleAccess, EditOnly } from '@/lib/module-access'
 import { useFeatureFlag } from '@/lib/hooks'
 import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
+import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl, StatusBadge, statusToneFromLabel } from '@/components/design-system'
 
 const statusColors: Record<string, string> = {
-  PAID:           'bg-green-500/10  border-green-500/20  text-green-400',
-  PARTIAL:        'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
-  UNPAID:         'bg-red-500/10    border-red-500/20    text-red-400',
-  REFUNDED:       'bg-slate-500/10  border-slate-500/20  text-slate-400',
-  RETURNED:       'bg-rose-500/10   border-rose-500/20   text-rose-400',
-  DUE:            'bg-orange-500/10 border-orange-500/20 text-orange-400',
+  PAID:           'success',
+  PARTIAL:        'warning',
+  UNPAID:         'danger',
+  REFUNDED:       'neutral',
+  RETURNED:       'danger',
+  DUE:            'warning',
 }
 
 
@@ -233,7 +234,7 @@ function EditPasswordGate({
         onSubmit={(e) => { e.preventDefault(); continueEdit() }}
       >
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-violet-500/15 text-violet-500">
+          <div className="p-2 rounded-lg bg-brand-500/15 text-brand-500">
             <Lock size={18} />
           </div>
           <div>
@@ -249,7 +250,7 @@ function EditPasswordGate({
           <button type="button" className="btn-secondary text-sm" onClick={onClose}>Cancel</button>
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-violet-600 text-white hover:bg-violet-500"
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-brand-600 text-white hover:bg-brand-500"
           >
             <Pencil size={14} />
             Continue to edit
@@ -513,7 +514,7 @@ function EditSaleModal({
               className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-lg border"
               style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-secondary)' }}
             >
-              <Lock size={12} className="text-violet-500" />
+              <Lock size={12} className="text-brand-500" />
               Admin password entered — save will use it to confirm changes.
             </div>
           ) : (
@@ -945,11 +946,9 @@ function SaleDetailsModal({
             <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${paymentStatusClass}`}>
               {paymentStatus}
             </span>
-            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[liveSale.status] ?? ''}`}
-              style={!statusColors[liveSale.status] ? { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : undefined}
-            >
+            <StatusBadge tone={(statusColors[liveSale.status] as any) || 'neutral'}>
               {safeText(liveSale.status)}
-            </span>
+            </StatusBadge>
             <button
               type="button"
               onClick={onClose}
@@ -1106,7 +1105,7 @@ function SaleDetailsModal({
                 <button
                   type="button"
                   onClick={() => setShowEditAuth(true)}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold text-brand-700 dark:text-brand-300 border-brand-500/30 bg-brand-500/10 hover:bg-brand-500/20"
                 >
                   <Pencil size={14} />
                   Edit
@@ -1292,7 +1291,7 @@ export default function SalesPage() {
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
-              className="font-mono text-xs text-violet-400 hover:text-violet-300 hover:underline"
+              className="font-mono text-xs text-brand-400 hover:text-brand-300 hover:underline"
               onClick={() => openDetail(s)}
             >
               {s.invoiceNumber}
@@ -1359,9 +1358,9 @@ export default function SalesPage() {
       accessorKey: 'status',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       cell: ({ row }) => (
-        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${statusColors[row.original.status] ?? ''}`}>
+        <StatusBadge tone={(statusColors[row.original.status] as any) || statusToneFromLabel(row.original.status)}>
           {row.original.status}
-        </span>
+        </StatusBadge>
       ),
     },
     {
@@ -1386,83 +1385,84 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div>
-          <h1 className="page-title">Sales</h1>
-          <p className="page-subtitle">View and manage all sales transactions</p>
-        </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
-          <EditOnly><OpenPosButton label="New Sale" /></EditOnly>
-          <TableDensityToggle value={density} onChange={setDensity} />
-        </div>
-      </div>
+      <PageHeader
+        title="Sales"
+        subtitle="View and manage all sales transactions"
+        actions={
+          <>
+            <EditOnly><OpenPosButton label="New Sale" /></EditOnly>
+            <TableDensityToggle value={density} onChange={setDensity} />
+          </>
+        }
+      />
 
-      {/* Stats */}
-      <div className={`grid grid-cols-2 gap-3 ${hasCustomerCredit ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
-        {[
-          { label: 'Total Sales', value: String(meta?.total ?? '—'), icon: ShoppingBag, color: 'violet', filter: 'all' as const },
-          { label: 'Revenue', value: formatCurrency(totalRevenue), icon: TrendingUp, color: 'green', filter: 'all' as const },
-          { label: 'Paid', value: String(paidCount), icon: Receipt, color: 'green', filter: 'PAID' as const },
-          { label: 'Returned', value: String(returnedCount), icon: RotateCcw, color: 'rose', filter: 'RETURNED' as const },
-          ...(hasCustomerCredit
-            ? [{
-                label: 'Customer Due',
-                value: formatCurrency(customerDueTotal),
-                icon: CreditCard,
-                color: 'amber',
-                filter: 'DUE' as const,
-                sub: customerDueCount > 0 ? `${customerDueCount} invoice${customerDueCount === 1 ? '' : 's'}` : undefined,
-              }]
-            : []),
-        ].map(({ label, value, icon: Icon, color, filter, sub }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setStatusFilter(filter)}
-            className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:border-violet-500/30 ${statusFilter === filter ? 'ring-2 ring-violet-500/40' : ''}`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
-              <Icon size={15} className={`text-${color}-400`} />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
-              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
-              {sub && <p className="text-[10px] text-amber-500 mt-0.5">{sub}</p>}
-            </div>
-          </button>
-        ))}
-      </div>
+      <StatGrid cols={hasCustomerCredit ? 5 : 4}>
+        <StatCard
+          label="Total Sales"
+          value={String(meta?.total ?? '—')}
+          icon={ShoppingBag}
+          tone="brand"
+          active={statusFilter === 'all'}
+          onClick={() => setStatusFilter('all')}
+        />
+        <StatCard
+          label="Revenue"
+          value={formatCurrency(totalRevenue)}
+          icon={TrendingUp}
+          tone="success"
+          active={statusFilter === 'all'}
+          onClick={() => setStatusFilter('all')}
+        />
+        <StatCard
+          label="Paid"
+          value={String(paidCount)}
+          icon={Receipt}
+          tone="success"
+          active={statusFilter === 'PAID'}
+          onClick={() => setStatusFilter('PAID')}
+        />
+        <StatCard
+          label="Returned"
+          value={String(returnedCount)}
+          icon={RotateCcw}
+          tone="danger"
+          active={statusFilter === 'RETURNED'}
+          onClick={() => setStatusFilter('RETURNED')}
+        />
+        {hasCustomerCredit && (
+          <StatCard
+            label="Customer Due"
+            value={formatCurrency(customerDueTotal)}
+            icon={CreditCard}
+            tone="warning"
+            sub={customerDueCount > 0 ? `${customerDueCount} invoice${customerDueCount === 1 ? '' : 's'}` : undefined}
+            active={statusFilter === 'DUE'}
+            onClick={() => setStatusFilter('DUE')}
+          />
+        )}
+      </StatGrid>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <FilterBar>
         <ToolbarSearch
           value={textSearch}
           onChange={setTextSearch}
-          placeholder="Search invoice, customer, phoneâ€¦"
+          placeholder="Search invoice, customer, phone…"
           className="w-full sm:w-auto sm:min-w-[220px]"
         />
-        <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
-          {([
+        <SegmentedControl
+          value={statusFilter as 'all' | 'PAID' | 'DUE' | 'RETURNED'}
+          onChange={(id) => setStatusFilter(id)}
+          options={[
             { id: 'all', label: 'All' },
             { id: 'PAID', label: 'Paid' },
             ...(hasCustomerCredit ? [{ id: 'DUE' as const, label: 'Customer Due' }] : []),
             { id: 'RETURNED', label: 'Returned' },
-          ] as const).map(opt => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setStatusFilter(opt.id)}
-              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
-              style={statusFilter === opt.id
-                ? { background: 'var(--brand-primary-light)', color: '#fff' }
-                : { color: 'var(--text-muted)' }}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
+          ]}
+        />
+      </FilterBar>
 
       {/* Table */}
-      <div className={`table-${density}`}>
+      <div className={`table-${density} hx-table-shell`}>
         <ClientSideTable
           data={filteredSales}
           columns={columns}

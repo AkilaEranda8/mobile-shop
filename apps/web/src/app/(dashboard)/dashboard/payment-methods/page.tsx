@@ -13,6 +13,7 @@ import { useFeatureFlag } from '@/lib/hooks'
 import { analyticsApi } from '@/lib/api'
 import { useActiveBranchId } from '@/lib/hooks'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
+import { StatCard } from '@/components/design-system'
 import { formatCurrency } from '@/lib/utils'
 import { DEFAULT_PAYMENT_METHOD_LABELS, usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 
@@ -66,25 +67,10 @@ const PERIODS = [
   { label: '1Y', days: '365' },
 ]
 
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-        <Icon size={16} className={`text-${color}-600 dark:text-${color}-400`} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-        {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -106,7 +92,7 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
     <button
       type="button"
       onClick={handle}
-      className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors"
+      className="flex items-center gap-1.5 text-xs hover:text-brand-600 dark:hover:text-brand-400 border px-3 py-1.5 rounded-lg transition-colors"
       style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}
     >
       <Download size={12} /> Export CSV

@@ -280,11 +280,11 @@ export default function ReleaseNotesAdminPage() {
             const inFlight = actionId === r.id
             const counts = r.counts
             return (
-              <div key={r.id} className={`card p-5 border-l-4 border-l-violet-400 transition-opacity ${inFlight ? 'opacity-50' : ''}`}>
+              <div key={r.id} className={`card p-5 border-l-4 border-l-brand-400 transition-opacity ${inFlight ? 'opacity-50' : ''}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span className="badge-purple">v{r.version}</span>
+                      <span className="badge-brand">v{r.version}</span>
                       <span className={STATUS_BADGE[r.status] ?? 'badge-gray'}>{r.status}</span>
                       {!r.active && <span className="badge-red">Inactive</span>}
                       {r.popupEnabled && <span className="badge-blue">Popup</span>}
@@ -310,7 +310,7 @@ export default function ReleaseNotesAdminPage() {
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button onClick={() => openEdit(r.id)} disabled={inFlight}
-                      className="p-1.5 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="Edit">
+                      className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Edit">
                       <Pencil size={14} />
                     </button>
                     {r.status === 'DRAFT' && (
@@ -434,7 +434,7 @@ export default function ReleaseNotesAdminPage() {
                           <p className="text-xs font-semibold text-gray-700">{t.name}</p>
                           {t.branches.length === 0 && (
                             <button type="button" onClick={() => loadTenantBranches(t.id)}
-                              className="text-[10px] text-violet-600 hover:text-violet-800">
+                              className="text-[10px] text-brand-600 hover:text-brand-800">
                               Load branches
                             </button>
                           )}
@@ -475,7 +475,7 @@ export default function ReleaseNotesAdminPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-medium text-gray-700">Release Items</label>
-                  <button type="button" onClick={addItem} className="text-xs text-violet-600 hover:text-violet-800 font-medium">
+                  <button type="button" onClick={addItem} className="text-xs text-brand-600 hover:text-brand-800 font-medium">
                     + Add Item
                   </button>
                 </div>

@@ -57,7 +57,7 @@ export default function HrOverviewPage() {
         {!loading && !error && data && (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <HrStatCard label="Total employees" value={data.total} icon={Users} color="violet" />
+              <HrStatCard label="Total employees" value={data.total} icon={Users} color="blue" />
               <HrStatCard label="Active" value={data.active} icon={UserCheck} color="emerald" />
               <HrStatCard label="Candidates" value={data.candidate} icon={UserPlus} color="sky" />
               <HrStatCard label="On leave" value={data.onLeave} icon={Plane} color="amber" />

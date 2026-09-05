@@ -35,7 +35,7 @@ const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'badge-green', TRIAL: 'badge-blue', SUSPENDED: 'badge-yellow', CANCELLED: 'badge-gray',
 }
 const PLAN_BADGE: Record<string, string> = {
-  STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-purple', TRIAL: 'badge-gray',
+  STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-brand', TRIAL: 'badge-gray',
 }
 const PLAN_COLORS: Record<string, string> = {
   TRIAL: '#9ca3af', STARTER: '#6b7280', PRO: '#374151', ENTERPRISE: '#f59e0b',
@@ -108,7 +108,7 @@ export default function DashboardPage() {
     { label: 'Monthly Recurring Revenue', value: fmt(s.mrr),                      delta: `${s.mrrDelta >= 0 ? '+' : ''}${s.mrrDelta}% vs last month`, up: s.mrrDelta >= 0,     icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: 'Active Tenants',            value: s.activeTenants.toString(),       delta: `+${s.newTenantsThisMonth} this month`,                       up: true,                icon: Building2,  color: 'text-blue-600',   bg: 'bg-blue-50'    },
     { label: 'Trial Accounts',            value: s.trialTenants.toString(),        delta: `${trialExpiring.length} expiring this week`,                 up: false,               icon: Clock,      color: 'text-amber-600',  bg: 'bg-amber-50'   },
-    { label: 'Total Platform Users',      value: s.totalUsers.toLocaleString(),    delta: 'across all tenants',                                         up: true,                icon: Users,      color: 'text-violet-600', bg: 'bg-violet-50'  },
+    { label: 'Total Platform Users',      value: s.totalUsers.toLocaleString(),    delta: 'across all tenants',                                         up: true,                icon: Users,      color: 'text-brand-600', bg: 'bg-brand-50'  },
     { label: 'New Tenants (Month)',       value: s.newTenantsThisMonth.toString(), delta: 'joined this month',                                          up: s.newTenantsThisMonth > 0, icon: TrendingUp,  color: 'text-cyan-600',   bg: 'bg-cyan-50'    },
     { label: 'Churn Rate',               value: `${s.churnRate}%`,                delta: 'monthly churn',                                              up: s.churnRate < 3,     icon: TrendingDown,color: 'text-red-600',    bg: 'bg-red-50'     },
   ] : []

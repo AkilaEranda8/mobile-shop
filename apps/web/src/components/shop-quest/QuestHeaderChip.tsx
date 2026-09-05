@@ -12,7 +12,7 @@ export function QuestHeaderChip() {
 
   return (
     <div className="shop-quest-header-chip" title="Shop Quest progress">
-      <Flag size={12} className="text-violet-500" />
+      <Flag size={12} className="text-brand-500" />
       <span>Mission {human} / {missionTotal}</span>
       <div className="shop-quest-header-bar">
         <div style={{ width: `${pct}%` }} />

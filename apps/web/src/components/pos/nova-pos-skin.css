@@ -422,14 +422,44 @@
 }
 
 /* Secondary cart actions under checkout */
-[data-pos='nova'] .nova-cart .grid.grid-cols-3 button,
-[data-pos='nova'] .nova-cart .flex.gap-2 > button:not([style*='brand-gradient']) {
+[data-pos='nova'] .nova-cart .flex.gap-2 > button:not([style*='brand-gradient']):not(.nova-pay-method) {
   border-radius: 10px !important;
   border-color: var(--nova-line) !important;
   background: var(--nova-bg) !important;
   color: var(--nova-secondary) !important;
   font-size: 11px !important;
   font-weight: 650 !important;
+}
+
+/* Payment method tiles — idle vs selected (must not flatten selected state) */
+[data-pos='nova'] .nova-cart .nova-pay-method {
+  border-radius: 10px !important;
+  border: 1px solid var(--nova-line) !important;
+  background: var(--nova-bg) !important;
+  color: var(--nova-muted) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+}
+
+[data-pos='nova'] .nova-cart .nova-pay-method[data-selected='true'] {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: var(--nova-blue) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.45) !important;
+}
+
+[data-pos='nova'] .nova-cart .nova-pay-method[data-selected='true'][data-pay-method='CASH'] {
+  background: rgba(34, 197, 94, 0.18) !important;
+  border-color: var(--nova-green) !important;
+  color: #86efac !important;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.4) !important;
+}
+
+[data-pos='nova'] .nova-cart .nova-pay-method[data-selected='true'][data-pay-method='CARD'] {
+  background: rgba(59, 130, 246, 0.22) !important;
+  border-color: var(--nova-blue) !important;
+  color: #93c5fd !important;
 }
 
 [data-pos='nova'] .nova-cart .text-xl.font-extrabold {
@@ -594,7 +624,7 @@
   margin: 0;
 }
 
-/* Hire Purchase wizard — dark POS chrome */
+/* Hire Purchase wizard — dark POS chrome (beat light-mode .input-field fill) */
 [data-hp-wizard] {
   color-scheme: dark;
 }
@@ -605,14 +635,33 @@
 }
 [data-hp-wizard] [data-hp-panel] input,
 [data-hp-wizard] [data-hp-panel] select,
-[data-hp-wizard] [data-hp-panel] textarea {
+[data-hp-wizard] [data-hp-panel] textarea,
+[data-hp-wizard] [data-hp-panel] .input-field,
+html:not(.dark) [data-hp-wizard] [data-hp-panel] input,
+html:not(.dark) [data-hp-wizard] [data-hp-panel] select,
+html:not(.dark) [data-hp-wizard] [data-hp-panel] textarea,
+html:not(.dark) [data-hp-wizard] [data-hp-panel] .input-field {
   color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc !important;
   background: #1a2230 !important;
   border-color: #1e2633 !important;
   color-scheme: dark;
 }
-[data-hp-wizard] [data-hp-panel] input::placeholder {
+[data-hp-wizard] [data-hp-panel] input::placeholder,
+[data-hp-wizard] [data-hp-panel] .input-field::placeholder,
+html:not(.dark) [data-hp-wizard] [data-hp-panel] input::placeholder,
+html:not(.dark) [data-hp-wizard] [data-hp-panel] .input-field::placeholder {
   color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+}
+[data-hp-wizard] [data-hp-panel] input:focus,
+[data-hp-wizard] [data-hp-panel] select:focus,
+[data-hp-wizard] [data-hp-panel] textarea:focus,
+[data-hp-wizard] [data-hp-panel] .input-field:focus,
+html:not(.dark) [data-hp-wizard] [data-hp-panel] .input-field:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35) !important;
 }
 [data-hp-wizard] [data-hp-panel] option {
   background: #1a2230;

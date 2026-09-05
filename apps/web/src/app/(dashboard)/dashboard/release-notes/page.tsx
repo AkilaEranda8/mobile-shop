@@ -38,7 +38,7 @@ const BADGE_STYLES: Record<string, string> = {
   IMPROVED: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
   FIXED: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
   SECURITY: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30',
-  COMING_SOON: 'bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30',
+  COMING_SOON: 'bg-brand-500/15 text-brand-700 dark:text-brand-400 border-brand-500/30',
   PREMIUM: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30',
 }
 
@@ -66,7 +66,7 @@ function ItemBadge({ badge }: { badge: string | null }) {
 
 function ReleaseItemCard({ item }: { item: ReleaseItem }) {
   return (
-    <div className="card p-4 hover:border-violet-500/20 transition-colors">
+    <div className="card p-4 hover:border-brand-500/20 transition-colors">
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -83,13 +83,13 @@ function ReleaseItemCard({ item }: { item: ReleaseItem }) {
             <div className="flex gap-3 mt-3">
               {item.docUrl && (
                 <a href={item.docUrl} target="_blank" rel="noopener noreferrer"
-                  className="text-xs flex items-center gap-1 text-violet-500 hover:underline">
+                  className="text-xs flex items-center gap-1 text-brand-500 hover:underline">
                   <ExternalLink size={12} /> Docs
                 </a>
               )}
               {item.videoUrl && (
                 <a href={item.videoUrl} target="_blank" rel="noopener noreferrer"
-                  className="text-xs flex items-center gap-1 text-violet-500 hover:underline">
+                  className="text-xs flex items-center gap-1 text-brand-500 hover:underline">
                   <Play size={12} /> Demo
                 </a>
               )}
@@ -169,7 +169,7 @@ function ReleaseNotesContent() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2">
-            <Sparkles size={24} className="text-violet-500" />
+            <Sparkles size={24} className="text-brand-500" />
             Release Notes
           </h1>
           <p className="page-subtitle">
@@ -199,7 +199,7 @@ function ReleaseNotesContent() {
             onClick={() => setFilter(f.key)}
             className={`text-sm px-4 py-1.5 rounded-lg font-medium transition-colors ${
               filter === f.key
-                ? 'bg-violet-600 text-white shadow-sm'
+                ? 'bg-brand-600 text-white shadow-sm'
                 : 'hover:bg-white/5'
             }`}
             style={filter !== f.key ? { color: 'var(--text-secondary)' } : undefined}
@@ -216,11 +216,11 @@ function ReleaseNotesContent() {
       )}
 
       {latest && (
-        <div className="card p-6 border-l-4 border-l-violet-500">
+        <div className="card p-6 border-l-4 border-l-brand-500">
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-500">
+                <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-500/15 text-brand-500">
                   Latest Release
                 </span>
                 <span className="text-sm font-mono font-semibold" style={{ color: 'var(--text-muted)' }}>v{latest.version}</span>
@@ -278,7 +278,7 @@ function ReleaseNotesContent() {
                 return (
                   <div key={cat}>
                     <div className="flex items-center gap-2 mb-3">
-                      <Icon size={18} className="text-violet-500" />
+                      <Icon size={18} className="text-brand-500" />
                       <h4 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</h4>
                       <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
                         {items.length}
@@ -317,7 +317,7 @@ function ReleaseNotesContent() {
                 type="button"
                 onClick={() => selectRelease(r)}
                 className={`w-full text-left card p-4 card-hover transition-all ${
-                  selected?.id === r.id ? 'ring-2 ring-violet-500/50 border-violet-500/30' : ''
+                  selected?.id === r.id ? 'ring-2 ring-brand-500/50 border-brand-500/30' : ''
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -325,7 +325,7 @@ function ReleaseNotesContent() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-mono font-bold" style={{ color: 'var(--text-primary)' }}>v{r.version}</span>
                       {!r.isRead && (
-                        <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0" />
                       )}
                       {r.isRead && <CheckCircle2 size={12} className="text-emerald-500 flex-shrink-0" />}
                     </div>

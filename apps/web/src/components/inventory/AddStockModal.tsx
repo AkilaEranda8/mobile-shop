@@ -114,10 +114,10 @@ function DevicePreview({ entry }: { entry: DeviceEntry }) {
     >
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-lg bg-violet-500/20 flex items-center justify-center">
-          <Cpu size={12} className="text-violet-400" />
+        <div className="w-6 h-6 rounded-lg bg-brand-500/20 flex items-center justify-center">
+          <Cpu size={12} className="text-brand-400" />
         </div>
-        <span className="text-xs font-semibold text-violet-400">Device Preview</span>
+        <span className="text-xs font-semibold text-brand-400">Device Preview</span>
       </div>
 
       {/* Product thumb */}
@@ -129,7 +129,7 @@ function DevicePreview({ entry }: { entry: DeviceEntry }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={entry.product.imageUrl} alt={entry.productName} className="h-full object-contain rounded-xl" />
         ) : (
-          <Package size={32} className="text-violet-300 opacity-50" />
+          <Package size={32} className="text-brand-300 opacity-50" />
         )}
       </div>
 
@@ -194,7 +194,7 @@ function ImeiInput({
         />
         <button
           type="button"
-          className="absolute right-3 text-slate-500 hover:text-violet-400 transition-colors"
+          className="absolute right-3 text-slate-500 hover:text-brand-400 transition-colors"
           title="Scan serial / barcode"
           tabIndex={-1}
         >
@@ -254,7 +254,7 @@ function DeviceForm({
   return (
     <div className="space-y-4">
       {/* Section title */}
-      <p className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Device Details</p>
+      <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider">Device Details</p>
 
       <div className="grid grid-cols-2 gap-3">
         {/* Product */}
@@ -320,7 +320,7 @@ function DeviceForm({
             <button
               type="button"
               onClick={handleGenBarcode}
-              className="absolute right-3 text-slate-500 hover:text-violet-400 transition-colors"
+              className="absolute right-3 text-slate-500 hover:text-brand-400 transition-colors"
               title="Generate barcode"
               tabIndex={-1}
             >
@@ -509,12 +509,12 @@ function AddedDevicesTable({
                   <td className="px-3 py-2.5" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
                         {d.product?.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={d.product.imageUrl} alt="" className="w-full h-full object-cover rounded-lg" />
                         ) : (
-                          <Package size={12} className="text-violet-400" />
+                          <Package size={12} className="text-brand-400" />
                         )}
                       </div>
                       <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--text-primary)' }}>{d.productName}</span>
@@ -542,7 +542,7 @@ function AddedDevicesTable({
                       <button
                         type="button"
                         onClick={() => onEdit(d.id)}
-                        className="p-1.5 rounded-lg hover:bg-violet-500/10 hover:text-violet-400 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-brand-500/10 hover:text-brand-400 transition-colors"
                         style={{ color: 'var(--text-muted)' }}
                       >
                         <Edit2 size={12} />
@@ -765,8 +765,8 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
           style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-              <Package size={18} className="text-violet-400" />
+            <div className="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
+              <Package size={18} className="text-brand-400" />
             </div>
             <div>
               <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>

@@ -108,8 +108,8 @@ function TemplatePreviewCard({
     <div
       className={`flex flex-col rounded-xl border overflow-hidden transition-all ${
         selected
-          ? 'border-violet-500 ring-2 ring-violet-500/50 shadow-[0_0_0_1px_rgba(139,92,246,0.35)]'
-          : 'border-white/15 hover:border-violet-500/35'
+          ? 'border-brand-500 ring-2 ring-brand-500/50 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]'
+          : 'border-white/15 hover:border-brand-500/35'
       }`}
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-white/10 bg-white/[0.03] shrink-0">
@@ -118,11 +118,11 @@ function TemplatePreviewCard({
           onClick={onSelect}
           className="flex items-center gap-1.5 min-w-0 text-left"
         >
-          <span className={`text-sm font-semibold truncate ${selected ? 'text-violet-300' : 'text-white'}`}>
+          <span className={`text-sm font-semibold truncate ${selected ? 'text-brand-300' : 'text-white'}`}>
             {label}
           </span>
           {selected && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-400 shrink-0">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-400 shrink-0">
               <Check size={12} strokeWidth={3} />
               Active
             </span>
@@ -141,7 +141,7 @@ function TemplatePreviewCard({
       <button
         type="button"
         onClick={onSelect}
-        className="block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60"
+        className="block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60"
         aria-pressed={selected}
         aria-label={`Select ${label} invoice template`}
       >
@@ -173,7 +173,7 @@ export function InvoiceTemplatePicker({ settings, tenantSlug, onChange }: Props)
     <>
       <div className="card p-5 space-y-4">
         <div>
-          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest flex items-center gap-2">
+          <p className="text-xs font-bold text-brand-400 uppercase tracking-widest flex items-center gap-2">
             <FileText size={13} /> A4 Invoice Templates
           </p>
           <p className="text-[11px] text-slate-500 mt-1">
@@ -198,7 +198,7 @@ export function InvoiceTemplatePicker({ settings, tenantSlug, onChange }: Props)
 
         <p className="text-[10px] text-slate-500 text-center pt-1">
           Active:{' '}
-          <span className="text-violet-400 font-semibold">
+          <span className="text-brand-400 font-semibold">
             {templates.find(t => t.id === active)?.label ?? active}
           </span>
           {' · '}POS A4 bills, sales PDF, and repair quotes
@@ -220,7 +220,7 @@ export function InvoiceTemplatePicker({ settings, tenantSlug, onChange }: Props)
                   <button
                     type="button"
                     onClick={() => { onChange(expanded); setExpanded(null) }}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-500"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-600 text-white hover:bg-brand-500"
                   >
                     Use this template
                   </button>

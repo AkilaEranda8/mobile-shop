@@ -101,8 +101,8 @@ export function ChequeDetailsFields({
     ? 'text-[10px] font-semibold uppercase tracking-wide mb-1 block'
     : 'text-[11px] font-semibold uppercase tracking-wide mb-1.5 block'
   const inputCls = isPos
-    ? 'w-full px-3 py-2 rounded-xl text-sm font-semibold border outline-none focus:border-violet-500/50'
-    : 'w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-violet-500 transition-colors'
+    ? 'w-full px-3 py-2 rounded-xl text-sm font-semibold border outline-none focus:border-brand-500/50'
+    : 'w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:border-brand-500 transition-colors'
   const labelStyle: CSSProperties = isPos
     ? { color: 'var(--text-muted, #94a3b8)' }
     : { color: 'var(--text-muted)' }

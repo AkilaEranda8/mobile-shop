@@ -25,7 +25,7 @@ import SendSubscriptionInvoiceModal from '@/components/subscriptions/SendSubscri
 
 /* ── helpers ─────────────────────────────────────────────────── */
 const PLAN_BADGE: Record<string, string> = {
-  STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-purple', TRIAL: 'badge-yellow',
+  STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-brand', TRIAL: 'badge-yellow',
 }
 const DEFAULT_MRR: Record<string, number> = { STARTER: 2999, PRO: 4999, ENTERPRISE: 14399 }
 const DEFAULT_FEATURES: Record<string, string[]> = {
@@ -635,7 +635,7 @@ export default function SubscriptionsPage() {
         {[
           { label: 'MRR',        value: fmt(mrr),    sub: stats ? `+${stats.mrrDelta}% vs last month` : '—', icon: DollarSign,   color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
           { label: 'ARR',        value: fmt(mrr*12), sub: 'Annualised run rate',                              icon: TrendingUp,   color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-100'   },
-          { label: 'ARPU',       value: fmt(arpu),   sub: 'Per active tenant',                                icon: Users,        color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
+          { label: 'ARPU',       value: fmt(arpu),   sub: 'Per active tenant',                                icon: Users,        color: 'text-brand-600', bg: 'bg-brand-50', border: 'border-brand-100' },
           { label: 'Churn MRR',  value: fmt(churnMrr), sub: `${stats?.churnRate ?? 0}% monthly churn`,       icon: AlertTriangle,color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-100'    },
         ].map(m => (
           <div key={m.label} className={`card p-5 flex items-center gap-4 border ${m.border}`}>
@@ -736,7 +736,7 @@ export default function SubscriptionsPage() {
                 const colors = [
                   { bg: 'bg-gray-50', border: 'border-gray-200', accent: 'bg-gray-900', text: 'text-gray-900' },
                   { bg: 'bg-blue-50', border: 'border-blue-200', accent: 'bg-blue-600', text: 'text-blue-700' },
-                  { bg: 'bg-purple-50', border: 'border-purple-200', accent: 'bg-purple-600', text: 'text-purple-700' },
+                  { bg: 'bg-brand-50', border: 'border-brand-200', accent: 'bg-brand-600', text: 'text-brand-700' },
                 ]
                 const c = colors[i]
                 return (
@@ -848,7 +848,7 @@ export default function SubscriptionsPage() {
                           )}
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => setChangePlan(s)} title="Change Plan"
-                            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-violet-600 hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-colors font-medium">
+                            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg text-brand-600 hover:bg-brand-50 border border-transparent hover:border-brand-200 transition-colors font-medium">
                             <ArrowUpDown size={11} /> Plan
                           </button>
                           <button onClick={() => setExtendSub(s)} title="Extend subscription (manual)"
@@ -906,7 +906,7 @@ export default function SubscriptionsPage() {
             const configs = [
               { color: 'border-gray-200 bg-white',         accent: 'bg-gray-900 text-white',   label: 'text-gray-900' },
               { color: 'border-blue-200 bg-blue-50/40',    accent: 'bg-blue-600 text-white',   label: 'text-blue-700' },
-              { color: 'border-purple-200 bg-purple-50/40',accent: 'bg-purple-600 text-white', label: 'text-purple-700' },
+              { color: 'border-brand-200 bg-brand-50/40',accent: 'bg-brand-600 text-white', label: 'text-brand-700' },
             ]
             const cfg = configs[i]
             return (

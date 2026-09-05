@@ -49,7 +49,7 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[82vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
-            <Truck size={16} className="text-violet-400" />
+            <Truck size={16} className="text-brand-400" />
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">Courier Settings</h3>
           </div>
           <div className="flex gap-2">
@@ -63,7 +63,7 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
         <div className="p-5 space-y-4">
           {showForm && (
             <form onSubmit={handleCreate} className="rounded-xl p-4 space-y-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-              <p className="text-xs font-semibold text-violet-400 uppercase tracking-wider">New Courier</p>
+              <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider">New Courier</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-600 dark:text-slate-400 block mb-1">Name *</label>
@@ -106,18 +106,18 @@ export default function CourierSettingsModal({ couriers, onClose, onRefresh }: P
             {couriers.map(c => (
               <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl transition-colors"
                 style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                <div className="w-9 h-9 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                  <Truck size={16} className="text-violet-400" />
+                <div className="w-9 h-9 rounded-lg bg-brand-500/20 flex items-center justify-center">
+                  <Truck size={16} className="text-brand-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
                   <p className="text-xs text-gray-600 dark:text-slate-400 font-mono">{c.code}</p>
                 </div>
                 {c.isDefault && (
-                  <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Default</span>
+                  <span className="text-xs bg-brand-500/20 text-brand-300 px-2 py-0.5 rounded-full">Default</span>
                 )}
                 <button onClick={() => handleToggleDefault(c)} title={c.isDefault ? 'Remove default' : 'Set as default'}
-                  className={`p-1.5 rounded ${c.isDefault ? 'text-violet-400' : 'text-slate-600 hover:text-slate-300'}`}>
+                  className={`p-1.5 rounded ${c.isDefault ? 'text-brand-400' : 'text-slate-600 hover:text-slate-300'}`}>
                   <Check size={14} />
                 </button>
                 <button onClick={() => handleDelete(c.id, c.name)}

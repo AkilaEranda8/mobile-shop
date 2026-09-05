@@ -32,6 +32,7 @@ import {
 import { findProductByCode, normalizeScanCode, productSearchHaystack } from '@/lib/barcode-scan'
 import { effectiveBarcodeValue } from '@/lib/barcode-print'
 import { BarcodeLabelPreview } from '@/components/inventory/BarcodeLabelPreview'
+import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl, StatusBadge } from '@/components/design-system'
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -154,15 +155,15 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
-          <div className="flex items-start justify-between gap-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/15">
+          <div className="flex items-start justify-between gap-3 p-3 rounded-xl bg-brand-500/5 border border-brand-500/15">
             <div className="min-w-0">
-              <p className="text-sm text-violet-300 font-medium">CSV columns</p>
+              <p className="text-sm text-brand-300 font-medium">CSV columns</p>
               <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
                 <span className="text-slate-400">Required:</span> name, categoryName &nbsp;·&nbsp;
                 <span className="text-slate-400">Optional:</span> sku, brandName, subCategory, deviceModel, barcode, buyingPrice, sellingPrice, stock, minStock, condition, trackImei, warrantyMonths, warrantyNote, description
               </p>
             </div>
-            <button onClick={downloadTemplate} className="text-xs text-violet-400 border border-violet-500/20 px-2.5 py-1.5 rounded-lg hover:bg-violet-500/10 flex items-center gap-1.5 flex-shrink-0">
+            <button onClick={downloadTemplate} className="text-xs text-brand-400 border border-brand-500/20 px-2.5 py-1.5 rounded-lg hover:bg-brand-500/10 flex items-center gap-1.5 flex-shrink-0">
               <FileText size={12} />Template
             </button>
           </div>
@@ -174,11 +175,11 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
             onDragOver={e => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
-            className={`w-full border-2 border-dashed rounded-xl p-6 text-center transition-colors ${dragOver ? 'border-violet-500/50 bg-violet-500/10' : 'border-white/10 hover:border-violet-500/30 hover:bg-violet-500/3'}`}
+            className={`w-full border-2 border-dashed rounded-xl p-6 text-center transition-colors ${dragOver ? 'border-brand-500/50 bg-brand-500/10' : 'border-white/10 hover:border-brand-500/30 hover:bg-brand-500/3'}`}
           >
-            <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-violet-400' : 'text-slate-600'}`} />
+            <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-brand-400' : 'text-slate-600'}`} />
             {rows.length > 0
-              ? <p className="text-sm text-violet-300">{rows.length} rows loaded — click or drop to change file</p>
+              ? <p className="text-sm text-brand-300">{rows.length} rows loaded — click or drop to change file</p>
               : <><p className="text-sm text-slate-400">Click to select a CSV file</p><p className="text-xs text-slate-600 mt-1">or drag and drop here</p></>}
           </button>
 
@@ -239,7 +240,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           {progress && (
             <div className="space-y-2">
               <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
+                <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
               </div>
               <p className="text-xs text-gray-600 dark:text-slate-400 text-center">{progress.done} / {progress.total} processed</p>
             </div>
@@ -301,7 +302,7 @@ function AddCategoryModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       <div className="card rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
-            <Tag size={15} className="text-violet-400" />
+            <Tag size={15} className="text-brand-400" />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Add Category</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
@@ -377,7 +378,7 @@ function ManageCategoriesModal({ onClose, onChanged }: { onClose: () => void; on
       <div className="card rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
-            <Layers size={15} className="text-violet-400" />
+            <Layers size={15} className="text-brand-400" />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Manage Categories</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
@@ -493,7 +494,7 @@ function ManageBrandsModal({ onClose, onChanged }: { onClose: () => void; onChan
       <div className="card rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
-            <Tag size={15} className="text-violet-400" />
+            <Tag size={15} className="text-brand-400" />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Manage Brands</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:opacity-80" style={{ color: 'var(--text-muted)' }}><X size={15} /></button>
@@ -628,7 +629,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Package size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <Package size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 Product Details ( SKU : <span className="font-mono">{safeText(detail.sku)}</span> )
@@ -658,7 +659,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
               <button
                 type="button"
                 onClick={onEdit}
-                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-brand-700 dark:text-brand-300 border-brand-500/25 bg-brand-500/10 hover:bg-brand-500/20"
               >
                 <Edit size={12} /> Edit
               </button>
@@ -735,7 +736,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={detail.imageUrl} alt={detail.name} className="w-full h-full object-contain" />
                   ) : (
-                    <Package size={18} className="text-violet-400 opacity-70" />
+                    <Package size={18} className="text-brand-400 opacity-70" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0 space-y-1">
@@ -845,7 +846,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
                         {canSeeProductCost && (
                           <td className="px-3 py-2 font-medium">{formatCurrency(detail.buyingPrice)}</td>
                         )}
-                        <td className="px-3 py-2 font-semibold text-violet-600 dark:text-violet-300">{formatCurrency(detail.sellingPrice)}</td>
+                        <td className="px-3 py-2 font-semibold text-brand-600 dark:text-brand-300">{formatCurrency(detail.sellingPrice)}</td>
                         <td className="px-3 py-2 font-medium">{formatCurrency(mrp)}</td>
                         {canSeeProductCost && (
                           <td className={`px-3 py-2 text-right font-semibold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
@@ -1010,7 +1011,7 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
               <button
                 type="button"
                 onClick={onEdit}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-brand-500/30 bg-brand-500/15 text-brand-700 dark:text-brand-300 font-semibold"
               >
                 <Edit size={14} /> Edit product
               </button>
@@ -1077,7 +1078,7 @@ function ImeiHealthBanner({ onFixed }: { onFixed: () => void }) {
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={handleBulkFix} disabled={fixing}
-            className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50">
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-brand-600 text-white hover:bg-brand-500 disabled:opacity-50">
             {fixing ? 'Fixing…' : 'Auto-fix product IMEI flags'}
           </button>
           <button type="button" onClick={handleDismiss} title="Hide this notice"
@@ -1102,7 +1103,7 @@ function ImeiHealthBanner({ onFixed }: { onFixed: () => void }) {
           <ul className="text-[11px] text-gray-700 dark:text-slate-400 space-y-0.5">
             {incompletePos.slice(0, 5).map(po => (
               <li key={po.id}>
-                • <a href={`/purchase-invoice?id=${po.id}`} className="text-violet-700 dark:text-violet-400 hover:underline font-medium">{po.poNumber}</a>
+                • <a href={`/purchase-invoice?id=${po.id}`} className="text-brand-700 dark:text-brand-400 hover:underline font-medium">{po.poNumber}</a>
                 {' '}— {po.registered}/{po.expected} IMEIs
               </li>
             ))}
@@ -1422,17 +1423,17 @@ export default function InventoryPage() {
         const { product, variation } = row.original
         return (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg overflow-hidden border border-violet-500/20 flex items-center justify-center flex-shrink-0 bg-violet-500/10">
+            <div className="w-8 h-8 rounded-lg overflow-hidden border border-brand-500/20 flex items-center justify-center flex-shrink-0 bg-brand-500/10">
               {product.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <Package size={14} className="text-violet-400" />
+                <Package size={14} className="text-brand-400" />
               )}
             </div>
             <div className="min-w-0">
               <button
-                className="text-sm font-medium text-gray-800 dark:text-slate-200 hover:text-violet-600 dark:hover:text-violet-400 text-left transition-colors leading-tight"
+                className="text-sm font-medium text-gray-800 dark:text-slate-200 hover:text-brand-600 dark:hover:text-brand-400 text-left transition-colors leading-tight"
                 onClick={() => setViewProduct(product)}
                 onDoubleClick={(e) => {
                   e.preventDefault()
@@ -1456,7 +1457,7 @@ export default function InventoryPage() {
                 <p className="text-xs text-gray-500 dark:text-slate-500 flex items-center gap-1.5 flex-wrap">
                   <span>{(product as any).brandName}</span>
                   {product.trackImei ? (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-semibold">
+                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-brand-500/15 text-brand-400 font-semibold">
                       <Smartphone size={8} /> IMEI
                     </span>
                   ) : (
@@ -1553,9 +1554,9 @@ export default function InventoryPage() {
         const isOut = stock === 0
         const isLow = stock < minStock && stock > 0
         return (
-          <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : isLow ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
+          <StatusBadge tone={isOut ? 'danger' : isLow ? 'warning' : 'success'} className="text-[11px]">
             {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
-          </span>
+          </StatusBadge>
         )
       },
     },
@@ -1587,7 +1588,7 @@ export default function InventoryPage() {
               type="button"
               title="Product Traceability"
               onClick={() => router.push(`/inventory/product-traceability/${row.original.product.id}`)}
-              className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10 text-violet-400"
+              className="p-1.5 rounded-lg transition-colors hover:bg-brand-500/10 text-brand-400"
             >
               <Route size={14} />
             </button>
@@ -1627,55 +1628,53 @@ export default function InventoryPage() {
 
       <ImeiHealthBanner onFixed={refetch} />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Inventory</h1>
-          <p className="page-subtitle">
-            {hasActiveFilters
-              ? `${filteredProducts.length} of ${products.length} products shown`
-              : `${products.length} products · ${products.filter(p => p.stock < p.minStock).length} low stock alerts`}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <OpenPosButton label="Sell in POS" variant="secondary" />
-          {canEditInventory && (
-            <button onClick={() => setShowImport(true)} className="btn-secondary text-sm flex items-center gap-2">
-              <Upload size={14} />Import
+      <PageHeader
+        title="Inventory"
+        subtitle={
+          hasActiveFilters
+            ? `${filteredProducts.length} of ${products.length} products shown`
+            : `${products.length} products · ${products.filter(p => p.stock < p.minStock).length} low stock alerts`
+        }
+        actions={
+          <>
+            <OpenPosButton label="Sell in POS" variant="secondary" />
+            {canEditInventory && (
+              <button onClick={() => setShowImport(true)} className="btn-secondary text-sm flex items-center gap-2">
+                <Upload size={14} />Import
+              </button>
+            )}
+            <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
+              <Download size={14} />Export
             </button>
-          )}
-          <button onClick={() => exportProductsCSV(filteredProducts)} disabled={filteredProducts.length === 0} className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40">
-            <Download size={14} />Export
-          </button>
-          {canEditInventory && (
-            <button
-              onClick={() => {
-                setShowAddProduct(true)
-                router.replace('/inventory?action=add-product', { scroll: false })
-              }}
-              className="btn-secondary text-sm flex items-center gap-2"
-            >
-              <Plus size={14} />Add Product
-            </button>
-          )}
-          {canEditInventory && (
-            <>
-              <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
-                <Layers size={14} />Manage Categories
+            {canEditInventory && (
+              <button
+                onClick={() => {
+                  setShowAddProduct(true)
+                  router.replace('/inventory?action=add-product', { scroll: false })
+                }}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                <Plus size={14} />Add Product
               </button>
-              <button onClick={() => setShowManageBrand(true)} className="btn-secondary text-sm flex items-center gap-2">
-                <Tag size={14} />Manage Brands
-              </button>
-              <button onClick={() => setShowAddCat(true)} className="btn-secondary text-sm flex items-center gap-2">
-                <Tag size={14} />Add Category
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+            )}
+            {canEditInventory && (
+              <>
+                <button onClick={() => setShowManageCat(true)} className="btn-secondary text-sm flex items-center gap-2">
+                  <Layers size={14} />Manage Categories
+                </button>
+                <button onClick={() => setShowManageBrand(true)} className="btn-secondary text-sm flex items-center gap-2">
+                  <Tag size={14} />Manage Brands
+                </button>
+                <button onClick={() => setShowAddCat(true)} className="btn-secondary text-sm flex items-center gap-2">
+                  <Tag size={14} />Add Category
+                </button>
+              </>
+            )}
+          </>
+        }
+      />
 
-      {/* Filter toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <FilterBar>
         <ToolbarSearch
           value={textSearch}
           onChange={setTextSearch}
@@ -1704,25 +1703,16 @@ export default function InventoryPage() {
           onClear={() => setBrandFilter('all')}
         />
 
-        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-          {([
-            { id: 'all' as const, label: 'All stock' },
-            { id: 'in' as const, label: 'In stock' },
-            { id: 'low' as const, label: 'Low' },
-            { id: 'out' as const, label: 'Out' },
-          ]).map(opt => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setStatusFilter(opt.id)}
-              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
-              style={statusFilter === opt.id
-                ? { background: 'var(--brand-primary-light)', color: '#fff' }
-                : { color: 'var(--text-muted)' }}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { id: 'all', label: 'All stock' },
+            { id: 'in', label: 'In stock' },
+            { id: 'low', label: 'Low' },
+            { id: 'out', label: 'Out' },
+          ]}
+        />
 
         {hasActiveFilters && (
           <>
@@ -1738,29 +1728,16 @@ export default function InventoryPage() {
             </button>
           </>
         )}
-      </div>
+      </FilterBar>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total SKUs',   value: flatRows.length,                                                                          icon: Package,       color: 'violet' },
-          ...(canSeeProductCost
-            ? [{ label: 'Stock Value',  value: formatCurrency(stockValue),         icon: TrendingUp,    color: 'green'  }]
-            : []),
-          { label: 'Low Stock',   value: lowStockCount,                                                                               icon: AlertTriangle, color: 'yellow' },
-          { label: 'Out of Stock', value: outOfStockCount,                                         icon: AlertCircle,   color: 'red'    },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
-              <Icon size={15} className={`text-${color}-400`} />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
-              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      <StatGrid cols={4}>
+        <StatCard label="Total SKUs" value={flatRows.length} icon={Package} tone="brand" />
+        {canSeeProductCost && (
+          <StatCard label="Stock Value" value={formatCurrency(stockValue)} icon={TrendingUp} tone="success" />
+        )}
+        <StatCard label="Low Stock" value={lowStockCount} icon={AlertTriangle} tone="warning" />
+        <StatCard label="Out of Stock" value={outOfStockCount} icon={AlertCircle} tone="danger" />
+      </StatGrid>
 
       {/* Table */}
       <ClientSideTable

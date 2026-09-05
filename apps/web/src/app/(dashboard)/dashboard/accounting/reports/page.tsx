@@ -141,7 +141,7 @@ export default function AccountingReportsPage() {
                   key={p.days}
                   type="button"
                   onClick={() => setPeriod(p.days)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${period === p.days ? 'bg-violet-600 text-white' : ''}`}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${period === p.days ? 'bg-brand-600 text-white' : ''}`}
                   style={period !== p.days ? { color: 'var(--text-muted)' } : undefined}
                 >
                   {p.label}
@@ -179,7 +179,7 @@ export default function AccountingReportsPage() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="animate-spin text-violet-400" size={28} />
+          <Loader2 className="animate-spin text-brand-400" size={28} />
         </div>
       ) : !report ? (
         <div className="card p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -374,7 +374,7 @@ function ReportTable({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className={highlightLast && i === rows.length - 1 ? 'bg-violet-500/10 font-semibold' : ''}>
+            <tr key={i} className={highlightLast && i === rows.length - 1 ? 'bg-brand-500/10 font-semibold' : ''}>
               {row.map((cell, j) => (
                 <AccountingTd key={j} align={j === row.length - 1 ? 'right' : 'left'} mono={j === row.length - 1}>
                   {cell}

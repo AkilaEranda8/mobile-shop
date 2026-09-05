@@ -38,7 +38,7 @@ const SEVERITY_ICON: Record<string, LucideIcon> = {
   CRITICAL: AlertCircle,
 }
 const ACTOR_BADGE: Record<string, string> = {
-  ADMIN:  'badge-purple',
+  ADMIN:  'badge-brand',
   SYSTEM: 'badge-gray',
   TENANT: 'badge-blue',
 }

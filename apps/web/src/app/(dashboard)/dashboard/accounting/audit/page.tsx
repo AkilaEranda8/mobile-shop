@@ -74,7 +74,7 @@ export default function AccountingAuditPage() {
         }
       >
         {loading ? (
-          <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
+          <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" /></div>
         ) : rows.length === 0 ? (
           <p className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>No audit events yet</p>
         ) : (
@@ -92,7 +92,7 @@ export default function AccountingAuditPage() {
                 <tr key={r.id}>
                   <AccountingTd className="text-xs whitespace-nowrap">{new Date(r.createdAt).toLocaleString()}</AccountingTd>
                   <AccountingTd className="text-xs">{r.actorEmail}</AccountingTd>
-                  <AccountingTd className="text-violet-400 text-xs">{r.eventType}</AccountingTd>
+                  <AccountingTd className="text-brand-400 text-xs">{r.eventType}</AccountingTd>
                   <AccountingTd className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.entityType} · {r.entityId.slice(0, 8)}…</AccountingTd>
                 </tr>
               ))}

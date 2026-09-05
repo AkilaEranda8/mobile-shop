@@ -409,7 +409,7 @@ export default function HrLeavePage() {
           <HrStatCard label="Pending approval" value={kpis.pending} icon={Clock} color="amber" />
           <HrStatCard label="Approved (list)" value={kpis.approved} icon={CheckCircle2} color="emerald" />
           <HrStatCard label="Balance rows" value={kpis.balances} icon={Layers} color="blue" />
-          <HrStatCard label="Days available" value={Number(kpis.available.toFixed(1))} icon={CalendarDays} color="violet" />
+          <HrStatCard label="Days available" value={Number(kpis.available.toFixed(1))} icon={CalendarDays} color="blue" />
         </div>
 
         <div className="flex flex-wrap gap-2">

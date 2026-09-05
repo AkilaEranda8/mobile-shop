@@ -129,8 +129,8 @@ export default function InvoiceTab({ config, canEdit, onConfigChange }: Props) {
       Icon:  Phone,
       label: 'Validate customer phone numbers',
       desc:  'Skip sending if the customer phone number format is invalid',
-      color: 'text-violet-400',
-      bg:    'bg-violet-500/10',
+      color: 'text-brand-400',
+      bg:    'bg-brand-500/10',
     },
   ]
 
@@ -203,7 +203,7 @@ export default function InvoiceTab({ config, canEdit, onConfigChange }: Props) {
           <div className="flex flex-wrap gap-1.5">
             {VARIABLES.map(({ key, desc }) => (
               <button key={key} onClick={() => insertVariable(key)} title={desc}
-                className="text-[11px] px-2 py-1 rounded-md border font-mono transition-all hover:border-violet-500/50 hover:text-violet-400"
+                className="text-[11px] px-2 py-1 rounded-md border font-mono transition-all hover:border-brand-500/50 hover:text-brand-400"
                 style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
                 {key}
               </button>

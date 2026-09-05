@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
@@ -542,7 +542,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
         type="number"
         min={0}
         step="0.01"
-        className="text-sm font-black w-full min-w-0 bg-transparent outline-none border-b border-violet-500/30 focus:border-violet-500 text-right"
+        className="text-sm font-black w-full min-w-0 bg-transparent outline-none border-b border-brand-500/30 focus:border-brand-500 text-right"
         style={{ color: 'var(--text-primary)' }}
         value={estimatedCostDraft}
         disabled={savingEstimatedCost}
@@ -769,7 +769,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
 
             {/* Title + Badges */}
             <div>
-              <p className="text-[12px] font-bold text-violet-500 font-mono mb-1">{repair.ticketNumber}</p>
+              <p className="text-[12px] font-bold text-brand-500 font-mono mb-1">{repair.ticketNumber}</p>
               <h2 className="text-[22px] font-black mb-3 leading-tight" style={{ color: 'var(--text-primary)' }}>{repair.deviceBrand} {repair.deviceModel}</h2>
               <div className="flex flex-wrap gap-2">
                 <span className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-semibold ${getRepairStatusColor(repair.status)}`}>
@@ -806,7 +806,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     type="number"
                     min={0}
                     step="0.01"
-                    className="text-xs font-bold w-full bg-transparent outline-none border-b border-violet-500/30 focus:border-violet-500"
+                    className="text-xs font-bold w-full bg-transparent outline-none border-b border-brand-500/30 focus:border-brand-500"
                     style={{ color: 'var(--text-primary)' }}
                     value={estimatedCostDraft}
                     disabled={savingEstimatedCost}
@@ -851,7 +851,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             {/* Ticket Details */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <SlidersHorizontal size={13} className="text-violet-500" />
+                <SlidersHorizontal size={13} className="text-brand-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Ticket Details</p>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
@@ -876,7 +876,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {repair.accessories.split(', ').map((a: string) => (
-                        <span key={a} className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-300 border border-violet-500/20">{a}</span>
+                        <span key={a} className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-brand-500/10 text-brand-600 dark:text-brand-300 border border-brand-500/20">{a}</span>
                       ))}
                     </div>
                   </div>
@@ -897,12 +897,12 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             {/* Repair Progress */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Zap size={13} className="text-violet-500" />
+                <Zap size={13} className="text-brand-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Repair Progress</p>
               </div>
               <div className="relative flex items-start justify-between px-2">
                 <div className="absolute left-7 right-7 top-5 h-[2px] rounded-full" style={{ background: 'var(--border-default)' }} />
-                <div className="absolute left-7 top-5 h-[2px] rounded-full bg-violet-500 transition-all duration-500"
+                <div className="absolute left-7 top-5 h-[2px] rounded-full bg-brand-500 transition-all duration-500"
                   style={{ width: currentIdx <= 0 ? '0%' : `${Math.min(100, (Math.min(currentIdx, STATUS_FLOW.length - 1) / (STATUS_FLOW.length - 1)) * 90)}%` }} />
                 {STATUS_FLOW.map((s, i) => {
                   const StepIcon = STEP_ICONS[i]
@@ -913,13 +913,13 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     <div key={s} className="flex-1 flex flex-col items-center gap-1.5 relative z-10">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                         active ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/30'
-                        : done  ? 'bg-violet-500 border-indigo-500'
+                        : done  ? 'bg-brand-500 border-indigo-500'
                         : 'border-gray-300 dark:border-slate-600'}`}
                         style={!active && !done ? { background: 'var(--bg-card)' } : {}}>
                         {done   ? <CheckCircle size={16} className="text-white" />
                                  : <StepIcon size={15} className={active ? 'text-white' : 'text-gray-400 dark:[color:var(--text-muted)]'} />}
                       </div>
-                      <span className={`text-[11px] font-bold ${active ? 'text-violet-600 dark:text-violet-400' : done ? 'text-indigo-400' : ''}`}
+                      <span className={`text-[11px] font-bold ${active ? 'text-brand-600 dark:text-brand-400' : done ? 'text-indigo-400' : ''}`}
                         style={!active && !done ? { color: 'var(--text-muted)' } : {}}>{statusLabels[s]}</span>
                       {stepTime
                         ? <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{new Date(stepTime).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -1051,7 +1051,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             {/* Reported Issue */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle size={13} className="text-violet-500" />
+                <AlertTriangle size={13} className="text-brand-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Reported Issue</p>
               </div>
               <p className="text-sm font-semibold leading-relaxed uppercase" style={{ color: 'var(--text-primary)' }}>{repair.reportedIssue}</p>
@@ -1061,7 +1061,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Wrench size={13} className="text-violet-500" />
+                  <Wrench size={13} className="text-brand-500" />
                   <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                     Items ({(repair.spareParts?.length ?? 0) + (serviceFee > 0 ? 1 : 0)})
                   </p>
@@ -1108,7 +1108,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   {selProduct && (
                     <div className="rounded-lg px-3 py-2 space-y-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                       <div className="flex items-center gap-2">
-                        <Package size={11} className="text-violet-500 shrink-0" />
+                        <Package size={11} className="text-brand-500 shrink-0" />
                         <span className="text-xs flex-1 truncate font-semibold" style={{ color: 'var(--text-primary)' }}>{selProduct.name}</span>
                         <button onClick={() => setSelProduct(null)} style={{ color: 'var(--text-muted)' }}><X size={11} /></button>
                       </div>
@@ -1164,12 +1164,12 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   <div key={part.id} className="grid grid-cols-12 px-4 py-3.5 items-center border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div className="col-span-6">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                          <Package size={13} className="text-violet-500" />
+                        <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center shrink-0">
+                          <Package size={13} className="text-brand-500" />
                         </div>
                         <div>
                           <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{part.productName}</p>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 font-semibold border border-violet-500/20">Stock tracking</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-600 dark:text-brand-400 font-semibold border border-brand-500/20">Stock tracking</span>
                         </div>
                       </div>
                     </div>
@@ -1189,13 +1189,13 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                 )) : canEdit && !showAddPart && serviceFee <= 0 && (
                   <div className="py-8 text-center">
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No items yet</p>
-                    <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-violet-500 hover:text-violet-400 mt-1">+ Add spare part</button>
+                    <button onClick={() => setShowAddPart(true)} className="text-xs font-bold text-brand-500 hover:text-brand-400 mt-1">+ Add spare part</button>
                   </div>
                 )}
                 <div className="px-4 py-3" style={{ background: 'var(--bg-subtle)' }}>
                   <div className="flex justify-between font-black text-base">
                     <span style={{ color: 'var(--text-primary)' }}>Customer Total</span>
-                    <span className="text-violet-600 dark:text-violet-400">{formatCurrency(isPaid ? billTotal : quote)}</span>
+                    <span className="text-brand-600 dark:text-brand-400">{formatCurrency(isPaid ? billTotal : quote)}</span>
                   </div>
                   {(repair.spareParts?.length ?? 0) > 0 && (
                     <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Parts buy/sell in profit report below — not added to bill.</p>
@@ -1215,7 +1215,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             {/* Technician Notes */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <ClipboardList size={13} className="text-violet-500" />
+                <ClipboardList size={13} className="text-brand-500" />
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Technician Notes</p>
               </div>
               {repair.notes?.length > 0 ? (
@@ -1254,9 +1254,9 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
               return (
                 <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                   <div className="flex items-center gap-2 mb-3">
-                    <History size={13} className="text-violet-500" />
+                    <History size={13} className="text-brand-500" />
                     <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Device History — IMEI {repair.imei}</p>
-                    <span className="ml-auto text-[10px] font-bold text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded">{history.length} past repair{history.length > 1 ? 's' : ''}</span>
+                    <span className="ml-auto text-[10px] font-bold text-brand-600 bg-brand-500/10 px-2 py-0.5 rounded">{history.length} past repair{history.length > 1 ? 's' : ''}</span>
                   </div>
                   <div className="space-y-2">
                     {history.slice(0, 5).map(h => (
@@ -1279,7 +1279,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <div className="flex items-center gap-2">
-                  <DollarSign size={13} className="text-violet-500" />
+                  <DollarSign size={13} className="text-brand-500" />
                   <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Payment Summary</p>
                 </div>
                 <button className="w-6 h-6 rounded flex items-center justify-center" style={{ color: 'var(--text-muted)' }}><MoreVertical size={13} /></button>
@@ -1337,7 +1337,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Zap size={12} className="text-violet-500" /> Quick Actions
+                  <Zap size={12} className="text-brand-500" /> Quick Actions
                 </p>
               </div>
               <div className="px-3 pt-3">
@@ -1410,7 +1410,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <div className="flex items-center gap-2">
-                  <Shield size={12} className="text-violet-500" />
+                  <Shield size={12} className="text-brand-500" />
                   <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Device Condition</p>
                 </div>
                 <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">Good</span>
@@ -1427,13 +1427,13 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <Upload size={12} className="text-violet-500" /> Attachments ({photos.length})
+                  <Upload size={12} className="text-brand-500" /> Attachments ({photos.length})
                 </p>
                 {canEdit && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-violet-500/10 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-400 border border-indigo-500/20 bg-brand-500/10 hover:bg-brand-500/20 transition-colors disabled:opacity-50"
                   >
                     {uploading ? <Loader2 size={10} className="animate-spin" /> : <Upload size={10} />}
                     {uploading ? 'Uploading…' : 'Add Files'}
@@ -1482,7 +1482,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                     {canEdit && <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] transition-colors hover:border-indigo-500/50 hover:bg-violet-500/5 disabled:opacity-50"
+                      className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] transition-colors hover:border-indigo-500/50 hover:bg-brand-500/5 disabled:opacity-50"
                       style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
                     >
                       {uploading ? <Loader2 size={16} className="animate-spin text-indigo-400" /> : <Upload size={16} />}
@@ -1493,7 +1493,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="w-full rounded-xl border-2 border-dashed p-5 flex flex-col items-center gap-2 text-center transition-colors hover:border-indigo-500/40 hover:bg-violet-500/5 disabled:opacity-50"
+                    className="w-full rounded-xl border-2 border-dashed p-5 flex flex-col items-center gap-2 text-center transition-colors hover:border-indigo-500/40 hover:bg-brand-500/5 disabled:opacity-50"
                     style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     {uploading ? <Loader2 size={22} className="animate-spin text-indigo-400" /> : <Upload size={22} style={{ color: 'var(--text-muted)' }} />}
@@ -1521,7 +1521,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
             <div ref={customerContactRef} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <p className="text-[11px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <User size={12} className="text-violet-500" /> Customer Contact
+                  <User size={12} className="text-brand-500" /> Customer Contact
                 </p>
               </div>
               <div className="p-4 space-y-3">
@@ -1529,7 +1529,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <Phone size={13} style={{ color: 'var(--text-muted)' }} />
-                      <a href={`tel:${repair.customerPhone}`} className="text-sm font-semibold hover:text-violet-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{repair.customerPhone}</a>
+                      <a href={`tel:${repair.customerPhone}`} className="text-sm font-semibold hover:text-brand-500 transition-colors" style={{ color: 'var(--text-primary)' }}>{repair.customerPhone}</a>
                     </div>
                     {canEdit && (
                       <div className="flex items-center gap-1.5">

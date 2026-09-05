@@ -11,6 +11,7 @@ import {
 import { useActiveBranchId, useCustomerSales, useCustomerSalesDetail } from '@/lib/hooks'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
+import { StatCard } from '@/components/design-system'
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'var(--bg-card)',
@@ -50,25 +51,10 @@ function customerKey(c: CustomerRow) {
   return c.customerId ?? '__walkin__'
 }
 
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-        <Icon size={16} className={`text-${color}-600 dark:text-${color}-400`} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-        {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -87,7 +73,7 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
     a.click()
   }
   return (
-    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
+    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-brand-600 dark:hover:text-brand-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
       <Download size={12} /> Export CSV
     </button>
   )
@@ -253,8 +239,8 @@ export default function CustomerReportPage() {
           {selected ? (
             <>
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                <div className="w-2 h-2 rounded-full bg-violet-500" />
-                <span className="text-xs font-semibold text-violet-600 dark:text-violet-400">Customer:</span>
+                <div className="w-2 h-2 rounded-full bg-brand-500" />
+                <span className="text-xs font-semibold text-brand-600 dark:text-brand-400">Customer:</span>
                 <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{selected.customerName}</span>
                 {selected.phone && (
                   <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{selected.phone}</span>
@@ -266,7 +252,7 @@ export default function CustomerReportPage() {
                 </button>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                <StatCard label="Revenue" value={formatCurrency(selected.revenue)} icon={DollarSign} color="violet" />
+                <StatCard label="Revenue" value={formatCurrency(selected.revenue)} icon={DollarSign} color="blue" />
                 <StatCard label="Paid" value={formatCurrency(selected.paid)} icon={Wallet} color="green" />
                 <StatCard label="Due (period)" value={formatCurrency(selected.due)} icon={Receipt} color="red" />
                 <StatCard label="Profit" value={formatCurrency(selected.profit)} icon={TrendingUp} color="blue" sub={`${selected.margin}% margin`} />
@@ -275,7 +261,7 @@ export default function CustomerReportPage() {
             </>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <StatCard label="Total Revenue" value={formatCurrency(totals.revenue)} icon={DollarSign} color="violet" />
+              <StatCard label="Total Revenue" value={formatCurrency(totals.revenue)} icon={DollarSign} color="blue" />
               <StatCard label="Total Paid" value={formatCurrency(totals.paid)} icon={Wallet} color="green" />
               <StatCard label="Period Due" value={formatCurrency(totals.due)} icon={Receipt} color="red" />
               <StatCard label="Total Profit" value={formatCurrency(totals.profit)} icon={TrendingUp} color="blue" sub={`${totals.margin}% margin`} />
@@ -353,7 +339,7 @@ export default function CustomerReportPage() {
                           <td className="px-3 py-2.5 text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
                           <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{s.invoiceNumber}</td>
                           <td className="px-3 py-2.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(s.createdAt)}</td>
-                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(s.total)}</td>
+                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(s.total)}</td>
                           <td className="px-3 py-2.5 text-xs text-right text-green-600 dark:text-green-400">{formatCurrency(s.paid)}</td>
                           <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(s.due)}</td>
                           <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{s.status}</td>
@@ -404,7 +390,7 @@ export default function CustomerReportPage() {
                         <td className="px-3 py-2.5 text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
                         <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{c.customerName}</td>
                         <td className="px-3 py-2.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>{c.phone || '—'}</td>
-                        <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(c.revenue)}</td>
+                        <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(c.revenue)}</td>
                         <td className="px-3 py-2.5 text-xs text-right text-green-600 dark:text-green-400">{formatCurrency(c.paid)}</td>
                         <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(c.due)}</td>
                         <td className="px-3 py-2.5 text-xs text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(c.profit)}</td>

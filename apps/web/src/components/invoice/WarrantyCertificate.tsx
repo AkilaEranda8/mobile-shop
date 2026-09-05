@@ -62,14 +62,14 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
 
     .badge-row { background: linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%); padding:22px 50px; display:flex; align-items:center; justify-content:space-between; }
     .wcode { font-family:'Courier New',monospace; font-size:24px; font-weight:800; color:#a5b4fc; letter-spacing:4px; }
-    .wcode-label { font-size:9px; color:#6366f1; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+    .wcode-label { font-size:9px; color:#2563eb; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
     .status-badge { padding:6px 20px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:1px; border:2px solid; color:#fff; }
 
     .body { padding:30px 50px; flex:1; }
-    .section-title { font-size:9px; font-weight:700; color:#6366f1; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; border-left:3px solid #6366f1; padding-left:8px; }
+    .section-title { font-size:9px; font-weight:700; color:#2563eb; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; border-left:3px solid #2563eb; padding-left:8px; }
     .cards-row { display:flex; gap:12px; margin-bottom:22px; }
     .card { flex:1; background:#f8f7ff; border:1px solid #e0e7ff; border-radius:10px; padding:12px 14px; }
-    .card-label { font-size:9px; color:#6366f1; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+    .card-label { font-size:9px; color:#2563eb; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
     .card-value { font-size:13px; font-weight:700; color:#1e1b4b; }
     .card-sub   { font-size:10px; color:#94a3b8; margin-top:2px; }
 
@@ -224,7 +224,7 @@ export function printWarrantyCertificate(warranty: Warranty, settings: InvoiceSe
       </div>
       <div class="sig-item" style="flex:2;display:flex;align-items:center;justify-content:center;">
         <div style="width:90px;height:90px;border:2px solid #e0e7ff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8f7ff;">
-          <div style="font-size:9px;color:#6366f1;text-align:center;font-weight:700;letter-spacing:.5px;line-height:1.4;">OFFICIAL<br>STAMP</div>
+          <div style="font-size:9px;color:#2563eb;text-align:center;font-weight:700;letter-spacing:.5px;line-height:1.4;">OFFICIAL<br>STAMP</div>
         </div>
       </div>
       <div class="sig-item">
@@ -338,15 +338,15 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
           {/* ── Code badge row ── */}
           <div style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)', padding: '22px 50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 60 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Warranty Code</div>
+              <div style={{ fontSize: 9, color: '#2563eb', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Warranty Code</div>
               <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 800, color: '#a5b4fc', letterSpacing: 4 }}>{warranty.warrantyCode}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Issued On</div>
+              <div style={{ fontSize: 9, color: '#2563eb', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Issued On</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#c7d2fe' }}>{fmtDate(warranty.createdAt)}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Status</div>
+              <div style={{ fontSize: 9, color: '#2563eb', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Status</div>
               <div style={{ padding: '6px 20px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: 1, background: statusColor[warranty.status] ?? '#64748b', color: '#fff', display: 'inline-block' }}>
                 {warranty.status}
               </div>
@@ -357,28 +357,28 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
           <div style={{ padding: '30px 50px', flex: 1 }}>
 
             {/* Customer */}
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10, borderLeft: '3px solid #6366f1', paddingLeft: 8 }}>Customer Details</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#2563eb', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10, borderLeft: '3px solid #2563eb', paddingLeft: 8 }}>Customer Details</div>
             <div style={{ display: 'flex', gap: 12, marginBottom: 22 }}>
               {[{ label: 'Customer Name', value: warranty.customerName }, { label: 'Contact Number', value: warranty.customerPhone }].map(({ label, value }) => (
                 <div key={label} style={{ flex: 1, background: '#f8f7ff', border: '1px solid #e0e7ff', borderRadius: 10, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 9, color: '#6366f1', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 9, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{label}</div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>{value}</div>
                 </div>
               ))}
             </div>
 
             {/* Product */}
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#6366f1', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10, borderLeft: '3px solid #6366f1', paddingLeft: 8 }}>Product Details</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#2563eb', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10, borderLeft: '3px solid #2563eb', paddingLeft: 8 }}>Product Details</div>
             <div style={{ display: 'flex', gap: 12, marginBottom: warranty.imei ? 12 : 22 }}>
               <div style={{ flex: 2, background: '#f8f7ff', border: '1px solid #e0e7ff', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 9, color: '#6366f1', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Product Name</div>
+                <div style={{ fontSize: 9, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Product Name</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>
                   {warranty.productName}{(warranty.quantity ?? 1) > 1 ? ` ×${warranty.quantity}` : ''}
                 </div>
                 {warranty.brandName && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{warranty.brandName}</div>}
               </div>
               <div style={{ flex: 1, background: '#f8f7ff', border: '1px solid #e0e7ff', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 9, color: '#6366f1', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Brand</div>
+                <div style={{ fontSize: 9, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Brand</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>{warranty.brandName || '—'}</div>
               </div>
             </div>
@@ -433,7 +433,7 @@ const WarrantyCertificate = forwardRef<HTMLDivElement, WarrantyCertificateProps>
               </div>
               <div style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ width: 90, height: 90, border: '2px solid #e0e7ff', borderRadius: '50%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8f7ff' }}>
-                  <div style={{ fontSize: 9, color: '#6366f1', textAlign: 'center', fontWeight: 700, letterSpacing: '.5px', lineHeight: 1.4 }}>OFFICIAL<br/>STAMP</div>
+                  <div style={{ fontSize: 9, color: '#2563eb', textAlign: 'center', fontWeight: 700, letterSpacing: '.5px', lineHeight: 1.4 }}>OFFICIAL<br/>STAMP</div>
                 </div>
               </div>
               <div style={{ flex: 1, textAlign: 'center' }}>

@@ -100,8 +100,8 @@ export function StaffPinModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center gap-2.5 px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-            <KeyRound size={14} className="text-violet-400" />
+          <div className="w-8 h-8 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
+            <KeyRound size={14} className="text-brand-400" />
           </div>
           <div>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -114,7 +114,7 @@ export function StaffPinModal({
         </div>
 
         {statusLoading ? (
-          <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-violet-400" size={20} /></div>
+          <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-brand-400" size={20} /></div>
         ) : (
           <form onSubmit={submit} className="p-5 space-y-3">
             {mode === 'self-set' && (

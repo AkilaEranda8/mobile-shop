@@ -23,10 +23,11 @@ import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-date'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
+import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl } from '@/components/design-system'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
-  DIAGNOSING:    'text-purple-400 bg-purple-500/10 border-purple-500/20',
+  DIAGNOSING:    'text-brand-400 bg-brand-500/10 border-brand-500/20',
   IN_PROGRESS:   'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
   WAITING_PARTS: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
   READY:         'text-teal-400   bg-teal-500/10   border-teal-500/20',
@@ -645,7 +646,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <User size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <User size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 Customer Details{customer ? <> ( <span className="font-mono">{safeText(customer.name)}</span> )</> : null}
@@ -686,7 +687,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
 
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <Loader2 size={24} className="animate-spin text-violet-400" />
+            <Loader2 size={24} className="animate-spin text-brand-400" />
           </div>
         )}
 
@@ -697,7 +698,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
         {!loading && customer && (
           <div className="p-4 sm:p-5 space-y-4">
             <div className="flex gap-2 border-b pb-3" style={{ borderColor: 'var(--border-subtle)' }}>
-              <button type="button" onClick={() => setDetailTab('overview')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${detailTab === 'overview' ? 'bg-violet-500/15 text-violet-600' : ''}`}>Overview</button>
+              <button type="button" onClick={() => setDetailTab('overview')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${detailTab === 'overview' ? 'bg-brand-500/15 text-brand-600' : ''}`}>Overview</button>
               <button type="button" onClick={() => setDetailTab('hirePurchase')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${detailTab === 'hirePurchase' ? 'bg-emerald-500/15 text-emerald-600' : ''}`}>Hire Purchase ({hpAgreements.length})</button>
             </div>
             {/* Top meta row */}
@@ -1068,7 +1069,7 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                   })
                   onClose()
                 }}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-brand-500/30 bg-brand-500/15 text-brand-700 dark:text-brand-300 font-semibold"
               >
                 <ShoppingBag size={14} />
                 New Sale
@@ -1223,8 +1224,8 @@ function CustomerFormModal({ customer, onClose, onSaved }: {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20">
-              {isEditing ? <Pencil size={18} className="text-violet-500" /> : <UserPlus size={18} className="text-violet-500" />}
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-brand-500/10 border border-brand-500/20">
+              {isEditing ? <Pencil size={18} className="text-brand-500" /> : <UserPlus size={18} className="text-brand-500" />}
             </div>
             <div>
               <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{isEditing ? 'Edit Customer' : 'Add Customer'}</h3>
@@ -1471,13 +1472,13 @@ export default function CustomersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-300 flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500/20 to-cyan-500/20 border border-brand-500/20 flex items-center justify-center text-sm font-bold text-brand-300 flex-shrink-0">
             {row.original.name.charAt(0)}
           </div>
           <div>
             <button
               type="button"
-              className="text-sm font-bold text-gray-800 dark:text-slate-200 hover:text-violet-600 dark:hover:text-violet-400 text-left transition-colors"
+              className="text-sm font-bold text-gray-800 dark:text-slate-200 hover:text-brand-600 dark:hover:text-brand-400 text-left transition-colors"
               onClick={() => openDetail(row.original.id)}
             >
               {row.original.name}
@@ -1514,7 +1515,7 @@ export default function CustomersPage() {
     {
       accessorKey: 'loyaltyPoints',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Points" />,
-      cell: ({ row }) => <span className="text-xs text-violet-400 font-semibold">{row.original.loyaltyPoints} pts</span>,
+      cell: ({ row }) => <span className="text-xs text-brand-400 font-semibold">{row.original.loyaltyPoints} pts</span>,
     },
     {
       accessorKey: 'totalDue',
@@ -1640,94 +1641,74 @@ export default function CustomersPage() {
         )
       })()}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Customers</h1>
-          <p className="page-subtitle">
-            {hasActiveFilters
-              ? <>{segmentFiltered.length} of {customers.length} shown · <span className="text-violet-400">{activeSeg.label}</span></>
-              : <>{activeCount} active · {customers.length} total · <span className="text-violet-400">{activeSeg.label}</span></>}
-          </p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto items-center relative" ref={segmentRef}>
-          <OpenPosButton label="POS Terminal" variant="secondary" />
-          <button
-            onClick={() => setShowSegment(v => !v)}
-            className={`btn-secondary text-sm flex items-center gap-2 ${showSegment ? 'border-violet-500/40 text-violet-300' : ''}`}
-          >
-            <SlidersHorizontal size={14} />Segment
-            {segment !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />}
-          </button>
-
-          {showSegment && (
-            <div className="absolute top-full right-0 mt-2 w-52 bg-[#0f1623] border border-white/10 rounded-xl shadow-2xl z-30 overflow-hidden">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide px-3 pt-3 pb-1.5">Filter by segment</p>
-              {SEGMENTS.filter(s => hasCustomerCredit || s.key !== 'outstanding').map(s => (
-                <button
-                  key={s.key}
-                  onClick={() => { setSegment(s.key); setShowSegment(false) }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors ${segment === s.key ? 'text-violet-300' : 'text-slate-400'}`}
-                >
-                  <span>{s.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-600">{customers.filter(s.filter).length}</span>
-                    {segment === s.key && <ChevronRight size={12} className="text-violet-400" />}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {canEdit && (
-            <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
-              <Plus size={14} />Add Customer
+      <PageHeader
+        title="Customers"
+        subtitle={
+          hasActiveFilters
+            ? <>{segmentFiltered.length} of {customers.length} shown · <span className="text-brand-600 dark:text-brand-400">{activeSeg.label}</span></>
+            : <>{activeCount} active · {customers.length} total · <span className="text-brand-600 dark:text-brand-400">{activeSeg.label}</span></>
+        }
+        actions={
+          <div className="flex gap-2 items-center relative" ref={segmentRef}>
+            <OpenPosButton label="POS Terminal" variant="secondary" />
+            <button
+              onClick={() => setShowSegment(v => !v)}
+              className={`btn-secondary text-sm flex items-center gap-2 ${showSegment ? 'border-brand-500/40 text-brand-300' : ''}`}
+            >
+              <SlidersHorizontal size={14} />Segment
+              {segment !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-brand-400" />}
             </button>
-          )}
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Customers',   value: activeCount.toString(),                                     icon: Users,       color: 'violet' },
-          ...(hasCustomerCredit ? [{ label: 'Total Outstanding', value: formatCurrency(totalDue), icon: CreditCard, color: 'red' as const }] : []),
-          { label: 'Total Purchases',   value: totalPurchases.toString(),                                       icon: ShoppingBag, color: 'blue'   },
-          { label: 'VIP Members',       value: customers.filter(c => c.loyaltyPoints >= 500).length.toString(), icon: Star,        color: 'yellow' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
-              <Icon size={15} className={`text-${color}-400`} />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
-              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
-            </div>
+            {showSegment && (
+              <div className="absolute top-full right-0 mt-2 w-52 bg-[color:var(--bg-card)] border border-[color:var(--border-ui)] rounded-xl shadow-2xl z-30 overflow-hidden">
+                <p className="text-[10px] uppercase tracking-wide px-3 pt-3 pb-1.5" style={{ color: 'var(--text-muted)' }}>Filter by segment</p>
+                {SEGMENTS.filter(s => hasCustomerCredit || s.key !== 'outstanding').map(s => (
+                  <button
+                    key={s.key}
+                    onClick={() => { setSegment(s.key); setShowSegment(false) }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-[color:var(--bg-subtle)] transition-colors ${segment === s.key ? 'text-brand-600 dark:text-brand-300' : ''}`}
+                    style={segment !== s.key ? { color: 'var(--text-muted)' } : undefined}
+                  >
+                    <span>{s.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{customers.filter(s.filter).length}</span>
+                      {segment === s.key && <ChevronRight size={12} className="text-brand-400" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {canEdit && (
+              <button onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
+                <Plus size={14} />Add Customer
+              </button>
+            )}
           </div>
-        ))}
-      </div>
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <StatGrid cols={4}>
+        <StatCard label="Total Customers" value={activeCount.toString()} icon={Users} tone="brand" />
+        {hasCustomerCredit && (
+          <StatCard label="Total Outstanding" value={formatCurrency(totalDue)} icon={CreditCard} tone="danger" />
+        )}
+        <StatCard label="Total Purchases" value={totalPurchases.toString()} icon={ShoppingBag} tone="info" />
+        <StatCard label="VIP Members" value={customers.filter(c => c.loyaltyPoints >= 500).length.toString()} icon={Star} tone="warning" />
+      </StatGrid>
+
+      <FilterBar>
         <ToolbarSearch
           value={textSearch}
           onChange={setTextSearch}
           placeholder="Search name, phone, email…"
           className="w-full sm:w-auto sm:min-w-[220px]"
         />
-        <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
-          {SEGMENTS.filter(s => hasCustomerCredit || s.key !== 'outstanding').map(s => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => setSegment(s.key)}
-              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
-              style={segment === s.key
-                ? { background: 'var(--brand-primary-light)', color: '#fff' }
-                : { color: 'var(--text-muted)' }}>
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={segment}
+          onChange={setSegment}
+          options={SEGMENTS.filter(s => hasCustomerCredit || s.key !== 'outstanding').map(s => ({ id: s.key, label: s.label }))}
+        />
 
         <FilterDropdown
           value={cityFilter}
@@ -1792,7 +1773,7 @@ export default function CustomersPage() {
             </button>
           </>
         )}
-      </div>
+      </FilterBar>
 
       {/* Table */}
       <ClientSideTable

@@ -78,8 +78,8 @@ export default function SmsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
-            <MessageSquare size={20} className="text-violet-400" />
+          <div className="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center">
+            <MessageSquare size={20} className="text-brand-400" />
           </div>
           <div>
             <h1 className="page-title">SMS Gateway</h1>
@@ -115,7 +115,7 @@ export default function SmsPage() {
             <MessageSquare size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-slate-400">
               Configure your SMS provider in the <button onClick={() => setActiveTab('connection')}
-                className="text-violet-400 hover:underline font-medium">Connection</button> tab — enter API keys, enable gateway, then send a test SMS.
+                className="text-brand-400 hover:underline font-medium">Connection</button> tab — enter API keys, enable gateway, then send a test SMS.
             </p>
           </motion.div>
         )}
@@ -126,7 +126,7 @@ export default function SmsPage() {
           <button key={key} onClick={() => setActiveTab(key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
               activeTab === key
-                ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+                ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'
                 : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5'
             }`}>
             <Icon size={14} />

@@ -53,7 +53,7 @@ function SupportSessionInner() {
       <div className="text-center space-y-4 max-w-sm px-4">
         {status === 'loading' && (
           <>
-            <Loader2 className="w-10 h-10 text-violet-400 animate-spin mx-auto" />
+            <Loader2 className="w-10 h-10 text-brand-400 animate-spin mx-auto" />
             <p className="text-slate-300 text-sm">Verifying authorised support access…</p>
           </>
         )}
@@ -67,7 +67,7 @@ function SupportSessionInner() {
           <>
             <ShieldAlert className="w-10 h-10 text-red-400 mx-auto" />
             <p className="text-red-400 text-sm font-medium">{message}</p>
-            <a href="/login" className="text-violet-400 text-xs underline">Back to login</a>
+            <a href="/login" className="text-brand-400 text-xs underline">Back to login</a>
           </>
         )}
       </div>
@@ -79,7 +79,7 @@ export default function SupportSessionPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#07090f] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-violet-400 animate-spin" />
+        <Loader2 className="w-10 h-10 text-brand-400 animate-spin" />
       </div>
     }>
       <SupportSessionInner />

@@ -124,7 +124,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f1623]">
           <div className="flex items-center gap-2">
-            <Package size={16} className="text-violet-400" />
+            <Package size={16} className="text-brand-400" />
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">New Delivery Order</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5 transition-colors"><X size={16} /></button>
@@ -216,7 +216,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Order Items</p>
               <button type="button" onClick={addItem}
-                className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300">
+                className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300">
                 <Plus size={12} /> Add Item
               </button>
             </div>
@@ -250,7 +250,7 @@ export default function CreateOrderModal({ couriers, onClose, onCreated }: Props
                               <p className="text-xs font-medium text-white">{p.name}</p>
                               <p className="text-[10px] text-slate-500">{p.sku} · Stock: {p.stock}</p>
                             </div>
-                            <span className="text-xs font-semibold text-violet-400 ml-3 whitespace-nowrap">
+                            <span className="text-xs font-semibold text-brand-400 ml-3 whitespace-nowrap">
                               LKR {p.sellingPrice.toLocaleString()}
                             </span>
                           </button>

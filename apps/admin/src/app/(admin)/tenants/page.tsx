@@ -66,7 +66,7 @@ const STATUS_BADGE: Record<string, string> = {
 const PLAN_BADGE: Record<string, string> = {
   STARTER:    'badge-gray',
   PRO:        'badge-blue',
-  ENTERPRISE: 'badge-purple',
+  ENTERPRISE: 'badge-brand',
 }
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: '2-digit' })

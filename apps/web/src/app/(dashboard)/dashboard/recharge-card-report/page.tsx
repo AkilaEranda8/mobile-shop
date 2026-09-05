@@ -12,6 +12,7 @@ import {
 import { useActiveBranchId, useDailyReloadReport, useFeatureFlag } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
+import { StatCard } from '@/components/design-system'
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'var(--bg-card)',
@@ -58,25 +59,10 @@ type DayRow = {
   successCount: number
 }
 
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-        <Icon size={16} className={`text-${color}-600 dark:text-${color}-400`} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-        {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -95,7 +81,7 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
     a.click()
   }
   return (
-    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
+    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-brand-600 dark:hover:text-brand-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
       <Download size={12} /> Export CSV
     </button>
   )
@@ -187,7 +173,7 @@ export default function RechargeCardReportPage() {
   if (!hasDailyReload) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.1)' }}>
           <CreditCard size={26} style={{ color: 'var(--brand-light)' }} />
         </div>
         <div className="text-center">
@@ -250,7 +236,7 @@ export default function RechargeCardReportPage() {
       {!loading && !error && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <StatCard label="Cards Sold" value={String(totalCount)} icon={CreditCard} color="violet" />
+            <StatCard label="Cards Sold" value={String(totalCount)} icon={CreditCard} color="blue" />
             <StatCard label="Total Face Value" value={formatCurrency(totalAmount)} icon={DollarSign} color="blue" />
             <StatCard label="Commission" value={formatCurrency(commission)} icon={TrendingUp} color="green" sub="Shop profit" />
             <StatCard label="Net to Providers" value={formatCurrency(netPayable)} icon={Wallet} color="amber" />
@@ -327,7 +313,7 @@ export default function RechargeCardReportPage() {
                         <tr key={a.amount} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                           <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{formatCurrency(a.amount)}</td>
                           <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{a.count}</td>
-                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(a.totalAmount)}</td>
+                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(a.totalAmount)}</td>
                           <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(a.commission)}</td>
                           <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(a.netPayable)}</td>
                           <td className="px-3 py-2.5 text-xs text-right text-green-600 dark:text-green-400">{a.successCount}</td>
@@ -372,7 +358,7 @@ export default function RechargeCardReportPage() {
                     <tr key={p.provider} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.provider}</td>
                       <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{p.count}</td>
-                      <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(p.totalAmount)}</td>
+                      <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(p.totalAmount)}</td>
                       <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(p.commission)}</td>
                       <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(p.netPayable)}</td>
                       <td className="px-3 py-2.5 text-xs text-right text-green-600 dark:text-green-400">{p.successCount}</td>
@@ -406,7 +392,7 @@ export default function RechargeCardReportPage() {
                     <tr key={r.date} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{r.date}</td>
                       <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{r.count}</td>
-                      <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(r.totalAmount)}</td>
+                      <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(r.totalAmount)}</td>
                       <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(r.commission)}</td>
                       <td className="px-3 py-2.5 text-xs text-right text-green-600 dark:text-green-400">{r.successCount}</td>
                       <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{r.count - r.successCount}</td>

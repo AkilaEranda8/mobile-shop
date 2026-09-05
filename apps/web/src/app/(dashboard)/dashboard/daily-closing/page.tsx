@@ -84,7 +84,7 @@ function MetricCard({ label, value, sub, tone }: { label: string; value: string;
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -436,7 +436,7 @@ export default function DailyClosingPage() {
 
       {loading || !d || d.date !== date ? (
         <div className="card rounded-2xl p-16 flex flex-col items-center justify-center gap-3">
-          <Loader2 size={28} className="animate-spin text-violet-500" />
+          <Loader2 size={28} className="animate-spin text-brand-500" />
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading closing data…</p>
         </div>
       ) : (
@@ -444,7 +444,7 @@ export default function DailyClosingPage() {
           {/* ── Top KPI row ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KpiCard icon={ShoppingCart} label="Total Sales" value={formatCurrency(d?.sales?.totalSales ?? 0)}
-              sub={`${d?.sales?.salesCount ?? 0} orders`} color="var(--brand-light)" bg="rgba(139,92,246,0.1)" />
+              sub={`${d?.sales?.salesCount ?? 0} orders`} color="var(--brand-light)" bg="rgba(59,130,246,0.1)" />
             <KpiCard icon={TrendingUp} label="Net Profit" value={formatCurrency(d?.profit?.netProfit ?? 0)}
               sub={showReload ? `Commission ${formatCurrency(d?.profit?.reloadCommission ?? 0)}` : 'After expenses & COGS'}
               color="#10b981" bg="rgba(16,185,129,0.1)" />
@@ -458,10 +458,10 @@ export default function DailyClosingPage() {
 
           {/* ── Insights ── */}
           {(visibleInsights.length > 0) && (
-            <div className="card rounded-2xl p-4 border-violet-500/20" style={{ background: 'var(--brand-glow)' }}>
+            <div className="card rounded-2xl p-4 border-brand-500/20" style={{ background: 'var(--brand-glow)' }}>
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={14} className="text-violet-500" />
-                <span className="text-xs font-bold text-violet-600 dark:text-violet-400">AI Insights</span>
+                <Sparkles size={14} className="text-brand-500" />
+                <span className="text-xs font-bold text-brand-600 dark:text-brand-400">AI Insights</span>
               </div>
               <ul className="text-xs space-y-1" style={{ color: 'var(--text-secondary)' }}>
                 {visibleInsights.map((ins: string, i: number) => <li key={i}>• {ins}</li>)}
@@ -847,7 +847,7 @@ export default function DailyClosingPage() {
                         </div>
                       ))}
                       <Link href={`/dashboard/profit-allocation?date=${date}`}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium mt-3 text-violet-600 dark:text-violet-400 hover:underline">
+                        className="inline-flex items-center gap-1.5 text-xs font-medium mt-3 text-brand-600 dark:text-brand-400 hover:underline">
                         View full allocation <ExternalLink size={12} />
                       </Link>
                     </>
@@ -922,7 +922,7 @@ export default function DailyClosingPage() {
               <SectionTitle title="Linked System Modules" sub="Data pulled automatically — no manual re-entry" />
               <div className={`grid grid-cols-2 gap-3 mb-4 ${showReload ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
                 <KpiCard icon={ShoppingCart} label="POS Orders" value={String(d.dataSources.salesOrders ?? 0)}
-                  sub={formatCurrency(d.dataSources.posSalesTotal ?? 0)} color="var(--brand-light)" bg="rgba(139,92,246,0.1)" />
+                  sub={formatCurrency(d.dataSources.posSalesTotal ?? 0)} color="var(--brand-light)" bg="rgba(59,130,246,0.1)" />
                 <KpiCard icon={BarChart3} label="Finance Tx" value={String(d.dataSources.financeTransactions ?? 0)} color="#3b82f6" bg="rgba(59,130,246,0.1)" />
                 {showReload && (
                   <KpiCard icon={PhoneCall} label="Reloads" value={String(d.dataSources.reloadRecords ?? 0)} color="#10b981" bg="rgba(16,185,129,0.1)" />

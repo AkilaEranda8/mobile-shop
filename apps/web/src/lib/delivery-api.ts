@@ -122,7 +122,7 @@ export const STATUS_COLORS: Record<DeliveryStatus, string> = {
   PENDING:           'bg-slate-500/20 text-slate-300',
   PACKED:            'bg-blue-500/20 text-blue-300',
   AWAITING_TRACKING: 'bg-yellow-500/20 text-yellow-300',
-  DISPATCHED:        'bg-violet-500/20 text-violet-300',
+  DISPATCHED:        'bg-brand-500/20 text-brand-300',
   IN_TRANSIT:        'bg-orange-500/20 text-orange-300',
   DELIVERED:         'bg-green-500/20 text-green-300',
   CANCELLED:         'bg-red-500/20 text-red-300',

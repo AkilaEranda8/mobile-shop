@@ -422,9 +422,9 @@ export default function LoginPage() {
 
       <div className="hidden lg:flex flex-col w-[52%] relative overflow-hidden px-14 py-12">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-violet-700/20 rounded-full blur-3xl" />
+          <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-brand-700/20 rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-cyan-600/10 rounded-full blur-3xl" />
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-950/20 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-950/20 via-transparent to-transparent" />
         </div>
 
         <div className="relative flex items-center mb-auto">
@@ -434,7 +434,7 @@ export default function LoginPage() {
         <div className="relative mt-16 mb-10">
           <h2 className="text-4xl font-bold leading-tight" style={{ color: '#f1f5f9' }}>
             Run your entire<br />
-            <span className="bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-brand-400 to-cyan-400 bg-clip-text text-transparent">
               retail shop
             </span><br />
             from one place
@@ -446,9 +446,9 @@ export default function LoginPage() {
 
         <div className="relative grid grid-cols-2 gap-3 mb-auto">
           {features.map(({ icon: Icon, label, desc }) => (
-            <div key={label} className="flex items-start gap-3 p-3 rounded-xl border hover:border-violet-500/30 transition-colors" style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}>
-              <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                <Icon size={14} className="text-violet-400" />
+            <div key={label} className="flex items-start gap-3 p-3 rounded-xl border hover:border-brand-500/30 transition-colors" style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}>
+              <div className="w-8 h-8 rounded-lg bg-brand-500/15 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                <Icon size={14} className="text-brand-400" />
               </div>
               <div>
                 <p className="text-xs font-semibold" style={{ color: '#e2e8f0' }}>{label}</p>
@@ -502,7 +502,7 @@ export default function LoginPage() {
                 placeholder="owner@yourshop.com"
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all border"
                 style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
@@ -523,7 +523,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-all border"
                   style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
-                  onFocus={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
+                  onFocus={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)')}
                   onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
                   value={form.password}
                   onChange={e => setForm({ ...form, password: e.target.value })}
@@ -571,9 +571,9 @@ export default function LoginPage() {
               Having trouble? Contact your system administrator
             </p>
             <p className="text-[11px]" style={{ color: '#64748b' }}>
-              <Link href="/privacy" className="hover:text-violet-400 transition-colors">Privacy</Link>
+              <Link href="/privacy" className="hover:text-brand-400 transition-colors">Privacy</Link>
               {' · '}
-              <Link href="/terms" className="hover:text-violet-400 transition-colors">Terms</Link>
+              <Link href="/terms" className="hover:text-brand-400 transition-colors">Terms</Link>
             </p>
           </div>
         </div>

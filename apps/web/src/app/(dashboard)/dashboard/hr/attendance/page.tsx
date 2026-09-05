@@ -46,7 +46,7 @@ const STATUS_STYLE: Record<string, string> = {
   LATE: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
   HALF_DAY: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
   ABSENT: 'bg-red-500/15 text-red-300 border-red-500/30',
-  ON_LEAVE: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  ON_LEAVE: 'bg-brand-500/15 text-brand-300 border-brand-500/30',
   HOLIDAY: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
 }
 

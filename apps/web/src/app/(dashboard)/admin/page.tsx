@@ -10,7 +10,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 
 const planColors: Record<string, string> = {
   STARTER: 'bg-slate-500/10 border-slate-500/20 text-slate-400',
-  PRO: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
+  PRO: 'bg-brand-500/10 border-brand-500/20 text-brand-400',
   ENTERPRISE: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
 }
 
@@ -57,7 +57,7 @@ export default function AdminPage() {
       {/* Platform Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Tenants', value: mockTenants.length, sub: `${activeTenants} active`, color: 'text-violet-400' },
+          { label: 'Total Tenants', value: mockTenants.length, sub: `${activeTenants} active`, color: 'text-brand-400' },
           { label: 'Monthly MRR', value: formatCurrency(totalMRR), sub: '+12.4% MoM', color: 'text-green-400' },
           { label: 'Trial Tenants', value: trialTenants, sub: 'Conversion opportunity', color: 'text-blue-400' },
           { label: 'Suspended', value: mockTenants.filter(t => t.status === 'SUSPENDED').length, sub: 'Needs attention', color: 'text-red-400' },
@@ -76,7 +76,7 @@ export default function AdminPage() {
           <button
             key={key}
             onClick={() => setActiveTab(key as 'tenants' | 'health' | 'billing')}
-            className={`px-4 py-1.5 text-xs rounded-lg transition-colors ${activeTab === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            className={`px-4 py-1.5 text-xs rounded-lg transition-colors ${activeTab === key ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'}`}
           >
             {label}
           </button>
@@ -114,7 +114,7 @@ export default function AdminPage() {
                     <tr key={tenant.id} className="hover:bg-white/2 transition-colors">
                       <td className="table-cell">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-300 flex-shrink-0">
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500/20 to-cyan-500/20 border border-brand-500/20 flex items-center justify-center text-xs font-bold text-brand-300 flex-shrink-0">
                             {tenant.name.charAt(0)}
                           </div>
                           <div>
@@ -153,7 +153,7 @@ export default function AdminPage() {
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center justify-center gap-1">
-                          <button className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors" title="View">
+                          <button className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors" title="View">
                             <Eye size={12} />
                           </button>
                           <button className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Suspend">
@@ -199,7 +199,7 @@ export default function AdminPage() {
                   <p className="text-lg font-bold text-gray-900 dark:text-white">{Math.floor(Math.random() * 30 + 10)}ms</p>
                 </div>
               </div>
-              <button className="mt-3 w-full text-xs text-gray-500 dark:text-slate-500 hover:text-violet-400 flex items-center justify-center gap-1.5 py-1.5 transition-colors">
+              <button className="mt-3 w-full text-xs text-gray-500 dark:text-slate-500 hover:text-brand-400 flex items-center justify-center gap-1.5 py-1.5 transition-colors">
                 <RefreshCw size={11} />Refresh
               </button>
             </div>

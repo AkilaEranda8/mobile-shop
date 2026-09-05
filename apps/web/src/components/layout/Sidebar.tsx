@@ -778,7 +778,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         ) : (
                           <>
                             {item.href === '/dashboard/feature-suggestions' && suggestionUnreadCount > 0 && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 bg-brand-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30">
                                 {suggestionUnreadCount > 9 ? '9+' : suggestionUnreadCount} NEW
                               </span>
                             )}

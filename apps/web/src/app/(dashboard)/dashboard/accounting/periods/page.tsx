@@ -116,7 +116,7 @@ export default function AccountingPeriodsPage() {
       />
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" size={28} /></div>
+        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" size={28} /></div>
       ) : (
         <div className="grid lg:grid-cols-12 gap-4 w-full">
           <AccountingPanel title="Periods" className="lg:col-span-4">
@@ -126,7 +126,7 @@ export default function AccountingPeriodsPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedId(p.id)}
-                    className={`w-full text-left px-4 py-3 border-b transition-colors hover:bg-white/[0.03] ${selectedId === p.id ? 'bg-violet-500/10' : ''}`}
+                    className={`w-full text-left px-4 py-3 border-b transition-colors hover:bg-white/[0.03] ${selectedId === p.id ? 'bg-brand-500/10' : ''}`}
                     style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     <div className="flex items-center justify-between gap-2">

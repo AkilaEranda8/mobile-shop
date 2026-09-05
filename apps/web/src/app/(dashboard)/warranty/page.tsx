@@ -31,12 +31,13 @@ import {
   hasMultipleBranches,
   isAllBranchesScope,
 } from '@/lib/active-branch'
+import { PageHeader, StatCard, StatGrid, StatusBadge } from '@/components/design-system'
 
-const statusColors: Record<string, string> = {
-  ACTIVE:  'bg-green-500/10  border-green-500/20  text-green-400',
-  EXPIRED: 'bg-slate-500/10  border-slate-500/20  text-slate-400',
-  VOID:    'bg-red-500/10    border-red-500/20    text-red-400',
-  CLAIMED: 'bg-blue-500/10   border-blue-500/20   text-blue-400',
+const statusColors: Record<string, 'success' | 'neutral' | 'danger' | 'info'> = {
+  ACTIVE:  'success',
+  EXPIRED: 'neutral',
+  VOID:    'danger',
+  CLAIMED: 'info',
 }
 
 /* ── Repair service warranty default (shop-wide) ─────────────────────── */
@@ -66,10 +67,10 @@ function RepairWarrantyDefaults() {
   }
 
   return (
-    <div className="card p-4 flex flex-col sm:flex-row sm:items-center gap-4 border border-violet-500/15 bg-violet-500/5">
+    <div className="card p-4 flex flex-col sm:flex-row sm:items-center gap-4 border border-brand-500/15 bg-brand-500/5">
       <div className="flex items-start gap-3 flex-1">
-        <div className="w-9 h-9 rounded-lg bg-violet-500/15 flex items-center justify-center shrink-0">
-          <Wrench size={16} className="text-violet-400" />
+        <div className="w-9 h-9 rounded-lg bg-brand-500/15 flex items-center justify-center shrink-0">
+          <Wrench size={16} className="text-brand-400" />
         </div>
         <div>
           <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Repair Service Warranty</p>
@@ -208,13 +209,13 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>Customer *</label>
             {selCustomer ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-xl">
-                <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300 flex-shrink-0">
+              <div className="flex items-center gap-2 px-3 py-2 bg-brand-500/10 border border-brand-500/20 rounded-xl">
+                <div className="w-6 h-6 rounded-full bg-brand-500/20 flex items-center justify-center text-[10px] font-bold text-brand-300 flex-shrink-0">
                   {selCustomer.name?.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-violet-500 truncate">{selCustomer.name}</p>
-                  <p className="text-[10px] text-violet-400">{selCustomer.phone}</p>
+                  <p className="text-xs font-semibold text-brand-500 truncate">{selCustomer.name}</p>
+                  <p className="text-[10px] text-brand-400">{selCustomer.phone}</p>
                 </div>
                 <button type="button" onClick={() => { setSelCustomer(null); setForm(p => ({ ...p, customerName: '', customerPhone: '', customerId: '' })) }}
                   className="transition-colors flex-shrink-0" style={{ color: 'var(--text-muted)' }}><X size={12} /></button>
@@ -232,8 +233,8 @@ function AddWarrantyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
                   <div className="absolute z-20 top-full mt-1 w-full rounded-xl shadow-2xl overflow-hidden border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
                     {filteredCustomers.map((c: any) => (
                       <button key={c.id} type="button" onClick={() => selectCustomer(c)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-violet-500/10 transition-colors border-b last:border-0 flex items-center gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-500 flex-shrink-0">
+                        className="w-full text-left px-3 py-2.5 hover:bg-brand-500/10 transition-colors border-b last:border-0 flex items-center gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <div className="w-7 h-7 rounded-full bg-brand-500/20 flex items-center justify-center text-[10px] font-bold text-brand-500 flex-shrink-0">
                           {c.name?.charAt(0)}
                         </div>
                         <div>
@@ -481,7 +482,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Shield size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <Shield size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 Warranty Details ( <span className="font-mono">{safeText(warranty.warrantyCode)}</span> )
@@ -493,9 +494,9 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-            <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[warranty.status] ?? ''}`}>
+            <StatusBadge tone={statusColors[warranty.status] ?? 'neutral'}>
               {warranty.status}
-            </span>
+            </StatusBadge>
             {warranty.status === 'ACTIVE' && (
               <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
                 expiring
@@ -508,7 +509,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
             {canEdit && <button
               type="button"
               onClick={onEdit}
-              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-brand-700 dark:text-brand-300 border-brand-500/25 bg-brand-500/10 hover:bg-brand-500/20"
             >
               <Edit size={12} /> Edit
             </button>}
@@ -704,7 +705,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
                       <button type="button" onClick={() => setClaimType('SOFTWARE')}
                         className={`flex-1 py-1.5 text-xs rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                           claimType === 'SOFTWARE'
-                            ? 'bg-violet-500/20 border-violet-500/40 text-violet-600 dark:text-violet-300'
+                            ? 'bg-brand-500/20 border-brand-500/40 text-brand-600 dark:text-brand-300'
                             : ''
                         }`}
                         style={claimType !== 'SOFTWARE' ? { borderColor: 'var(--border-default)', color: 'var(--text-muted)' } : undefined}
@@ -765,7 +766,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
                             <td className="px-3 py-2">
                               <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
                                 c.claimType === 'SOFTWARE'
-                                  ? 'bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400'
+                                  ? 'bg-brand-500/10 border-brand-500/20 text-brand-600 dark:text-brand-400'
                                   : 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400'
                               }`}>
                                 {c.claimType === 'SOFTWARE' ? 'Software' : 'Hardware'}
@@ -897,7 +898,7 @@ function WarrantyDetailsModal({ warranty, onClose, onEdit, onDelete, onCreateRep
               type="button"
               onClick={downloadPdf}
               disabled={downloading}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-brand-500/30 bg-brand-500/15 text-brand-700 dark:text-brand-300 font-semibold disabled:opacity-60"
             >
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Download PDF
@@ -1006,7 +1007,7 @@ function EditWarrantyModal({ warranty, onClose, onSaved }: {
       <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b sticky top-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div>
-            <p className="text-[10px] font-mono text-violet-400">{warranty.warrantyCode}</p>
+            <p className="text-[10px] font-mono text-brand-400">{warranty.warrantyCode}</p>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Edit Warranty</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
@@ -1165,8 +1166,8 @@ export default function WarrantyPage() {
           onClick={() => openDetail(row.original)}
           onDoubleClick={canEdit ? (e) => { e.preventDefault(); openEdit(row.original) } : undefined}
         >
-          <Shield size={13} className="text-violet-400 flex-shrink-0" />
-          <span className="text-xs font-mono text-violet-500 hover:underline">{row.original.warrantyCode}</span>
+          <Shield size={13} className="text-brand-400 flex-shrink-0" />
+          <span className="text-xs font-mono text-brand-500 hover:underline">{row.original.warrantyCode}</span>
         </button>
       ),
     },
@@ -1230,9 +1231,9 @@ export default function WarrantyPage() {
       accessorKey: 'status',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       cell: ({ row }) => (
-        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusColors[(row.original as any).status] || ''}`}>
+        <StatusBadge tone={statusColors[(row.original as any).status] || 'neutral'}>
           {row.original.status}
-        </span>
+        </StatusBadge>
       ),
     },
     {
@@ -1277,49 +1278,30 @@ export default function WarrantyPage() {
       />}
       {editW    && <EditWarrantyModal   warranty={editW} onClose={() => setEditW(null)}  onSaved={() => { refetch(); setEditW(null) }} />}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Warranty Management</h1>
-          <p className="page-subtitle">{warranties.length} warranties · {expiringCount} expiring soon</p>
-        </div>
-        {canEdit && (
-          <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2 sm:ml-auto">
-            <Plus size={14} />Issue Warranty
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Warranty Management"
+        subtitle={`${warranties.length} warranties · ${expiringCount} expiring soon`}
+        actions={
+          canEdit ? (
+            <button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />Issue Warranty
+            </button>
+          ) : undefined
+        }
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Warranties', value: warranties.length,                                                  icon: Shield,        color: 'violet', tabKey: 'all' as const },
-          { label: 'Active',           value: warranties.filter((w: Warranty) => w.status === 'ACTIVE').length,  icon: CheckCircle,   color: 'green',  tabKey: 'all' as const },
-          { label: 'Expiring 30d',     value: expiringCount,                                                      icon: AlertTriangle, color: 'yellow', tabKey: 'expiring' as const },
-          { label: 'Claimed',          value: warranties.filter((w: Warranty) => w.status === 'CLAIMED').length, icon: Clock,         color: 'blue',   tabKey: 'claimed' as const },
-        ].map(({ label, value, icon: Icon, color, tabKey }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setTab(tabKey)}
-            className={`card p-4 flex items-center gap-3 text-left transition-all hover:border-violet-500/30 w-full ${tab === tabKey ? 'ring-2 ring-violet-500/40' : ''}`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
-              <Icon size={15} className={`text-${color}-400`} />
-            </div>
-            <div>
-              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-            </div>
-          </button>
-        ))}
-      </div>
+      <StatGrid cols={4}>
+        <StatCard label="Total Warranties" value={warranties.length} icon={Shield} tone="brand" active={tab === 'all'} onClick={() => setTab('all')} />
+        <StatCard label="Active" value={warranties.filter((w: Warranty) => w.status === 'ACTIVE').length} icon={CheckCircle} tone="success" active={tab === 'all'} onClick={() => setTab('all')} />
+        <StatCard label="Expiring 30d" value={expiringCount} icon={AlertTriangle} tone="warning" active={tab === 'expiring'} onClick={() => setTab('expiring')} />
+        <StatCard label="Claimed" value={warranties.filter((w: Warranty) => w.status === 'CLAIMED').length} icon={Clock} tone="info" active={tab === 'claimed'} onClick={() => setTab('claimed')} />
+      </StatGrid>
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl w-fit border" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
         {[['all', 'All'], ['expiring', `Expiring (${expiringCount})`], ['claimed', 'Claims']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key as any)}
-            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-violet-600 text-white' : 'hover:text-violet-500'}`}
+            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${tab === key ? 'bg-brand-600 text-white' : 'hover:text-brand-500'}`}
             style={tab !== key ? { color: 'var(--text-muted)' } : undefined}>
             {label}
           </button>

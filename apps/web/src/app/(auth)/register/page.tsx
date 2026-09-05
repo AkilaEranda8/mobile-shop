@@ -76,7 +76,7 @@ function RegisterForm() {
   return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center px-4 py-12">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 right-1/3 w-96 h-96 bg-violet-600/8 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 right-1/3 w-96 h-96 bg-brand-600/8 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative">
@@ -98,10 +98,10 @@ function RegisterForm() {
         <div className="flex items-center gap-2 mb-6 justify-center">
           {[1, 2].map((s) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${s <= step ? 'bg-violet-600 text-white' : 'bg-white/5 text-slate-500'}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${s <= step ? 'bg-brand-600 text-white' : 'bg-white/5 text-slate-500'}`}>
                 {s < step ? <CheckCircle size={14} /> : s}
               </div>
-              {s < 2 && <div className={`w-12 h-px ${s < step ? 'bg-violet-600' : 'bg-white/10'}`} />}
+              {s < 2 && <div className={`w-12 h-px ${s < step ? 'bg-brand-600' : 'bg-white/10'}`} />}
             </div>
           ))}
         </div>
@@ -217,14 +217,14 @@ function RegisterForm() {
                   <div
                     key={plan.id}
                     onClick={() => setSelectedPlan(plan.id)}
-                    className={`relative flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${selectedPlan === plan.id ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}
+                    className={`relative flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${selectedPlan === plan.id ? 'border-brand-500 bg-brand-500/10' : 'border-white/10 hover:border-white/20'}`}
                   >
                     {plan.popular && (
-                      <span className="absolute -top-2 right-3 text-xs bg-violet-600 text-white px-2 py-0.5 rounded-full">Popular</span>
+                      <span className="absolute -top-2 right-3 text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full">Popular</span>
                     )}
                     <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedPlan === plan.id ? 'border-violet-500' : 'border-white/30'}`}>
-                        {selectedPlan === plan.id && <div className="w-2 h-2 bg-violet-500 rounded-full" />}
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedPlan === plan.id ? 'border-brand-500' : 'border-white/30'}`}>
+                        {selectedPlan === plan.id && <div className="w-2 h-2 bg-brand-500 rounded-full" />}
                       </div>
                       <div>
                         <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{plan.name}</p>
@@ -236,8 +236,8 @@ function RegisterForm() {
                 ))}
               </div>
 
-              <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-3">
-                <p className="text-xs text-violet-300 text-center">
+              <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl p-3">
+                <p className="text-xs text-brand-300 text-center">
                   14-day free trial on all plans. No credit card needed.
                 </p>
               </div>
@@ -258,12 +258,12 @@ function RegisterForm() {
 
         <p className="text-center text-sm text-slate-500 mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="text-violet-400 hover:text-violet-300 font-medium">Sign in</Link>
+          <Link href="/login" className="text-brand-400 hover:text-brand-300 font-medium">Sign in</Link>
         </p>
         <p className="text-center text-[11px] text-slate-600 mt-3">
-          <Link href="/privacy" className="hover:text-violet-400">Privacy</Link>
+          <Link href="/privacy" className="hover:text-brand-400">Privacy</Link>
           {' · '}
-          <Link href="/terms" className="hover:text-violet-400">Terms</Link>
+          <Link href="/terms" className="hover:text-brand-400">Terms</Link>
         </p>
       </div>
     </div>
@@ -274,7 +274,7 @@ export default function RegisterPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#080c14] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
       </div>
     }>
       <RegisterForm />

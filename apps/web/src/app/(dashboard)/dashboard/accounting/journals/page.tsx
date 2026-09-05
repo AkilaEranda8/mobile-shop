@@ -300,7 +300,7 @@ export default function JournalsPage() {
           <p className="text-sm font-semibold text-amber-200">{pending.length} journal(s) awaiting approval</p>
           {pending.map(p => (
             <div key={p.id} className="flex items-center justify-between text-sm gap-2">
-              <span className="font-mono text-violet-400">{p.entryNo}</span>
+              <span className="font-mono text-brand-400">{p.entryNo}</span>
               <span style={{ color: 'var(--text-muted)' }}>{formatCurrency(p.totalDebit)}</span>
               {canEdit && <div className="flex gap-2">
                 <button type="button" onClick={() => handleApprove(p.id)} className="text-xs text-emerald-400">Approve</button>
@@ -314,7 +314,7 @@ export default function JournalsPage() {
       <div className="grid xl:grid-cols-12 gap-4 w-full">
         <AccountingPanel title="Journal entries" className="xl:col-span-4">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-violet-400" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-brand-400" /></div>
           ) : journals.length === 0 ? (
             <p className="p-6 text-sm text-center" style={{ color: 'var(--text-muted)' }}>No journals found</p>
           ) : (
@@ -324,10 +324,10 @@ export default function JournalsPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedId(j.id)}
-                    className={`w-full text-left px-4 py-3 hover:bg-white/[0.03] flex items-center gap-2 transition-colors ${selectedId === j.id ? 'bg-violet-500/10' : ''}`}
+                    className={`w-full text-left px-4 py-3 hover:bg-white/[0.03] flex items-center gap-2 transition-colors ${selectedId === j.id ? 'bg-brand-500/10' : ''}`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-mono text-violet-400 truncate">{j.entryNo}</p>
+                      <p className="text-sm font-mono text-brand-400 truncate">{j.entryNo}</p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{j.entryDate} · {j.sourceModule}</p>
                       {j.status === 'PENDING_APPROVAL' && (
                         <AccountingStatusBadge tone="warning">Pending approval</AccountingStatusBadge>
@@ -351,7 +351,7 @@ export default function JournalsPage() {
               Select a journal to view lines
             </div>
           ) : detailLoading ? (
-            <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
+            <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" /></div>
           ) : detail ? (
             <div className="space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -390,7 +390,7 @@ export default function JournalsPage() {
                   {detail.lines.map(l => (
                     <tr key={l.id}>
                       <AccountingTd>
-                        <span className="font-mono text-violet-400">{l.account.code}</span>
+                        <span className="font-mono text-brand-400">{l.account.code}</span>
                         <span className="ml-2">{l.account.name}</span>
                       </AccountingTd>
                       <AccountingTd>{l.description ?? '—'}</AccountingTd>
@@ -437,7 +437,7 @@ export default function JournalsPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Lines</span>
-                <button type="button" onClick={addLine} className="text-xs text-violet-400 hover:text-violet-300">+ Add line</button>
+                <button type="button" onClick={addLine} className="text-xs text-brand-400 hover:text-brand-300">+ Add line</button>
               </div>
               {lines.map((l, i) => (
                 <div key={l.key} className="grid grid-cols-12 gap-2 items-end">

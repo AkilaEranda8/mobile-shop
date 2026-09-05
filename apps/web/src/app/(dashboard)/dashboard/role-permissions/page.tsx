@@ -14,8 +14,8 @@ export default function RolePermissionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-              <Shield size={15} className="text-violet-400" />
+            <div className="w-8 h-8 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
+              <Shield size={15} className="text-brand-400" />
             </div>
             <h1 className="page-title">Role Permissions</h1>
           </div>
@@ -57,7 +57,7 @@ export default function RolePermissionsPage() {
 
       <Link
         href="/dashboard/staff"
-        className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-violet-400 transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-brand-400 transition-colors"
       >
         <ArrowLeft size={12} />
         Back to Staff &amp; Roles

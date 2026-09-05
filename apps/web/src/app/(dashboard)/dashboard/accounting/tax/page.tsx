@@ -96,7 +96,7 @@ export default function TaxPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" /></div>
       ) : summary && (
         <>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -140,7 +140,7 @@ export default function TaxPage() {
               <tbody>
                 {taxCodes.map(t => (
                   <tr key={t.code}>
-                    <AccountingTd mono className="text-violet-400">{t.code}</AccountingTd>
+                    <AccountingTd mono className="text-brand-400">{t.code}</AccountingTd>
                     <AccountingTd>{t.name}</AccountingTd>
                     <AccountingTd>{t.type} · {t.rate}%</AccountingTd>
                     <AccountingTd mono>{t.glAccount.code}</AccountingTd>

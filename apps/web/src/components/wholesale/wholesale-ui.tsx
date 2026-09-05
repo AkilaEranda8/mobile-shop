@@ -58,13 +58,14 @@ export function WholesaleKpiCard({
   label: string
   value: string | number
   icon: React.ComponentType<{ size?: number; className?: string }>
-  tone?: 'sky' | 'emerald' | 'amber' | 'violet' | 'rose'
+  tone?: 'sky' | 'emerald' | 'amber' | 'violet' | 'blue' | 'rose'
 }) {
   const tones: Record<string, string> = {
     sky: 'bg-sky-500/10 border-sky-500/20 text-sky-600',
     emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600',
     amber: 'bg-amber-500/10 border-amber-500/20 text-amber-600',
-    violet: 'bg-violet-500/10 border-violet-500/20 text-violet-600',
+    violet: 'bg-brand-500/10 border-brand-500/20 text-brand-600',
+    blue: 'bg-brand-500/10 border-brand-500/20 text-brand-600',
     rose: 'bg-rose-500/10 border-rose-500/20 text-rose-600',
   }
   return (

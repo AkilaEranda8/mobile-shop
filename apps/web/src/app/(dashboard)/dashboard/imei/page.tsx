@@ -16,6 +16,7 @@ import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 import { isValidUnitSerial, normalizeSerial, SERIAL_MAX_LEN, serialValidationMessage } from '@/lib/serialNumber'
+import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   IN_STOCK:             { label: 'In Stock',     color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
@@ -24,12 +25,12 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; b
   UNDER_WARRANTY_CLAIM: { label: 'Warranty',      color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
   UNDER_HIRE_PURCHASE:  { label: 'Hire Purchase', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
   SCRAPPED:             { label: 'Scrapped',      color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20'    },
-  REPAIR_ONLY:          { label: 'Repair Record', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+  REPAIR_ONLY:          { label: 'Repair Record', color: 'text-brand-400', bg: 'bg-brand-500/10', border: 'border-brand-500/20' },
 }
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:    'text-blue-400 bg-blue-500/10 border-blue-500/20',
-  DIAGNOSING:  'text-purple-400 bg-purple-500/10 border-purple-500/20',
+  DIAGNOSING:  'text-brand-400 bg-brand-500/10 border-brand-500/20',
   IN_PROGRESS: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
   WAITING_PARTS: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
   READY:       'text-teal-400 bg-teal-500/10 border-teal-500/20',
@@ -116,7 +117,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Smartphone size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <Smartphone size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 IMEI Details ( <span className="font-mono">{safeText(imei)}</span> )
@@ -132,7 +133,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
               {st.label}
             </span>
             {!record && (
-              <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold text-violet-600 dark:text-violet-400 bg-violet-500/10 border-violet-500/25">
+              <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold text-brand-600 dark:text-brand-400 bg-brand-500/10 border-brand-500/25">
                 Repair only
               </span>
             )}
@@ -151,7 +152,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 size={24} className="animate-spin text-violet-400" />
+            <Loader2 size={24} className="animate-spin text-brand-400" />
           </div>
         ) : (
           <div className="p-4 sm:p-5 space-y-4">
@@ -208,7 +209,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
               <div className="rounded-lg border p-3 text-[12px]" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
                 <div className="flex items-center justify-between border-b pb-2 mb-2" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Quick totals</span>
-                  {updating && <Loader2 size={12} className="animate-spin text-violet-400" />}
+                  {updating && <Loader2 size={12} className="animate-spin text-brand-400" />}
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between">
@@ -424,7 +425,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
                     ) : (
                       <div className="text-[12px] space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono font-medium text-violet-600 dark:text-violet-400">{warranty.warrantyCode}</span>
+                          <span className="font-mono font-medium text-brand-600 dark:text-brand-400">{warranty.warrantyCode}</span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${
                             warranty.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400 bg-green-500/10 border-green-500/20'
                               : warranty.status === 'CLAIMED' ? 'text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/20'
@@ -447,7 +448,7 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
                       {ownerPhone !== '—' ? ` · ${ownerPhone}` : ''}
                     </p>
                     {!customer && firstRepair?.customerName && (
-                      <p className="text-[10px] mt-1 text-violet-600 dark:text-violet-400">From repair record</p>
+                      <p className="text-[10px] mt-1 text-brand-600 dark:text-brand-400">From repair record</p>
                     )}
                   </div>
                 </div>
@@ -693,11 +694,11 @@ export default function IMEIPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Serial / Device" />,
       cell: ({ row }) => (
         <button type="button" className="flex items-center gap-2.5 text-left" onClick={() => openDetail(row.original.imei)}>
-          <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-            <Smartphone size={14} className="text-violet-400" />
+          <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+            <Smartphone size={14} className="text-brand-400" />
           </div>
           <div>
-            <p className="text-sm font-medium hover:text-violet-400 transition-colors" style={{ color: 'var(--text-primary)' }}>{row.original.product?.name ?? '—'}</p>
+            <p className="text-sm font-medium hover:text-brand-400 transition-colors" style={{ color: 'var(--text-primary)' }}>{row.original.product?.name ?? '—'}</p>
             <p className="text-xs font-mono text-slate-500">{row.original.imei}</p>
           </div>
         </button>
@@ -734,7 +735,7 @@ export default function IMEIPage() {
       cell: ({ row }) => (
         <button
           onClick={() => openDetail(row.original.imei)}
-          className="text-[11px] px-2.5 py-1 rounded-lg border border-violet-500/30 text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 transition-colors flex items-center gap-1"
+          className="text-[11px] px-2.5 py-1 rounded-lg border border-brand-500/30 text-brand-400 bg-brand-500/10 hover:bg-brand-500/20 transition-colors flex items-center gap-1"
         >
           <History size={10} />Details
         </button>
@@ -743,10 +744,10 @@ export default function IMEIPage() {
   ], [openDetail])
 
   const stats = [
-    { label: 'Total Tracked',  value: total,               icon: Smartphone,  color: 'violet', filter: 'all' as const },
-    { label: 'In Stock',       value: counts.inStock,       icon: CheckCircle, color: 'green',  filter: 'IN_STOCK' as const },
-    { label: 'Sold',           value: counts.sold,          icon: ShoppingBag, color: 'blue',   filter: 'SOLD' as const },
-    { label: 'Repair Records', value: counts.repairOnly,    icon: History,     color: 'purple', filter: 'REPAIR_ONLY' as const },
+    { label: 'Total Tracked',  value: total,               icon: Smartphone,  tone: 'brand' as const, filter: 'all' as const },
+    { label: 'In Stock',       value: counts.inStock,       icon: CheckCircle, tone: 'success' as const, filter: 'IN_STOCK' as const },
+    { label: 'Sold',           value: counts.sold,          icon: ShoppingBag, tone: 'info' as const, filter: 'SOLD' as const },
+    { label: 'Repair Records', value: counts.repairOnly,    icon: History,     tone: 'warning' as const, filter: 'REPAIR_ONLY' as const },
   ]
 
   return (
@@ -754,31 +755,30 @@ export default function IMEIPage() {
       {canEdit && showAdd && <AddIMEIModal onClose={() => setShowAdd(false)} onSaved={refetch} />}
       {selectedImei  && <IMEIDetailModal imei={selectedImei} onClose={() => setSelectedImei(null)} onStatusChange={refetch} />}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Serial Tracker</h1>
-          <p className="page-subtitle">Track every unit by serial or IMEI · Full repair & sale history</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto">
-          <button
-            onClick={() => setScanMode(!scanMode)}
-            className={`btn-secondary text-sm flex items-center gap-2 ${scanMode ? 'border-violet-500/40 text-violet-400' : ''}`}
-          >
-            <Hash size={14} />{scanMode ? 'Scanner On' : 'Scan Serial'}
-          </button>
-          <EditOnly><button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={14} />Register Unit
-          </button></EditOnly>
-        </div>
-      </div>
+      <PageHeader
+        title="Serial Tracker"
+        subtitle="Track every unit by serial or IMEI · Full repair & sale history"
+        actions={
+          <>
+            <button
+              onClick={() => setScanMode(!scanMode)}
+              className={`btn-secondary text-sm flex items-center gap-2 ${scanMode ? 'border-brand-500/40 text-brand-400' : ''}`}
+            >
+              <Hash size={14} />{scanMode ? 'Scanner On' : 'Scan Serial'}
+            </button>
+            <EditOnly><button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} />Register Unit
+            </button></EditOnly>
+          </>
+        }
+      />
 
       {/* Quick Serial Lookup */}
-      <div className="card p-4">
+      <div className="card p-4 border-brand-500/15">
         <p className="text-xs font-semibold mb-2.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
           <Search size={11} />Quick Serial / IMEI Lookup
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             className="input-field font-mono flex-1"
             placeholder="Enter serial or IMEI to lookup unit history..."
@@ -790,25 +790,25 @@ export default function IMEIPage() {
           <button
             onClick={handleQuickLookup}
             disabled={!quickSearch.trim() || quickResult === 'loading'}
-            className="btn-primary text-sm px-4 flex items-center gap-2 disabled:opacity-50"
+            className="btn-primary text-sm px-4 flex items-center justify-center gap-2 disabled:opacity-50 h-10"
           >
             {quickResult === 'loading' ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
             Lookup
           </button>
         </div>
         {quickResult === 'notfound' && (
-          <p className="text-xs text-amber-400 mt-2 flex items-center gap-1.5"><AlertTriangle size={11} />Serial / IMEI not found in this shop&apos;s records</p>
+          <p className="text-xs text-amber-500 mt-2 flex items-center gap-1.5"><AlertTriangle size={11} />Serial / IMEI not found in this shop&apos;s records</p>
         )}
       </div>
 
       {/* Scan mode */}
       {scanMode && (
-        <div className="card p-4 border-violet-500/20 bg-violet-500/5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
-            <Hash size={18} className="text-violet-400" />
+        <div className="card p-4 border-brand-500/20 bg-brand-500/5 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center flex-shrink-0">
+            <Hash size={18} className="text-brand-400" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-violet-300">Serial Scanner Active</p>
+            <p className="text-sm font-medium text-brand-600 dark:text-brand-300">Serial Scanner Active</p>
             <p className="text-xs text-gray-500 dark:text-slate-500">Scan barcode or type serial / IMEI then press Enter</p>
           </div>
           <input
@@ -824,32 +824,28 @@ export default function IMEIPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, icon: Icon, color, filter }) => (
-          <button
+      <StatGrid cols={4}>
+        {stats.map(({ label, value, icon, tone, filter }) => (
+          <StatCard
             key={label}
-            type="button"
+            label={label}
+            value={value}
+            icon={icon}
+            tone={tone}
+            active={statusFilter === filter}
             onClick={() => setStatusFilter(filter)}
-            className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:border-violet-500/30 ${statusFilter === filter ? 'ring-2 ring-violet-500/40' : ''}`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20`}>
-              <Icon size={15} className={`text-${color}-400`} />
-            </div>
-            <div>
-              <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-              <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
-            </div>
-          </button>
+          />
         ))}
-      </div>
+      </StatGrid>
 
-      <ToolbarSearch
-        value={listSearch}
-        onChange={setListSearch}
-        placeholder="Filter by serial, product, brand…"
-        className="max-w-md"
-      />
+      <FilterBar>
+        <ToolbarSearch
+          value={listSearch}
+          onChange={setListSearch}
+          placeholder="Filter by serial, product, brand…"
+          className="max-w-md w-full sm:min-w-[220px]"
+        />
+      </FilterBar>
 
       <ClientSideTable
         data={filteredRecords}

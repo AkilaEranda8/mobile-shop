@@ -339,7 +339,7 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
               <button
                 type="button"
                 onClick={() => void loadSettlementQuote()}
-                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-brand-700 dark:text-brand-300 border-brand-500/25 bg-brand-500/10 hover:bg-brand-500/20"
               >
                 <Wallet size={12} /> Early settle
               </button>
@@ -764,7 +764,7 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
               )}
               <div className="flex justify-between pt-2 border-t font-bold text-sm" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}>
                 <span>Pay now</span>
-                <span className="text-violet-600 dark:text-violet-400">{formatCurrency(settlementQuote.settlementAmount)}</span>
+                <span className="text-brand-600 dark:text-brand-400">{formatCurrency(settlementQuote.settlementAmount)}</span>
               </div>
             </div>
             <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
@@ -814,7 +814,7 @@ export function HpDashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard label="Total Agreements" value={data?.totalAgreements ?? 0} icon={FileText} color="violet" />
+            <KpiCard label="Total Agreements" value={data?.totalAgreements ?? 0} icon={FileText} color="blue" />
             <KpiCard label="Active" value={data?.activeAgreements ?? 0} icon={ShieldCheck} color="sky" />
             <KpiCard label="Completed" value={data?.completedAgreements ?? 0} icon={CheckCircle2} color="emerald" />
             <KpiCard label="Defaulted" value={data?.defaultedAgreements ?? 0} icon={AlertTriangle} color="rose" />
@@ -1006,7 +1006,7 @@ export function HpAgreementsPage({ fixedStatus }: { fixedStatus?: string } = {})
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'All', value: counts.all, icon: FileText, color: 'violet', key: 'all' as const },
+              { label: 'All', value: counts.all, icon: FileText, color: 'blue', key: 'all' as const },
               { label: 'Active', value: counts.ACTIVE, icon: ShieldCheck, color: 'sky', key: 'ACTIVE' as const },
               { label: 'Pending', value: counts.PENDING, icon: Clock3, color: 'amber', key: 'PENDING' as const },
               { label: 'Defaulted', value: counts.DEFAULTED, icon: AlertTriangle, color: 'rose', key: 'DEFAULTED' as const },
@@ -1237,7 +1237,7 @@ export function HpPaymentsPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Open', value: totals.open, icon: FileText, color: 'violet', key: 'open' as const },
+          { label: 'Open', value: totals.open, icon: FileText, color: 'blue', key: 'open' as const },
           { label: 'Active', value: totals.active, icon: ShieldCheck, color: 'sky', key: 'ACTIVE' as const },
           { label: 'Defaulted', value: totals.defaulted, icon: AlertTriangle, color: 'rose', key: 'DEFAULTED' as const },
           { label: 'Outstanding', value: formatCurrency(totals.outstanding), icon: Banknote, color: 'amber', key: 'open' as const },

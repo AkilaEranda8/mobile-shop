@@ -107,14 +107,14 @@ export default function BarcodeLabelCustomizer({
                 onClick={() => applyQuickDesign(id)}
                 className={`text-left rounded-xl border p-3 transition-all ${
                   selected
-                    ? 'border-violet-500 ring-2 ring-violet-500/40 bg-violet-500/10'
-                    : 'border-white/10 bg-white/[0.03] hover:border-violet-500/40'
+                    ? 'border-brand-500 ring-2 ring-brand-500/40 bg-brand-500/10'
+                    : 'border-white/10 bg-white/[0.03] hover:border-brand-500/40'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">{design.label}</p>
                   {selected && (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white">
                       <Check size={12} />
                     </span>
                   )}
@@ -154,7 +154,7 @@ export default function BarcodeLabelCustomizer({
       <div className="grid lg:grid-cols-2 gap-5">
         {/* Size */}
         <div className="card p-4 space-y-3 border-white/10">
-          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Sticker size</p>
+          <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Sticker size</p>
           <div className="flex gap-2 flex-wrap">
             {SIZE_PRESETS.map(s => {
               const active = settings.widthMm === s.w && settings.heightMm === s.h
@@ -165,8 +165,8 @@ export default function BarcodeLabelCustomizer({
                   onClick={() => patchCustom({ widthMm: s.w, heightMm: s.h })}
                   className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
                     active
-                      ? 'bg-violet-600 border-violet-500 text-white'
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:border-violet-500/40'
+                      ? 'bg-brand-600 border-brand-500 text-white'
+                      : 'bg-white/5 border-white/10 text-slate-400 hover:border-brand-500/40'
                   }`}
                 >
                   {s.label} mm
@@ -210,7 +210,7 @@ export default function BarcodeLabelCustomizer({
 
         {/* Fields */}
         <div className="card p-4 space-y-2 border-white/10">
-          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-1">Fields on sticker</p>
+          <p className="text-xs font-bold text-brand-400 uppercase tracking-widest mb-1">Fields on sticker</p>
           {FIELD_TOGGLES.map(({ key, label }) => (
             <div
               key={key}
@@ -220,7 +220,7 @@ export default function BarcodeLabelCustomizer({
               <Switch
                 checked={Boolean(settings[key])}
                 onChange={v => patchCustom({ [key]: v })}
-                variant="violet"
+                variant="blue"
               />
             </div>
           ))}
@@ -228,7 +228,7 @@ export default function BarcodeLabelCustomizer({
 
         {/* Typography / barcode */}
         <div className="card p-4 space-y-3 border-white/10 lg:col-span-2">
-          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Text & barcode</p>
+          <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Text & barcode</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-[11px] text-slate-400 mb-1">Name lines</label>
@@ -240,7 +240,7 @@ export default function BarcodeLabelCustomizer({
                     onClick={() => patchCustom({ nameMaxLines: n })}
                     className={`flex-1 py-2 rounded-xl text-xs font-semibold border ${
                       settings.nameMaxLines === n
-                        ? 'bg-violet-600 border-violet-500 text-white'
+                        ? 'bg-brand-600 border-brand-500 text-white'
                         : 'bg-white/5 border-white/10 text-slate-400'
                     }`}
                   >

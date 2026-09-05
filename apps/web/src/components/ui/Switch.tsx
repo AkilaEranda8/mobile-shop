@@ -3,7 +3,8 @@
 import type { ButtonHTMLAttributes, CSSProperties } from 'react'
 
 const VARIANTS = {
-  violet:  { on: 'bg-violet-600', off: 'bg-white/10' },
+  blue:    { on: 'bg-brand-600', off: 'bg-white/10' },
+  violet:  { on: 'bg-brand-600', off: 'bg-white/10' }, // legacy alias → brand blue
   green:   { on: 'bg-green-500', off: 'bg-white/10' },
   emerald: { on: 'bg-emerald-500', off: 'bg-slate-600' },
   red:     { on: 'bg-red-500', off: 'bg-white/10' },
@@ -23,7 +24,7 @@ export function Switch({
   checked,
   onChange,
   disabled,
-  variant = 'violet',
+  variant = 'blue',
   trackStyle,
   className = '',
   ...rest
@@ -38,7 +39,7 @@ export function Switch({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => !disabled && onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-0 p-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-50 ${trackClass} ${className}`}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-0 p-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50 ${trackClass} ${className}`}
       style={trackStyle}
       {...rest}
     >

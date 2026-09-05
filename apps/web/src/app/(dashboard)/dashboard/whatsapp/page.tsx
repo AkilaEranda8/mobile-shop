@@ -33,7 +33,7 @@ const STATUS_BADGE: Record<string, { label: string; color: string; bg: string; b
   disconnected:  { label: 'Disconnected',  color: 'text-slate-400',  bg: 'bg-slate-500/10',  border: 'border-slate-500/20',  Icon: WifiOff       },
   token_expired: { label: 'Token Expired', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', Icon: AlertTriangle  },
   qr_pending:    { label: 'Scan QR',       color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20',   Icon: MessageSquare },
-  connecting:    { label: 'Connecting',    color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', Icon: Loader2       },
+  connecting:    { label: 'Connecting',    color: 'text-brand-400', bg: 'bg-brand-500/10', border: 'border-brand-500/20', Icon: Loader2       },
 }
 
 export default function WhatsAppPage() {
@@ -172,7 +172,7 @@ export default function WhatsAppPage() {
               <Store size={10} /> {shopName}
             </span>
           )}
-          <span className="text-xs px-2 py-1 rounded-lg border text-violet-400 bg-violet-500/10 border-violet-500/20 font-medium">
+          <span className="text-xs px-2 py-1 rounded-lg border text-brand-400 bg-brand-500/10 border-brand-500/20 font-medium">
             Per-tenant
           </span>
         </div>
@@ -197,7 +197,7 @@ export default function WhatsAppPage() {
           <button key={key} onClick={() => setActiveTab(key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
               activeTab === key
-                ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+                ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'
                 : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5'
             }`}>
             <Icon size={14} /> {label}

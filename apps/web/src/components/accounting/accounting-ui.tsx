@@ -46,7 +46,7 @@ export function AccountingFeatureGate() {
       title="Accounting module disabled"
       description="Enable Accounting (GL) in Settings → Features, or ask your platform admin to enable it for your shop."
       actions={[{ label: 'Go to Settings', href: '/settings', primary: true }]}
-      accentColor="violet"
+      accentColor="blue"
     />
   )
 }
@@ -79,7 +79,7 @@ export function AccountingPageHeader({
         )}
         <div className="min-w-0">
           <h1 className="page-title flex items-center gap-2">
-            {Icon && <Icon size={22} className="text-violet-400 shrink-0" />}
+            {Icon && <Icon size={22} className="text-brand-400 shrink-0" />}
             {title}
           </h1>
           {subtitle && <p className="page-subtitle">{subtitle}</p>}
@@ -104,22 +104,20 @@ export function AccountingKpiCard({
   accent?: { color: string; bg: string; border: string }
 }) {
   return (
-    <div className="card p-4 sm:p-5" style={{ borderColor: accent.border, background: accent.bg }}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: accent.color }}>
-          {label}
-        </span>
-        {icon && (
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: accent.bg, border: `1px solid ${accent.border}`, color: accent.color }}
-          >
-            {icon}
-          </div>
-        )}
+    <div className="stat-card-enterprise">
+      {icon && (
+        <div
+          className="stat-card-icon"
+          style={{ background: accent.bg, border: `1px solid ${accent.border}`, color: accent.color }}
+        >
+          {icon}
+        </div>
+      )}
+      <div className="min-w-0">
+        <p className="stat-card-value">{value}</p>
+        <p className="stat-card-label">{label}</p>
+        {sub && <p className="stat-card-sub">{sub}</p>}
       </div>
-      <p className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-      {sub && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   )
 }
@@ -132,9 +130,9 @@ const REGISTER_THEMES = {
     icon: Wallet,
   },
   BANK: {
-    accent: '#6366f1',
-    bg: 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(99,102,241,0.03) 55%, transparent 100%)',
-    border: 'rgba(99,102,241,0.28)',
+    accent: '#2563eb',
+    bg: 'linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(37,99,235,0.02) 55%, transparent 100%)',
+    border: 'rgba(37,99,235,0.28)',
     icon: Landmark,
   },
   CLEARING: {
@@ -147,7 +145,7 @@ const REGISTER_THEMES = {
 
 const CASH_BANK_SUMMARY_ITEMS = [
   { key: 'cash' as const, label: 'Cash', icon: Wallet, color: '#16a34a' },
-  { key: 'bank' as const, label: 'Bank', icon: Landmark, color: '#6366f1' },
+  { key: 'bank' as const, label: 'Bank', icon: Landmark, color: '#2563eb' },
   { key: 'clearing' as const, label: 'Clearing', icon: CreditCard, color: '#0891b2' },
 ]
 
@@ -197,12 +195,12 @@ export function CashBankSummaryStrip({
           borderColor: 'var(--sidebar-active-border)',
         }}
       >
-        <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0 text-violet-400">
+        <div className="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center shrink-0 text-brand-400">
           <Wallet size={18} />
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Total liquidity</p>
-          <p className="text-lg font-bold tabular-nums text-violet-300">{fmtCashBankAmount(total)}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-brand-400">Total liquidity</p>
+          <p className="text-lg font-bold tabular-nums text-brand-300">{fmtCashBankAmount(total)}</p>
         </div>
       </div>
     </div>
@@ -232,7 +230,7 @@ export function CashBankSidebar({
   const values = { cash, bank, clearing }
   const sectionLinks = [
     { id: 'cash-section', label: 'Cash registers', key: 'cash' as const, icon: Wallet, color: '#16a34a' },
-    { id: 'bank-section', label: 'Bank accounts', key: 'bank' as const, icon: Landmark, color: '#6366f1' },
+    { id: 'bank-section', label: 'Bank accounts', key: 'bank' as const, icon: Landmark, color: '#2563eb' },
     { id: 'clearing-section', label: 'Clearing', key: 'clearing' as const, icon: CreditCard, color: '#0891b2' },
   ].filter(link => counts[link.key] > 0)
 
@@ -248,8 +246,8 @@ export function CashBankSidebar({
           background: 'linear-gradient(135deg, var(--brand-glow) 0%, transparent 100%)',
         }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Total liquidity</p>
-        <p className="text-2xl font-extrabold tabular-nums text-violet-300 mt-1">{fmtCashBankAmount(total)}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-brand-400">Total liquidity</p>
+        <p className="text-2xl font-extrabold tabular-nums text-brand-300 mt-1">{fmtCashBankAmount(total)}</p>
         <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>Cash + Bank + Clearing</p>
       </div>
 
@@ -571,8 +569,8 @@ export function AccountingModal({
         >
           <div className="flex items-center gap-2.5 min-w-0">
             {Icon && (
-              <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
-                <Icon size={14} className="text-violet-400" />
+              <div className="w-8 h-8 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center shrink-0">
+                <Icon size={14} className="text-brand-400" />
               </div>
             )}
             <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{title}</h3>
@@ -635,13 +633,13 @@ export function AccountingQuickLink({
   return (
     <Link
       href={href}
-      className="card p-4 flex items-center gap-3 hover:border-violet-500/30 transition-colors group"
+      className="card p-4 flex items-center gap-3 hover:border-brand-500/30 transition-colors group"
     >
-      <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-        <Icon size={18} className="text-violet-400" />
+      <div className="w-10 h-10 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center shrink-0">
+        <Icon size={18} className="text-brand-400" />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-semibold group-hover:text-violet-300 transition-colors" style={{ color: 'var(--text-primary)' }}>
+        <p className="text-sm font-semibold group-hover:text-brand-300 transition-colors" style={{ color: 'var(--text-primary)' }}>
           {label}
         </p>
         <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{description}</p>
@@ -655,13 +653,14 @@ export function AccountingStatusBadge({
   tone = 'neutral',
 }: {
   children: React.ReactNode
-  tone?: 'success' | 'warning' | 'danger' | 'neutral' | 'violet'
+  tone?: 'success' | 'warning' | 'danger' | 'neutral' | 'violet' | 'blue'
 }) {
   const styles = {
     success: 'bg-green-500/10 border-green-500/20 text-green-400',
     warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
     danger: 'bg-red-500/10 border-red-500/20 text-red-400',
-    violet: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
+    violet: 'bg-brand-500/10 border-brand-500/20 text-brand-400',
+    blue: 'bg-brand-500/10 border-brand-500/20 text-brand-400',
     neutral: 'bg-white/5 border-white/10 text-slate-400',
   }
   return (

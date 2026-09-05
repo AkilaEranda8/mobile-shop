@@ -28,7 +28,7 @@ const STATUS_CONFIG: Record<string, { badge: string; Icon: LucideIcon; iconClass
 
 const SERVICE_META: Record<string, { label: string; Icon: LucideIcon; iconClass: string; desc: string }> = {
   api:      { label: 'API Server',    Icon: Server,     iconClass: 'text-blue-600',    desc: 'Express REST API — handles all tenant requests' },
-  database: { label: 'PostgreSQL',    Icon: Database,   iconClass: 'text-violet-600',  desc: 'Primary relational database — Prisma ORM' },
+  database: { label: 'PostgreSQL',    Icon: Database,   iconClass: 'text-brand-600',  desc: 'Primary relational database — Prisma ORM' },
   redis:    { label: 'Auth / Cache',  Icon: Activity,   iconClass: 'text-emerald-600', desc: 'JWT refresh token store & session cache' },
   keycloak: { label: 'Auth Service',  Icon: CheckCircle, iconClass: 'text-sky-600',    desc: 'Token signing & validation service' },
 }
@@ -331,7 +331,7 @@ export default function SystemHealthPage() {
                           <div className="flex items-center gap-2">
                             {(() => {
                               const TIcon = TABLE_ICON[t.name] ?? Database
-                              return <TIcon size={13} className={TABLE_ICON[t.name] ? 'text-violet-500' : 'text-gray-400'} />
+                              return <TIcon size={13} className={TABLE_ICON[t.name] ? 'text-brand-500' : 'text-gray-400'} />
                             })()}
                             <span className="text-xs font-mono text-gray-700">{t.name}</span>
                           </div>

@@ -89,7 +89,7 @@ export default function HistoryTab() {
       <div className="p-5 border-b border-white/5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <FileText size={15} className="text-violet-400" />
+            <FileText size={15} className="text-brand-400" />
             <div>
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Invoice Send History</h2>
               <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">All WhatsApp invoice messages sent</p>
@@ -115,7 +115,7 @@ export default function HistoryTab() {
           {filterTabs.map(({ key, label }) => (
             <button key={key} onClick={() => handleFilterChange(key)}
               className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                filter === key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                filter === key ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}>
               {label}
             </button>
@@ -126,7 +126,7 @@ export default function HistoryTab() {
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={20} className="animate-spin text-violet-400" />
+          <Loader2 size={20} className="animate-spin text-brand-400" />
         </div>
       ) : paged.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2">
@@ -157,7 +157,7 @@ export default function HistoryTab() {
                     transition={{ delay: i * 0.03 }}
                     className="hover:bg-white/2 transition-colors">
                     <td className="table-cell">
-                      <span className="font-mono text-xs text-violet-400">{item.orderId}</span>
+                      <span className="font-mono text-xs text-brand-400">{item.orderId}</span>
                     </td>
                     <td className="table-cell">
                       <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{item.customerName}</span>
@@ -180,7 +180,7 @@ export default function HistoryTab() {
                     </td>
                     <td className="table-cell">
                       {displayStatus === 'failed' && (
-                        <button className="flex items-center gap-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors">
+                        <button className="flex items-center gap-1 text-[11px] text-brand-400 hover:text-brand-300 transition-colors">
                           <Send size={10} /> Retry
                         </button>
                       )}
@@ -206,7 +206,7 @@ export default function HistoryTab() {
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
               <button key={n} onClick={() => setPage(n)}
-                className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${n === page ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${n === page ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                 {n}
               </button>
             ))}

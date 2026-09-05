@@ -18,7 +18,7 @@ function fmtDate(s: string) {
 }
 
 const ROLE_BADGE: Record<string, string> = {
-  PLATFORM_ADMIN: 'badge-purple',
+  PLATFORM_ADMIN: 'badge-brand',
   OWNER:    'badge-blue',
   MANAGER:  'badge-yellow',
   CASHIER:  'badge-gray',
@@ -429,7 +429,7 @@ export default function AuthIAMPage() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {[
             {
-              title: 'Password Policy', icon: KeyRound, color: 'text-violet-600', bg: 'bg-violet-50',
+              title: 'Password Policy', icon: KeyRound, color: 'text-brand-600', bg: 'bg-brand-50',
               items: [
                 ['Min Length',           '10 characters'],
                 ['Uppercase Required',   'Yes'],

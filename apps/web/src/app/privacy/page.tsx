@@ -13,7 +13,7 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-[#07090f] text-slate-300">
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <Link href="/login" className="text-sm text-violet-400 hover:text-violet-300">← Back to login</Link>
+        <Link href="/login" className="text-sm text-brand-400 hover:text-brand-300">← Back to login</Link>
         <h1 className="text-3xl font-bold text-white mt-6 mb-2">Privacy Policy</h1>
         <p className="text-sm text-slate-500 mb-8">Last updated: June 2026</p>
 
@@ -56,9 +56,9 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-white mb-2">Contact</h2>
             <p>
               Questions about this policy:{' '}
-              <a href={`mailto:${CONTACT}`} className="text-violet-400 hover:underline">{CONTACT}</a>
+              <a href={`mailto:${CONTACT}`} className="text-brand-400 hover:underline">{CONTACT}</a>
               {' · '}
-              <a href="https://www.hexalyte.com" className="text-violet-400 hover:underline">www.hexalyte.com</a>
+              <a href="https://www.hexalyte.com" className="text-brand-400 hover:underline">www.hexalyte.com</a>
             </p>
           </section>
         </div>

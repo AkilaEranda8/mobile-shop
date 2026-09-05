@@ -13,7 +13,7 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#07090f] text-slate-300">
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <Link href="/login" className="text-sm text-violet-400 hover:text-violet-300">← Back to login</Link>
+        <Link href="/login" className="text-sm text-brand-400 hover:text-brand-300">← Back to login</Link>
         <h1 className="text-3xl font-bold text-white mt-6 mb-2">Terms of Service</h1>
         <p className="text-sm text-slate-500 mb-8">Last updated: June 2026</p>
 
@@ -54,7 +54,7 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold text-white mb-2">Contact</h2>
             <p>
               For support or legal enquiries:{' '}
-              <a href={`mailto:${CONTACT}`} className="text-violet-400 hover:underline">{CONTACT}</a>
+              <a href={`mailto:${CONTACT}`} className="text-brand-400 hover:underline">{CONTACT}</a>
             </p>
           </section>
         </div>

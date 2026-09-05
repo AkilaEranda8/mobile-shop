@@ -15,6 +15,7 @@ import { useActiveBranchId, usePlStatement, useCategorySales, useFeatureFlag } f
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom, formatBusinessDateLabel } from '@/lib/business-date'
 import { PlStatementBody, type PlStatementLine } from '@/components/finance/PlStatementBody'
+import { StatCard } from '@/components/design-system'
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'var(--bg-card)',
@@ -34,25 +35,10 @@ const PERIODS = [
   { label: 'MTD', days: 'mtd' },
 ]
 
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-        <Icon size={16} className={`text-${color}-600 dark:text-${color}-400`} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-        {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -71,7 +57,7 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
     a.click()
   }
   return (
-    <button type="button" onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
+    <button type="button" onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-brand-600 dark:hover:text-brand-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
       <Download size={12} /> Export CSV
     </button>
   )
@@ -219,17 +205,17 @@ export default function ProfitLossPage() {
       </div>
 
       {hasDailyClosing && (
-        <Link href="/dashboard/daily-closing" className="card p-4 flex items-center justify-between border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 transition-colors">
+        <Link href="/dashboard/daily-closing" className="card p-4 flex items-center justify-between border-brand-500/20 bg-brand-500/5 hover:bg-brand-500/10 transition-colors">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center">
-              <Lock size={18} className="text-violet-400" />
+            <div className="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center">
+              <Lock size={18} className="text-brand-400" />
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Daily Closing</p>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Day-by-day breakdown uses the same P&amp;L math as this page</p>
             </div>
           </div>
-          <span className="text-xs font-semibold text-violet-400">Open →</span>
+          <span className="text-xs font-semibold text-brand-400">Open →</span>
         </Link>
       )}
 
@@ -246,7 +232,7 @@ export default function ProfitLossPage() {
         <>
           {/* KPI Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <StatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={DollarSign} color="violet" sub={`${summary.salesCount ?? 0} transactions`} />
+            <StatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={DollarSign} color="blue" sub={`${summary.salesCount ?? 0} transactions`} />
             <StatCard label="Gross Profit" value={formatCurrency(grossProfit)} icon={TrendingUp} color="green" sub={`${grossMargin}% margin`} />
             <StatCard label="Operating Expenses" value={formatCurrency(opExpenses)} icon={TrendingDown} color="red" />
             <StatCard label="Total Income" value={formatCurrency(totalIncome)} icon={BarChart3} color="blue" sub={`+ ${formatCurrency(otherIncome)} other`} />
@@ -265,7 +251,7 @@ export default function ProfitLossPage() {
               { label: 'Sales Revenue', val: salesRevenue, d: delta(salesRevenue, previous.salesRevenue ?? 0), color: 'text-green-600 dark:text-green-400' },
               { label: 'Gross Profit', val: grossProfit, d: delta(grossProfit, previous.grossProfit ?? 0), color: 'text-cyan-600 dark:text-cyan-400', sub: `${grossMargin}% margin` },
               { label: 'Op. Expenses', val: opExpenses, d: delta(opExpenses, previous.opExpenses ?? 0), color: 'text-orange-500 dark:text-orange-400' },
-              { label: 'Net Profit', val: netProfit, d: delta(netProfit, previous.profit ?? 0), color: netProfit >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-red-500', sub: `${netMargin}% net margin` },
+              { label: 'Net Profit', val: netProfit, d: delta(netProfit, previous.profit ?? 0), color: netProfit >= 0 ? 'text-brand-600 dark:text-brand-400' : 'text-red-500', sub: `${netMargin}% net margin` },
             ].map(({ label, val, d, color, sub }) => (
               <div key={label} className="card p-4">
                 <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>{label} · vs prev period</p>
@@ -298,7 +284,7 @@ export default function ProfitLossPage() {
             <div className="card p-5">
               <SectionTitle title="Repair Business (Accrual)" sub={`${repairAccrual.jobs} jobs completed in period`} />
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Collected" value={formatCurrency(repairAccrual.collected)} icon={DollarSign} color="violet" />
+                <StatCard label="Collected" value={formatCurrency(repairAccrual.collected)} icon={DollarSign} color="blue" />
                 <StatCard label="Parts Cost" value={formatCurrency(repairAccrual.partsBuy)} icon={Wrench} color="red" />
                 <StatCard label="Repair Net Profit" value={formatCurrency(repairAccrual.netProfit)} icon={TrendingUp} color="green" />
                 <StatCard label="Credit Outstanding" value={formatCurrency(repairAccrual.creditDue)} icon={Wallet} color="amber" />
@@ -496,7 +482,7 @@ export default function ProfitLossPage() {
                     {categories.slice(0, 12).map((c: any) => (
                       <tr key={c.category} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{c.category}</td>
-                        <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(c.revenue)}</td>
+                        <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(c.revenue)}</td>
                         <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(c.cogs)}</td>
                         <td className={`px-3 py-2.5 text-xs text-right font-semibold ${c.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(c.profit)}</td>
                         <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-muted)' }}>{c.margin}%</td>
@@ -511,29 +497,29 @@ export default function ProfitLossPage() {
 
           {/* Related */}
           <div className="grid sm:grid-cols-2 gap-3">
-            <Link href="/dashboard/profit-allocation" className="card p-4 flex items-center justify-between hover:border-violet-500/30 transition-colors">
+            <Link href="/dashboard/profit-allocation" className="card p-4 flex items-center justify-between hover:border-brand-500/30 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center">
-                  <PieChartIcon size={16} className="text-violet-400" />
+                <div className="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center">
+                  <PieChartIcon size={16} className="text-brand-400" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Profit Allocation</p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Fund distribution from daily profit</p>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-violet-400">Open →</span>
+              <span className="text-xs font-semibold text-brand-400">Open →</span>
             </Link>
-            <Link href="/dashboard/reports/pl" className="card p-4 flex items-center justify-between hover:border-violet-500/30 transition-colors">
+            <Link href="/dashboard/reports/pl" className="card p-4 flex items-center justify-between hover:border-brand-500/30 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center">
-                  <Receipt size={16} className="text-violet-400" />
+                <div className="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center">
+                  <Receipt size={16} className="text-brand-400" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Reports P&amp;L Tab</p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Charts &amp; export in Reports</p>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-violet-400">Open →</span>
+              <span className="text-xs font-semibold text-brand-400">Open →</span>
             </Link>
           </div>
         </>

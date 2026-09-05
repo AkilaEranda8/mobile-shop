@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -269,8 +269,8 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-              <Smartphone size={16} className="text-violet-400" />
+            <div className="w-9 h-9 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center">
+              <Smartphone size={16} className="text-brand-400" />
             </div>
             <div>
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Register Device IMEI</h3>
@@ -285,8 +285,8 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
         <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-4 flex-1">
 
           {/* Scan bar */}
-          <div className="flex gap-2 items-center p-3 rounded-xl border border-violet-500/20 bg-violet-500/5">
-            <Hash size={13} className="text-violet-400 flex-shrink-0" />
+          <div className="flex gap-2 items-center p-3 rounded-xl border border-brand-500/20 bg-brand-500/5">
+            <Hash size={13} className="text-brand-400 flex-shrink-0" />
             <input
               autoFocus
               className="flex-1 bg-transparent outline-none text-sm font-mono tracking-widest placeholder:text-[var(--text-muted)] placeholder:opacity-50"
@@ -330,7 +330,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {item.storage && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border"
-                          style={{ background: 'rgba(139,92,246,0.1)', borderColor: 'rgba(139,92,246,0.2)', color: 'var(--text-primary)' }}>
+                          style={{ background: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.2)', color: 'var(--text-primary)' }}>
                           {item.storage}
                         </span>
                       )}
@@ -344,7 +344,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
                       )}
                       {item.sku && (
                         <span className="text-[10px] font-mono"
-                          style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--text-primary)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(139,92,246,0.2)' }}>
+                          style={{ background: 'rgba(59,130,246,0.08)', color: 'var(--text-primary)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(59,130,246,0.2)' }}>
                           {item.sku}
                         </span>
                       )}
@@ -354,7 +354,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-[11px] px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-400">
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-brand-500/10 border border-brand-500/20 text-brand-400">
                       {item.quantity} units
                     </span>
                     <span className={`text-[10px] font-semibold ${filled === item.quantity ? 'text-green-400' : 'text-slate-500'}`}>
@@ -398,10 +398,10 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 
           {/* Progress bar */}
           {totalSlots > 0 && (
-            <div className="rounded-xl p-3 border" style={{ background: 'var(--brand-glow)', borderColor: 'rgba(139,92,246,0.15)' }}>
+            <div className="rounded-xl p-3 border" style={{ background: 'var(--brand-glow)', borderColor: 'rgba(59,130,246,0.15)' }}>
               <div className="flex justify-between text-[10px] mb-1.5">
                 <span style={{ color: 'var(--text-muted)' }}>Overall progress</span>
-                <span className={filledSlots === totalSlots ? 'text-green-400 font-bold' : 'text-violet-400'}>
+                <span className={filledSlots === totalSlots ? 'text-green-400 font-bold' : 'text-brand-400'}>
                   {filledSlots} / {totalSlots} IMEIs
                 </span>
               </div>
@@ -988,7 +988,7 @@ export function ConfirmDeletePOModal({ po, onConfirm, onCancel, loading }: {
           <div className="bg-white/3 border border-white/5 rounded-xl p-3.5 mb-5 space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">PO Number</span>
-              <span className="font-mono text-violet-300 font-semibold">{po.poNumber}</span>
+              <span className="font-mono text-brand-300 font-semibold">{po.poNumber}</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">Supplier</span>
@@ -1057,7 +1057,7 @@ export function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
           <div className="bg-white/3 border border-white/5 rounded-xl p-3.5 mb-5 space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">PO Number</span>
-              <span className="font-mono text-violet-300 font-semibold">{po.poNumber}</span>
+              <span className="font-mono text-brand-300 font-semibold">{po.poNumber}</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">Supplier</span>
@@ -1102,7 +1102,7 @@ export const poStatusColors: Record<string, string> = {
   SENT:     'bg-blue-500/10 border-blue-500/20 text-blue-400',
   PARTIAL:  'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
   RECEIVED: 'bg-green-500/10 border-green-500/20 text-green-400',
-  CLOSED:   'bg-violet-500/10 border-violet-500/20 text-violet-400',
+  CLOSED:   'bg-brand-500/10 border-brand-500/20 text-brand-400',
 }
 
 /* ── Supplier Details Modal (Sales Details layout) ───────────────────── */
@@ -1159,7 +1159,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Truck size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <Truck size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 Supplier Details ( <span className="font-mono">{safeText(supplier.name)}</span> )
@@ -1189,7 +1189,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
             <button
               type="button"
               onClick={onEdit}
-              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-brand-700 dark:text-brand-300 border-brand-500/25 bg-brand-500/10 hover:bg-brand-500/20"
             >
               <Edit size={12} /> Edit
             </button>
@@ -1333,7 +1333,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
               </div>
 
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="bg-violet-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                <div className="bg-brand-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1.5">
                   <Banknote size={12} /> Payment history
                 </div>
                 {paymentsLoading ? (
@@ -1446,7 +1446,7 @@ export function SupplierDetailsModal({ supplier, allPOs, onClose, onEdit }: { su
             <button
               type="button"
               onClick={onEdit}
-              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-brand-500/30 bg-brand-500/15 text-brand-700 dark:text-brand-300 font-semibold"
             >
               <Edit size={14} /> Edit supplier
             </button>
@@ -2071,7 +2071,7 @@ export function NewPOModal({
                     {quickFiltered.map((p: any, hi: number) => (
                       <button key={p.id} type="button"
                         onMouseDown={() => quickAddProduct(p)}
-                        className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === quickHighlight ? 'bg-violet-500/20' : 'hover:bg-violet-500/15'}`}
+                        className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === quickHighlight ? 'bg-brand-500/20' : 'hover:bg-brand-500/15'}`}
                         style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         <div className="min-w-0">
                           <p className="text-sm text-gray-800 dark:text-slate-200 truncate font-medium">{p.name}</p>
@@ -2080,12 +2080,12 @@ export function NewPOModal({
                         <div className="text-right flex-shrink-0 flex items-center gap-2">
                           <div>
                             {canSeeProductCost && (
-                              <p className="text-xs text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
+                              <p className="text-xs text-brand-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
                             )}
                             <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
                           </div>
-                          <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
-                            <Plus size={12} className="text-violet-400" />
+                          <div className="w-6 h-6 rounded-full bg-brand-500/20 flex items-center justify-center shrink-0">
+                            <Plus size={12} className="text-brand-400" />
                           </div>
                         </div>
                       </button>
@@ -2169,7 +2169,7 @@ export function NewPOModal({
                                 key={p.id}
                                 type="button"
                                 onMouseDown={() => selectProduct(i, p)}
-                                className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === (rowHighlight[i] ?? 0) ? 'bg-violet-500/15' : 'hover:bg-violet-500/10'}`}
+                                className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-2 ${hi === (rowHighlight[i] ?? 0) ? 'bg-brand-500/15' : 'hover:bg-brand-500/10'}`}
                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                               >
                                 <div className="min-w-0">
@@ -2178,7 +2178,7 @@ export function NewPOModal({
                                 </div>
                                 <div className="text-right flex-shrink-0">
                                   {canSeeProductCost && (
-                                    <p className="text-[10px] text-violet-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
+                                    <p className="text-[10px] text-brand-400 font-semibold">{formatCurrency(resolvePoUnitCostFromProduct(p) || 0)}</p>
                                   )}
                                   <p className="text-[10px] text-slate-600">stock: {effectiveProductStock(p)}</p>
                                 </div>
@@ -2231,7 +2231,7 @@ export function NewPOModal({
                             }}
                           />
                           {Number(item.unitCost) > 0 && (
-                            <p className="text-[10px] font-semibold text-violet-600 mt-0.5 tabular-nums">
+                            <p className="text-[10px] font-semibold text-brand-600 mt-0.5 tabular-nums">
                               {formatCurrency(Math.round(Number(item.unitCost)))}
                             </p>
                           )}
@@ -2286,7 +2286,7 @@ export function NewPOModal({
                                   }}
                                   className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
                                   style={item.storage === s
-                                    ? { background: 'rgba(139,92,246,0.1)', borderColor: 'rgba(139,92,246,0.2)', color: 'var(--text-primary)' }
+                                    ? { background: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.2)', color: 'var(--text-primary)' }
                                     : { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>
                                   {s}
                                 </button>
@@ -2316,7 +2316,7 @@ export function NewPOModal({
                                   }}
                                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
                                   style={item.colorName === v.colorName
-                                    ? { background: 'rgba(139,92,246,0.1)', borderColor: 'rgba(139,92,246,0.2)', color: 'var(--text-primary)' }
+                                    ? { background: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.2)', color: 'var(--text-primary)' }
                                     : { background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>
                                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20"
                                     style={{ background: (() => {
@@ -2342,7 +2342,7 @@ export function NewPOModal({
                           {item.sku && (
                             <div className="flex items-start gap-1.5 pt-4">
                               <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)] mt-0.5">SKU</span>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: 'var(--text-primary)' }}>{item.sku}</span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--text-primary)' }}>{item.sku}</span>
                             </div>
                           )}
                         </div>

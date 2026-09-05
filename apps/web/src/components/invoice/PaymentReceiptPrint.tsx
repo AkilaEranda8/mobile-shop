@@ -370,7 +370,7 @@ const PaymentReceiptPrint = forwardRef<
         <button type="button" onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10">
           <Printer size={14} /> Print
         </button>
-        <button type="button" onClick={handleDownloadPDF} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-500">
+        <button type="button" onClick={handleDownloadPDF} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-brand-600 text-white hover:bg-brand-500">
           <Download size={14} /> Download PDF
         </button>
       </div>

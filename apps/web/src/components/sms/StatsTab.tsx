@@ -58,7 +58,7 @@ export default function StatsTab() {
   }, [])
 
   const statCards = stats ? [
-    { label: 'Total', value: stats.totalSent, icon: Send, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+    { label: 'Total', value: stats.totalSent, icon: Send, color: 'text-brand-400', bg: 'bg-brand-500/10' },
     { label: 'Sent OK', value: stats.sent, icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-500/10' },
     { label: 'Failed', value: stats.failed, icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10' },
     { label: 'Success rate', value: `${stats.deliveryRate.toFixed(1)}%`, icon: TrendingUp, color: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -70,7 +70,7 @@ export default function StatsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 size={22} className="animate-spin text-violet-400" />
+        <Loader2 size={22} className="animate-spin text-brand-400" />
       </div>
     )
   }
@@ -120,7 +120,7 @@ export default function StatsTab() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="lg:col-span-2 card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <MessageSquare size={14} className="text-violet-400" />
+            <MessageSquare size={14} className="text-brand-400" />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent messages</h3>
           </div>
           <div className="space-y-2.5">

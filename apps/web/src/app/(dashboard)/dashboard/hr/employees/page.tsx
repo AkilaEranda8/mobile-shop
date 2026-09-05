@@ -468,7 +468,7 @@ function EmployeeModal({
                       key={u.id}
                       type="button"
                       onClick={() => setForm(p => ({ ...p, userId: u.id }))}
-                      className={cn('w-full text-left px-3 py-2.5 transition-colors', selected ? 'bg-violet-500/10' : 'hover:bg-white/5')}
+                      className={cn('w-full text-left px-3 py-2.5 transition-colors', selected ? 'bg-brand-500/10' : 'hover:bg-white/5')}
                       style={{ borderColor: 'var(--border-subtle)' }}
                     >
                       <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{u.name}</p>
@@ -632,7 +632,7 @@ export default function HrEmployeesPage() {
         )}
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Total" value={rows.length} icon={Users} color="violet" />
+          <HrStatCard label="Total" value={rows.length} icon={Users} color="blue" />
           <HrStatCard label="Active" value={activeCount} icon={UserCheck} color="emerald" />
           <HrStatCard label="Linked login" value={linkedCount} icon={LinkIcon} color="blue" />
           <HrStatCard label="Departments" value={departments.length} icon={Building2} color="sky" />

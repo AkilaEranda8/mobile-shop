@@ -901,7 +901,7 @@ export default function StockTransferPage() {
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
-            <Package size={13} className="text-violet-400" />
+            <Package size={13} className="text-brand-400" />
           </div>
           <div>
             <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{row.original.product?.name}</p>
@@ -1044,7 +1044,7 @@ export default function StockTransferPage() {
           icon={ArrowLeftRight}
           title="No transfers yet"
           description="Move products from one branch to another. Stock is deducted at the source and added at the destination automatically."
-          accentColor="violet"
+          accentColor="blue"
           actions={canTransfer ? [{ label: 'Create First Transfer', onClick: () => setShowTransfer(true), primary: true }] : []}
           hints={[
             'Products with variants: select storage/color, then transfer that variant qty.',

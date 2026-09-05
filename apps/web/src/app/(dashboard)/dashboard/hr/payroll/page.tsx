@@ -194,7 +194,7 @@ export default function HrPayrollPage() {
         ) : undefined}
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Runs" value={runs.length} icon={Wallet} color="violet" />
+          <HrStatCard label="Runs" value={runs.length} icon={Wallet} color="blue" />
           <HrStatCard label="In progress" value={draftCount} icon={FileText} color="amber" />
           <HrStatCard label="Paid" value={paidCount} icon={CheckCircle2} color="emerald" />
           <HrStatCard label="Periods" value={periods.length} icon={FileText} color="blue" />

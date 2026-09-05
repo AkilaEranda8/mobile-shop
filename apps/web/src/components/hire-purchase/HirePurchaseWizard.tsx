@@ -34,6 +34,8 @@ const C = {
 
 const inputStyle: CSSProperties = {
   color: C.text,
+  WebkitTextFillColor: C.text,
+  caretColor: C.text,
   background: C.elevated,
   borderColor: C.line,
 }

@@ -52,8 +52,8 @@ function AddTransactionModal({ onClose, onSaved }: { onClose: () => void; onSave
       <div className="w-full max-w-md rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-              <Receipt size={14} className="text-violet-400" />
+            <div className="w-8 h-8 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
+              <Receipt size={14} className="text-brand-400" />
             </div>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Add Transaction</h3>
           </div>
@@ -235,17 +235,17 @@ export default function FinancePage() {
       </div>
 
       {hasDailyClosing && (
-        <Link href="/dashboard/daily-closing" className="card p-4 flex items-center justify-between border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 transition-colors">
+        <Link href="/dashboard/daily-closing" className="card p-4 flex items-center justify-between border-brand-500/20 bg-brand-500/5 hover:bg-brand-500/10 transition-colors">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center">
-              <Lock size={18} className="text-violet-400" />
+            <div className="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center">
+              <Lock size={18} className="text-brand-400" />
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Daily Closing</p>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>End-of-day summary uses this Finance data automatically</p>
             </div>
           </div>
-          <span className="text-xs font-semibold text-violet-400">Open →</span>
+          <span className="text-xs font-semibold text-brand-400">Open →</span>
         </Link>
       )}
 
@@ -432,7 +432,7 @@ export default function FinancePage() {
 
           <div className="card overflow-hidden">
             {txLoading ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-violet-400" size={24} /></div>
+              <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
             ) : filtered.length === 0 ? (
               <div className="py-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>No transactions found</div>
             ) : (

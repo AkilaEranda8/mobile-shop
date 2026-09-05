@@ -240,7 +240,7 @@ export default function HrShiftsPage() {
         )}
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Total shifts" value={rows.length} icon={Calendar} color="violet" />
+          <HrStatCard label="Total shifts" value={rows.length} icon={Calendar} color="blue" />
           <HrStatCard label="Active" value={activeCount} icon={CheckCircle2} color="emerald" />
           <HrStatCard label="Assignments" value={assignmentTotal} icon={Users} color="blue" />
           <HrStatCard label="Employees" value={employees.length} icon={UserPlus} color="sky" />

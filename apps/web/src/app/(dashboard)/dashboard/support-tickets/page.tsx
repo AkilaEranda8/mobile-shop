@@ -46,7 +46,7 @@ function statusTone(status: string) {
   if (status === 'OPEN') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/25'
   if (status === 'IN_PROGRESS') return 'bg-amber-500/15 text-amber-700 border-amber-500/25'
   if (status === 'WAITING_CUSTOMER') return 'bg-slate-500/15 text-slate-600 border-slate-500/25'
-  if (status === 'RESOLVED') return 'bg-sky-500/15 text-sky-700 border-sky-500/25'
+  if (status === 'RESOLVED') return 'bg-brand-500/15 text-sky-700 border-brand-500/25'
   return 'bg-slate-500/15 text-slate-600 border-slate-500/25'
 }
 
@@ -246,7 +246,7 @@ function SupportPageInner() {
       {/* Header */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-5">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white">
             <LifeBuoy size={18} />
           </div>
           <div className="min-w-0">
@@ -269,7 +269,7 @@ function SupportPageInner() {
           <button
             type="button"
             onClick={() => openCreate()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-500"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-500"
           >
             <Plus size={15} /> New Ticket
           </button>
@@ -289,7 +289,7 @@ function SupportPageInner() {
             key={key}
             type="button"
             className={`flex-1 py-2.5 text-xs font-bold ${
-              mobilePane === key ? 'border-b-2 border-sky-500 text-sky-600' : 'text-slate-400'
+              mobilePane === key ? 'border-b-2 border-brand-500 text-brand-600' : 'text-slate-400'
             }`}
             onClick={() => setMobilePane(key)}
           >
@@ -328,12 +328,12 @@ function SupportPageInner() {
                   onClick={() => setTicketFilter(f.key)}
                   className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold ${
                     ticketFilter === f.key
-                      ? 'bg-sky-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'text-slate-500 hover:bg-slate-100'
                   }`}
                 >
                   {f.label}
-                  <span className={`ml-1 ${ticketFilter === f.key ? 'text-sky-100' : 'text-slate-400'}`}>
+                  <span className={`ml-1 ${ticketFilter === f.key ? 'text-brand-100' : 'text-slate-400'}`}>
                     {n}
                   </span>
                 </button>
@@ -352,7 +352,7 @@ function SupportPageInner() {
                 <p className="text-sm text-slate-400">No tickets here</p>
                 <button
                   type="button"
-                  className="mt-2 text-xs font-semibold text-sky-600 hover:underline"
+                  className="mt-2 text-xs font-semibold text-brand-600 hover:underline"
                   onClick={() => setTicketFilter('ALL')}
                 >
                   Show all tickets
@@ -366,7 +366,7 @@ function SupportPageInner() {
                 onClick={() => void openTicket(t.id)}
                 className={`block w-full rounded-lg border px-3 py-2.5 text-left transition ${
                   selected?.id === t.id
-                    ? 'border-sky-400 bg-sky-50'
+                    ? 'border-sky-400 bg-brand-50'
                     : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
                 }`}
               >
@@ -435,7 +435,7 @@ function SupportPageInner() {
               {selected.status !== 'CLOSED' && (
                 <div className="flex shrink-0 gap-2 border-t border-slate-100 p-3">
                   <input
-                    className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
+                    className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500"
                     placeholder="Write a reply…"
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
@@ -446,7 +446,7 @@ function SupportPageInner() {
                   <button
                     type="button"
                     disabled={saving}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50"
                     onClick={() => void sendReply()}
                   >
                     <Send size={15} /> Reply
@@ -492,9 +492,9 @@ function SupportPageInner() {
                   <button
                     type="button"
                     onClick={beginLiveChat}
-                    className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-sky-300 hover:shadow-sm md:p-5"
+                    className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm md:p-5"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
                       <MessageCircle size={20} />
                     </div>
                     <div className="mt-3 text-base font-bold text-slate-900">Live Chat</div>
@@ -504,7 +504,7 @@ function SupportPageInner() {
                     <div className="mt-2.5 text-xs font-semibold text-emerald-600">
                       {onlineCount > 0 ? `${onlineCount} online now` : 'Leave a message anytime'}
                     </div>
-                    <span className="mt-4 inline-flex rounded-lg bg-sky-600 px-3.5 py-2 text-[13px] font-semibold text-white">
+                    <span className="mt-4 inline-flex rounded-lg bg-brand-600 px-3.5 py-2 text-[13px] font-semibold text-white">
                       Start Live Chat
                     </span>
                   </button>
@@ -539,9 +539,9 @@ function SupportPageInner() {
                           key={topic.key}
                           type="button"
                           onClick={() => openCreate(topic.key)}
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left transition hover:border-sky-300 hover:bg-sky-50/60"
+                          className="flex items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left transition hover:border-brand-300 hover:bg-brand-50/60"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-sky-600">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-brand-600">
                             <Icon size={17} />
                           </div>
                           <div className="min-w-0">
@@ -604,12 +604,12 @@ function SupportPageInner() {
                       key={agent.id}
                       type="button"
                       onClick={() => startWithAgent(agent)}
-                      className="flex w-full items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5 text-left transition hover:border-sky-300 hover:bg-sky-50/70"
+                      className="flex w-full items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50/70"
                     >
                       <div className="relative shrink-0">
                         <div
                           className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white ${
-                            agent.isOnline ? 'bg-sky-600' : 'bg-slate-400'
+                            agent.isOnline ? 'bg-brand-600' : 'bg-slate-400'
                           }`}
                         >
                           {initials(agent.name)}
@@ -667,7 +667,7 @@ function SupportPageInner() {
             </div>
             <div className="space-y-3 px-5 py-4">
               <input
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-sky-500"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand-500"
                 placeholder="Subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
@@ -698,7 +698,7 @@ function SupportPageInner() {
                 </select>
               </div>
               <textarea
-                className="min-h-[140px] w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-sky-500"
+                className="min-h-[140px] w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
                 placeholder="Describe the issue…"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
@@ -711,7 +711,7 @@ function SupportPageInner() {
               <button
                 type="button"
                 disabled={saving}
-                className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
+                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50"
                 onClick={() => void create()}
               >
                 {saving ? 'Submitting…' : 'Submit ticket'}

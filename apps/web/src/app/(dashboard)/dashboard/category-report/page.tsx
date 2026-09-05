@@ -11,6 +11,7 @@ import {
 import { useActiveBranchId, useCategorySales, useCategoryProducts, useFeatureFlag } from '@/lib/hooks'
 import { formatCurrency } from '@/lib/utils'
 import { businessToday, businessPeriodFrom } from '@/lib/business-date'
+import { StatCard } from '@/components/design-system'
 
 /* ── constants ─────────────────────────────────────────────────── */
 const TOOLTIP_STYLE = {
@@ -30,25 +31,10 @@ const PERIODS = [
 ]
 
 /* ── helpers ────────────────────────────────────────────────────── */
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-        <Icon size={16} className={`text-${color}-600 dark:text-${color}-400`} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-        {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -65,7 +51,7 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
     a.href     = URL.createObjectURL(blob); a.download = filename; a.click()
   }
   return (
-    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
+    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-brand-600 dark:hover:text-brand-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
       <Download size={12} /> Export CSV
     </button>
   )
@@ -211,7 +197,7 @@ export default function CategoryReportPage() {
       </div>
 
       <div className="rounded-xl px-4 py-3 flex gap-3 items-start text-xs leading-relaxed" style={{ background: 'var(--brand-glow)', border: '1px solid var(--sidebar-active-border)' }}>
-        <Info size={16} className="flex-shrink-0 mt-0.5 text-violet-600 dark:text-violet-400" />
+        <Info size={16} className="flex-shrink-0 mt-0.5 text-brand-600 dark:text-brand-400" />
         <div style={{ color: 'var(--text-secondary)' }}>
           <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Product categories vs Profit Allocation buckets</p>
           <p>
@@ -232,8 +218,8 @@ export default function CategoryReportPage() {
           {selectedCat && activeCatData ? (
             <>
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}>
-                <div className="w-2 h-2 rounded-full bg-violet-500" />
-                <span className="text-xs font-semibold text-violet-600 dark:text-violet-400">Category:</span>
+                <div className="w-2 h-2 rounded-full bg-brand-500" />
+                <span className="text-xs font-semibold text-brand-600 dark:text-brand-400">Category:</span>
                 <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{selectedCat}</span>
                 <ChevronRight size={12} style={{ color: 'var(--text-muted)' }} />
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Showing product breakdown</span>
@@ -242,7 +228,7 @@ export default function CategoryReportPage() {
                 </button>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StatCard label="Category Revenue" value={formatCurrency(activeCatData.revenue)} icon={DollarSign}  color="violet" />
+                <StatCard label="Category Revenue" value={formatCurrency(activeCatData.revenue)} icon={DollarSign}  color="blue" />
                 <StatCard label="Category COGS"    value={formatCurrency(activeCatData.cogs)}    icon={TrendingDown} color="red"   />
                 <StatCard label="Category Profit"  value={formatCurrency(activeCatData.profit)}  icon={TrendingUp}   color="green" sub={`${activeCatData.margin}% margin`} />
                 <StatCard label="Units Sold"        value={activeCatData.unitsSold.toLocaleString()} icon={Package} color="blue" sub={`${activeCatData.transactions} transactions`} />
@@ -250,7 +236,7 @@ export default function CategoryReportPage() {
             </>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <StatCard label="Total Revenue"   value={formatCurrency(totals.revenue)} icon={DollarSign}  color="violet" />
+              <StatCard label="Total Revenue"   value={formatCurrency(totals.revenue)} icon={DollarSign}  color="blue" />
               <StatCard label="Total COGS"      value={formatCurrency(totals.cogs)}    icon={TrendingDown} color="red"   />
               <StatCard label="Total Profit"    value={formatCurrency(totals.profit)}  icon={TrendingUp}   color="green" sub={`${totals.margin}% margin`} />
               <StatCard label="Units Sold"      value={totals.units.toLocaleString()}  icon={Package}      color="blue"  />
@@ -332,7 +318,7 @@ export default function CategoryReportPage() {
                           <td className="px-3 py-2.5 text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
                           <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{p.product}</td>
                           <td className="px-3 py-2.5 text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{p.sku}</td>
-                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(p.revenue)}</td>
+                          <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(p.revenue)}</td>
                           <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(p.cogs)}</td>
                           <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(p.profit)}</td>
                           <td className="px-3 py-2.5 text-right">
@@ -403,7 +389,7 @@ export default function CategoryReportPage() {
                           <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{c.category}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(c.revenue)}</td>
+                      <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(c.revenue)}</td>
                       <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{formatCurrency(c.cogs)}</td>
                       <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(c.profit)}</td>
                       <td className="px-3 py-2.5 text-right">
@@ -416,7 +402,7 @@ export default function CategoryReportPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
-                            <div className="h-full rounded-full bg-violet-500" style={{ width: `${c.share}%` }} />
+                            <div className="h-full rounded-full bg-brand-500" style={{ width: `${c.share}%` }} />
                           </div>
                           <span className="text-[10px] w-7 text-right" style={{ color: 'var(--text-muted)' }}>{c.share}%</span>
                         </div>
@@ -435,7 +421,7 @@ export default function CategoryReportPage() {
                   <tfoot>
                     <tr style={{ borderTop: '2px solid var(--border-default)', background: 'var(--bg-subtle)' }}>
                       <td colSpan={2} className="px-3 py-2.5 text-xs font-bold" style={{ color: 'var(--text-primary)' }}>TOTAL</td>
-                      <td className="px-3 py-2.5 text-xs text-right font-bold text-violet-600 dark:text-violet-400">{formatCurrency(totals.revenue)}</td>
+                      <td className="px-3 py-2.5 text-xs text-right font-bold text-brand-600 dark:text-brand-400">{formatCurrency(totals.revenue)}</td>
                       <td className="px-3 py-2.5 text-xs text-right font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.cogs)}</td>
                       <td className="px-3 py-2.5 text-xs text-right font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.profit)}</td>
                       <td className="px-3 py-2.5 text-right">

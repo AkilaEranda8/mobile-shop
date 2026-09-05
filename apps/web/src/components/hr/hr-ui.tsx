@@ -6,20 +6,21 @@ import { Loader2, Briefcase, AlertTriangle, X } from 'lucide-react'
 import { useFeatureFlag } from '@/lib/hooks'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { StatCard } from '@/components/design-system'
 
 export function HrFeatureGate({ children }: { children: React.ReactNode }) {
   const enabled = useFeatureFlag('HR_PAYROLL')
   if (!enabled) {
     return (
       <div className="max-w-lg mx-auto mt-16 p-6 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center bg-violet-500/10 border border-violet-500/25">
-          <Briefcase size={22} className="text-violet-400" />
+        <div className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center bg-brand-500/10 border border-brand-500/25">
+          <Briefcase size={22} className="text-brand-400" />
         </div>
         <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>HR & Payroll is not enabled</h2>
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
           Ask your shop owner to enable the HR & Payroll module in Settings → Features.
         </p>
-        <Link href="/dashboard/settings" className="text-sm font-medium text-violet-400 hover:underline">
+        <Link href="/dashboard/settings" className="text-sm font-medium text-brand-400 hover:underline">
           Go to Settings
         </Link>
       </div>
@@ -46,8 +47,8 @@ export function HrPageShell({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           {Icon && (
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-center">
-              <Icon size={18} className="text-violet-400" />
+            <div className="w-10 h-10 rounded-xl bg-brand-500/10 border border-brand-500/25 flex items-center justify-center">
+              <Icon size={18} className="text-brand-400" />
             </div>
           )}
           <div>
@@ -66,38 +67,14 @@ export function HrStatCard({
   label,
   value,
   icon: Icon,
-  color = 'violet',
+  color = 'blue',
 }: {
   label: string
   value: string | number
   icon?: LucideIcon
   color?: 'violet' | 'blue' | 'emerald' | 'amber' | 'red' | 'yellow' | 'sky' | 'slate' | 'cyan'
 }) {
-  const tone: Record<string, { wrap: string; icon: string }> = {
-    violet: { wrap: 'bg-violet-500/10 border-violet-500/20', icon: 'text-violet-400' },
-    blue: { wrap: 'bg-blue-500/10 border-blue-500/20', icon: 'text-blue-400' },
-    emerald: { wrap: 'bg-emerald-500/10 border-emerald-500/20', icon: 'text-emerald-400' },
-    amber: { wrap: 'bg-amber-500/10 border-amber-500/20', icon: 'text-amber-400' },
-    red: { wrap: 'bg-red-500/10 border-red-500/20', icon: 'text-red-400' },
-    yellow: { wrap: 'bg-yellow-500/10 border-yellow-500/20', icon: 'text-yellow-400' },
-    sky: { wrap: 'bg-sky-500/10 border-sky-500/20', icon: 'text-sky-400' },
-    slate: { wrap: 'bg-slate-500/10 border-slate-500/20', icon: 'text-slate-400' },
-    cyan: { wrap: 'bg-cyan-500/10 border-cyan-500/20', icon: 'text-cyan-400' },
-  }
-  const t = tone[color] ?? tone.violet
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      {Icon && (
-        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center border', t.wrap)}>
-          <Icon size={15} className={t.icon} />
-        </div>
-      )}
-      <div>
-        <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
-        <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
-      </div>
-    </div>
-  )
+  return <StatCard label={label} value={value} icon={Icon} tone={color} />
 }
 
 /** @deprecated Prefer HrStatCard (Customers-page card style). */
@@ -118,8 +95,8 @@ export function HrQuickLink({ href, icon: Icon, label, description }: { href: st
       className="card p-4 block transition-colors hover:bg-white/5"
     >
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-          <Icon size={15} className="text-violet-400" />
+        <div className="w-9 h-9 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center shrink-0">
+          <Icon size={15} className="text-brand-400" />
         </div>
         <div>
           <p className="text-sm font-semibold text-gray-900 dark:text-white">{label}</p>
@@ -216,8 +193,8 @@ export function HrModal({
         >
           <div className="flex items-center gap-3 min-w-0">
             {Icon && (
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20 shrink-0">
-                <Icon size={18} className="text-violet-500" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-brand-500/10 border border-brand-500/20 shrink-0">
+                <Icon size={18} className="text-brand-500" />
               </div>
             )}
             <div className="min-w-0">
@@ -340,8 +317,8 @@ export function HrSection({
     <section className="space-y-3">
       <div className="flex items-start gap-2.5">
         {Icon && (
-          <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
-            <Icon size={13} className="text-violet-400" />
+          <div className="w-7 h-7 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center shrink-0 mt-0.5">
+            <Icon size={13} className="text-brand-400" />
           </div>
         )}
         <div>
@@ -378,7 +355,7 @@ export function HrChoicePills({
               active
                 ? tone
                   ? `${tone.bg} ${tone.text} ${tone.border}`
-                  : 'bg-violet-500/15 text-violet-300 border-violet-500/35'
+                  : 'bg-brand-500/15 text-brand-300 border-brand-500/35'
                 : 'border-transparent hover:bg-white/5',
             )}
             style={!active ? { color: 'var(--text-muted)', borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' } : undefined}
@@ -400,7 +377,7 @@ export function HrAvatarBadge({ name, code }: { name: string; code?: string }) {
     .join('') || '?'
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/40 to-violet-900/40 border border-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-100 shrink-0">
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-600/40 to-brand-900/40 border border-brand-500/30 flex items-center justify-center text-sm font-bold text-brand-100 shrink-0">
         {initials}
       </div>
       <div className="min-w-0">

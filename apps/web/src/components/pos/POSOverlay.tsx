@@ -4606,7 +4606,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       {!creditMode && (
                         <button onClick={() => { setManualTotalMode(!manualTotalMode); if (!manualTotalMode) setManualTotal(String(calculatedTotal)) }}
                           className="text-[10px] px-2 py-0.5 rounded border transition-colors"
-                          style={{ borderColor: manualTotalMode ? 'rgba(139,92,246,.4)' : POS_THEME.border, background: manualTotalMode ? 'rgba(139,92,246,.1)' : 'transparent', color: '#ffffff' }}>
+                          style={{ borderColor: manualTotalMode ? 'rgba(59,130,246,.4)' : POS_THEME.border, background: manualTotalMode ? 'rgba(59,130,246,.1)' : 'transparent', color: '#ffffff' }}>
                           {manualTotalMode ? 'Auto' : 'Edit'}
                         </button>
                       )}
@@ -4718,7 +4718,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         ? { background: `${POS_THEME.green}26`, borderColor: `${POS_THEME.green}59`, color: POS_THEME.green }
                         : method === 'CARD'
                           ? { background: `${POS_THEME.blue}26`, borderColor: `${POS_THEME.blue}59`, color: POS_THEME.blue }
-                          : { background: POS_THEME.card, borderColor: POS_THEME.border, color: POS_THEME.text }
+                          : { background: `${POS_THEME.blue}26`, borderColor: `${POS_THEME.blue}59`, color: POS_THEME.text }
+                      const selected = paymentMethodId === id
                       return (
                         <button key={id} type="button" onClick={() => {
                           setPaymentMethodId(id)
@@ -4726,9 +4727,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
                             setCustomerPaid(collectAtCheckout > 0 ? collectAtCheckout.toFixed(2) : '')
                           }
                         }}
-                          className="flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
+                          data-pay-method={method}
+                          data-selected={selected ? 'true' : 'false'}
+                          aria-pressed={selected}
+                          className="nova-pay-method flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-semibold border transition-all"
                           title={idx < 5 ? `Key: ${idx + 1}` : label}
-                          style={paymentMethodId === id
+                          style={selected
                             ? { ...active, border: `1px solid ${active.borderColor}` }
                             : { background: POS_THEME.card, border: `1px solid ${POS_THEME.border}`, color: POS_THEME.muted }}>
                           <MI size={14} /><span className="truncate max-w-full px-0.5">{label}</span>

@@ -35,7 +35,7 @@ export function QuestVictory({
         </p>
         <div className="shop-quest-victory-stats">
           <div>
-            <Star size={16} className="text-violet-500" />
+            <Star size={16} className="text-brand-500" />
             <span>{missionCount} / {missionCount} Missions</span>
           </div>
           <div>

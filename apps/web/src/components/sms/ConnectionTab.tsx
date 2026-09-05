@@ -224,7 +224,7 @@ export default function ConnectionTab({ canEdit, status, config, onStatusChange,
         className="lg:col-span-2 space-y-4">
         <div className="card p-5 space-y-3">
           <div className="flex items-center gap-2">
-            <Phone size={14} className="text-violet-400" />
+            <Phone size={14} className="text-brand-400" />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Test SMS</h3>
           </div>
           <input className="input-field w-full" value={testPhone} disabled={!canEdit} placeholder="07XXXXXXXX"

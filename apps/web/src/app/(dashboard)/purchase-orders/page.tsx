@@ -23,6 +23,7 @@ import {
   resolveBarcodeLabelSettings,
   type BarcodeLabelSettings,
 } from '@/lib/invoiceSettings'
+import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl } from '@/components/design-system'
 import {
   ConfirmReceiveModal,
   ConfirmDeletePOModal,
@@ -114,7 +115,7 @@ function PODetailsModal({
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Package size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <Package size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 Purchase Order Details ( PO : <span className="font-mono">{safeText(po.poNumber)}</span> )
@@ -136,7 +137,7 @@ function PODetailsModal({
               <button
                 type="button"
                 onClick={onEdit}
-                className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg border border-violet-500/35 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+                className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg border border-brand-500/35 bg-brand-500/15 text-brand-700 dark:text-brand-300 font-semibold"
                 title="Edit purchase order"
               >
                 <Pencil size={13} />
@@ -224,7 +225,7 @@ function PODetailsModal({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 space-y-4">
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="bg-violet-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
+                <div className="bg-brand-600 text-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide">
                   Items ({po.items?.length ?? 0})
                 </div>
                 <div className="overflow-x-auto">
@@ -408,7 +409,7 @@ function PODetailsModal({
               <button
                 type="button"
                 onClick={onEdit}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-brand-500/30 bg-brand-500/15 text-brand-700 dark:text-brand-300 font-semibold"
               >
                 <Pencil size={14} />
                 Edit
@@ -429,7 +430,7 @@ function PODetailsModal({
               <button
                 type="button"
                 onClick={onRegisterImei}
-                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-violet-500/30 bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-brand-500/30 bg-brand-500/15 text-brand-700 dark:text-brand-300 font-semibold"
               >
                 <Smartphone size={14} />
                 Register IMEI
@@ -753,7 +754,7 @@ export default function PurchaseOrdersPage() {
       accessorKey: 'poNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="PO Number" />,
       cell: ({ row }) => (
-        <button type="button" className="text-xs font-mono text-violet-600 dark:text-violet-300 hover:underline" onClick={() => openPoDetail(row.original)}>
+        <button type="button" className="text-xs font-mono text-brand-600 dark:text-brand-300 hover:underline" onClick={() => openPoDetail(row.original)}>
           {row.original.poNumber}
         </button>
       ),
@@ -809,7 +810,7 @@ export default function PurchaseOrdersPage() {
             <button
               type="button"
               onClick={() => setRegisterImeiPO(po)}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 whitespace-nowrap"
+              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 hover:bg-brand-500/20 whitespace-nowrap"
             >
               <Smartphone size={10} />
               Register ({imeiRegistered}/{imeiExpected})
@@ -955,58 +956,42 @@ export default function PurchaseOrdersPage() {
         />
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Purchase Orders</h1>
-          <p className="page-subtitle">{purchaseOrders.length} purchase orders</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto flex-wrap">
-          <button
-            type="button"
-            onClick={() => router.push('/dashboard/suppliers')}
-            className="btn-secondary text-sm"
-          >
-            Suppliers
-          </button>
-          {canEdit && (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowBulkImport(true)}
-                className="btn-secondary text-sm flex items-center gap-2"
-              >
-                <Upload size={14} />Bulk Import
-              </button>
-              <button onClick={() => { setEditPO(null); setShowNewPO(true) }} className="btn-primary text-sm flex items-center gap-2">
-                <Package size={14} />New PO
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Orders', value: String(poStats.total), icon: Package, color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.22)' },
-          { label: 'Pending', value: String(poStats.pending), icon: FileText, color: '#d97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.22)' },
-          { label: 'Received', value: String(poStats.received), icon: CheckCircle, color: '#059669', bg: 'rgba(5,150,105,0.08)', border: 'rgba(5,150,105,0.22)' },
-          { label: 'Total Value', value: formatCurrency(poStats.totalValue), icon: CreditCard, color: '#0284c7', bg: 'rgba(2,132,199,0.08)', border: 'rgba(2,132,199,0.22)' },
-        ].map(({ label, value, icon: Icon, color, bg, border }) => (
-          <div key={label} className="card p-4 flex items-center gap-3" style={{ borderColor: border, background: bg }}>
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border"
-              style={{ background: bg, borderColor: border, color }}
+      <PageHeader
+        title="Purchase Orders"
+        subtitle={`${purchaseOrders.length} purchase orders`}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/suppliers')}
+              className="btn-secondary text-sm"
             >
-              <Icon size={15} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+              Suppliers
+            </button>
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkImport(true)}
+                  className="btn-secondary text-sm flex items-center gap-2"
+                >
+                  <Upload size={14} />Bulk Import
+                </button>
+                <button onClick={() => { setEditPO(null); setShowNewPO(true) }} className="btn-primary text-sm flex items-center gap-2">
+                  <Package size={14} />New PO
+                </button>
+              </>
+            )}
+          </>
+        }
+      />
+
+      <StatGrid cols={4}>
+        <StatCard label="Total Orders" value={String(poStats.total)} icon={Package} tone="brand" />
+        <StatCard label="Pending" value={String(poStats.pending)} icon={FileText} tone="warning" />
+        <StatCard label="Received" value={String(poStats.received)} icon={CheckCircle} tone="success" />
+        <StatCard label="Total Value" value={formatCurrency(poStats.totalValue)} icon={CreditCard} tone="info" />
+      </StatGrid>
 
       {incompletePoCount > 0 && !imeiBannerHidden && (
         <div className="rounded-xl border border-amber-300 dark:border-amber-500/25 bg-amber-50 dark:bg-amber-500/5 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
@@ -1023,34 +1008,26 @@ export default function PurchaseOrdersPage() {
         </div>
       )}
 
-      <ToolbarSearch
-        value={textSearch}
-        onChange={setTextSearch}
-        placeholder="Search PO #, supplier…"
-        className="max-w-md"
-      />
-
-      <div className="flex gap-1 p-1 rounded-xl flex-wrap w-fit" style={{ background: 'var(--bg-subtle)' }}>
-        {([
-          { id: 'all', label: 'All' },
-          { id: 'DRAFT', label: 'Draft' },
-          { id: 'SENT', label: 'Sent' },
-          { id: 'PARTIAL', label: 'Partial' },
-          { id: 'RECEIVED', label: 'Received' },
-          { id: 'CLOSED', label: 'Closed' },
-        ] as const).map(opt => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => setPoStatusFilter(opt.id)}
-            className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
-            style={poStatusFilter === opt.id
-              ? { background: 'var(--brand-primary-light)', color: '#fff' }
-              : { color: 'var(--text-muted)' }}>
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <FilterBar>
+        <ToolbarSearch
+          value={textSearch}
+          onChange={setTextSearch}
+          placeholder="Search PO #, supplier…"
+          className="max-w-md w-full sm:min-w-[220px]"
+        />
+        <SegmentedControl
+          value={poStatusFilter}
+          onChange={setPoStatusFilter}
+          options={[
+            { id: 'all', label: 'All' },
+            { id: 'DRAFT', label: 'Draft' },
+            { id: 'SENT', label: 'Sent' },
+            { id: 'PARTIAL', label: 'Partial' },
+            { id: 'RECEIVED', label: 'Received' },
+            { id: 'CLOSED', label: 'Closed' },
+          ]}
+        />
+      </FilterBar>
 
       <ClientSideTable
         data={filteredPOs}

@@ -134,7 +134,7 @@ function DataTable({ columns, rows, emptyLabel }: {
   )
 }
 
-const linkClass = 'text-violet-600 dark:text-violet-300 hover:underline inline-flex items-center gap-1 font-medium'
+const linkClass = 'text-brand-600 dark:text-brand-300 hover:underline inline-flex items-center gap-1 font-medium'
 
 const SECTIONS = [
   { id: 'purchases', label: 'Purchases', icon: Truck },
@@ -305,7 +305,7 @@ export default function ProductTraceabilityPage() {
         </p>
         <Link
           href="/inventory"
-          className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+          className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-brand-700 dark:text-brand-300 border-brand-500/25 bg-brand-500/10 hover:bg-brand-500/20"
         >
           <ArrowLeft size={12} /> Back to Inventory
         </Link>
@@ -470,7 +470,7 @@ export default function ProductTraceabilityPage() {
               type="button"
               disabled={exporting}
               onClick={() => handleExport('excel')}
-              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-brand-700 dark:text-brand-300 border-brand-500/25 bg-brand-500/10 hover:bg-brand-500/20 disabled:opacity-60"
             >
               <FileSpreadsheet size={12} /> Excel
             </button>

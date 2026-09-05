@@ -89,75 +89,74 @@ export function PaymentDueBanner() {
 
   return (
     <div
-      className="px-4 lg:px-6 py-2.5 flex flex-wrap items-center gap-2 sm:gap-3 border-b"
+      className="px-4 lg:px-6 py-2 flex flex-wrap items-center gap-x-3 gap-y-2 border-b"
       style={{
-        background: suspended ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.12)',
-        borderColor: suspended ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.35)',
+        background: suspended ? 'rgba(239,68,68,0.08)' : 'var(--status-warn-soft)',
+        borderColor: suspended ? 'rgba(239,68,68,0.28)' : 'var(--status-warn-border)',
         color: 'var(--text-primary)',
       }}
       role="alert"
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="flex items-center gap-2 shrink-0">
+        <AlertTriangle
+          size={15}
+          className={suspended ? 'text-red-500' : 'text-amber-500'}
+          aria-hidden
+        />
         <span
-          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md flex-shrink-0"
-          style={{
-            background: suspended ? '#ef4444' : '#f59e0b',
-            color: '#ffffff',
-          }}
+          className="text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: suspended ? 'var(--status-error)' : 'var(--status-warning)' }}
         >
-          <CreditCard size={11} color="#ffffff" />
           {suspended ? 'Suspended' : grace ? 'Payment Overdue' : 'Payment Due'}
         </span>
-        <AlertTriangle size={14} className={`flex-shrink-0 hidden sm:block ${suspended ? 'text-red-500' : 'text-amber-500'}`} />
-        <p className="text-[12px] sm:text-[13px] min-w-0">
-          {suspended ? (
-            <>
-              <span className="font-semibold text-red-700 dark:text-red-300">Account suspended for unpaid subscription.</span>
-              {' '}
-              <span style={{ color: 'var(--text-muted)' }}>
-                {amount != null ? `Outstanding ${formatCurrency(amount)}. ` : ''}
-                {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
-                Pay now to restore access.
-              </span>
-            </>
-          ) : grace ? (
-            <>
-              <span className="font-semibold text-slate-800 dark:text-slate-100">Subscription Payment Due</span>
-              {' '}
-              <span style={{ color: 'var(--text-muted)' }}>
-                You have {grace.daysRemaining} day{grace.daysRemaining === 1 ? '' : 's'} remaining before suspension.
-                {amount != null ? ` Outstanding: ${formatCurrency(amount)}.` : ''}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="font-semibold text-slate-800 dark:text-slate-100">Your Hexalyte subscription payment is due.</span>
-              {' '}
-              <span style={{ color: 'var(--text-muted)' }}>
-                {amount != null ? `Amount: ${formatCurrency(amount)}. ` : ''}
-                {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
-                Submit payment from Billing.
-              </span>
-            </>
-          )}
-        </p>
       </div>
+      <p className="text-[12px] sm:text-[13px] min-w-0 flex-1 leading-snug">
+        {suspended ? (
+          <>
+            <span className="font-medium">Account suspended for unpaid subscription.</span>
+            {' '}
+            <span style={{ color: 'var(--text-muted)' }}>
+              {amount != null ? `Outstanding ${formatCurrency(amount)}. ` : ''}
+              {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
+              Pay now to restore access.
+            </span>
+          </>
+        ) : grace ? (
+          <>
+            <span className="font-medium">Your Hexalyte subscription payment is due.</span>
+            {' '}
+            <span style={{ color: 'var(--text-muted)' }}>
+              {grace.daysRemaining} day{grace.daysRemaining === 1 ? '' : 's'} remaining before suspension.
+              {amount != null ? ` Outstanding: ${formatCurrency(amount)}.` : ''}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="font-medium">Your Hexalyte subscription payment is due.</span>
+            {' '}
+            <span style={{ color: 'var(--text-muted)' }}>
+              {amount != null ? `Amount: ${formatCurrency(amount)}. ` : ''}
+              {invoiceNo ? `Invoice ${invoiceNo}. ` : ''}
+              Submit payment from Billing.
+            </span>
+          </>
+        )}
+      </p>
       <Link
         href="/dashboard/settings?tab=billing"
-        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg flex-shrink-0 ${
+        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold h-8 px-3 rounded-lg shrink-0 ${
           suspended
-            ? 'bg-red-600 hover:bg-red-500'
-            : 'bg-amber-600 hover:bg-amber-500'
+            ? 'bg-red-600 hover:bg-red-500 text-white'
+            : 'bg-amber-500 hover:bg-amber-600 text-white'
         }`}
-        style={{ color: '#ffffff' }}
       >
-        <CreditCard size={11} color="#ffffff" />
-        Pay / LankaQR
+        <CreditCard size={12} />
+        Pay Now
       </Link>
       <button
         type="button"
         onClick={dismiss}
-        className="p-1 rounded-md hover:bg-black/5 text-gray-500 flex-shrink-0"
+        className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[color:var(--text-muted)] shrink-0"
         title="Hide for this session"
         aria-label="Hide payment due banner"
       >

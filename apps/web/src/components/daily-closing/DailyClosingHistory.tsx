@@ -28,11 +28,11 @@ export function DailyClosingHistory({ branchId, onSelectDate }: { branchId: stri
   return (
     <div className="card rounded-2xl p-5">
       <div className="flex items-center gap-2 mb-4">
-        <History size={15} className="text-violet-500" />
+        <History size={15} className="text-brand-500" />
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent Closings</h3>
       </div>
       {loading ? (
-        <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-violet-500" /></div>
+        <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-brand-500" /></div>
       ) : rows.length === 0 ? (
         <p className="text-xs text-center py-6" style={{ color: 'var(--text-muted)' }}>No closing records yet</p>
       ) : (
@@ -64,7 +64,7 @@ export function DailyClosingHistory({ branchId, onSelectDate }: { branchId: stri
                     </td>
                     <td className="px-3 py-2">
                       <button type="button" onClick={() => onSelectDate(dateStr)}
-                        className="text-xs text-violet-500 hover:underline">View</button>
+                        className="text-xs text-brand-500 hover:underline">View</button>
                     </td>
                   </tr>
                 )

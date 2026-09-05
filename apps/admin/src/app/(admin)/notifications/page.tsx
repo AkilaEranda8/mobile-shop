@@ -54,7 +54,7 @@ function typeIcon(type: string) {
     case 'NEW_TENANT': return <UserPlus size={15} className="text-emerald-500" />
     case 'WARRANTY_CLAIM': return <Shield size={15} className="text-orange-500" />
     case 'HIGH_REPAIR_QUEUE': return <Wrench size={15} className="text-amber-600" />
-    case 'NEW_FEATURE_SUGGESTION': return <Lightbulb size={15} className="text-violet-500" />
+    case 'NEW_FEATURE_SUGGESTION': return <Lightbulb size={15} className="text-brand-500" />
     default: return <Bell size={15} className="text-gray-500" />
   }
 }

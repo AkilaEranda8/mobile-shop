@@ -82,8 +82,8 @@ export default function SupplierPaymentsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-            <Truck size={13} className="text-violet-400" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500/20 to-cyan-500/20 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+            <Truck size={13} className="text-brand-400" />
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 dark:text-slate-100 text-sm truncate">

@@ -18,6 +18,7 @@ import {
   RecordPaymentModal,
   SupplierDetailsModal,
 } from '@/components/suppliers/suppliers-shared'
+import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
 
 export default function SuppliersPage() {
   const router = useRouter()
@@ -83,11 +84,11 @@ export default function SuppliersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Supplier" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-300 flex-shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500/20 to-cyan-500/20 border border-brand-500/20 flex items-center justify-center text-sm font-bold text-brand-300 flex-shrink-0">
             {row.original.name.charAt(0)}
           </div>
           <div>
-            <button type="button" className="font-semibold text-gray-900 dark:text-slate-100 text-sm hover:text-violet-400 text-left transition-colors" onClick={() => openSupplier(row.original)}>
+            <button type="button" className="font-semibold text-gray-900 dark:text-slate-100 text-sm hover:text-brand-400 text-left transition-colors" onClick={() => openSupplier(row.original)}>
               {row.original.name}
             </button>
             {row.original.contactName && <p className="text-xs text-gray-500 dark:text-slate-500">{row.original.contactName}</p>}
@@ -99,7 +100,7 @@ export default function SuppliersPage() {
       accessorKey: 'phone',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
       cell: ({ row }) => (
-        <a href={`tel:${row.original.phone}`} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-600 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-300">
+        <a href={`tel:${row.original.phone}`} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-300">
           <Phone size={11} />{row.original.phone}
         </a>
       ),
@@ -112,7 +113,7 @@ export default function SuppliersPage() {
     {
       accessorKey: 'totalOrders',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Orders" />,
-      cell: ({ row }) => <span className="text-sm font-semibold text-violet-400">{row.original.totalOrders}</span>,
+      cell: ({ row }) => <span className="text-sm font-semibold text-brand-400">{row.original.totalOrders}</span>,
     },
     {
       accessorKey: 'outstandingDues',
@@ -172,83 +173,42 @@ export default function SuppliersPage() {
         />
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Suppliers</h1>
-          <p className="page-subtitle">{suppliers.length} suppliers</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto">
-          <button
-            type="button"
-            onClick={() => router.push('/dashboard/purchase-orders')}
-            className="btn-secondary text-sm"
-          >
-            Purchase Orders
-          </button>
-          {canEdit && (
-            <button onClick={() => setShowAddSupplier(true)} className="btn-primary text-sm flex items-center gap-2">
-              <Plus size={14} />Add Supplier
+      <PageHeader
+        title="Suppliers"
+        subtitle={`${suppliers.length} suppliers`}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/purchase-orders')}
+              className="btn-secondary text-sm"
+            >
+              Purchase Orders
             </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          {
-            label: 'Total Suppliers',
-            value: String(suppliers.length),
-            icon: Truck,
-            color: 'var(--brand-primary-light)',
-            bg: 'var(--brand-glow)',
-            border: 'var(--sidebar-active-border)',
-          },
-          {
-            label: 'Total Outstanding',
-            value: formatCurrency(stats.totalOutstanding),
-            icon: Wallet,
-            color: '#b91c1c',
-            bg: 'rgba(185,28,28,0.08)',
-            border: 'rgba(185,28,28,0.20)',
-          },
-          {
-            label: 'Total Orders',
-            value: String(stats.totalOrders),
-            icon: Package,
-            color: '#0369a1',
-            bg: 'rgba(3,105,161,0.08)',
-            border: 'rgba(3,105,161,0.20)',
-          },
-          {
-            label: 'With Dues',
-            value: String(stats.withDues),
-            icon: AlertCircle,
-            color: '#b45309',
-            bg: 'rgba(180,83,9,0.08)',
-            border: 'rgba(180,83,9,0.20)',
-          },
-        ].map(({ label, value, icon: Icon, color, bg, border }) => (
-          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ color, background: bg, border: `1px solid ${border}` }}
-              >
-                <Icon size={14} />
-              </div>
-            </div>
-            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <ToolbarSearch
-        value={textSearch}
-        onChange={setTextSearch}
-        placeholder="Search suppliers…"
-        className="max-w-md"
+            {canEdit && (
+              <button onClick={() => setShowAddSupplier(true)} className="btn-primary text-sm flex items-center gap-2">
+                <Plus size={14} />Add Supplier
+              </button>
+            )}
+          </>
+        }
       />
+
+      <StatGrid cols={4}>
+        <StatCard label="Total Suppliers" value={String(suppliers.length)} icon={Truck} tone="brand" />
+        <StatCard label="Total Outstanding" value={formatCurrency(stats.totalOutstanding)} icon={Wallet} tone="danger" />
+        <StatCard label="Total Orders" value={String(stats.totalOrders)} icon={Package} tone="info" />
+        <StatCard label="With Dues" value={String(stats.withDues)} icon={AlertCircle} tone="warning" />
+      </StatGrid>
+
+      <FilterBar>
+        <ToolbarSearch
+          value={textSearch}
+          onChange={setTextSearch}
+          placeholder="Search suppliers…"
+          className="max-w-md w-full sm:min-w-[220px]"
+        />
+      </FilterBar>
 
       <ClientSideTable
         data={filteredSuppliers}

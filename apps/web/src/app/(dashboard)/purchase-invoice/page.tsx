@@ -495,14 +495,14 @@ function InvoiceContent() {
             </div>
 
             {poImeis.length > 0 && (
-              <div className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/50 p-5">
-                <h3 className="text-xs font-bold text-violet-700 uppercase tracking-widest mb-3">
+              <div className="mt-4 rounded-2xl border border-brand-100 bg-brand-50/50 p-5">
+                <h3 className="text-xs font-bold text-brand-700 uppercase tracking-widest mb-3">
                   Registered Device IMEIs ({poImeis.length})
                 </h3>
                 <div className="grid sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                   {poImeis.map((rec, i) => (
-                    <div key={i} className="text-[11px] font-mono bg-white rounded-lg px-3 py-2 border border-violet-100">
-                      <span className="text-violet-600">{rec.imei}</span>
+                    <div key={i} className="text-[11px] font-mono bg-white rounded-lg px-3 py-2 border border-brand-100">
+                      <span className="text-brand-600">{rec.imei}</span>
                       {rec.product?.name && (
                         <span className="block text-[10px] text-gray-500 font-sans mt-0.5 truncate">{rec.product.name}</span>
                       )}

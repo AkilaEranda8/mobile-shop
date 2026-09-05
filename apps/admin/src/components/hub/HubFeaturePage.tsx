@@ -128,7 +128,7 @@ function badgeClass(raw: string) {
     return 'badge-yellow'
   if (['SUSPENDED', 'DOWN', 'FAILED', 'CANCELLED', 'DISCONNECTED', 'REVOKED', 'REJECTED'].includes(s))
     return 'badge-red'
-  if (['ENTERPRISE', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(s)) return 'badge-purple'
+  if (['ENTERPRISE', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(s)) return 'badge-brand'
   if (['PRO', 'PROFESSIONAL', 'OWNER'].includes(s)) return 'badge-blue'
   return 'badge-gray'
 }

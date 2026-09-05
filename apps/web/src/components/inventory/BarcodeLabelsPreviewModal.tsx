@@ -76,7 +76,7 @@ export default function BarcodeLabelsPreviewModal({
               type="button"
               onClick={onPrint}
               disabled={loading || printing || total === 0}
-              className="inline-flex items-center gap-2 px-3 py-2 text-[12px] rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-2 text-[12px] rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold disabled:opacity-50"
             >
               {printing ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
               Print
@@ -153,7 +153,7 @@ export default function BarcodeLabelsPreviewModal({
               type="button"
               onClick={onPrint}
               disabled={loading || printing || total === 0}
-              className="inline-flex items-center gap-2 px-3 py-2 text-[12px] rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-2 text-[12px] rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold disabled:opacity-50"
             >
               {printing ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
               Print {total > 0 ? `(${total})` : ''}

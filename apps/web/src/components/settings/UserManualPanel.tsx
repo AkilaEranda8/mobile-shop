@@ -76,7 +76,7 @@ export default function UserManualPanel({ embedded = false }: UserManualPanelPro
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
             <div>
               <h2 className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <BookOpen size={16} className="text-violet-500" />
+                <BookOpen size={16} className="text-brand-500" />
                 User Manual
               </h2>
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -97,7 +97,7 @@ export default function UserManualPanel({ embedded = false }: UserManualPanelPro
         <div className="flex flex-col lg:flex-row lg:items-start gap-4">
           <div>
             <h1 className="page-title flex items-center gap-2">
-              <BookOpen size={24} className="text-violet-500" />
+              <BookOpen size={24} className="text-brand-500" />
               User Manual
             </h1>
             <p className="page-subtitle">
@@ -131,7 +131,7 @@ export default function UserManualPanel({ embedded = false }: UserManualPanelPro
                 onClick={() => setActiveId(section.id)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors text-left ${
                   selected
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'hover:bg-black/[0.04] dark:hover:bg-white/5'
                 }`}
                 style={selected ? undefined : { color: 'var(--text-secondary)' }}
@@ -201,7 +201,7 @@ function ManualToolbar({
             onClick={() => setLang(opt.key)}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
               lang === opt.key
-                ? 'bg-violet-600 text-white shadow-sm'
+                ? 'bg-brand-600 text-white shadow-sm'
                 : ''
             }`}
             style={lang === opt.key ? undefined : { color: 'var(--text-secondary)' }}
@@ -279,7 +279,7 @@ function WorkflowCard({ lang }: { lang: ManualLang }) {
             )}
             {col.steps.map((step, i) => (
               <li key={i} className="flex gap-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[11px] font-bold flex items-center justify-center border border-violet-500/20">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400 text-[11px] font-bold flex items-center justify-center border border-brand-500/20">
                   {i + 1}
                 </span>
                 <span className="pt-0.5 leading-relaxed">{step}</span>
@@ -297,10 +297,10 @@ function SectionDetail({ section, lang }: { section: ManualSection; lang: Manual
   const hasSteps = (section.stepGroups?.length ?? 0) > 0
 
   return (
-    <div className="card p-5 hover:border-violet-500/20 transition-colors">
+    <div className="card p-5 hover:border-brand-500/20 transition-colors">
       <div className="flex items-start gap-3 mb-5 pb-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-          <Icon size={18} className="text-violet-500" />
+        <div className="w-10 h-10 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center shrink-0">
+          <Icon size={18} className="text-brand-500" />
         </div>
         <div>
           <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -314,7 +314,7 @@ function SectionDetail({ section, lang }: { section: ManualSection; lang: Manual
 
       {hasSteps && (
         <div className="space-y-6 mb-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand-500">
             Setup step by step
           </p>
           {section.stepGroups!.map((group, gi) => (
@@ -326,7 +326,7 @@ function SectionDetail({ section, lang }: { section: ManualSection; lang: Manual
       {(section.itemsEn.length > 0 || section.itemsSi.length > 0) && (
         <>
           {hasSteps && (
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-500 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-500 mb-4">
               Quick reference
             </p>
           )}
@@ -374,7 +374,7 @@ function StepGroupBlock({ group, lang }: { group: ManualStepGroup; lang: ManualL
             <ol className="space-y-2.5">
               {col.steps.map((step, i) => (
                 <li key={i} className="flex gap-3 text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white text-[11px] font-bold flex items-center justify-center">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-[11px] font-bold flex items-center justify-center">
                     {i + 1}
                   </span>
                   <span className="pt-0.5">{step}</span>
@@ -392,7 +392,7 @@ function SectionList({ label, items }: { label?: string; items: string[] }) {
   return (
     <div>
       {label && (
-        <p className="text-[10px] font-bold uppercase tracking-wider text-violet-500 mb-3">{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-brand-500 mb-3">{label}</p>
       )}
       <ul className="space-y-3">
         {items.map((item, i) => (
@@ -408,7 +408,7 @@ function SectionList({ label, items }: { label?: string; items: string[] }) {
 
 function CheckDot() {
   return (
-    <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-violet-500" />
+    <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-brand-500" />
   )
 }
 

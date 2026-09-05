@@ -18,7 +18,7 @@ export default function WaybillPreview({ order, onClose }: Props) {
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Waybill Preview</h2>
           <div className="flex gap-2">
             <button onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm">
               <Printer size={14} /> Print / Save PDF
             </button>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white">
@@ -33,7 +33,7 @@ export default function WaybillPreview({ order, onClose }: Props) {
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Truck size={22} className="text-violet-600" />
+                <Truck size={22} className="text-brand-600" />
                 <span className="text-xl font-bold text-slate-900">HEXALYTE</span>
               </div>
               <p className="text-xs text-gray-500 dark:text-slate-500">Delivery Waybill</p>

@@ -47,14 +47,14 @@ export function ReleaseNotesPopup() {
         className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
       >
-        <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(139,92,246,0.08)' }}>
+        <div className="p-5 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'rgba(59,130,246,0.08)' }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center">
-                <Sparkles size={18} className="text-violet-500" />
+              <div className="w-9 h-9 rounded-xl bg-brand-500/20 flex items-center justify-center">
+                <Sparkles size={18} className="text-brand-500" />
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-500">What&apos;s New</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-500">What&apos;s New</p>
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>v{release.version}</p>
               </div>
             </div>

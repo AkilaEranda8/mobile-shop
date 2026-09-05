@@ -123,7 +123,7 @@ function isHexAccent(v?: string): v is string {
 
 /** Legacy Hexa purple accents — ignore so Nova/Hexa blue skins stay blue. */
 const LEGACY_PURPLE_ACCENTS = new Set([
-  '#7C3AED', '#6D28D9', '#5B21B6', '#8B5CF6', '#A855F7', '#7C3AEDFF',
+  '#7C3AED', '#8B5CF6', '#6D28D9', '#5B21B6', '#A855F7', '#9333EA', '#7C3AEDFF',
 ].map((s) => s.toUpperCase()))
 
 export function resolvePosTheme(theme?: PosThemeId | string, accent?: string): PosThemeTokens {

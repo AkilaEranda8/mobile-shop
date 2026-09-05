@@ -112,7 +112,7 @@ export default function BarcodeLabelsSettingsPage() {
                 onClick={() => router.push(tab.href)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
                   tab.key === 'barcode'
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -146,7 +146,7 @@ export default function BarcodeLabelsSettingsPage() {
 
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 size={22} className="animate-spin text-violet-400" />
+              <Loader2 size={22} className="animate-spin text-brand-400" />
             </div>
           ) : (
             <BarcodeLabelCustomizer
@@ -182,7 +182,7 @@ export default function BarcodeLabelsSettingsPage() {
 
           <p className="text-[11px] text-slate-500">
             Prefer the main settings hub?{' '}
-            <Link href="/settings" className="text-violet-400 hover:underline">Back to Settings</Link>
+            <Link href="/settings" className="text-brand-400 hover:underline">Back to Settings</Link>
           </p>
         </div>
       </div>

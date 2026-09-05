@@ -28,7 +28,7 @@ const STATUS_STYLE: Record<string, string> = {
   DISBURSED: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
   ACTIVE: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
   CLOSED: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-  RECOVERING: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  RECOVERING: 'bg-brand-500/15 text-brand-300 border-brand-500/30',
 }
 
 export default function HrAdvancesPage() {
@@ -252,7 +252,7 @@ export default function HrAdvancesPage() {
         }
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Advances" value={advances.length} icon={Banknote} color="violet" />
+          <HrStatCard label="Advances" value={advances.length} icon={Banknote} color="blue" />
           <HrStatCard label="Pending advances" value={advances.filter(a => a.status === 'REQUESTED').length} icon={CreditCard} color="amber" />
           <HrStatCard label="Loans" value={loans.length} icon={Landmark} color="blue" />
           <HrStatCard label="Active loans" value={loans.filter(l => l.status === 'ACTIVE' || l.status === 'APPROVED').length} icon={Landmark} color="emerald" />

@@ -124,7 +124,7 @@ export default function DeliveryPage() {
       cell: ({ row }) => (
         <div>
           <button onClick={() => setShowDetail(row.original)}
-            className="text-xs font-mono font-semibold text-violet-400 hover:underline">
+            className="text-xs font-mono font-semibold text-brand-400 hover:underline">
             {row.original.orderNumber}
           </button>
           <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{formatDate(row.original.createdAt)}</p>
@@ -136,7 +136,7 @@ export default function DeliveryPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[11px] font-bold text-violet-300 flex-shrink-0">
+          <div className="w-7 h-7 rounded-full bg-brand-500/20 flex items-center justify-center text-[11px] font-bold text-brand-300 flex-shrink-0">
             {row.original.customerName.charAt(0)}
           </div>
           <div>
@@ -155,7 +155,7 @@ export default function DeliveryPage() {
       cell: ({ row }) => (
         <div>
           <p className="text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-            <MapPin size={10} className="flex-shrink-0 text-violet-400" />
+            <MapPin size={10} className="flex-shrink-0 text-brand-400" />
             {row.original.city}{row.original.district ? `, ${row.original.district}` : ''}
           </p>
           <p className="text-[10px] truncate max-w-[140px]" style={{ color: 'var(--text-muted)' }}>
@@ -171,7 +171,7 @@ export default function DeliveryPage() {
       cell: ({ row }) => row.original.courier ? (
         <div>
           <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{row.original.courier.name}</p>
-          <p className="text-[11px] font-mono text-violet-400">{row.original.trackingNumber ?? '—'}</p>
+          <p className="text-[11px] font-mono text-brand-400">{row.original.trackingNumber ?? '—'}</p>
         </div>
       ) : (
         <span className="text-[11px] px-2 py-0.5 rounded border bg-yellow-500/10 border-yellow-500/20 text-yellow-400">
@@ -245,7 +245,7 @@ export default function DeliveryPage() {
     {
       accessorKey: 'number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tracking Number" />,
-      cell: ({ row }) => <span className="text-xs font-mono text-violet-400">{row.original.number}</span>,
+      cell: ({ row }) => <span className="text-xs font-mono text-brand-400">{row.original.number}</span>,
     },
     {
       id: 'courierName',
@@ -259,7 +259,7 @@ export default function DeliveryPage() {
       cell: ({ row }) => (
         <span className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${
           row.original.status === 'AVAILABLE' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-          row.original.status === 'ASSIGNED'  ? 'bg-violet-500/20 text-violet-400 border-violet-500/30' :
+          row.original.status === 'ASSIGNED'  ? 'bg-brand-500/20 text-brand-400 border-brand-500/30' :
           'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
           {row.original.status}
         </span>
@@ -282,7 +282,7 @@ export default function DeliveryPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Order" />,
       cell: ({ row }) => (
         <div>
-          <p className="text-xs font-mono text-violet-400">{row.original.deliveryOrder?.orderNumber}</p>
+          <p className="text-xs font-mono text-brand-400">{row.original.deliveryOrder?.orderNumber}</p>
           <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{row.original.deliveryOrder?.customerName}</p>
         </div>
       ),
@@ -416,7 +416,7 @@ export default function DeliveryPage() {
             icon={Truck}
             title="No delivery orders yet"
             description="Create delivery orders to dispatch products via courier. Assign tracking numbers, generate waybills, and send WhatsApp notifications automatically."
-            accentColor="violet"
+            accentColor="blue"
             actions={canEdit ? [
               { label: 'Create First Order', onClick: () => setShowCreate(true), primary: true },
               { label: 'Setup Couriers', onClick: () => setShowCouriers(true) },
@@ -503,13 +503,13 @@ export default function DeliveryPage() {
             ) : couriers.map(c => (
               <div key={c.id} className="rounded-xl p-4 flex items-start gap-3"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center flex-shrink-0">
-                  <Truck size={17} className="text-violet-400" />
+                <div className="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center flex-shrink-0">
+                  <Truck size={17} className="text-brand-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
-                    {c.isDefault && <span className="text-[10px] px-1.5 py-0.5 rounded border bg-violet-500/10 border-violet-500/20 text-violet-400">Default</span>}
+                    {c.isDefault && <span className="text-[10px] px-1.5 py-0.5 rounded border bg-brand-500/10 border-brand-500/20 text-brand-400">Default</span>}
                     {!c.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded border bg-red-500/10 border-red-500/20 text-red-400">Inactive</span>}
                   </div>
                   <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>{c.code}</p>

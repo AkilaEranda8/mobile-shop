@@ -105,12 +105,12 @@ export function DemoDataBanner() {
     <div
       className="rounded-2xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
       style={{
-        borderColor: 'rgba(124, 58, 237, 0.28)',
-        background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(14,165,233,0.06))',
+        borderColor: 'rgba(37, 99, 235, 0.28)',
+        background: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(14,165,233,0.06))',
       }}
     >
       <div className="flex items-start gap-3 flex-1 min-w-0">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-violet-500/15 text-violet-600 dark:text-violet-300">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-brand-500/15 text-brand-600 dark:text-brand-300">
           <Sparkles size={16} />
         </div>
         <div className="min-w-0">

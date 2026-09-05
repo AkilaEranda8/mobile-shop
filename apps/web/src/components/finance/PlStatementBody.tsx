@@ -44,7 +44,7 @@ export function PlStatementBody({
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs hover:text-brand-600 dark:hover:text-brand-400 border px-3 py-1.5 rounded-lg transition-colors"
             style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}
           >
             <Download size={12} /> Export CSV
@@ -64,7 +64,7 @@ export function PlStatementBody({
               : isProfit && amount < 0
                 ? 'text-red-600 dark:text-red-400'
                 : isProfit && row.highlight
-                  ? 'text-violet-600 dark:text-violet-400'
+                  ? 'text-brand-600 dark:text-brand-400'
                   : 'text-green-600 dark:text-green-400'
 
           return (

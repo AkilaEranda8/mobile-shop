@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -34,6 +34,7 @@ import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import type { Customer } from '@/types'
 import toast from 'react-hot-toast'
 import type { RepairTicket } from '@/types'
+import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl } from '@/components/design-system'
 
 function calcRepairTotals(repair: Pick<RepairTicket, 'estimatedCost' | 'spareParts'>) {
   const partsTotal = (repair.spareParts ?? []).reduce(
@@ -133,7 +134,7 @@ const SOURCE_OPTIONS = [
   { value: 'FACEBOOK',       label: 'Facebook',       color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'    },
   { value: 'INSTAGRAM',      label: 'Instagram',      color: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/25'    },
   { value: 'PHONE_CALL',     label: 'Phone Call',     color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'   },
-  { value: 'REFERRAL',       label: 'Referral',       color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25'  },
+  { value: 'REFERRAL',       label: 'Referral',       color: 'text-brand-400',  bg: 'bg-brand-500/10',  border: 'border-brand-500/25'  },
   { value: 'ONLINE',         label: 'Online',         color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25'    },
 ]
 
@@ -405,13 +406,13 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-6xl max-h-[96vh] overflow-y-auto rounded-2xl shadow-2xl flex flex-col" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
-        <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-purple-600 flex-shrink-0" />
+        <div className="h-1 w-full bg-gradient-to-r from-brand-500 to-brand-600 flex-shrink-0" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 z-20 flex-shrink-0" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-500/10 border border-violet-500/20">
-              <FileText size={16} className="text-violet-500" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-brand-500/10 border border-brand-500/20">
+              <FileText size={16} className="text-brand-500" />
             </div>
             <div>
               <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>New Repair Ticket</h3>
@@ -435,20 +436,20 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               {(
                 <div className="rounded-xl border overflow-visible" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <User size={18} className="text-violet-500" />
+                    <User size={18} className="text-brand-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Customer Information</h4>
                   </div>
                   <div className="p-5 space-y-4">
                     {customerMode === 'search' ? (
                       selectedCustomer ? (
-                        <div className="flex items-center gap-3 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                          <div className="w-9 h-9 rounded-full bg-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-300 shrink-0">
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-brand-500/10 border border-brand-500/20">
+                          <div className="w-9 h-9 rounded-full bg-brand-500/30 flex items-center justify-center text-sm font-bold text-brand-300 shrink-0">
                             {selectedCustomer.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{selectedCustomer.name}</p>
                             <p className="text-xs [color:var(--text-muted)]">{selectedCustomer.phone}</p>
-                            <p className="text-[10px] text-violet-400 mt-0.5">{selectedCustomer.totalRepairs ?? 0} previous repairs</p>
+                            <p className="text-[10px] text-brand-400 mt-0.5">{selectedCustomer.totalRepairs ?? 0} previous repairs</p>
                           </div>
                           <button type="button" onClick={clearCustomer} className="p-1.5 rounded-lg [color:var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors">
                             <X size={13} />
@@ -475,8 +476,8 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                                   <>
                                     {searchResults.map(c => (
                                       <button key={c.id} type="button" onClick={() => selectCustomer(c)}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-violet-500/10 transition-colors text-left">
-                                        <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-300 shrink-0">
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-brand-500/10 transition-colors text-left">
+                                        <div className="w-8 h-8 rounded-full bg-brand-500/20 flex items-center justify-center text-xs font-bold text-brand-300 shrink-0">
                                           {c.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -500,7 +501,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                             )}
                           </div>
                           <button type="button" onClick={() => { setCustomerMode('new'); clearCustomer() }}
-                            className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5 hover:bg-violet-500/10 transition-colors"
+                            className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-brand-500 bg-brand-500/5 hover:bg-brand-500/10 transition-colors"
                             style={{ borderColor: 'var(--sidebar-active-border)' }}>
                             <Plus size={15} /> New Customer
                           </button>
@@ -543,7 +544,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           {registeringCust ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                           Register & Select Customer
                         </button>
-                        <button type="button" onClick={() => setCustomerMode('search')} className="text-xs font-semibold text-violet-500">Search existing customer instead</button>
+                        <button type="button" onClick={() => setCustomerMode('search')} className="text-xs font-semibold text-brand-500">Search existing customer instead</button>
                       </div>
                     )}
                   </div>
@@ -554,7 +555,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               {(
                 <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <Smartphone size={18} className="text-violet-500" />
+                    <Smartphone size={18} className="text-brand-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Device Information</h4>
                   </div>
                   <div className="p-5 grid grid-cols-2 gap-5">
@@ -574,9 +575,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                           {filteredBrands.map(b => (
                             <button key={b.id} type="button" onMouseDown={() => selectBrand(b)}
-                              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
+                              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-brand-500/10 transition-colors"
                               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <Smartphone size={11} className="text-violet-400 shrink-0" />
+                              <Smartphone size={11} className="text-brand-400 shrink-0" />
                               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{b.name}</span>
                               <span className="ml-auto text-[10px]" style={{ color: 'var(--text-muted)' }}>{b.models?.length ?? 0} models</span>
                             </button>
@@ -601,9 +602,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                           {filteredModels.map(m => (
                             <button key={m.id} type="button" onMouseDown={() => selectModel(m)}
-                              className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-violet-500/10 transition-colors"
+                              className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-brand-500/10 transition-colors"
                               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                              <div className="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0" />
                               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
                             </button>
                           ))}
@@ -617,7 +618,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
                           <input className="input-field pl-11 h-12 font-mono" placeholder="Enter 15-digit IMEI number" maxLength={17} value={form.imei} onChange={f('imei')} />
                         </div>
-                        <button type="button" className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-violet-500 bg-violet-500/5" style={{ borderColor: 'var(--sidebar-active-border)' }}>
+                        <button type="button" className="h-12 px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 text-brand-500 bg-brand-500/5" style={{ borderColor: 'var(--sidebar-active-border)' }}>
                           <Hash size={16} /> Scan IMEI
                         </button>
                       </div>
@@ -638,9 +639,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           {ACCESSORY_OPTIONS.map(a => (
                             <button key={a} type="button"
                               onMouseDown={e => { e.preventDefault(); toggleAccessory(a) }}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-500/10 transition-colors text-left"
                               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${accessories.includes(a) ? 'bg-violet-500 border-violet-500' : 'border-slate-600'}`}>
+                              <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${accessories.includes(a) ? 'bg-brand-500 border-brand-500' : 'border-slate-600'}`}>
                                 {accessories.includes(a) && <Check size={10} className="text-white" />}
                               </div>
                               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{a}</span>
@@ -678,7 +679,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               {(
                 <div className="rounded-xl border overflow-visible mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <AlertTriangle size={18} className="text-violet-500" />
+                    <AlertTriangle size={18} className="text-brand-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Reported Issue / Fault</h4>
                   </div>
                   <div className="p-5 space-y-4 relative">
@@ -720,9 +721,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                             {filteredFaults.map(fault => (
                               <button key={fault} type="button"
                                 onMouseDown={e => { e.preventDefault(); toggleIssue(fault) }}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-500/10 transition-colors text-left"
                                 style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${selectedIssues.includes(fault) ? 'bg-violet-500 border-violet-500' : 'border-slate-600'}`}>
+                                <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${selectedIssues.includes(fault) ? 'bg-brand-500 border-brand-500' : 'border-slate-600'}`}>
                                   {selectedIssues.includes(fault) && <Check size={10} className="text-white" />}
                                 </div>
                                 <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{fault}</span>
@@ -745,7 +746,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                     {selectedIssues.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {selectedIssues.map(issue => (
-                          <span key={issue} className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-400">
+                          <span key={issue} className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border border-brand-500/30 bg-brand-500/10 text-brand-400">
                             {issue}
                             <button type="button" onClick={() => toggleIssue(issue)} className="hover:text-red-400 transition-colors"><X size={10} /></button>
                           </span>
@@ -760,7 +761,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
               {(
                 <div className="rounded-xl border mt-6" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}>
-                    <Wrench size={18} className="text-violet-500" />
+                    <Wrench size={18} className="text-brand-500" />
                     <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Job Details</h4>
                   </div>
                   <div className="p-5 grid grid-cols-2 gap-5">
@@ -787,16 +788,16 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
                           {filteredTechs.map((t: any) => (
                             <button key={t.id} type="button" onMouseDown={() => selectTech(t)}
-                              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-violet-500/10 transition-colors"
+                              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-brand-500/10 transition-colors"
                               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <div className="w-7 h-7 rounded-full bg-violet-500/20 flex items-center justify-center text-[11px] font-bold text-violet-300 shrink-0">
+                              <div className="w-7 h-7 rounded-full bg-brand-500/20 flex items-center justify-center text-[11px] font-bold text-brand-300 shrink-0">
                                 {t.name?.charAt(0)?.toUpperCase()}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</p>
                                 <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{t.email}</p>
                               </div>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">TECH</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold bg-brand-500/10 text-brand-400 border border-brand-500/20">TECH</span>
                             </button>
                           ))}
                         </div>
@@ -817,9 +818,9 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                           {SOURCE_OPTIONS.map(opt => (
                             <button key={opt.value} type="button"
                               onMouseDown={e => { e.preventDefault(); setForm(p => ({ ...p, source: opt.value })); setSourceOpen(false) }}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-violet-500/10 transition-colors text-left"
+                              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-brand-500/10 transition-colors text-left"
                               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <div className={`w-3.5 h-3.5 rounded-full shrink-0 border-2 ${form.source === opt.value ? 'border-violet-500 bg-violet-500' : 'border-slate-600'}`} />
+                              <div className={`w-3.5 h-3.5 rounded-full shrink-0 border-2 ${form.source === opt.value ? 'border-brand-500 bg-brand-500' : 'border-slate-600'}`} />
                               <span className={`text-sm ${form.source === opt.value ? opt.color : ''}`}
                                 style={{ color: form.source === opt.value ? undefined : 'var(--text-primary)' }}>
                                 {opt.label}
@@ -860,7 +861,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
             <div className="col-span-12 lg:col-span-4 space-y-5">
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
                 <div className="flex items-center gap-3 mb-5">
-                  <FileText size={18} className="text-violet-500" />
+                  <FileText size={18} className="text-brand-500" />
                   <h4 className="font-bold" style={{ color: 'var(--text-primary)' }}>Ticket Summary</h4>
                 </div>
                 <div className="space-y-3">
@@ -873,23 +874,23 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                   ))}
                 </div>
                 {form.estimatedCompletion && (
-                  <div className="mt-5 rounded-xl border p-3 bg-violet-500/5" style={{ borderColor: 'var(--sidebar-active-border)' }}>
-                    <div className="flex items-center gap-2 text-violet-500 text-xs font-semibold mb-1">
+                  <div className="mt-5 rounded-xl border p-3 bg-brand-500/5" style={{ borderColor: 'var(--sidebar-active-border)' }}>
+                    <div className="flex items-center gap-2 text-brand-500 text-xs font-semibold mb-1">
                       <Clock size={13} /> Estimated Completion
                     </div>
-                    <p className="text-sm font-bold text-violet-500">{form.estimatedCompletion}</p>
+                    <p className="text-sm font-bold text-brand-500">{form.estimatedCompletion}</p>
                   </div>
                 )}
               </div>
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
                 <div className="flex items-start gap-3">
-                  <AlertCircle size={18} className="text-violet-500 shrink-0 mt-0.5" />
+                  <AlertCircle size={18} className="text-brand-500 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Need Help?</h4>
                     <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
                       Fill required fields and click <span className="font-semibold">Create Ticket</span>. Required fields are marked with <span className="text-red-500">*</span>
                     </p>
-                    <button type="button" className="text-xs font-bold text-violet-500 flex items-center gap-1.5">View Ticket Guidelines <ArrowRight size={13} /></button>
+                    <button type="button" className="text-xs font-bold text-brand-500 flex items-center gap-1.5">View Ticket Guidelines <ArrowRight size={13} /></button>
                   </div>
                 </div>
               </div>
@@ -911,7 +912,7 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
             <button
               type="submit"
               disabled={loading}
-              className="h-11 px-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/20 transition-all hover:opacity-90"
+              className="h-11 px-12 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-brand-500/20 transition-all hover:opacity-90"
               style={{ background: 'var(--brand-gradient)' }}
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle2 size={14} /> Create Ticket</>}
@@ -1186,7 +1187,7 @@ export default function RepairsPage() {
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--brand-glow)' }}>
-        <Wrench size={26} className="text-violet-500" />
+        <Wrench size={26} className="text-brand-500" />
       </div>
       <div className="text-center">
         <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Repair Jobs</h2>
@@ -1231,87 +1232,56 @@ export default function RepairsPage() {
       )}
       {editRepair    && <EditRepairModal   repair={editRepair}   onClose={() => setEditRepair(null)}   onSaved={() => { refetch(); setEditRepair(null) }} />}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Repair Jobs</h1>
-          <p className="page-subtitle">{stats.total} tickets · {stats.active} in progress · {stats.ready} ready for pickup</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto">
-          <button type="button" onClick={() => refetch()} disabled={loading}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-          {canEdit && (
-            <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
-              <Plus size={14} />New Ticket
+      <PageHeader
+        title="Repair Jobs"
+        subtitle={`${stats.total} tickets · ${stats.active} in progress · ${stats.ready} ready for pickup`}
+        actions={
+          <>
+            <button type="button" onClick={() => refetch()} disabled={loading}
+              className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
             </button>
-          )}
-        </div>
-      </div>
+            {canEdit && (
+              <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary text-sm flex items-center gap-2">
+                <Plus size={14} />New Ticket
+              </button>
+            )}
+          </>
+        }
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-        {([
-          { icon: Wrench,      label: 'Total Jobs',  value: String(stats.total),           color: 'var(--brand-primary-light)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)', filter: 'all' as RepairStatusFilter },
-          { icon: Clock,       label: 'In Progress', value: String(stats.active),          color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)',  border: 'rgba(29,78,216,0.20)',  filter: 'active' as RepairStatusFilter },
-          { icon: CheckCircle, label: 'Ready',       value: String(stats.ready),           color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.20)',  filter: 'READY' as RepairStatusFilter },
-          { icon: Smartphone,  label: 'Delivered',   value: String(stats.delivered),       color: '#0e7490', bg: 'rgba(14,116,144,0.08)', border: 'rgba(14,116,144,0.20)', filter: 'DELIVERED' as RepairStatusFilter },
-          { icon: AlertCircle, label: 'Urgent',      value: String(stats.urgent),          color: '#b91c1c', bg: 'rgba(185,28,28,0.08)',  border: 'rgba(185,28,28,0.20)',  filter: 'urgent' as RepairStatusFilter },
-          { icon: DollarSign,  label: 'Revenue',     value: formatCurrency(stats.revenue), color: '#b45309', bg: 'rgba(180,83,9,0.08)',   border: 'rgba(180,83,9,0.20)',   filter: 'DELIVERED' as RepairStatusFilter },
-        ]).map(({ icon: Icon, label, value, color, bg, border, filter }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setStatusFilter(filter)}
-            className={`card p-4 flex items-center gap-3 text-left w-full transition-all hover:opacity-95 ${statusFilter === filter ? 'ring-2 ring-violet-500/40' : ''}`}
-            style={{ borderColor: border, background: bg }}
-          >
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ color, background: bg, border: `1px solid ${border}` }}>
-              <Icon size={15} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-              <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
-            </div>
-          </button>
-        ))}
-      </div>
+      <StatGrid cols={6}>
+        <StatCard label="Total Jobs" value={String(stats.total)} icon={Wrench} tone="brand" active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
+        <StatCard label="In Progress" value={String(stats.active)} icon={Clock} tone="info" active={statusFilter === 'active'} onClick={() => setStatusFilter('active')} />
+        <StatCard label="Ready" value={String(stats.ready)} icon={CheckCircle} tone="success" active={statusFilter === 'READY'} onClick={() => setStatusFilter('READY')} />
+        <StatCard label="Delivered" value={String(stats.delivered)} icon={Smartphone} tone="info" active={statusFilter === 'DELIVERED'} onClick={() => setStatusFilter('DELIVERED')} />
+        <StatCard label="Urgent" value={String(stats.urgent)} icon={AlertCircle} tone="danger" active={statusFilter === 'urgent'} onClick={() => setStatusFilter('urgent')} />
+        <StatCard label="Revenue" value={formatCurrency(stats.revenue)} icon={DollarSign} tone="success" active={statusFilter === 'DELIVERED'} onClick={() => setStatusFilter('DELIVERED')} />
+      </StatGrid>
 
-      {/* Status filters */}
-      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-        <div className="flex gap-1 p-1 rounded-xl flex-wrap border w-fit" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)' }}>
-          {STATUS_CHIPS.map(opt => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setStatusFilter(opt.id)}
-              className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
-              style={statusFilter === opt.id
-                ? { background: 'var(--brand-primary-light)', color: '#fff' }
-                : { color: 'var(--text-muted)' }}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
+      <FilterBar>
+        <SegmentedControl
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={STATUS_CHIPS.map(opt => ({ id: opt.id, label: opt.label }))}
+        />
         {hasActiveFilters && (
           <button
             type="button"
             onClick={clearFilters}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover:text-violet-600 dark:hover:text-violet-400"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors hover:text-brand-600 dark:hover:text-brand-400"
             style={{ color: 'var(--text-muted)' }}>
             Clear filters
           </button>
         )}
-      </div>
-
-      <ToolbarSearch
-        value={search}
-        onChange={setSearch}
-        placeholder="Search ticket, customer, phone, device…"
-        className="max-w-md"
-      />
+        <ToolbarSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Search ticket, customer, phone, device…"
+          className="max-w-md w-full sm:w-auto sm:min-w-[220px]"
+        />
+      </FilterBar>
 
       {/* Table or empty */}
       {!loading && allRepairs.length === 0 ? (
@@ -1319,7 +1289,7 @@ export default function RepairsPage() {
           icon={Wrench}
           title="No repair tickets yet"
           description="Create a ticket when a customer drops off a device. Track diagnosis, parts, status, and payment through to delivery."
-          accentColor="violet"
+          accentColor="blue"
           actions={canEdit ? [{ label: 'Create First Ticket', onClick: () => setShowAddModal(true), primary: true }] : []}
           hints={[
             'Assign a technician and set priority when creating the ticket.',

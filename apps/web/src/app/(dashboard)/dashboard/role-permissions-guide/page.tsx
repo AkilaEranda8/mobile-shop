@@ -53,7 +53,7 @@ function StepCard({
   return (
     <div className="card p-5 space-y-3">
       <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-full bg-violet-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-brand-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
           {n}
         </div>
         <div className="min-w-0">
@@ -78,7 +78,7 @@ export default function RolePermissionsGuidePage() {
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <div className="flex-1 min-w-0">
           <h1 className="page-title flex items-center gap-2">
-            <BookOpen size={22} className="text-violet-500" />
+            <BookOpen size={22} className="text-brand-500" />
             Role Permission Matrix — Guide
           </h1>
           <p className="page-subtitle">
@@ -95,7 +95,7 @@ export default function RolePermissionsGuidePage() {
               onClick={() => setLang(o.key)}
               className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
                 lang === o.key
-                  ? 'bg-violet-600/20 text-violet-300 border-violet-500/30'
+                  ? 'bg-brand-600/20 text-brand-300 border-brand-500/30'
                   : 'border-white/10 text-slate-500 hover:text-slate-300'
               }`}
             >
@@ -120,7 +120,7 @@ export default function RolePermissionsGuidePage() {
       {/* What it is */}
       <div className="card p-5 space-y-3">
         <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <LayoutList size={15} className="text-violet-400" />
+          <LayoutList size={15} className="text-brand-400" />
           {lang === 'si' ? 'මේක මොකද්ද?' : 'What is the Permission Matrix?'}
         </h2>
         <BiText
@@ -187,7 +187,7 @@ export default function RolePermissionsGuidePage() {
             en="Each click cycles: Hide → View → Edit → Hide. Skip the Owner column — it stays Edit."
             si="Click කරන හැම වතාවකම: Hide → View → Edit → Hide. Owner column skip කරන්න — ඒක Edit ම තියෙනවා."
           />
-          <p className="text-xs flex items-center gap-1.5 text-violet-400">
+          <p className="text-xs flex items-center gap-1.5 text-brand-400">
             <MousePointerClick size={12} />
             {lang === 'si' ? 'උදා: Cashier ට Inventory Hide, POS Edit' : 'Example: Cashier → Inventory Hide, POS Edit'}
           </p>

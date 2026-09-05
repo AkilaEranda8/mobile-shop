@@ -154,7 +154,7 @@ export default function HrCommissionPage() {
         ) : undefined}
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Period total" value={Number(grandTotal.toFixed(0))} icon={Wallet} color="violet" />
+          <HrStatCard label="Period total" value={Number(grandTotal.toFixed(0))} icon={Wallet} color="blue" />
           <HrStatCard label="Staff with earnings" value={rows.filter(r => r.total > 0).length} icon={Users} color="emerald" />
           <HrStatCard label="Active rules" value={rules.filter(r => r.isActive).length} icon={ListChecks} color="blue" />
           <HrStatCard label="Preview rows" value={rows.length} icon={TrendingUp} color="sky" />

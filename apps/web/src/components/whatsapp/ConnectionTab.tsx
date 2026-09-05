@@ -22,7 +22,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string; dot
   disconnected:  { label: 'Disconnected',  color: 'text-slate-400',  bg: 'bg-slate-500/10 border-slate-500/20',  dot: 'bg-slate-400',  Icon: WifiOff        },
   token_expired: { label: 'Token Expired', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20',dot: 'bg-yellow-400', Icon: AlertTriangle   },
   qr_pending:    { label: 'Scan QR Code',  color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',    dot: 'bg-blue-400',   Icon: QrCode         },
-  connecting:    { label: 'Connecting…',   color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20',dot: 'bg-violet-400', Icon: Loader2        },
+  connecting:    { label: 'Connecting…',   color: 'text-brand-400', bg: 'bg-brand-500/10 border-brand-500/20',dot: 'bg-brand-400', Icon: Loader2        },
 }
 
 interface Props {
@@ -437,7 +437,7 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
                 <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Meta Cloud API</h2>
                 <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">developers.facebook.com credentials</p>
               </div>
-              <span className="badge-status bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px]">
+              <span className="badge-status bg-brand-500/10 border border-brand-500/20 text-brand-400 text-[10px]">
                 <Shield size={9} /> Advanced
               </span>
             </div>
@@ -529,14 +529,14 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
               'Paste them in the form and connect',
             ].map((text, i) => (
               <div key={i} className="flex items-center gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                <span className="w-5 h-5 rounded-full bg-brand-500/15 border border-brand-500/25 text-brand-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
                   {i + 1}
                 </span>
                 <span className="text-xs text-gray-600 dark:text-slate-400">{text}</span>
               </div>
             ))}
             <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors pt-1">
+              className="flex items-center gap-1.5 text-xs text-brand-400 hover:text-brand-300 transition-colors pt-1">
               View full documentation <ChevronRight size={11} />
             </a>
           </motion.div>

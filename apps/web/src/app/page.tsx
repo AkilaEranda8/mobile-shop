@@ -37,9 +37,9 @@ const features = [
     icon: Smartphone,
     title: 'Serial Tracking',
     description: 'Every unit tracked by serial or IMEI from purchase to sale to warranty. Full audit trail throughout its lifecycle.',
-    color: 'from-violet-500/20 to-purple-500/10',
-    border: 'border-violet-500/20',
-    iconColor: 'text-violet-400',
+    color: 'from-brand-500/20 to-brand-500/10',
+    border: 'border-brand-500/20',
+    iconColor: 'text-brand-400',
   },
   {
     icon: Shield,
@@ -95,7 +95,7 @@ const plans = [
     price: 'Rs. 4,999',
     period: '/month',
     description: 'For growing shops with multiple branches',
-    color: 'border-violet-500/50',
+    color: 'border-brand-500/50',
     badge: 'Most Popular',
     features: [
       'Up to 5 Branches',
@@ -186,9 +186,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#080c14] text-slate-200 overflow-x-hidden">
       {/* Background effects */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-600/10 rounded-full blur-3xl" />
         <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-cyan-500/8 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-violet-800/8 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-brand-800/8 rounded-full blur-3xl" />
       </div>
 
       {/* Navigation */}
@@ -245,14 +245,14 @@ export default function LandingPage() {
             <Logo className="h-20 sm:h-28" />
           </div>
 
-          <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-4 py-1.5 text-sm text-violet-300 mb-8">
+          <div className="inline-flex items-center gap-2 bg-brand-500/10 border border-brand-500/20 rounded-full px-4 py-1.5 text-sm text-brand-300 mb-8">
             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
             <span>Now with Flutter mobile app + Electron desktop POS</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-white leading-tight mb-6">
             The Complete Platform for{' '}
-            <span className="bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-brand-400 via-brand-400 to-cyan-400 bg-clip-text text-transparent">
               Modern Retail Shops
             </span>
           </h1>
@@ -274,7 +274,7 @@ export default function LandingPage() {
           </div>
 
           {/* Dashboard Preview */}
-          <div className="relative rounded-2xl border border-white/10 bg-[#0f1623] overflow-hidden shadow-2xl shadow-violet-900/20">
+          <div className="relative rounded-2xl border border-white/10 bg-[#0f1623] overflow-hidden shadow-2xl shadow-brand-900/20">
             <div className="bg-[#0a0f1a] border-b border-white/5 px-4 py-3 flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500/60" />
               <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
@@ -307,7 +307,7 @@ export default function LandingPage() {
                   {[65, 85, 45, 90, 72, 95, 58].map((h, i) => (
                     <div key={i} className="flex-1 flex flex-col justify-end">
                       <div
-                        className="rounded-t bg-gradient-to-t from-violet-600 to-violet-400 opacity-80"
+                        className="rounded-t bg-gradient-to-t from-brand-600 to-brand-400 opacity-80"
                         style={{ height: `${h}%` }}
                       />
                     </div>
@@ -378,7 +378,7 @@ export default function LandingPage() {
               { icon: TrendingUp, text: 'Branch Comparison Analytics' },
             ].map((item) => (
               <div key={item.text} className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3">
-                <item.icon size={16} className="text-violet-400 flex-shrink-0" />
+                <item.icon size={16} className="text-brand-400 flex-shrink-0" />
                 <span className="text-sm text-slate-300">{item.text}</span>
               </div>
             ))}
@@ -396,9 +396,9 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {plans.map((plan) => (
-              <div key={plan.name} className={`relative rounded-2xl border ${plan.color} bg-[#0f1623] p-6 flex flex-col ${plan.badge ? 'ring-1 ring-violet-500/50' : ''}`}>
+              <div key={plan.name} className={`relative rounded-2xl border ${plan.color} bg-[#0f1623] p-6 flex flex-col ${plan.badge ? 'ring-1 ring-brand-500/50' : ''}`}>
                 {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-bold px-4 py-1 rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-bold px-4 py-1 rounded-full">
                     {plan.badge}
                   </div>
                 )}
@@ -414,7 +414,7 @@ export default function LandingPage() {
                 <ul className="flex-1 space-y-3 mb-8">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-slate-300">
-                      <CheckCircle size={16} className="text-violet-400 flex-shrink-0" />
+                      <CheckCircle size={16} className="text-brand-400 flex-shrink-0" />
                       {f}
                     </li>
                   ))}
@@ -452,7 +452,7 @@ export default function LandingPage() {
                 </div>
                 <p className="text-slate-300 text-sm leading-relaxed mb-6">&quot;{t.text}&quot;</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 font-bold text-sm">
+                  <div className="w-10 h-10 rounded-full bg-brand-600/20 border border-brand-500/30 flex items-center justify-center text-brand-300 font-bold text-sm">
                     {t.avatar}
                   </div>
                   <div>
@@ -479,9 +479,9 @@ export default function LandingPage() {
             <div className="grid sm:grid-cols-2 gap-4">
               <a
                 href={`mailto:${COMPANY.email}`}
-                className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3 hover:border-violet-500/30 transition-colors"
+                className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3 hover:border-brand-500/30 transition-colors"
               >
-                <Mail size={18} className="text-violet-400 flex-shrink-0" />
+                <Mail size={18} className="text-brand-400 flex-shrink-0" />
                 <div>
                   <p className="text-xs text-slate-500">Email</p>
                   <p className="text-sm text-white">{COMPANY.email}</p>
@@ -489,9 +489,9 @@ export default function LandingPage() {
               </a>
               <a
                 href={`tel:${COMPANY.phone.replace(/\s/g, '')}`}
-                className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3 hover:border-violet-500/30 transition-colors"
+                className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3 hover:border-brand-500/30 transition-colors"
               >
-                <Phone size={18} className="text-violet-400 flex-shrink-0" />
+                <Phone size={18} className="text-brand-400 flex-shrink-0" />
                 <div>
                   <p className="text-xs text-slate-500">Phone</p>
                   <p className="text-sm text-white">{COMPANY.phone}</p>
@@ -501,9 +501,9 @@ export default function LandingPage() {
                 href={`https://${COMPANY.website}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3 hover:border-violet-500/30 transition-colors sm:col-span-2"
+                className="flex items-center gap-3 bg-white/3 border border-white/5 rounded-xl px-4 py-3 hover:border-brand-500/30 transition-colors sm:col-span-2"
               >
-                <Globe size={18} className="text-violet-400 flex-shrink-0" />
+                <Globe size={18} className="text-brand-400 flex-shrink-0" />
                 <div>
                   <p className="text-xs text-slate-500">Website</p>
                   <p className="text-sm text-white">{COMPANY.website}</p>
@@ -517,7 +517,7 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-24 px-4">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="bg-gradient-to-br from-violet-600/20 to-cyan-600/10 border border-violet-500/20 rounded-3xl p-8 sm:p-12">
+          <div className="bg-gradient-to-br from-brand-600/20 to-cyan-600/10 border border-brand-500/20 rounded-3xl p-8 sm:p-12">
             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
               Ready to transform your shop?
             </h2>

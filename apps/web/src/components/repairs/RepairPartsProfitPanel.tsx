@@ -24,13 +24,13 @@ function SummaryRow({
   label: string
   value: string
   bold?: boolean
-  highlight?: 'green' | 'violet' | 'amber'
+  highlight?: 'green' | 'violet' | 'blue' | 'amber'
   muted?: boolean
   sub?: string
 }) {
   const color =
     highlight === 'green' ? 'text-green-600 dark:text-green-400'
-    : highlight === 'violet' ? 'text-violet-600 dark:text-violet-400'
+    : highlight === 'violet' || highlight === 'blue' ? 'text-brand-600 dark:text-brand-400'
     : highlight === 'amber' ? 'text-amber-600 dark:text-amber-400'
     : muted ? 'var(--text-muted)' : 'var(--text-primary)'
   return (
@@ -89,13 +89,13 @@ export default function RepairPartsProfitPanel({ repair, getBuyPrice, pendingDis
 
   const topCards = hasParts
     ? [
-        { label: hasDiscount ? 'Collected' : 'Customer Quote', sub: hasDiscount ? `Quote ${formatCurrency(quote)}` : 'Before discount', value: formatCurrency(collected), icon: Wrench, color: 'text-violet-500' },
+        { label: hasDiscount ? 'Collected' : 'Customer Quote', sub: hasDiscount ? `Quote ${formatCurrency(quote)}` : 'Before discount', value: formatCurrency(collected), icon: Wrench, color: 'text-brand-500' },
         { label: 'Labour Share', sub: hasDiscount ? 'Collected − parts sell' : 'Quote − parts sell', value: formatCurrency(labourShare), icon: Wrench, color: 'text-indigo-500' },
         { label: 'Parts Margin', sub: 'Sell − buy', value: formatCurrency(partsMargin), icon: Package, color: 'text-cyan-500' },
         { label: 'Net Profit', sub: hasDiscount ? 'After discount' : 'Labour + margin', value: formatCurrency(netProfit), icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
       ]
     : [
-        { label: hasDiscount ? 'Collected' : 'Customer Quote', sub: hasDiscount ? `Discount −${formatCurrency(discount)}` : 'Customer pays', value: formatCurrency(collected), icon: Wrench, color: 'text-violet-500' },
+        { label: hasDiscount ? 'Collected' : 'Customer Quote', sub: hasDiscount ? `Discount −${formatCurrency(discount)}` : 'Customer pays', value: formatCurrency(collected), icon: Wrench, color: 'text-brand-500' },
         { label: 'Net Profit', sub: hasDiscount ? 'After discount' : 'No parts used', value: formatCurrency(netProfit), icon: TrendingUp, color: 'text-green-600 dark:text-green-400' },
       ]
 
@@ -200,7 +200,7 @@ export default function RepairPartsProfitPanel({ repair, getBuyPrice, pendingDis
             label={hasDiscount ? '③ Collected from customer' : '② Collected from customer'}
             value={formatCurrency(collected)}
             bold={hasDiscount}
-            highlight={hasDiscount ? 'violet' : undefined}
+            highlight={hasDiscount ? 'blue' : undefined}
           />
           {hasParts && (
             <>
@@ -208,7 +208,7 @@ export default function RepairPartsProfitPanel({ repair, getBuyPrice, pendingDis
               <SummaryRow
                 label="Labour share"
                 value={formatCurrency(labourShare)}
-                highlight={labourShare >= 0 ? 'violet' : 'amber'}
+                highlight={labourShare >= 0 ? 'blue' : 'amber'}
                 sub={hasDiscount ? 'Collected − parts sell' : 'Quote − parts sell'}
                 bold
               />

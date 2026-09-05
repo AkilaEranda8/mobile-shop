@@ -142,7 +142,7 @@ export default function PayrollPage() {
       />
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" /></div>
       ) : (
         <AccountingPanel title="Payroll runs">
           {runs.length === 0 ? (
@@ -162,7 +162,7 @@ export default function PayrollPage() {
               <tbody>
                 {runs.map(r => (
                   <tr key={r.id}>
-                    <AccountingTd mono className="text-violet-400">{r.entryNo}</AccountingTd>
+                    <AccountingTd mono className="text-brand-400">{r.entryNo}</AccountingTd>
                     <AccountingTd>{r.entryDate}</AccountingTd>
                     <AccountingTd className="font-medium" style={{ color: 'var(--text-primary)' }}>{formatCurrency(r.totalAmount)}</AccountingTd>
                     <AccountingTd>{r.employeeCount}</AccountingTd>
@@ -172,7 +172,7 @@ export default function PayrollPage() {
                     <AccountingTd align="right">
                       {canEdit && r.status === 'ACCRUED' && (
                         <button type="button" onClick={() => handlePay(r.id)} disabled={submitting}
-                          className="text-xs text-violet-400 hover:text-violet-300">Pay</button>
+                          className="text-xs text-brand-400 hover:text-brand-300">Pay</button>
                       )}
                       {r.paymentEntryNo && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.paymentEntryNo}</span>}
                     </AccountingTd>

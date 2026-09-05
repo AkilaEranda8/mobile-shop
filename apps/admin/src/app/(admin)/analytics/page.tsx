@@ -28,7 +28,7 @@ const PLAN_COLOR: Record<string, string> = {
 const PLAN_BADGE: Record<string, string> = {
   STARTER:    'badge-gray',
   PRO:        'badge-blue',
-  ENTERPRISE: 'badge-purple',
+  ENTERPRISE: 'badge-brand',
 }
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:    'badge-green',
@@ -114,7 +114,7 @@ export default function AnalyticsPage() {
         {[
           { label: 'Total GMV',         value: fmt(d?.totalGMV ?? 0),                         icon: TrendingUp,  color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
           { label: 'Total Invoices',    value: (d?.totalInvoices ?? 0).toLocaleString(),       icon: FileText,    color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-100'    },
-          { label: 'Total Repairs',     value: (d?.totalRepairs ?? 0).toLocaleString(),        icon: Wrench,      color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-100'  },
+          { label: 'Total Repairs',     value: (d?.totalRepairs ?? 0).toLocaleString(),        icon: Wrench,      color: 'text-brand-600',  bg: 'bg-brand-50',  border: 'border-brand-100'  },
           { label: 'Total Customers',   value: (d?.totalCustomers ?? 0).toLocaleString(),      icon: Users,       color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-100'   },
           { label: 'Active Tenants',    value: (d?.activeTenantsCount ?? 0).toLocaleString(),  icon: Building2,   color: 'text-sky-600',     bg: 'bg-sky-50',     border: 'border-sky-100'     },
           { label: 'New (30d)',          value: (d?.newTenantsThisMonth ?? 0).toLocaleString(), icon: BarChart3,   color: 'text-pink-600',    bg: 'bg-pink-50',    border: 'border-pink-100'    },

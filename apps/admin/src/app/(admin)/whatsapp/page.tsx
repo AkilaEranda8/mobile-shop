@@ -10,7 +10,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string; Icon: typeof 
   connected:    { label: 'Connected',    color: 'text-green-700 bg-green-50 border-green-200', Icon: Wifi },
   disconnected: { label: 'Disconnected', color: 'text-gray-600 bg-gray-50 border-gray-200',    Icon: WifiOff },
   qr_pending:   { label: 'Scan QR',      color: 'text-blue-700 bg-blue-50 border-blue-200',    Icon: MessageCircle },
-  connecting:   { label: 'Connecting',   color: 'text-violet-700 bg-violet-50 border-violet-200', Icon: Loader2 },
+  connecting:   { label: 'Connecting',   color: 'text-brand-700 bg-brand-50 border-brand-200', Icon: Loader2 },
   token_expired:{ label: 'Token expired', color: 'text-yellow-700 bg-yellow-50 border-yellow-200', Icon: WifiOff },
 }
 

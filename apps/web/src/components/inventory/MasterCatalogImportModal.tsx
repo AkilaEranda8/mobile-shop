@@ -280,7 +280,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                       setVariantMap({})
                     }}
                     className={`p-4 rounded-xl border text-left transition-colors ${
-                      kind === k ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'
+                      kind === k ? 'border-brand-500 bg-brand-500/10' : 'border-white/10 hover:border-white/20'
                     }`}
                   >
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">{k === 'PHONE' ? 'Mobile Phones' : 'Accessories'}</p>
@@ -297,7 +297,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
             <>
               <p className="text-sm text-slate-400">Select phone brand(s) to browse models</p>
               {loading ? (
-                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-violet-400" /></div>
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-brand-400" /></div>
               ) : brands.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-6">No phone brands in catalog yet. Ask admin to load the Master Catalog.</p>
               ) : (
@@ -311,7 +311,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                         onClick={() => toggleBrand(b.id)}
                         className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                           on
-                            ? 'border-violet-500 bg-violet-500/20 text-violet-100'
+                            ? 'border-brand-500 bg-brand-500/20 text-brand-100'
                             : 'border-white/10 text-slate-300 hover:border-white/20 hover:bg-white/5'
                         }`}
                       >
@@ -365,7 +365,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                 onChange={e => setSearch(e.target.value)}
               />
               {loading ? (
-                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-violet-400" /></div>
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-brand-400" /></div>
               ) : kind === 'PHONE' ? (
                 <div className="space-y-1 max-h-64 overflow-y-auto">
                   {phones.map(m => (
@@ -375,7 +375,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                       onClick={() => { setSelectedModelId(m.id); setVariantMap({}) }}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 text-left"
                     >
-                      {selectedModelId === m.id ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
+                      {selectedModelId === m.id ? <CheckSquare size={16} className="text-brand-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
                       <span className="text-sm text-white">{m.brand?.name} {m.name}</span>
                       <span className="text-[11px] text-gray-500 dark:text-slate-500 ml-auto">{m.variants?.length ?? 0} variants</span>
                     </button>
@@ -391,7 +391,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                       onClick={() => setSelectedAccessoryId(a.id)}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 text-left"
                     >
-                      {selectedAccessoryId === a.id ? <CheckSquare size={16} className="text-violet-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
+                      {selectedAccessoryId === a.id ? <CheckSquare size={16} className="text-brand-400 shrink-0" /> : <Square size={16} className="text-slate-500 shrink-0" />}
                       <span className="text-sm text-white">{a.name}</span>
                       <span className="text-[11px] text-gray-500 dark:text-slate-500 ml-auto">{a.category?.name}</span>
                     </button>
@@ -416,7 +416,7 @@ export function MasterCatalogImportModal({ onClose, onApplyToForm }: Props) {
                         type="button"
                         onClick={() => toggleVariant(selectedPhone.id, v.id)}
                         className={`px-2.5 py-1 rounded-md text-xs border ${
-                          on ? 'border-violet-500 bg-violet-500/20 text-violet-200' : 'border-white/10 text-slate-400'
+                          on ? 'border-brand-500 bg-brand-500/20 text-brand-200' : 'border-white/10 text-slate-400'
                         }`}
                       >
                         {v.storage} · {v.colorName}

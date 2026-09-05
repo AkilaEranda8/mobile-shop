@@ -18,12 +18,12 @@ import { StaffPinModal } from '@/components/staff/StaffPinModal'
 
 const roleConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   OWNER: { label: 'Owner', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-  MANAGER: { label: 'Manager', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+  MANAGER: { label: 'Manager', color: 'text-brand-400', bg: 'bg-brand-500/10', border: 'border-brand-500/20' },
   TECHNICIAN: { label: 'Technician', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
   CASHIER: { label: 'Cashier', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
 }
 
-const avatarColors = ['from-violet-600/40 to-violet-800/40', 'from-cyan-600/40 to-cyan-800/40', 'from-green-600/40 to-green-800/40', 'from-amber-600/40 to-amber-800/40', 'from-blue-600/40 to-blue-800/40']
+const avatarColors = ['from-brand-600/40 to-brand-800/40', 'from-cyan-600/40 to-cyan-800/40', 'from-green-600/40 to-green-800/40', 'from-amber-600/40 to-amber-800/40', 'from-blue-600/40 to-blue-800/40']
 
 const BASE_ROLE_OPTIONS = [
   { value: 'MANAGER',    label: 'Manager'    },
@@ -107,8 +107,8 @@ function StaffFormModal({
       <div className="w-full max-w-lg rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-              <UserCheck size={14} className="text-violet-400" />
+            <div className="w-8 h-8 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
+              <UserCheck size={14} className="text-brand-400" />
             </div>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
               {isEdit ? 'Edit Staff Member' : 'Add Staff Member'}
@@ -379,7 +379,7 @@ export default function StaffPage() {
             onClick={() => setTab(t)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
               tab === t
-                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/20'
+                ? 'bg-brand-600/20 text-brand-300 border border-brand-500/20'
                 : 'text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300'
             }`}
           >
@@ -433,7 +433,7 @@ export default function StaffPage() {
               const initials = (s.name ?? '').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
               const canManageStaffRow = canEditStaff && !(actorRole === 'MANAGER' && s.role === 'OWNER')
               return (
-                <div key={s.id} className="card p-5 hover:border-violet-500/20 transition-all">
+                <div key={s.id} className="card p-5 hover:border-brand-500/20 transition-all">
                   <div className="flex items-start gap-3 mb-4">
                     <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColors[i % avatarColors.length]} border border-white/10 flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
                       {initials}
@@ -449,7 +449,7 @@ export default function StaffPage() {
                           {hasQuickPin && (
                             <button onClick={() => setPinStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors" title="POS PIN"><KeyRound size={13} /></button>
                           )}
-                          <button onClick={() => setEditStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-colors" title="Edit"><Edit2 size={13} /></button>
+                          <button onClick={() => setEditStaff(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 transition-colors" title="Edit"><Edit2 size={13} /></button>
                           <button onClick={() => setDeleteTarget(s)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remove"><Trash2 size={13} /></button>
                         </>
                       )}
@@ -464,7 +464,7 @@ export default function StaffPage() {
                         {s.branches.map((b: { branchId: string }) => {
                           const name = branches.find(x => x.id === b.branchId)?.name ?? 'Branch'
                           return (
-                            <span key={b.branchId} className="text-[9px] px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                            <span key={b.branchId} className="text-[9px] px-1.5 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20">
                               {name}
                             </span>
                           )

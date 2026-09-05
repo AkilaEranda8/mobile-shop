@@ -17,7 +17,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string; dot
   disconnected:  { label: 'Disconnected',  color: 'text-gray-600',   bg: 'bg-gray-50 border-gray-200',    dot: 'bg-gray-400',   Icon: WifiOff },
   token_expired: { label: 'Token Expired', color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-200',dot: 'bg-yellow-500', Icon: AlertTriangle },
   qr_pending:    { label: 'Scan QR Code',  color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',     dot: 'bg-blue-500',   Icon: QrCode },
-  connecting:    { label: 'Connecting…',   color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200', dot: 'bg-violet-500', Icon: Loader2 },
+  connecting:    { label: 'Connecting…',   color: 'text-brand-700', bg: 'bg-brand-50 border-brand-200', dot: 'bg-brand-500', Icon: Loader2 },
 }
 
 interface Props {

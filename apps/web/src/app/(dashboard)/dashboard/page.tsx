@@ -259,7 +259,7 @@ export default function DashboardPage() {
               ? `${weekInsight.ordersToday} order${weekInsight.ordersToday === 1 ? '' : 's'} today`
               : 'No sales yet today',
             icon: ShoppingCart,
-            iconBg: '#ede9fe',
+            iconBg: '#DBEAFE',
             iconColor: 'var(--brand-primary)',
             spark: sparkRev,
             sparkColor: 'var(--brand-primary)',
@@ -274,7 +274,7 @@ export default function DashboardPage() {
             iconBg: '#e0e7ff',
             iconColor: '#4f46e5',
             spark: sparkRev,
-            sparkColor: '#6366f1',
+            sparkColor: '#2563eb',
             subPositive: true,
             show: canSeeProfit,
           },
@@ -429,7 +429,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">Recent Activity</h3>
             {canView('REPORTS') && (
-              <Link href="/dashboard/reports/overview" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
+              <Link href="/dashboard/reports/overview" className="text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors">View All</Link>
             )}
           </div>
           <div className="space-y-3.5 flex-1 min-h-0 overflow-y-auto pr-0.5">
@@ -516,7 +516,7 @@ export default function DashboardPage() {
             <div className="py-10 text-center">
               <BarChart2 size={32} className="text-gray-200 mx-auto mb-2"/>
               <p className="text-sm text-gray-400">No sales data yet</p>
-              <button type="button" onClick={() => openPos()} className="text-xs text-violet-600 mt-1 inline-flex items-center gap-1">Open POS <ArrowRight size={10}/></button>
+              <button type="button" onClick={() => openPos()} className="text-xs text-brand-600 mt-1 inline-flex items-center gap-1">Open POS <ArrowRight size={10}/></button>
             </div>
           )}
         </div>
@@ -555,7 +555,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-              <Link href="/dashboard/repairs" className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700 flex items-center gap-1 transition-colors">
+              <Link href="/dashboard/repairs" className="mt-3 text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors">
                 View All Repairs <ArrowRight size={11}/>
               </Link>
             </>
@@ -568,7 +568,7 @@ export default function DashboardPage() {
         <div className={`${CARD} p-5`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white">Low Stock Alerts</h3>
-            <Link href="/dashboard/inventory" className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors">View All</Link>
+            <Link href="/dashboard/inventory" className="text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors">View All</Link>
           </div>
           {(s?.lowStockProducts ?? []).length > 0 ? (
             <div className="space-y-3">
@@ -603,15 +603,15 @@ export default function DashboardPage() {
       {/* ── Quick Actions bar ── */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {([
-          { href: '/dashboard/pos', icon: ShoppingCart, label: 'New Sale', sub: 'Create Invoice', iconBg: '#ede9fe', iconColor: 'var(--brand-primary)', openPos: true, permission: 'POS' as RolePermissionModuleKey, needsEdit: true },
+          { href: '/dashboard/pos', icon: ShoppingCart, label: 'New Sale', sub: 'Create Invoice', iconBg: '#DBEAFE', iconColor: 'var(--brand-primary)', openPos: true, permission: 'POS' as RolePermissionModuleKey, needsEdit: true },
           { href: '/dashboard/customers?action=add', icon: Users, label: 'Add Customer', sub: 'Register New', iconBg: '#dbeafe', iconColor: '#2563eb', permission: 'CUSTOMERS' as RolePermissionModuleKey, needsEdit: true },
           { href: '/dashboard/inventory?action=add-product', icon: Package, label: 'Add Product', sub: 'New Item', iconBg: '#dcfce7', iconColor: '#16a34a', permission: 'INVENTORY' as RolePermissionModuleKey, needsEdit: true },
           { href: '/dashboard/repairs?action=new', icon: Wrench, label: 'New Repair', sub: 'Create Ticket', iconBg: '#ffedd5', iconColor: '#ea580c', permission: 'REPAIRS' as RolePermissionModuleKey, needsEdit: true },
           { href: '/dashboard/finance?action=add-expense', icon: DollarSign, label: 'Expenses', sub: 'Add Expense', iconBg: '#ffe4e6', iconColor: '#e11d48', permission: 'FINANCE' as RolePermissionModuleKey, needsEdit: true },
           { href: '/dashboard/reports/overview', icon: BarChart2, label: 'Reports', sub: 'View Reports', iconBg: '#cffafe', iconColor: '#0891b2', permission: 'REPORTS' as RolePermissionModuleKey, needsEdit: false },
-          ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#f3e8ff', iconColor: 'var(--brand-primary)', permission: 'DAILY_CLOSING' as RolePermissionModuleKey, needsEdit: true }] : []),
+          ...(hasDailyClosing ? [{ href: '/dashboard/daily-closing', icon: Lock, label: 'Daily Closing', sub: 'Close Day', iconBg: '#EFF6FF', iconColor: 'var(--brand-primary)', permission: 'DAILY_CLOSING' as RolePermissionModuleKey, needsEdit: true }] : []),
         ] as const).filter((a) => (a.needsEdit ? canEdit(a.permission) : canView(a.permission))).map(a => {
-          const cardClass = `${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-violet-200 dark:hover:border-violet-500/30 transition-all active:scale-95`
+          const cardClass = `${CARD} p-4 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-brand-200 dark:hover:border-brand-500/30 transition-all active:scale-95`
           const cardInner = (
             <>
               <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: a.iconBg }}>

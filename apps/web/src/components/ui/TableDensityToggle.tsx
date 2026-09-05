@@ -15,13 +15,13 @@ export function TableDensityToggle({ value, onChange }: Props) {
       <button
         title="Comfortable"
         onClick={() => onChange('comfortable')}
-        className={`p-1.5 rounded-md transition-all duration-150 ${value === 'comfortable' ? 'bg-violet-600/80 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
+        className={`p-1.5 rounded-md transition-all duration-150 ${value === 'comfortable' ? 'bg-brand-600/80 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
         <AlignJustify size={13} />
       </button>
       <button
         title="Compact"
         onClick={() => onChange('compact')}
-        className={`p-1.5 rounded-md transition-all duration-150 ${value === 'compact' ? 'bg-violet-600/80 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
+        className={`p-1.5 rounded-md transition-all duration-150 ${value === 'compact' ? 'bg-brand-600/80 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
         <List size={13} />
       </button>
     </div>

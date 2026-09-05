@@ -19,6 +19,7 @@ import toast from 'react-hot-toast'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 import { usePaymentMethods } from '@/lib/payment-methods'
+import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
 
 const RETURN_REASONS = [
   'Defective / Damaged',
@@ -194,7 +195,7 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
                     <button key={s.id} onClick={() => selectSale(s)}
                       className="w-full flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/5 hover:border-rose-400 hover:bg-rose-50 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/5 transition-all text-left">
                       <div>
-                        <p className="text-xs font-mono font-bold text-violet-600 dark:text-violet-400">{s.invoiceNumber}</p>
+                        <p className="text-xs font-mono font-bold text-brand-600 dark:text-brand-400">{s.invoiceNumber}</p>
                         <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">{s.customerName || 'Walk-in'} · {s.items?.length ?? 0} items</p>
                       </div>
                       <div className="text-right">
@@ -226,7 +227,7 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
                         <p className="text-[10px] text-gray-500 dark:text-slate-500">
                           Sold: {item.quantity}{(alreadyReturnedQty[item.productId] ?? 0) > 0 ? ` · Already returned: ${alreadyReturnedQty[item.productId]}` : ''} · {formatCurrency(item.quantity > 0 ? item.total / item.quantity : item.unitPrice)} each
                         </p>
-                        {item.imei && <p className="text-[9px] font-mono text-violet-400">IMEI: {item.imei}</p>}
+                        {item.imei && <p className="text-[9px] font-mono text-brand-400">IMEI: {item.imei}</p>}
                       </div>
                       <div className="flex items-center gap-2 ml-3">
                         <button onClick={() => adjust(item.id, item.quantity - (alreadyReturnedQty[item.productId] ?? 0), -1)}
@@ -263,8 +264,8 @@ function ProcessReturnModal({ onClose, onDone }: { onClose: () => void; onDone: 
                       onClick={() => setRefundMethodId(m.id)}
                       className={`px-2 py-2 text-[10px] font-semibold rounded-lg border text-left transition-colors ${
                         refundMethodId === m.id
-                          ? 'bg-violet-50 dark:bg-violet-500/20 border-violet-300 dark:border-violet-500/40 text-violet-600 dark:text-violet-300'
-                          : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-slate-500 hover:border-violet-300 dark:hover:border-white/20'
+                          ? 'bg-brand-50 dark:bg-brand-500/20 border-brand-300 dark:border-brand-500/40 text-brand-600 dark:text-brand-300'
+                          : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-slate-500 hover:border-brand-300 dark:hover:border-white/20'
                       }`}
                     >
                       {m.label}
@@ -715,7 +716,7 @@ export default function ReturnsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice" />,
       cell: ({ row }) => (
         <div>
-          <p className="text-xs font-mono text-violet-500">{row.original.sale?.invoiceNumber ?? '—'}</p>
+          <p className="text-xs font-mono text-brand-500">{row.original.sale?.invoiceNumber ?? '—'}</p>
           <p className="text-[10px] text-muted-foreground">{row.original.sale?.customerName || 'Walk-in'}</p>
         </div>
       ),
@@ -779,48 +780,36 @@ export default function ReturnsPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Returns</h1>
-          <p className="page-subtitle">Track all product returns and refunds</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <EditOnly><OpenPosButton label="New Sale" variant="secondary" /></EditOnly>
-          <EditOnly><button onClick={() => setShowNewReturn(true)}
-            className="btn-primary text-sm flex items-center gap-2">
-            <RotateCcw size={14} />
-            New Return
-          </button></EditOnly>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Returns',   value: String(meta?.total ?? returns.length), icon: RotateCcw,   color: 'rose'   },
-          { label: 'Total Returned',  value: formatCurrency(totalRefunded),          icon: TrendingDown, color: 'orange' },
-          { label: 'Items Returned',  value: String(totalItems),                     icon: Package,      color: 'slate'  },
-          { label: 'Top Reason',      value: reasonCounts[0]?.[0]?.split(' /')[0] ?? '—', icon: AlertTriangle, color: 'yellow' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4 flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-              <Icon size={15} className={`text-${color}-400`} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-bold text-foreground truncate">{value}</p>
-              <p className="text-[11px] text-muted-foreground">{label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <ToolbarSearch
-        value={textSearch}
-        onChange={setTextSearch}
-        placeholder="Search return #, invoice, reason…"
-        className="max-w-md"
+      <PageHeader
+        title="Returns"
+        subtitle="Track all product returns and refunds"
+        actions={
+          <>
+            <EditOnly><OpenPosButton label="New Sale" variant="secondary" /></EditOnly>
+            <EditOnly><button onClick={() => setShowNewReturn(true)}
+              className="btn-primary text-sm flex items-center gap-2">
+              <RotateCcw size={14} />
+              New Return
+            </button></EditOnly>
+          </>
+        }
       />
+
+      <StatGrid cols={4}>
+        <StatCard label="Total Returns" value={String(meta?.total ?? returns.length)} icon={RotateCcw} tone="danger" />
+        <StatCard label="Total Returned" value={formatCurrency(totalRefunded)} icon={TrendingDown} tone="warning" />
+        <StatCard label="Items Returned" value={String(totalItems)} icon={Package} tone="neutral" />
+        <StatCard label="Top Reason" value={reasonCounts[0]?.[0]?.split(' /')[0] ?? '—'} icon={AlertTriangle} tone="warning" />
+      </StatGrid>
+
+      <FilterBar>
+        <ToolbarSearch
+          value={textSearch}
+          onChange={setTextSearch}
+          placeholder="Search return #, invoice, reason…"
+          className="max-w-md w-full sm:min-w-[220px]"
+        />
+      </FilterBar>
 
       {/* Table */}
       <ClientSideTable

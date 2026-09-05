@@ -592,7 +592,7 @@ export default function SettingsPage() {
 
   const ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN']
   const roleColors: Record<string, string> = {
-    OWNER:      'bg-violet-500/10 border-violet-500/20 text-violet-400',
+    OWNER:      'bg-brand-500/10 border-brand-500/20 text-brand-400',
     MANAGER:    'bg-blue-500/10   border-blue-500/20   text-blue-400',
     CASHIER:    'bg-green-500/10  border-green-500/20  text-green-400',
     TECHNICIAN: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
@@ -620,7 +620,7 @@ export default function SettingsPage() {
                   }
                   setActiveTab(tab.key)
                 }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${activeTab === tab.key ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left ${activeTab === tab.key ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                 <tab.icon size={15} />{tab.label}
               </button>
             ))}
@@ -662,7 +662,7 @@ export default function SettingsPage() {
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                           active
-                            ? 'bg-violet-500/15 border-violet-500/40 text-violet-300'
+                            ? 'bg-brand-500/15 border-brand-500/40 text-brand-300'
                             : 'border-white/10 text-gray-600 dark:text-slate-400 hover:bg-white/5'
                         }`}
                       >
@@ -806,7 +806,7 @@ export default function SettingsPage() {
                               .then(() => toast.success('Tenant ID copied'))
                               .catch(() => toast.error('Copy failed'))
                           }}
-                          className="p-1 rounded-md text-slate-500 hover:text-violet-500 hover:bg-violet-500/10 transition-colors flex-shrink-0"
+                          className="p-1 rounded-md text-slate-500 hover:text-brand-500 hover:bg-brand-500/10 transition-colors flex-shrink-0"
                         >
                           <Copy size={12} />
                         </button>
@@ -845,7 +845,7 @@ export default function SettingsPage() {
             <div className="space-y-5">
               <div className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2"><FileText size={15} className="text-violet-400" /> Invoice Customize</h2>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2"><FileText size={15} className="text-brand-400" /> Invoice Customize</h2>
                   <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
                     {(tenant?.branches?.length ?? 0) > 1
                       ? 'Bill details are per branch — pick a branch, edit, then Save'
@@ -859,7 +859,7 @@ export default function SettingsPage() {
 
               {(tenant?.branches?.length ?? 0) > 1 && (
                 <div className="card p-4 space-y-2">
-                  <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Branch bill details</p>
+                  <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Branch bill details</p>
                   <div className="flex flex-wrap gap-2">
                     {(tenant.branches as any[]).filter((b: any) => b.isActive !== false).map((b: any) => {
                       const active = invoiceBranchId === b.id
@@ -870,7 +870,7 @@ export default function SettingsPage() {
                           onClick={() => setInvoiceBranchId(b.id)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                             active
-                              ? 'bg-violet-500/15 border-violet-500/40 text-violet-300'
+                              ? 'bg-brand-500/15 border-brand-500/40 text-brand-300'
                               : 'border-white/10 text-gray-600 dark:text-slate-400 hover:bg-white/5'
                           }`}
                         >
@@ -888,7 +888,7 @@ export default function SettingsPage() {
 
               {invoiceLoading && (
                 <div className="flex items-center justify-center py-10">
-                  <Loader2 size={20} className="animate-spin text-violet-400" />
+                  <Loader2 size={20} className="animate-spin text-brand-400" />
                 </div>
               )}
 
@@ -907,7 +907,7 @@ export default function SettingsPage() {
 
               {/* ── 1. Company Info ── */}
               <div className="card p-5 space-y-4">
-                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Company Info</p>
+                <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Company Info</p>
                 <div>
                   <label className="block text-xs text-gray-600 dark:text-slate-400 mb-2">Company Logo</label>
                   <div className="flex items-center gap-4">
@@ -961,7 +961,7 @@ export default function SettingsPage() {
 
               {/* ── 2. Payment Details ── */}
               <div className="card p-5 space-y-4">
-                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Payment Details</p>
+                <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Payment Details</p>
                 <div className="grid sm:grid-cols-2 gap-4">
                   {([
                     { k: 'bankName',  label: 'Bank Name',       ph: 'e.g. Bank of Ceylon' },
@@ -986,7 +986,7 @@ export default function SettingsPage() {
 
               {/* ── 3. Invoice Options ── */}
               <div className="card p-5 space-y-4">
-                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Invoice Options</p>
+                <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Invoice Options</p>
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Currency</label>
@@ -1013,10 +1013,10 @@ export default function SettingsPage() {
               <div className="card p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Terms &amp; Conditions</p>
+                    <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Terms &amp; Conditions</p>
                     <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">Printed on stock form invoices below warranty terms.</p>
                   </div>
-                  <button onClick={addTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
+                  <button onClick={addTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-brand-500/30 text-brand-400 hover:bg-brand-500/10 transition-colors">
                     <Plus size={11} /> Add Line
                   </button>
                 </div>
@@ -1042,10 +1042,10 @@ export default function SettingsPage() {
               <div className="card p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Warranty &amp; Service Terms</p>
+                    <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Warranty &amp; Service Terms</p>
                     <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">Shown on POS stock form bills (e.g. phone warranty, software coverage).</p>
                   </div>
-                  <button onClick={addWarrantyTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
+                  <button onClick={addWarrantyTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-brand-500/30 text-brand-400 hover:bg-brand-500/10 transition-colors">
                     <Plus size={11} /> Add Line
                   </button>
                 </div>
@@ -1070,7 +1070,7 @@ export default function SettingsPage() {
               {/* ── 4d. Repair Invoice options ── */}
               <div className="card p-5 space-y-3">
                 <div>
-                  <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Repair Invoice</p>
+                  <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Repair Invoice</p>
                   <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">
                     Controls what customers see on printed / PDF repair invoices. Parts stay recorded on the ticket for stock and reports either way.
                   </p>
@@ -1093,7 +1093,7 @@ export default function SettingsPage() {
               <div className="card p-5 space-y-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Repair Intake Terms</p>
+                    <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Repair Intake Terms</p>
                     <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-1">
                       Printed on the device intake / custody thermal slip when a phone is received for repair. Edit in any language.
                     </p>
@@ -1102,7 +1102,7 @@ export default function SettingsPage() {
                     <button type="button" onClick={resetIntakeTerms} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-white/10 text-slate-400 hover:bg-white/5 transition-colors">
                       Reset Default
                     </button>
-                    <button type="button" onClick={addIntakeTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 transition-colors">
+                    <button type="button" onClick={addIntakeTerm} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-brand-500/30 text-brand-400 hover:bg-brand-500/10 transition-colors">
                       <Plus size={11} /> Add Line
                     </button>
                   </div>
@@ -1130,7 +1130,7 @@ export default function SettingsPage() {
 
               {/* ── 5. Signatory ── */}
               <div className="card p-5 space-y-4">
-                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">Signatory</p>
+                <p className="text-xs font-bold text-brand-400 uppercase tracking-widest">Signatory</p>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Signatory Name</label>
@@ -1179,7 +1179,7 @@ export default function SettingsPage() {
                 </button>
               </div>
               <div className="flex items-center gap-4 pb-4 border-b border-white/5">
-                <div className="w-16 h-16 rounded-full bg-violet-500/20 flex items-center justify-center text-2xl font-bold text-violet-300">
+                <div className="w-16 h-16 rounded-full bg-brand-500/20 flex items-center justify-center text-2xl font-bold text-brand-300">
                   {profile.name?.charAt(0)?.toUpperCase() || '?'}
                 </div>
                 <div>
@@ -1209,7 +1209,7 @@ export default function SettingsPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-white/5 pb-4">
                 <div className="min-w-0">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Monitor size={15} className="text-violet-400 shrink-0" /> POS Display
+                    <Monitor size={15} className="text-brand-400 shrink-0" /> POS Display
                   </h2>
                   <p className="text-xs mt-1 max-w-xl" style={{ color: 'var(--text-muted)' }}>
                     Customize POS theme, product cards, bottom bar, and F-key shortcuts. Defaults match current Hexa POS.
@@ -1232,7 +1232,7 @@ export default function SettingsPage() {
                 <>
                   {/* Layout & theme */}
                   <section className="space-y-3">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-violet-400">Layout &amp; theme</p>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-brand-400">Layout &amp; theme</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-4">
                       <div className="min-w-0 space-y-1.5">
                         <label className="block text-xs" style={{ color: 'var(--text-muted)' }}>Theme</label>
@@ -1343,7 +1343,7 @@ export default function SettingsPage() {
 
                   {/* Visibility toggles */}
                   <section className="space-y-3">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400">Visibility</p>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-brand-500 dark:text-brand-400">Visibility</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {([
                         ['showSidebar', 'Show left sidebar', posUiForm.layout.showSidebar, (v: boolean) => setPosUiForm(p => ({ ...p, layout: { ...p.layout, showSidebar: v } }))],
@@ -1370,7 +1370,7 @@ export default function SettingsPage() {
                   {/* Bottom actions */}
                   <section className="space-y-3">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400">Bottom actions</p>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-brand-500 dark:text-brand-400">Bottom actions</p>
                       <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
                         Tap to show or hide. New Sale stays on.
                       </p>
@@ -1385,7 +1385,7 @@ export default function SettingsPage() {
                             onClick={() => toggleBottomAction(id)}
                             className={`h-10 rounded-xl text-xs font-semibold transition-colors ${
                               on
-                                ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200'
+                                ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-200'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:bg-white/[0.08]'
                             }`}
                           >
@@ -1399,7 +1399,7 @@ export default function SettingsPage() {
                   {/* Keyboard shortcuts */}
                   <section className="space-y-3">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400">Keyboard shortcuts</p>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-brand-500 dark:text-brand-400">Keyboard shortcuts</p>
                       <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
                         Remap F1–F12 actions used inside POS.
                       </p>
@@ -1410,7 +1410,7 @@ export default function SettingsPage() {
                           key={key}
                           className="grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-2.5 min-w-0 rounded-xl px-2.5 py-2 bg-slate-100/80 dark:bg-white/[0.04]"
                         >
-                          <span className="text-center text-xs font-mono font-bold text-violet-600 dark:text-violet-300 tabular-nums">{key}</span>
+                          <span className="text-center text-xs font-mono font-bold text-brand-600 dark:text-brand-300 tabular-nums">{key}</span>
                           <select
                             className="input-field h-9 w-full min-w-0 text-xs"
                             value={posUiForm.shortcuts[key] ?? ''}
@@ -1470,7 +1470,7 @@ export default function SettingsPage() {
                   >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{ background: 'var(--brand-glow)' }}>
-                      <Wallet size={14} className="text-violet-500" />
+                      <Wallet size={14} className="text-brand-500" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <input
@@ -1785,7 +1785,6 @@ export default function SettingsPage() {
                   <label className="block text-xs font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>Accent Color</label>
                   <div className="flex gap-3 flex-wrap">
                     {([
-                      { key: 'violet' as const,  label: 'Violet'  },
                       { key: 'blue' as const,    label: 'Blue'    },
                       { key: 'cyan' as const,    label: 'Cyan'    },
                       { key: 'emerald' as const, label: 'Green'   },
@@ -1985,21 +1984,21 @@ export default function SettingsPage() {
 
               {/* Users list */}
               {teamLoading ? (
-                <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-violet-400" /></div>
+                <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-brand-400" /></div>
               ) : teamUsers.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-6">No team members found</p>
               ) : (
                 <div className="space-y-2">
                   {teamUsers.map((u: any) => (
                     <div key={u.id} className="flex items-center gap-3 p-3 bg-white/3 rounded-xl border border-white/5">
-                      <div className="w-9 h-9 rounded-full bg-violet-500/20 flex items-center justify-center text-sm font-bold text-violet-300 flex-shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-brand-500/20 flex items-center justify-center text-sm font-bold text-brand-300 flex-shrink-0">
                         {u.name?.charAt(0)?.toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 truncate">{u.name}</p>
                           {u.id === currentUser?.id && (
-                            <span className="text-[9px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded-full border border-violet-500/30">You</span>
+                            <span className="text-[9px] bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded-full border border-brand-500/30">You</span>
                           )}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-slate-500 truncate">{u.email}</p>
@@ -2100,7 +2099,7 @@ function DevicesTab() {
     finally { setDeletingId(null) }
   }
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 size={22} className="animate-spin text-violet-400" /></div>
+  if (loading) return <div className="flex justify-center py-12"><Loader2 size={22} className="animate-spin text-brand-400" /></div>
 
   return (
     <div className="space-y-4">
@@ -2108,7 +2107,7 @@ function DevicesTab() {
       {/* Left — Brands */}
       <div className="card p-5 space-y-4">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-          <Smartphone size={15} className="text-violet-400" />
+          <Smartphone size={15} className="text-brand-400" />
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Device Brands</h3>
           <span className="ml-auto text-[11px] bg-white/5 text-slate-400 px-2 py-0.5 rounded-full">{brands.length}</span>
         </div>
@@ -2133,15 +2132,15 @@ function DevicesTab() {
             <button key={b.id} onClick={() => setSelected(b)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all group ${
                 selectedBrand?.id === b.id
-                  ? 'bg-violet-500/15 border border-violet-500/30'
+                  ? 'bg-brand-500/15 border border-brand-500/30'
                   : 'hover:bg-white/5 border border-transparent'
               }`}>
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${selectedBrand?.id === b.id ? 'bg-violet-500/20' : 'bg-white/5'}`}>
-                <Smartphone size={12} className={selectedBrand?.id === b.id ? 'text-violet-400' : 'text-slate-400'} />
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${selectedBrand?.id === b.id ? 'bg-brand-500/20' : 'bg-white/5'}`}>
+                <Smartphone size={12} className={selectedBrand?.id === b.id ? 'text-brand-400' : 'text-slate-400'} />
               </div>
               <span className="text-sm font-semibold flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{b.name}</span>
               <span className="text-[10px] text-slate-500 shrink-0">{b.models?.length ?? 0} models</span>
-              <ChevronRight size={12} className={`shrink-0 transition-opacity ${selectedBrand?.id === b.id ? 'text-violet-400 opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
+              <ChevronRight size={12} className={`shrink-0 transition-opacity ${selectedBrand?.id === b.id ? 'text-brand-400 opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
               <button onClick={e => { e.stopPropagation(); handleDeleteBrand(b.id) }} disabled={deletingId === b.id}
                 className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
                 title="Delete brand">
@@ -2155,7 +2154,7 @@ function DevicesTab() {
       {/* Right — Models */}
       <div className="card p-5 space-y-4">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-          <div className="w-5 h-5 rounded-md bg-violet-500/20 flex items-center justify-center"><Smartphone size={11} className="text-violet-400" /></div>
+          <div className="w-5 h-5 rounded-md bg-brand-500/20 flex items-center justify-center"><Smartphone size={11} className="text-brand-400" /></div>
           <h3 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>
             {selectedBrand ? `${selectedBrand.name} — Models` : 'Select a brand'}
           </h3>
@@ -2187,7 +2186,7 @@ function DevicesTab() {
               {selectedBrand.models?.length === 0 && <p className="text-xs text-gray-500 dark:text-slate-500 text-center py-6">No models yet</p>}
               {selectedBrand.models?.map((m: any) => (
                 <div key={m.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/5 hover:bg-white/3 transition-colors">
-                  <div className="w-2 h-2 rounded-full bg-violet-500/60 shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-brand-500/60 shrink-0" />
                   <span className="text-sm flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
                   <button onClick={() => handleDeleteModel(m.id)} disabled={deletingId === m.id}
                     className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40">
@@ -2279,7 +2278,7 @@ function ProductVariantOptionsSection() {
   if (loading) {
     return (
       <div className="card p-5 flex justify-center">
-        <Loader2 size={20} className="animate-spin text-violet-400" />
+        <Loader2 size={20} className="animate-spin text-brand-400" />
       </div>
     )
   }

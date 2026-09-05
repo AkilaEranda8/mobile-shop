@@ -24,6 +24,7 @@ import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { useCanSeeProductCost } from '@/lib/hooks'
 import toast from 'react-hot-toast'
+import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
 
 const CONDITIONS = [
   { value: 'EXCELLENT', label: 'Excellent', badge: 'bg-emerald-100 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-300' },
@@ -554,7 +555,7 @@ export default function ExchangesPage() {
       accessorKey: 'invoiceNumber',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice" />,
       cell: ({ row }) => row.original.invoiceNumber
-        ? <span className="text-xs font-mono text-violet-600 dark:text-violet-400">{row.original.invoiceNumber}</span>
+        ? <span className="text-xs font-mono text-brand-600 dark:text-brand-400">{row.original.invoiceNumber}</span>
         : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>,
     },
     {
@@ -583,53 +584,43 @@ export default function ExchangesPage() {
         />
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
-          <h1 className="page-title">Device Exchanges</h1>
-          <p className="page-subtitle">Trade-in purchases, stock updates, and exchange invoices</p>
-        </div>
-        <div className="flex gap-2 sm:ml-auto">
-          <button type="button" onClick={fetchExchanges} disabled={loading}
-            className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-          {canEdit && (
-            <button type="button" onClick={() => setShowNew(true)} className="btn-primary text-sm flex items-center gap-2">
-              <Plus size={14} />New Exchange
+      <PageHeader
+        title="Device Exchanges"
+        subtitle="Trade-in purchases, stock updates, and exchange invoices"
+        actions={
+          <>
+            <button type="button" onClick={fetchExchanges} disabled={loading}
+              className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-50">
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
             </button>
-          )}
-        </div>
-      </div>
+            {canEdit && (
+              <button type="button" onClick={() => setShowNew(true)} className="btn-primary text-sm flex items-center gap-2">
+                <Plus size={14} />New Exchange
+              </button>
+            )}
+          </>
+        }
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Exchanges', value: String(stats.total),       icon: <ArrowLeftRight size={15} />, color: '#d97706', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.22)'  },
-          ...(canSeeProductCost ? [{ label: 'Trade-in Value',  value: formatCurrency(stats.totalBuy),  icon: <Package size={15} />,      color: 'var(--brand-primary)', bg: 'var(--brand-glow)', border: 'var(--sidebar-active-border)' }] : []),
-          { label: 'With Invoice',    value: String(stats.withInvoice), icon: <Receipt size={15} />,      color: '#15803d', bg: 'rgba(21,128,61,0.08)',  border: 'rgba(21,128,61,0.22)'  },
-          { label: 'Shop Refunds',    value: String(stats.refunds),     icon: <Smartphone size={15} />,   color: '#e11d48', bg: 'rgba(225,29,72,0.08)',  border: 'rgba(225,29,72,0.22)'  },
-        ].map(({ label, value, icon, color, bg, border }) => (
-          <div key={label} className="card p-4" style={{ borderColor: border, background: bg }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color, background: bg, border: `1px solid ${border}` }}>
-                {icon}
-              </div>
-            </div>
-            <p className="text-xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-          </div>
-        ))}
-      </div>
+      <StatGrid cols={4}>
+        <StatCard label="Total Exchanges" value={String(stats.total)} icon={ArrowLeftRight} tone="warning" />
+        {canSeeProductCost && (
+          <StatCard label="Trade-in Value" value={formatCurrency(stats.totalBuy)} icon={Package} tone="brand" />
+        )}
+        <StatCard label="With Invoice" value={String(stats.withInvoice)} icon={Receipt} tone="success" />
+        <StatCard label="Shop Refunds" value={String(stats.refunds)} icon={Smartphone} tone="danger" />
+      </StatGrid>
 
       {records.length > 0 && (
-        <ToolbarSearch
-          value={textSearch}
-          onChange={setTextSearch}
-          placeholder="Search exchange #, customer, device…"
-          className="max-w-md"
-        />
+        <FilterBar>
+          <ToolbarSearch
+            value={textSearch}
+            onChange={setTextSearch}
+            placeholder="Search exchange #, customer, device…"
+            className="max-w-md w-full sm:min-w-[220px]"
+          />
+        </FilterBar>
       )}
 
       {/* Table or Empty */}

@@ -168,7 +168,7 @@ export default function HrSalaryPage() {
         ) : undefined}
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Packages" value={packages.length} icon={PackageIcon} color="violet" />
+          <HrStatCard label="Packages" value={packages.length} icon={PackageIcon} color="blue" />
           <HrStatCard label="Components" value={components.length} icon={Layers} color="blue" />
           <HrStatCard label="Active components" value={components.filter(c => c.isActive).length} icon={DollarSign} color="emerald" />
           <HrStatCard label="Employees" value={employees.length} icon={PackageIcon} color="sky" />

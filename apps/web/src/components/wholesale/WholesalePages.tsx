@@ -94,7 +94,7 @@ export function WholesaleDashboardPage() {
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <WholesaleKpiCard label="Active dealers" value={dealersCount} icon={Building2} tone="sky" />
-            <WholesaleKpiCard label="Open orders" value={openOrders} icon={ClipboardList} tone="violet" />
+            <WholesaleKpiCard label="Open orders" value={openOrders} icon={ClipboardList} tone="blue" />
             <WholesaleKpiCard label="Dealer dues" value={formatCurrency(totalDues)} icon={Wallet} tone="amber" />
             <WholesaleKpiCard
               label="Quick sale"
@@ -200,7 +200,7 @@ function dealerStatusPill(status: string, isActive: boolean) {
   if (status === 'ACTIVE') return 'bg-emerald-500/10 border-emerald-500/25 text-emerald-500'
   if (status === 'ON_HOLD') return 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
   if (status === 'DRAFT') return 'bg-sky-500/10 border-sky-500/25 text-sky-600 dark:text-sky-400'
-  return 'bg-violet-500/10 border-violet-500/25 text-violet-500'
+  return 'bg-brand-500/10 border-brand-500/25 text-brand-500'
 }
 
 export function WholesaleDealersPage() {
@@ -583,7 +583,7 @@ export function WholesaleDealersPage() {
             { label: 'Active Dealers', value: activeCount.toString(), icon: Users, color: 'sky' },
             { label: 'Total Outstanding', value: formatCurrency(totalDue), icon: CreditCard, color: 'red' },
             { label: 'With Balance Due', value: outstandingCount.toString(), icon: Wallet, color: 'amber' },
-            { label: 'Cash Only', value: cashOnlyCount.toString(), icon: Building2, color: 'violet' },
+            { label: 'Cash Only', value: cashOnlyCount.toString(), icon: Building2, color: 'blue' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="card p-4 flex items-center gap-3">
               <div
@@ -1139,7 +1139,7 @@ export function WholesalePricingPage() {
               <div
                 className={`w-8 h-8 rounded-full border flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                   isTier
-                    ? 'bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border-violet-500/20 text-violet-600 dark:text-violet-300'
+                    ? 'bg-gradient-to-br from-brand-500/20 to-fuchsia-500/20 border-brand-500/20 text-brand-600 dark:text-brand-300'
                     : 'bg-gradient-to-br from-sky-500/20 to-cyan-500/20 border-sky-500/20 text-sky-600 dark:text-sky-300'
                 }`}
               >
@@ -1168,7 +1168,7 @@ export function WholesalePricingPage() {
           <span
             className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${
               row.original.kind === 'tier'
-                ? 'bg-violet-500/10 border-violet-500/25 text-violet-600 dark:text-violet-400'
+                ? 'bg-brand-500/10 border-brand-500/25 text-brand-600 dark:text-brand-400'
                 : 'bg-sky-500/10 border-sky-500/25 text-sky-600 dark:text-sky-400'
             }`}
           >
@@ -1388,7 +1388,7 @@ export function WholesalePricingPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Dealer tiers', value: activeTier.toString(), icon: Users, color: 'violet' },
+            { label: 'Dealer tiers', value: activeTier.toString(), icon: Users, color: 'blue' },
             { label: 'Price lists', value: activeLists.toString(), icon: Tag, color: 'sky' },
             { label: 'Default lists', value: defaultLists.toString(), icon: CreditCard, color: 'emerald' },
             { label: 'Priced items', value: totalItems.toString(), icon: FileText, color: 'amber' },
@@ -1582,14 +1582,14 @@ function PricingFormModal({
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
                 isTier
-                  ? 'bg-violet-500/10 border-violet-500/20'
+                  ? 'bg-brand-500/10 border-brand-500/20'
                   : 'bg-sky-500/10 border-sky-500/20'
               }`}
             >
               {isEditing ? (
-                <Pencil size={18} className={isTier ? 'text-violet-500' : 'text-sky-500'} />
+                <Pencil size={18} className={isTier ? 'text-brand-500' : 'text-sky-500'} />
               ) : (
-                <Plus size={18} className={isTier ? 'text-violet-500' : 'text-sky-500'} />
+                <Plus size={18} className={isTier ? 'text-brand-500' : 'text-sky-500'} />
               )}
             </div>
             <div>

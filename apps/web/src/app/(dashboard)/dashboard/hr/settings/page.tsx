@@ -25,7 +25,7 @@ export default function HrSettingsPage() {
           <div className="grid sm:grid-cols-2 gap-3 pt-2">
             {COMING_SOON.map(item => (
               <div key={item.label} className="flex items-start gap-3 p-3 rounded-lg opacity-70" style={{ background: 'var(--bg-subtle)' }}>
-                <item.icon size={16} className="text-violet-400 mt-0.5 shrink-0" />
+                <item.icon size={16} className="text-brand-400 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.phase}</p>

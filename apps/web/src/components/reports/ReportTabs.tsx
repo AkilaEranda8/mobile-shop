@@ -32,6 +32,7 @@ import {
 import type { RepairTicket } from '@/types'
 import { businessToday, businessPeriodFrom, shiftBusinessDate, formatBusinessDateLabel } from '@/lib/business-date'
 import { PlStatementBody, type PlStatementLine } from '@/components/finance/PlStatementBody'
+import { StatCard } from '@/components/design-system'
 
 /* ── constants ─────────────────────────────────────────────────── */
 const TOOLTIP_STYLE = {
@@ -58,25 +59,10 @@ const PERIODS = [
 ]
 
 /* ── small helpers ──────────────────────────────────────────────── */
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
-  return (
-    <div className="card p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 border border-${color}-500/20 flex-shrink-0`}>
-        <Icon size={16} className={`text-${color}-600 dark:text-${color}-400`} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-lg font-bold truncate" style={{ color: 'var(--text-primary)' }}>{value}</p>
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-        {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -93,7 +79,7 @@ function ExportCSV({ filename, rows, headers }: { filename: string; rows: (strin
     a.href     = URL.createObjectURL(blob); a.download = filename; a.click()
   }
   return (
-    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-violet-600 dark:hover:text-violet-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
+    <button onClick={handle} className="flex items-center gap-1.5 text-xs hover:text-brand-600 dark:hover:text-brand-400 border px-3 py-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
       <Download size={12} /> Export CSV
     </button>
   )
@@ -197,7 +183,7 @@ function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDa
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <StatCard label="Total Reloads"       value={String(totalCount)}           icon={PhoneCall}    color="violet" />
+        <StatCard label="Total Reloads"       value={String(totalCount)}           icon={PhoneCall}    color="blue" />
         <StatCard label="Total Amount"        value={formatCurrency(totalAmount)}  icon={DollarSign}   color="blue"   />
         <StatCard label="Commission (Profit)" value={formatCurrency(commission)}   icon={TrendingUp}   color="green"  sub="Per provider rates" />
         <StatCard label="Net to Providers"    value={formatCurrency(netPayable)}   icon={Activity}     color="amber"  />
@@ -278,7 +264,7 @@ function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDa
                 <tr key={p.provider} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.provider}</td>
                   <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{p.count}</td>
-                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(p.totalAmount)}</td>
+                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(p.totalAmount)}</td>
                   <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(p.commission)}</td>
                   <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{formatCurrency(p.netPayable)}</td>
                   <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-muted)' }}>{p.share}%</td>
@@ -311,7 +297,7 @@ function DailyReloadTab({ fromDate, toDate, branchId }: { fromDate: string; toDa
                 <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <td className="px-3 py-2.5 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{r.date}</td>
                   <td className="px-3 py-2.5 text-xs text-right" style={{ color: 'var(--text-secondary)' }}>{r.count}</td>
-                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(r.totalAmount)}</td>
+                  <td className="px-3 py-2.5 text-xs text-right font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(r.totalAmount)}</td>
                   <td className="px-3 py-2.5 text-xs text-right font-semibold text-green-600 dark:text-green-400">{formatCurrency(r.commission)}</td>
                   <td className="px-3 py-2.5 text-xs text-right text-green-600 dark:text-green-400">{r.successCount}</td>
                   <td className="px-3 py-2.5 text-xs text-right text-red-600 dark:text-red-400">{r.count - r.successCount}</td>
@@ -364,7 +350,7 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total Revenue"   value={formatCurrency(totalRevenue)}  icon={DollarSign}   color="violet" />
+        <StatCard label="Total Revenue"   value={formatCurrency(totalRevenue)}  icon={DollarSign}   color="blue" />
         <StatCard label="Gross Profit"    value={formatCurrency(totalProfit)}   icon={TrendingUp}   color="green"  sub={`${marginPct}% margin`} />
         <StatCard label="Total Cost"      value={formatCurrency(totalCost)}    icon={TrendingDown} color="red"    />
         <StatCard label="Avg Daily Revenue" value={formatCurrency(avgDaily)}   icon={BarChart3}    color="blue"   />
@@ -421,7 +407,7 @@ function SalesTab({ days, fromDate, toDate, branchId }: { days: string; fromDate
                   <p className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{p.productName}</p>
                   <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{p.quantitySold} units sold</p>
                 </div>
-                <span className="text-xs font-semibold flex-shrink-0 text-violet-600 dark:text-violet-400">{formatCurrency(p.revenue)}</span>
+                <span className="text-xs font-semibold flex-shrink-0 text-brand-600 dark:text-brand-400">{formatCurrency(p.revenue)}</span>
               </div>
             ))}
             {topProducts.length === 0 && <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No sales data for this period</p>}
@@ -454,7 +440,7 @@ function InventoryTab({ branchId }: { branchId?: string }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total Products"  value={String(totalProducts)}          icon={Package}       color="violet" />
+        <StatCard label="Total Products"  value={String(totalProducts)}          icon={Package}       color="blue" />
         <StatCard label="Total Stock Value" value={formatCurrency(totalStockValue)} icon={DollarSign}   color="green"  />
         <StatCard label="Low Stock Items"   value={String(lowStockCount)}          icon={AlertTriangle} color="yellow" />
         <StatCard label="Out of Stock"      value={String(outOfStockCount)}        icon={XCircle}       color="red"    />
@@ -515,7 +501,7 @@ function InventoryTab({ branchId }: { branchId?: string }) {
                   </td>
                   <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{c.products}</td>
                   <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{c.totalStock}</td>
-                  <td className="px-3 py-2.5 text-xs font-semibold text-violet-600 dark:text-violet-400">{formatCurrency(c.stockValue)}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold text-brand-600 dark:text-brand-400">{formatCurrency(c.stockValue)}</td>
                   <td className="px-3 py-2.5"><span className={`text-[11px] px-1.5 py-0.5 rounded ${c.lowStock > 0 ? 'text-yellow-400 bg-yellow-500/10' : 'text-slate-600'}`}>{c.lowStock}</span></td>
                   <td className="px-3 py-2.5"><span className={`text-[11px] px-1.5 py-0.5 rounded ${c.outOfStock > 0 ? 'text-red-400 bg-red-500/10' : 'text-slate-600'}`}>{c.outOfStock}</span></td>
                 </tr>
@@ -636,7 +622,7 @@ function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDat
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Jobs Received" value={String(receivedTotal)} icon={Wrench} color="violet" sub={periodLabel} />
+        <StatCard label="Jobs Received" value={String(receivedTotal)} icon={Wrench} color="blue" sub={periodLabel} />
         <StatCard label="Active (Period)" value={String(receivedActive)} icon={Clock} color="yellow" />
         <StatCard label="Delivered (Period)" value={String(totals.jobCount)} icon={CheckCircle} color="green" sub="By completion date" />
         <StatCard label="Net Profit" value={formatCurrency(totals.totalProfit)} icon={TrendingUp} color="green" sub={`${totals.marginPct}% margin`} />
@@ -803,7 +789,7 @@ function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDat
                 key={id}
                 type="button"
                 onClick={() => setStmtFilter(id)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${stmtFilter === id ? 'bg-violet-500/15 border-violet-500/30 text-violet-600 dark:text-violet-300' : ''}`}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${stmtFilter === id ? 'bg-brand-500/15 border-brand-500/30 text-brand-600 dark:text-brand-300' : ''}`}
                 style={stmtFilter !== id ? { borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' } : undefined}
               >
                 {label}
@@ -817,7 +803,7 @@ function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDat
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <StatCard label="Quote Total" value={formatCurrency(totals.serviceCharge)} icon={DollarSign} color="blue" />
           <StatCard label="Discounts" value={formatCurrency(totals.discount)} icon={DollarSign} color="amber" />
-          <StatCard label="Collected" value={formatCurrency(totals.customerRevenue)} icon={DollarSign} color="violet" />
+          <StatCard label="Collected" value={formatCurrency(totals.customerRevenue)} icon={DollarSign} color="blue" />
           <StatCard label="Parts Margin" value={formatCurrency(totals.partsMargin)} icon={Package} color="cyan" />
           <StatCard label="Cash In" value={formatCurrency(totals.cashReceived)} icon={DollarSign} color="green" sub={totals.creditDue > 0 ? `${formatCurrency(totals.creditDue)} credit` : undefined} />
         </div>
@@ -840,7 +826,7 @@ function RepairsTab({ branchId, fromDate, toDate }: { branchId?: string; fromDat
                 const isDelivered = r.status === 'DELIVERED'
                 return (
                   <tr key={r.id} className="border-b hover:bg-white/[0.02]" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <td className="py-2.5 px-2 font-mono text-violet-500 whitespace-nowrap">{r.ticketNumber}</td>
+                    <td className="py-2.5 px-2 font-mono text-brand-500 whitespace-nowrap">{r.ticketNumber}</td>
                     <td className="py-2.5 px-2 whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{r.createdAt?.slice(0, 10)}</td>
                     <td className="py-2.5 px-2 whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{r.completedAt?.slice(0, 10) ?? '—'}</td>
                     <td className="py-2.5 px-2 max-w-[120px] truncate" style={{ color: 'var(--text-primary)' }}>{r.customerName}</td>
@@ -911,7 +897,7 @@ function DeliveryTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total Orders"    value={String(totalOrders)}        icon={Truck}        color="violet" />
+        <StatCard label="Total Orders"    value={String(totalOrders)}        icon={Truck}        color="blue" />
         <StatCard label="Total Revenue"   value={formatCurrency(totalRevenue)} icon={DollarSign}  color="green"  />
         <StatCard label="Delivered"        value={String(delivered)}           icon={CheckCircle} color="blue"   />
         <StatCard label="Pending / Packed" value={String(pending)}             icon={Clock}       color="yellow" />
@@ -979,7 +965,7 @@ function DeliveryTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
                   <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                 </div>
                 <span className="text-xs w-8 text-right flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{s.count}</span>
-                <span className="text-xs font-medium w-24 text-right flex-shrink-0 text-violet-600 dark:text-violet-400">{formatCurrency(s.revenue)}</span>
+                <span className="text-xs font-medium w-24 text-right flex-shrink-0 text-brand-600 dark:text-brand-400">{formatCurrency(s.revenue)}</span>
               </div>
             )
           })}
@@ -1038,7 +1024,7 @@ function OverviewTab({ days, fromDate, toDate, branchId }: { days: string; fromD
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <StatCard label={`${days}d Revenue`}    value={formatCurrency(totalRevenue)}             icon={DollarSign}    color="violet" />
+        <StatCard label={`${days}d Revenue`}    value={formatCurrency(totalRevenue)}             icon={DollarSign}    color="blue" />
         <StatCard label={`${days}d Net Profit`} value={formatCurrency(totalProfit)}             icon={TrendingUp}    color="green"  sub={`${margin}% margin`} />
         <StatCard label={`${days}d Total Cost`} value={formatCurrency(totalCost)}               icon={TrendingDown}  color="red"    />
         <StatCard label="Today's Revenue"       value={formatCurrency(dash?.todayRevenue ?? 0)} icon={ShoppingCart}  color="blue"   sub={`${dash?.todaySalesCount ?? 0} sales`} />
@@ -1180,7 +1166,7 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
           { label: 'Sales Revenue', val: salesRevenue, d: delta(salesRevenue, previous?.salesRevenue ?? 0), color: 'text-green-600 dark:text-green-400' },
           { label: 'Gross Profit', val: grossProfit, d: delta(grossProfit, previous?.grossProfit ?? 0), color: 'text-cyan-600 dark:text-cyan-400', sub: `${grossMargin}% margin` },
           { label: 'Op. Expenses', val: opExpenses, d: delta(opExpenses, previous?.opExpenses ?? 0), color: 'text-orange-500 dark:text-orange-400' },
-          { label: 'Net Profit', val: netProfit, d: delta(netProfit, previous?.profit ?? 0), color: netProfit >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-red-500', sub: `${netMargin}% net margin` },
+          { label: 'Net Profit', val: netProfit, d: delta(netProfit, previous?.profit ?? 0), color: netProfit >= 0 ? 'text-brand-600 dark:text-brand-400' : 'text-red-500', sub: `${netMargin}% net margin` },
         ].map(({ label, val, d: badge, color, sub }) => (
           <div key={label} className="card p-4">
             <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
@@ -1206,7 +1192,7 @@ function PLTab({ fromDate, toDate, branchId }: { fromDate: string; toDate: strin
 
       {repairAccrual.jobs > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Repair Jobs" value={String(repairAccrual.jobs)} icon={Wrench} color="violet" />
+          <StatCard label="Repair Jobs" value={String(repairAccrual.jobs)} icon={Wrench} color="blue" />
           <StatCard label="Repair Collected" value={formatCurrency(repairAccrual.collected)} icon={DollarSign} color="blue" />
           <StatCard label="Repair Parts Cost" value={formatCurrency(repairAccrual.partsBuy)} icon={Package} color="red" />
           <StatCard label="Repair Net Profit" value={formatCurrency(repairAccrual.netProfit)} icon={TrendingUp} color="green" />
@@ -1363,7 +1349,7 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
         <StatCard label="Total Cash In"  value={formatCurrency(totalIn)}  icon={ArrowUpRight}   color="green"  />
         <StatCard label="Total Cash Out" value={formatCurrency(totalOut)} icon={ArrowDownRight} color="red"    />
         <StatCard label="Supplier Payments" value={formatCurrency(totalSupplierPayments)} icon={ArrowDownRight} color="amber" />
-        <StatCard label="Net Cash Flow"  value={formatCurrency(netPos)}   icon={Activity}       color={netPos >= 0 ? 'violet' : 'red'} sub={netPos >= 0 ? 'Positive' : 'Negative'} />
+        <StatCard label="Net Cash Flow"  value={formatCurrency(netPos)}   icon={Activity}       color={netPos >= 0 ? 'blue' : 'red'} sub={netPos >= 0 ? 'Positive' : 'Negative'} />
         <StatCard label="Best Day"       value={bestDay ? formatCurrency(bestDay.net) : '—'} icon={TrendingUp} color="blue" sub={bestDay?.date ?? ''} />
       </div>
 
@@ -1414,7 +1400,7 @@ function CashFlowTab({ fromDate, toDate, branchId }: { fromDate: string; toDate:
                   <td className={`px-3 py-2 text-xs text-right font-semibold ${d.net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {d.net >= 0 ? '+' : '−'}{formatCurrency(Math.abs(d.net))}
                   </td>
-                  <td className={`px-3 py-2 text-xs text-right font-bold ${d.cumulative >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <td className={`px-3 py-2 text-xs text-right font-bold ${d.cumulative >= 0 ? 'text-brand-600 dark:text-brand-400' : 'text-red-600 dark:text-red-400'}`}>
                     {formatCurrency(d.cumulative)}
                   </td>
                 </tr>

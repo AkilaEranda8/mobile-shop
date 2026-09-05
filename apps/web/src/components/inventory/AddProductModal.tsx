@@ -839,7 +839,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
               <p className="text-xs opacity-80 mt-0.5">Details only — stock &amp; serials stay at {stockBranchName}</p>
               <button
                 type="button"
-                className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
+                className="mt-2 text-xs font-semibold text-brand-400 hover:text-brand-300"
                 onClick={() => { router.push('/dashboard/stock-transfer'); toast.dismiss(t.id) }}
               >
                 Open Stock Transfer →
@@ -1195,7 +1195,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                           <div className="flex gap-2">
                             <button
                               type="button"
-                              className="text-[10px] font-semibold text-violet-400 hover:text-violet-300"
+                              className="text-[10px] font-semibold text-brand-400 hover:text-brand-300"
                               onClick={() => setCatalogBranchIds(catalogBranchOptions.map(b => b.value))}
                             >
                               Select all
@@ -1219,19 +1219,19 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                               <label
                                 key={opt.value}
                                 className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b last:border-0 transition-colors ${
-                                  checked ? 'bg-violet-500/10' : 'hover:bg-white/5'
+                                  checked ? 'bg-brand-500/10' : 'hover:bg-white/5'
                                 }`}
                                 style={{ borderColor: 'var(--border-subtle)' }}
                               >
                                 <input
                                   type="checkbox"
-                                  className="rounded border-white/20 text-violet-500 focus:ring-violet-500/40"
+                                  className="rounded border-white/20 text-brand-500 focus:ring-brand-500/40"
                                   checked={checked}
                                   onChange={() => setCatalogBranchIds(prev =>
                                     prev.includes(opt.value) ? prev.filter(id => id !== opt.value) : [...prev, opt.value],
                                   )}
                                 />
-                                <Building2 size={12} className={checked ? 'text-violet-400' : 'text-slate-500'} />
+                                <Building2 size={12} className={checked ? 'text-brand-400' : 'text-slate-500'} />
                                 <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
                               </label>
                             )

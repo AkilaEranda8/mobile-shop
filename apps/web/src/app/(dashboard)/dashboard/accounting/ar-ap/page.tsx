@@ -276,7 +276,7 @@ export default function ArApPage() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" size={28} /></div>
+        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" size={28} /></div>
       ) : (
         <div className="grid xl:grid-cols-12 gap-4 w-full">
           <AccountingPanel
@@ -296,7 +296,7 @@ export default function ArApPage() {
                     <button
                       type="button"
                       onClick={() => setDetailId(id)}
-                      className={`w-full flex items-center justify-between px-4 py-3 border-b hover:bg-white/[0.03] text-left transition-colors ${detailId === id ? 'bg-violet-500/10' : ''}`}
+                      className={`w-full flex items-center justify-between px-4 py-3 border-b hover:bg-white/[0.03] text-left transition-colors ${detailId === id ? 'bg-brand-500/10' : ''}`}
                       style={{ borderColor: 'var(--border-subtle)' }}
                     >
                       <div>
@@ -324,13 +324,13 @@ export default function ArApPage() {
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{detail.name}</h2>
-                    <p className="text-sm text-violet-400 font-mono">{formatCurrency(detail.balance)}</p>
+                    <p className="text-sm text-brand-400 font-mono">{formatCurrency(detail.balance)}</p>
                   </div>
                 </div>
 
                 {detail.balance > 0 && canRecordPayment && (
-                  <div className="mb-4 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
-                    <p className="text-xs font-medium text-violet-300 flex items-center gap-1.5">
+                  <div className="mb-4 rounded-lg border border-brand-500/20 bg-brand-500/5 p-3 space-y-2">
+                    <p className="text-xs font-medium text-brand-300 flex items-center gap-1.5">
                       <Banknote size={14} />
                       Record {tab === 'ar' ? 'Receipt' : 'Payment'}
                     </p>

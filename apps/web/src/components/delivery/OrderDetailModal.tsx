@@ -27,11 +27,11 @@ export default function OrderDetailModal({ order, onClose, onAssignTracking, onG
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4"
           style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-              <Truck size={16} className="text-violet-400" />
+            <div className="w-9 h-9 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
+              <Truck size={16} className="text-brand-400" />
             </div>
             <div>
-              <p className="text-[11px] font-mono font-semibold text-violet-400 leading-none">{order.orderNumber}</p>
+              <p className="text-[11px] font-mono font-semibold text-brand-400 leading-none">{order.orderNumber}</p>
               <h3 className="text-sm font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>{order.customerName}</h3>
             </div>
           </div>
@@ -84,7 +84,7 @@ export default function OrderDetailModal({ order, onClose, onAssignTracking, onG
             </div>
             <div className="rounded-xl p-3.5" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-1.5 mb-2">
-                <MapPin size={13} className="text-violet-400" />
+                <MapPin size={13} className="text-brand-400" />
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Address</span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
@@ -98,11 +98,11 @@ export default function OrderDetailModal({ order, onClose, onAssignTracking, onG
           {(order.courier || order.trackingNumber) && (
             <div className="rounded-xl p-4" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-1.5 mb-2">
-                <Truck size={13} className="text-violet-400" />
+                <Truck size={13} className="text-brand-400" />
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Courier & Tracking</span>
               </div>
               {order.courier && <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{order.courier.name} ({order.courier.code})</p>}
-              {order.trackingNumber && <p className="font-mono text-violet-400 text-base font-bold mt-0.5">{order.trackingNumber}</p>}
+              {order.trackingNumber && <p className="font-mono text-brand-400 text-base font-bold mt-0.5">{order.trackingNumber}</p>}
               {order.dispatchedAt && (
                 <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
                   <Calendar size={10} />Dispatched: {formatDate(order.dispatchedAt, 'long')}

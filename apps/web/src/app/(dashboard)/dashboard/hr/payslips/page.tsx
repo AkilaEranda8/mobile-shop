@@ -203,7 +203,7 @@ export default function HrPayslipsPage() {
     <HrFeatureGate>
       <HrPageShell title="Payslips" subtitle="Download PDF or print on thermal / A4" icon={Receipt}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Payslips" value={rows.length} icon={Receipt} color="violet" />
+          <HrStatCard label="Payslips" value={rows.length} icon={Receipt} color="blue" />
           <HrStatCard label="Gross" value={totalGross.toLocaleString()} icon={Wallet} color="blue" />
           <HrStatCard label="Deductions" value={totalDed.toLocaleString()} icon={Minus} color="amber" />
           <HrStatCard label="Net" value={totalNet.toLocaleString()} icon={Banknote} color="emerald" />

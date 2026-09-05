@@ -251,7 +251,7 @@ export default function GlobalSearch() {
               }}
             />
             {loading && (
-              <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-violet-400" />
+              <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-brand-400" />
             )}
           </div>
 
@@ -277,8 +277,8 @@ export default function GlobalSearch() {
                         onClick={() => pick(item)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5 disabled:opacity-60"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                          <item.icon size={15} className="text-violet-400" />
+                        <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0">
+                          <item.icon size={15} className="text-brand-400" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.label}</p>

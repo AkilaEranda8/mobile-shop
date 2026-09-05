@@ -204,7 +204,7 @@ export default function AccountingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="page-title flex items-center gap-2">
-            <BookOpen size={22} className="text-violet-400" />
+            <BookOpen size={22} className="text-brand-400" />
             Accounting
           </h1>
           <p className="page-subtitle">Double-entry general ledger for your shop</p>
@@ -230,7 +230,7 @@ export default function AccountingPage() {
 
       {loading && !status ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="animate-spin text-violet-400" size={32} />
+          <Loader2 className="animate-spin text-brand-400" size={32} />
         </div>
       ) : status && (
         <>
@@ -278,7 +278,7 @@ export default function AccountingPage() {
               <AccountingStatusBadge tone={status.autoPostEnabled ? 'success' : 'neutral'}>
                 Auto-post {status.autoPostEnabled ? 'on' : 'off'}
               </AccountingStatusBadge>
-              <AccountingStatusBadge tone="violet">{status.periodCount} period(s)</AccountingStatusBadge>
+              <AccountingStatusBadge tone="blue">{status.periodCount} period(s)</AccountingStatusBadge>
             </div>
           </div>
 
@@ -344,7 +344,7 @@ export default function AccountingPage() {
                     {outbox.map(o => (
                       <tr key={o.id}>
                         <AccountingTd>{o.sourceType}</AccountingTd>
-                        <AccountingTd className="text-violet-400">{o.eventType}</AccountingTd>
+                        <AccountingTd className="text-brand-400">{o.eventType}</AccountingTd>
                         <AccountingTd>
                           <AccountingStatusBadge tone={o.status === 'FAILED' ? 'danger' : o.status === 'COMPLETED' ? 'success' : 'warning'}>
                             {o.status}
@@ -388,7 +388,7 @@ export default function AccountingPage() {
                   <tbody>
                     {accounts.map(a => (
                       <tr key={a.id} className="cursor-pointer" onClick={() => openLedger(a)}>
-                        <AccountingTd mono className="text-violet-400">{a.code}</AccountingTd>
+                        <AccountingTd mono className="text-brand-400">{a.code}</AccountingTd>
                         <AccountingTd>{a.name}</AccountingTd>
                         <AccountingTd>{a.type}</AccountingTd>
                         <AccountingTd className="text-xs" style={{ color: 'var(--text-muted)' }}>{a.subtype}</AccountingTd>
@@ -396,7 +396,7 @@ export default function AccountingPage() {
                           {canEdit && !a.isSystem && (
                             <button
                               type="button"
-                              className="text-xs text-violet-400 hover:text-violet-300"
+                              className="text-xs text-brand-400 hover:text-brand-300"
                               onClick={e => { e.stopPropagation(); setEditAccount(a); setEditName(a.name) }}
                             >
                               Edit
@@ -478,7 +478,7 @@ export default function AccountingPage() {
               wide
             >
               {ledgerLoading ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-violet-400" /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-brand-400" /></div>
               ) : ledgerRows.length === 0 ? (
                 <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No transactions in this period</p>
               ) : (
@@ -497,7 +497,7 @@ export default function AccountingPage() {
                     {ledgerRows.map((r, i) => (
                       <tr key={i}>
                         <AccountingTd>{r.entryDate}</AccountingTd>
-                        <AccountingTd mono className="text-violet-400">{r.entryNo}</AccountingTd>
+                        <AccountingTd mono className="text-brand-400">{r.entryNo}</AccountingTd>
                         <AccountingTd>{r.description ?? '—'}</AccountingTd>
                         <AccountingTd align="right">{r.debit > 0 ? formatCurrency(r.debit) : '—'}</AccountingTd>
                         <AccountingTd align="right">{r.credit > 0 ? formatCurrency(r.credit) : '—'}</AccountingTd>

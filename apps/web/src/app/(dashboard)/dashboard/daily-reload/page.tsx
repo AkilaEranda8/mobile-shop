@@ -261,7 +261,7 @@ export default function DailyReloadPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
       cell: ({ row: { original: r } }) => (
         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-          background: r.reloadType === 'RECHARGE_CARD' ? 'rgba(139,92,246,0.12)' : 'rgba(20,184,166,0.12)',
+          background: r.reloadType === 'RECHARGE_CARD' ? 'rgba(59,130,246,0.12)' : 'rgba(20,184,166,0.12)',
           color: r.reloadType === 'RECHARGE_CARD' ? 'var(--brand-light)' : '#14b8a6',
         }}>
           {r.reloadType === 'RECHARGE_CARD' ? 'Recharge Card' : 'Reload'}
@@ -358,7 +358,7 @@ export default function DailyReloadPage() {
 
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)' }}>
+      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.1)' }}>
         <PhoneCall size={26} style={{ color: 'var(--brand-light)' }} />
       </div>
       <div className="text-center">
@@ -415,7 +415,7 @@ export default function DailyReloadPage() {
       {tab !== 'settlement' && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { icon: PhoneCall,     label: 'Total Reloads',  value: summary.total.toString(),      color: 'var(--brand-light)', bg: 'rgba(139,92,246,0.1)' },
+          { icon: PhoneCall,     label: 'Total Reloads',  value: summary.total.toString(),      color: 'var(--brand-light)', bg: 'rgba(59,130,246,0.1)' },
           { icon: TrendingUp,    label: 'Reload Total',   value: formatAmt(summary.totalAmount), color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
           { icon: TrendingUp,    label: 'Commission (Earned)',  value: formatAmt(summary.commission),  color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
           { icon: CheckCircle2,  label: 'Net to Provider', value: formatAmt(netPayable), color: 'var(--status-warn)', bg: 'var(--status-warn-soft)' },
@@ -509,7 +509,7 @@ export default function DailyReloadPage() {
                     value={value}
                     onChange={e => setter(e.target.value)}
                     placeholder={placeholder}
-                    className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500 transition-colors"
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-brand-500 transition-colors"
                     style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                   />
                 </div>
@@ -519,7 +519,7 @@ export default function DailyReloadPage() {
                 <select
                   value={reloadType}
                   onChange={e => setReloadType(e.target.value as 'RELOAD' | 'RECHARGE_CARD')}
-                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500 transition-colors"
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-brand-500 transition-colors"
                   style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                 >
                   <option value="RELOAD">Reload</option>
@@ -531,7 +531,7 @@ export default function DailyReloadPage() {
                 <select
                   value={status}
                   onChange={e => setStatus(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500 transition-colors"
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-brand-500 transition-colors"
                   style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                 >
                   <option value="Success">Success</option>
@@ -699,7 +699,7 @@ export default function DailyReloadPage() {
                   max={payModal.remaining}
                   value={payAmount}
                   onChange={e => setPayAmount(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-brand-500"
                   style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                 />
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -729,7 +729,7 @@ export default function DailyReloadPage() {
                 <select
                   value={payMethod}
                   onChange={e => setPayMethod(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none focus:border-brand-500"
                   style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
                 >
                   <option value="CASH">Cash</option>

@@ -21,7 +21,7 @@ const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'badge-green', TRIAL: 'badge-blue', SUSPENDED: 'badge-yellow', CANCELLED: 'badge-gray',
 }
 const PLAN_BADGE: Record<string, string> = {
-  STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-purple',
+  STARTER: 'badge-gray', PRO: 'badge-blue', ENTERPRISE: 'badge-brand',
 }
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -65,7 +65,7 @@ const SALE_STATUS_BADGE: Record<string, string> = {
   PAID: 'badge-green', PARTIAL: 'badge-yellow', UNPAID: 'badge-red', REFUNDED: 'badge-gray',
 }
 const ROLE_BADGE: Record<string, string> = {
-  OWNER: 'badge-purple', MANAGER: 'badge-blue', CASHIER: 'badge-gray', TECHNICIAN: 'badge-yellow',
+  OWNER: 'badge-brand', MANAGER: 'badge-blue', CASHIER: 'badge-gray', TECHNICIAN: 'badge-yellow',
 }
 
 export default function TenantDetailPage() {
@@ -533,7 +533,7 @@ export default function TenantDetailPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-xs font-semibold text-gray-800">{f.label}</p>
                           {f.optIn && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 font-semibold">OPT-IN</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-600 font-semibold">OPT-IN</span>
                           )}
                           {'priced' in f && f.priced && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">PRICED</span>
@@ -736,7 +736,7 @@ export default function TenantDetailPage() {
                 </button>
               )}
             </div>
-            <div className="flex items-center justify-between p-4 bg-violet-50 border border-violet-200 rounded-xl">
+            <div className="flex items-center justify-between p-4 bg-brand-50 border border-brand-200 rounded-xl">
               <div>
                 <p className="text-sm font-semibold text-gray-800">Clear trial data</p>
                 <p className="text-xs text-gray-500">
@@ -744,7 +744,7 @@ export default function TenantDetailPage() {
                 </p>
               </div>
               <button onClick={() => setShowClearTrial(true)} disabled={actionLoading}
-                className="btn-secondary text-violet-700 border-violet-300 hover:bg-violet-100 text-xs">
+                className="btn-secondary text-brand-700 border-brand-300 hover:bg-brand-100 text-xs">
                 <RefreshCw size={13} />Clear data
               </button>
             </div>
@@ -778,7 +778,7 @@ export default function TenantDetailPage() {
                 <input className="input" type="number" value={editPlan.mrr}
                   onChange={e => setEditPlan({ ...editPlan, mrr: e.target.value })} />
               </div>
-              <label className="flex items-start gap-2 p-3 rounded-lg bg-violet-50 border border-violet-200 cursor-pointer">
+              <label className="flex items-start gap-2 p-3 rounded-lg bg-brand-50 border border-brand-200 cursor-pointer">
                 <input
                   type="checkbox"
                   className="mt-0.5"

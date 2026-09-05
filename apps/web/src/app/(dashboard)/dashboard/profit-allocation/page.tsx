@@ -136,7 +136,7 @@ function computePresetRange(preset: string, today: string): { from: string; to: 
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1 h-5 rounded-full bg-violet-500" />
+      <div className="w-1 h-5 rounded-full bg-brand-500" />
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
         {sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
@@ -740,7 +740,7 @@ export default function ProfitAllocationPage() {
                 label: 'Total Cash Out',
                 value: activeDashboard.cashMovement.cashOut,
                 icon: <Wallet size={14} />,
-                tone: '#7c3aed',
+                tone: '#2563EB',
               },
             ].map(item => (
               <div
@@ -794,7 +794,7 @@ export default function ProfitAllocationPage() {
           </div>
         </div>
         {tableLoading ? (
-          <div className="flex justify-center py-16"><Loader2 className="animate-spin text-violet-400" size={24} /></div>
+          <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
         ) : filteredLines.length === 0 ? (
           <div className="py-12 text-center">
             <Layers size={28} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
@@ -959,7 +959,7 @@ export default function ProfitAllocationPage() {
                         On
                       </button>
                     )}
-                    <button type="button" onClick={() => openEditFund(f)} className="p-1.5 rounded-lg hover:bg-violet-500/10"><Edit2 size={13} style={{ color: 'var(--brand-primary-light)' }} /></button>
+                    <button type="button" onClick={() => openEditFund(f)} className="p-1.5 rounded-lg hover:bg-brand-500/10"><Edit2 size={13} style={{ color: 'var(--brand-primary-light)' }} /></button>
                     <button type="button" title={f.isActive ? 'Deactivate' : 'Delete permanently'} onClick={() => deleteFund(f)} className="p-1.5 rounded-lg hover:bg-red-500/10"><Trash2 size={13} style={{ color: '#b91c1c' }} /></button>
                   </div>
                 )}
@@ -1031,7 +1031,7 @@ export default function ProfitAllocationPage() {
             </span>
           </h3>
           {txLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-violet-400" size={22} /></div>
+            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-brand-400" size={22} /></div>
           ) : transactions.length === 0 ? (
             <p className="text-xs text-center py-8" style={{ color: 'var(--text-muted)' }}>No transactions yet</p>
           ) : (
@@ -1115,7 +1115,7 @@ export default function ProfitAllocationPage() {
               </thead>
               <tbody>
                 {periodLoading ? (
-                  <tr><td colSpan={6} className="text-center py-8"><Loader2 className="animate-spin text-violet-400 mx-auto" size={22} /></td></tr>
+                  <tr><td colSpan={6} className="text-center py-8"><Loader2 className="animate-spin text-brand-400 mx-auto" size={22} /></td></tr>
                 ) : (periodData?.days?.length ?? 0) > 0 ? (
                   <>
                     {[...(periodData!.days)].reverse().map(day => (
@@ -1184,7 +1184,7 @@ export default function ProfitAllocationPage() {
             </thead>
             <tbody>
               {periodLoading ? (
-                <tr><td colSpan={6} className="text-center py-8"><Loader2 className="animate-spin text-violet-400 mx-auto" size={22} /></td></tr>
+                <tr><td colSpan={6} className="text-center py-8"><Loader2 className="animate-spin text-brand-400 mx-auto" size={22} /></td></tr>
               ) : (periodData?.summaries as Array<Record<string, unknown>> | undefined)?.length ? (
                 (periodData!.summaries as Array<Record<string, unknown>>).map((row, i) => (
                 <tr key={i} className="transition-colors hover:bg-white/2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>

@@ -88,7 +88,7 @@ export function exportTraceabilityPdf(payload: TraceabilityExportPayload) {
       .meta { color: #555; margin-bottom: 16px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
       th, td { border: 1px solid #ddd; padding: 5px 6px; text-align: left; }
-      th { background: #6366f1; color: white; }
+      th { background: #2563eb; color: white; }
       tr:nth-child(even) { background: #f8f9fa; }
     </style></head><body>
     <h1>Product Traceability</h1>

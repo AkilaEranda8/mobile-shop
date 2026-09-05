@@ -53,7 +53,7 @@ function badge(status: string) {
   if (['ACTIVE', 'PAID', 'SUCCESS'].includes(s)) return 'badge-green'
   if (['TRIAL', 'DRAFT', 'ISSUED', 'DUE', 'PENDING'].includes(s)) return 'badge-yellow'
   if (['SUSPENDED', 'CANCELLED', 'OVERDUE', 'TRIAL_EXPIRED', 'FAILED'].includes(s)) return 'badge-red'
-  if (['ENTERPRISE', 'PROFESSIONAL', 'PRO'].includes(s)) return 'badge-purple'
+  if (['ENTERPRISE', 'PROFESSIONAL', 'PRO'].includes(s)) return 'badge-brand'
   return 'badge-gray'
 }
 
@@ -425,7 +425,7 @@ export default function HubSubscriptionsManage({ product }: { product: HubProduc
                             <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                               <button
                                 type="button"
-                                className="text-[11px] px-2 py-1 rounded-lg text-violet-600 hover:bg-violet-50 font-medium inline-flex items-center gap-1"
+                                className="text-[11px] px-2 py-1 rounded-lg text-brand-600 hover:bg-brand-50 font-medium inline-flex items-center gap-1"
                                 onClick={() => openEdit(t)}
                               >
                                 <ArrowUpDown size={11} /> Plan

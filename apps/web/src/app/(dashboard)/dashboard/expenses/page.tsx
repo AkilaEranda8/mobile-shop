@@ -297,7 +297,7 @@ export default function ExpensesPage() {
 
           <div className="card overflow-hidden">
             {loading ? (
-              <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-violet-400" size={22} /></div>
+              <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-brand-400" size={22} /></div>
             ) : filtered.length === 0 ? (
               <div className="py-12 text-center">
                 <Receipt size={28} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />

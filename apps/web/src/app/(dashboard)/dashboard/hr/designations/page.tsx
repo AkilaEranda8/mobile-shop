@@ -204,7 +204,7 @@ export default function HrDesignationsPage() {
         )}
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HrStatCard label="Total" value={rows.length} icon={Contact2} color="violet" />
+          <HrStatCard label="Total" value={rows.length} icon={Contact2} color="blue" />
           <HrStatCard label="Active" value={activeCount} icon={CheckCircle2} color="emerald" />
           <HrStatCard label="Inactive" value={rows.length - activeCount} icon={XCircle} color="slate" />
           <HrStatCard label="Employees" value={employeeTotal} icon={Users} color="blue" />

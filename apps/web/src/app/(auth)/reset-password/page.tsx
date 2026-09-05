@@ -46,7 +46,7 @@ function ResetPasswordForm() {
     <div className="min-h-screen bg-[#07090f] flex items-center justify-center px-4">
       {/* background glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-violet-700/15 rounded-full blur-3xl" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-brand-700/15 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-cyan-600/08 rounded-full blur-3xl" />
       </div>
 
@@ -112,7 +112,7 @@ function ResetPasswordForm() {
                       onChange={e => setForm(p => ({ ...p, newPassword: e.target.value }))}
                       className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-all border"
                       style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
-                      onFocus={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)')}
                       onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
                     />
                     <button type="button" onClick={() => setShowPwd(p => !p)}
@@ -133,7 +133,7 @@ function ResetPasswordForm() {
                     onChange={e => setForm(p => ({ ...p, confirm: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all border"
                     style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', color: '#ffffff' }}
-                    onFocus={e => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)')}
+                    onFocus={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)')}
                     onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
                   />
                 </div>

@@ -21,7 +21,7 @@ const PLAN_BRANCH_LIMIT: Record<string, number> = {
 const PLAN_COLOR: Record<string, string> = {
   STARTER: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
   PRO: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-  ENTERPRISE: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+  ENTERPRISE: 'text-brand-400 bg-brand-500/10 border-brand-500/20',
   TRIAL: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
 }
 
@@ -366,7 +366,7 @@ export default function BranchesPage() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-violet-400" />
+          <Loader2 size={24} className="animate-spin text-brand-400" />
         </div>
       )}
 
@@ -381,14 +381,14 @@ export default function BranchesPage() {
               {/* Card header */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${branch.isHeadquarters ? 'bg-violet-500/20' : 'bg-white/5'}`}>
-                    <Building2 size={16} className={branch.isHeadquarters ? 'text-violet-400' : 'text-slate-400'} />
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${branch.isHeadquarters ? 'bg-brand-500/20' : 'bg-white/5'}`}>
+                    <Building2 size={16} className={branch.isHeadquarters ? 'text-brand-400' : 'text-slate-400'} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{branch.name}</p>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {branch.isHeadquarters && (
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-violet-400">
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-brand-400">
                           <Star size={9} fill="currentColor" />HQ
                         </span>
                       )}
@@ -416,7 +416,7 @@ export default function BranchesPage() {
                   </span>
                   {canEdit && (
                     <button onClick={() => setEditBranch(branch)}
-                      className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10"
+                      className="p-1.5 rounded-lg transition-colors hover:bg-brand-500/10"
                       style={{ color: 'var(--text-muted)' }} title="Edit">
                       <Edit size={13} />
                     </button>
@@ -463,10 +463,10 @@ export default function BranchesPage() {
           {/* Add placeholder */}
           {canEdit && !atLimit && (
             <button onClick={() => setShowAdd(true)}
-              className="rounded-2xl p-5 flex flex-col items-center justify-center gap-2 transition-all hover:border-violet-500/40 hover:bg-violet-500/5"
+              className="rounded-2xl p-5 flex flex-col items-center justify-center gap-2 transition-all hover:border-brand-500/40 hover:bg-brand-500/5"
               style={{ background: 'var(--bg-subtle)', border: '2px dashed var(--border-default)', minHeight: 160 }}>
-              <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                <Plus size={18} className="text-violet-400" />
+              <div className="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center">
+                <Plus size={18} className="text-brand-400" />
               </div>
               <p className="text-sm font-medium text-slate-400">Add New Branch</p>
               <p className="text-[11px] text-slate-600">{limit - branches.filter(b => b.isActive).length} slot{limit - branches.filter(b => b.isActive).length !== 1 ? 's' : ''} remaining</p>
@@ -499,8 +499,8 @@ export default function BranchesPage() {
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <CheckCircle size={13} className="text-violet-400" />
-            <span className="text-xs font-semibold text-violet-400">Contact support to upgrade</span>
+            <CheckCircle size={13} className="text-brand-400" />
+            <span className="text-xs font-semibold text-brand-400">Contact support to upgrade</span>
           </div>
         </div>
       )}

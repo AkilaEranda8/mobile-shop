@@ -572,7 +572,7 @@ export function OrderDetailModal({
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Package size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <Package size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 Sales Order
@@ -720,7 +720,7 @@ export function OrderDetailModal({
                     style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     <span className="font-semibold">Total</span>
-                    <span className="font-bold text-violet-600 dark:text-violet-400">
+                    <span className="font-bold text-brand-600 dark:text-brand-400">
                       {formatCurrency(total)}
                     </span>
                   </div>
@@ -1424,7 +1424,7 @@ export function PickListDetailModal({
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <Package size={16} className="text-violet-500 mt-0.5 flex-shrink-0" />
+            <Package size={16} className="text-brand-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                 Pick List
@@ -1538,7 +1538,7 @@ export function PickListDetailModal({
                     style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     <span className="font-semibold">Status</span>
-                    <span className="font-bold text-violet-600 dark:text-violet-400">
+                    <span className="font-bold text-brand-600 dark:text-brand-400">
                       {st.replace(/_/g, ' ')}
                     </span>
                   </div>
