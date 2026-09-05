@@ -401,6 +401,8 @@ model Tenant {
   posUiSettings          Json?
   /// SMS gateway credentials (provider, apiKey, apiSecret, senderId)
   smsSettings            Json?
+  /// Customer credit reminder automation + WhatsApp template
+  customerCreditSettings Json?
   /// POS Quick PIN policy (length, lockout, idle timeout)
   posPinSettings         Json?
   /// Owner-managed role x module access: hide | view | edit

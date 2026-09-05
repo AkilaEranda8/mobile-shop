@@ -1,7 +1,7 @@
 import { api } from './api'
 
 export type SmsProviderId = 'hexalyte' | 'twilio' | 'dialog' | 'mobitel' | 'hutch' | 'generic'
-export type SmsEventType = 'sale' | 'repair' | 'hpReminder' | 'delivery'
+export type SmsEventType = 'sale' | 'repair' | 'hpReminder' | 'delivery' | 'creditReminder'
 export type SmsGatewayStatus = 'connected' | 'disabled' | 'not_configured'
 
 export type SmsMessageTemplate = {
@@ -78,6 +78,9 @@ export const DEFAULT_SMS_HP_REMINDER_BODY =
 export const DEFAULT_SMS_DELIVERY_BODY =
   'Dear {{customerName}}, your order {{referenceId}} update: {{message}}. — {{shopName}}'
 
+export const DEFAULT_SMS_CREDIT_REMINDER_BODY =
+  'Dear {{customerName}}, reminder: outstanding LKR {{dueAmount}} ({{invoiceCount}} invoice(s), oldest {{oldestDueDate}}). Please settle soon. — {{shopName}}'
+
 export const SMS_TEMPLATE_VARS = [
   '{{customerName}}',
   '{{invoiceNumber}}',
@@ -88,6 +91,8 @@ export const SMS_TEMPLATE_VARS = [
   '{{dueAmount}}',
   '{{shopName}}',
   '{{message}}',
+  '{{invoiceCount}}',
+  '{{oldestDueDate}}',
 ] as const
 
 export const SMS_EVENT_META: Record<SmsEventType, { title: string; titleSi: string; description: string; defaultBody: string }> = {
@@ -115,6 +120,12 @@ export const SMS_EVENT_META: Record<SmsEventType, { title: string; titleSi: stri
     description: 'Delivery status notifications to customers',
     defaultBody: DEFAULT_SMS_DELIVERY_BODY,
   },
+  creditReminder: {
+    title: 'Credit reminder',
+    titleSi: 'ණණ reminder',
+    description: 'Customer credit / outstanding balance reminders (manual or automatic)',
+    defaultBody: DEFAULT_SMS_CREDIT_REMINDER_BODY,
+  },
 }
 
 export const DEFAULT_SMS_CONFIG: SmsConfig = {
@@ -131,6 +142,7 @@ export const DEFAULT_SMS_CONFIG: SmsConfig = {
     repair: { enabled: true, body: DEFAULT_SMS_REPAIR_BODY },
     hpReminder: { enabled: true, body: DEFAULT_SMS_HP_REMINDER_BODY },
     delivery: { enabled: false, body: DEFAULT_SMS_DELIVERY_BODY },
+    creditReminder: { enabled: true, body: DEFAULT_SMS_CREDIT_REMINDER_BODY },
   },
 }
 
@@ -152,6 +164,7 @@ export const SMS_EVENT_LABELS: Record<string, string> = {
   REPAIR: 'Repair',
   HP_REMINDER: 'HP Reminder',
   DELIVERY: 'Delivery',
+  CREDIT_REMINDER: 'Credit Reminder',
   TEST: 'Test',
   MANUAL: 'Manual',
 }
@@ -167,6 +180,8 @@ export function previewSmsTemplate(body: string): string {
     .replace(/\{\{dueAmount\}\}/g, '20,000.00')
     .replace(/\{\{shopName\}\}/g, 'My Shop')
     .replace(/\{\{message\}\}/g, 'Out for delivery')
+    .replace(/\{\{invoiceCount\}\}/g, '2')
+    .replace(/\{\{oldestDueDate\}\}/g, '2026-08-01')
 }
 
 export function smsSegmentCount(body: string): number {

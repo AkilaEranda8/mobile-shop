@@ -103,6 +103,38 @@ export async function notifyHpReminderSms(opts: {
   })
 }
 
+export async function notifyCreditReminderSms(opts: {
+  tenantId: string
+  customerId: string
+  customerPhone?: string | null
+  customerName?: string | null
+  dueAmount: number
+  invoiceCount: number
+  oldestDueDate: string
+  branchId?: string
+}): Promise<void> {
+  const shopName = await shopNameForTenant(opts.tenantId)
+  await renderAndSendTemplatedSms({
+    tenantId: opts.tenantId,
+    templateKey: 'creditReminder',
+    phone: opts.customerPhone,
+    branchId: opts.branchId,
+    amount: opts.dueAmount,
+    vars: {
+      shopName,
+      customerName: opts.customerName?.trim() || 'Customer',
+      referenceId: opts.customerId,
+      invoiceNumber: opts.customerId,
+      ticketNumber: opts.customerId,
+      totalAmount: formatLkr(opts.dueAmount),
+      paidAmount: formatLkr(0),
+      dueAmount: formatLkr(opts.dueAmount),
+      invoiceCount: opts.invoiceCount,
+      oldestDueDate: opts.oldestDueDate,
+    },
+  })
+}
+
 export async function notifyDeliverySms(opts: {
   tenantId: string
   customerPhone?: string | null

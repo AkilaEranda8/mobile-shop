@@ -57,7 +57,7 @@ export const sendMessageSchema = z.object({
   message:      z.string().min(1, 'Message is required').max(4096),
   customerName: z.string().optional(),
   referenceId:  z.string().optional(),
-  type:         z.enum(['invoice', 'quote', 'repair', 'custom']).optional().default('custom'),
+  type:         z.enum(['invoice', 'quote', 'repair', 'custom', 'credit_reminder']).optional().default('custom'),
   amount:       z.number().optional(),
 })
 

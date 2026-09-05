@@ -108,7 +108,7 @@ export default function TemplatesTab({ config, canEdit, onConfigChange }: Props)
         <div>
           <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Auto SMS templates</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            Sale, repair, HP reminder, delivery — sent automatically when enabled (customer phone required).
+            Sale, repair, HP reminder, delivery, credit reminder — sent when enabled (customer phone required).
           </p>
         </div>
       </div>

@@ -8,6 +8,8 @@ export const SMS_TEMPLATE_VARS = [
   '{{dueAmount}}',
   '{{shopName}}',
   '{{message}}',
+  '{{invoiceCount}}',
+  '{{oldestDueDate}}',
 ] as const
 
 export const DEFAULT_SMS_SALE_BODY =
@@ -21,6 +23,9 @@ export const DEFAULT_SMS_HP_REMINDER_BODY =
 
 export const DEFAULT_SMS_DELIVERY_BODY =
   'Dear {{customerName}}, your order {{referenceId}} update: {{message}}. — {{shopName}}'
+
+export const DEFAULT_SMS_CREDIT_REMINDER_BODY =
+  'Dear {{customerName}}, reminder: outstanding LKR {{dueAmount}} ({{invoiceCount}} invoice(s), oldest {{oldestDueDate}}). Please settle soon. — {{shopName}}'
 
 /** @deprecated use DEFAULT_SMS_SALE_BODY */
 export const DEFAULT_SMS_SALE_CREDIT_BODY = DEFAULT_SMS_SALE_BODY

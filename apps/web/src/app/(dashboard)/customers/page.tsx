@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet, Pencil, Banknote, ClipboardList, CheckCircle, ArrowUpDown, RotateCcw } from 'lucide-react'
+import { Plus, Star, Phone, Mail, MapPin, Eye, Loader2, SlidersHorizontal, X, ShoppingBag, Wrench, CreditCard, Calendar, ChevronRight, Users, User, Hash, MessageSquare, ArrowRight, CheckCircle2, UserPlus, DollarSign, Building2, Wallet, Pencil, Banknote, ClipboardList, CheckCircle, ArrowUpDown, RotateCcw, Bell } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -14,7 +14,7 @@ import { useCustomers, useFeatureFlag } from '@/lib/hooks'
 import { customersApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
-import { useCanEditModule, useModuleAccess, viewOnlyToast } from '@/lib/module-access'
+import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
 import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
@@ -22,8 +22,8 @@ import { usePos } from '@/lib/use-pos'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-date'
-import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl } from '@/components/design-system'
+import CreditControlPanel from '@/components/customers/CreditControlPanel'
 
 const repairStatusColors: Record<string, string> = {
   RECEIVED:      'text-blue-400   bg-blue-500/10   border-blue-500/20',
@@ -551,12 +551,13 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
   const { openPos } = usePos()
   const { canEdit } = useModuleAccess()
   const hasWhatsApp = useFeatureFlag('WHATSAPP')
-  const canEditWhatsApp = useCanEditModule('WHATSAPP')
+  const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
   const [customer, setCustomer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [detailTab, setDetailTab] = useState<'overview' | 'hirePurchase'>('overview')
   const [waReminderSending, setWaReminderSending] = useState(false)
+  const [smsReminderSending, setSmsReminderSending] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -579,46 +580,42 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
   }
 
   const sendCreditWhatsAppReminder = useCallback(async () => {
-    if (!hasWhatsApp || !canEditWhatsApp) return
+    if (!hasCustomerCredit || !canEdit) return
     if (!customer) return
-    const phone = formatWhatsAppPhone(customer.phone ?? '')
+    const phone = String(customer.phone ?? '').trim()
     const due = Number(customer.totalDue ?? 0)
     if (!phone) { toast.error('Customer phone required for WhatsApp reminder'); return }
     if (!due || due <= 0) { toast.error('No outstanding balance'); return }
 
     setWaReminderSending(true)
     try {
-      const st: any = await whatsappApi.getStatus()
-      const wa = st?.data ?? st
-      if (wa?.status !== 'connected') {
-        toast.error('WhatsApp not connected — open WhatsApp → Connection and scan QR code')
-        return
-      }
-      if (wa?.enabled === false) {
-        toast.error('WhatsApp is disabled — turn on the switch in WhatsApp → Connection')
-        return
-      }
-
-      const custName = customer?.name ? String(customer.name) : 'Customer'
-      const message =
-        `Dear ${custName}, this is a reminder about your outstanding balance of LKR ${formatCurrency(due)}. ` +
-        'Please settle at your earliest. Thank you.'
-
-      await whatsappApi.sendMessage({
-        phone,
-        message,
-        customerName: custName,
-        referenceId: `OUTSTANDING-${customer?.id ?? customerId}`,
-        type: 'custom',
-        amount: due,
-      })
+      await customersApi.sendCreditReminder(customerId, { whatsapp: true, sms: false })
       toast.success('WhatsApp reminder sent')
     } catch (e: any) {
       toast.error(e?.message ?? 'WhatsApp reminder send failed')
     } finally {
       setWaReminderSending(false)
     }
-  }, [canEditWhatsApp, customer, customerId, hasWhatsApp])
+  }, [canEdit, customer, customerId, hasCustomerCredit])
+
+  const sendCreditSmsReminder = useCallback(async () => {
+    if (!hasCustomerCredit || !canEdit) return
+    if (!customer) return
+    const phone = String(customer.phone ?? '').trim()
+    const due = Number(customer.totalDue ?? 0)
+    if (!phone) { toast.error('Customer phone required for SMS reminder'); return }
+    if (!due || due <= 0) { toast.error('No outstanding balance'); return }
+
+    setSmsReminderSending(true)
+    try {
+      await customersApi.sendCreditReminder(customerId, { sms: true, whatsapp: false })
+      toast.success('SMS reminder sent')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'SMS reminder send failed')
+    } finally {
+      setSmsReminderSending(false)
+    }
+  }, [canEdit, customer, customerId, hasCustomerCredit])
 
   const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
   const sales = customer?.sales ?? []
@@ -1084,7 +1081,19 @@ function CustomerDetailModal({ customerId, onClose }: { customerId: string; onCl
                   Pay Outstanding
                 </button>
               )}
-              {canEdit && hasDue && hasWhatsApp && canEditWhatsApp && customer?.phone && (
+              {canEdit && hasDue && hasCustomerCredit && customer?.phone && (
+                <button
+                  type="button"
+                  onClick={sendCreditSmsReminder}
+                  disabled={smsReminderSending}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold disabled:opacity-50"
+                  style={{ borderColor: 'rgba(16,185,129,.35)', background: 'rgba(16,185,129,.08)', color: '#34d399' }}
+                >
+                  {smsReminderSending ? <Loader2 size={14} className="animate-spin" /> : <Phone size={14} />}
+                  {smsReminderSending ? 'Sending…' : 'Send SMS Reminder'}
+                </button>
+              )}
+              {canEdit && hasDue && hasCustomerCredit && hasWhatsApp && customer?.phone && (
                 <button
                   type="button"
                   onClick={sendCreditWhatsAppReminder}
@@ -1334,6 +1343,7 @@ export default function CustomersPage() {
   const [dueMin, setDueMin] = useState('all')
   const [sortBy, setSortBy] = useState('recent')
   const [showSegment, setShowSegment] = useState(false)
+  const [showCreditControl, setShowCreditControl] = useState(false)
   const segmentRef = useRef<HTMLDivElement>(null)
 
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
@@ -1651,6 +1661,15 @@ export default function CustomersPage() {
         actions={
           <div className="flex gap-2 items-center relative" ref={segmentRef}>
             <OpenPosButton label="POS Terminal" variant="secondary" />
+            {hasCustomerCredit && (
+              <button
+                type="button"
+                onClick={() => setShowCreditControl(true)}
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Bell size={14} />Credit Control
+              </button>
+            )}
             <button
               onClick={() => setShowSegment(v => !v)}
               className={`btn-secondary text-sm flex items-center gap-2 ${showSegment ? 'border-brand-500/40 text-brand-300' : ''}`}
@@ -1782,6 +1801,12 @@ export default function CustomersPage() {
         isLoading={loading}
         pageCount={Math.ceil((segmentFiltered.length || 1) / 20)}
         searchableColumns={[]}
+      />
+
+      <CreditControlPanel
+        open={showCreditControl}
+        onClose={() => setShowCreditControl(false)}
+        canEdit={canEdit}
       />
     </div>
   )

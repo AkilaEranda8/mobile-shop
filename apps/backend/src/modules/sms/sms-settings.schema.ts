@@ -19,6 +19,7 @@ export const updateSmsSettingsSchema = z.object({
     repair: smsTemplateSchema.optional(),
     hpReminder: smsTemplateSchema.optional(),
     delivery: smsTemplateSchema.optional(),
+    creditReminder: smsTemplateSchema.optional(),
     saleCredit: smsTemplateSchema.optional(),
     repairCredit: smsTemplateSchema.optional(),
   }).optional(),
@@ -50,4 +51,5 @@ export const SMS_EVENT_LABELS: Record<(typeof SMS_EVENT_TYPES)[number], string> 
   repair: 'Repair complete',
   hpReminder: 'Hire Purchase reminder',
   delivery: 'Delivery update',
+  creditReminder: 'Customer credit reminder',
 }

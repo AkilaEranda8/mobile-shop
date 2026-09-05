@@ -1,4 +1,5 @@
 import {
+  DEFAULT_SMS_CREDIT_REMINDER_BODY,
   DEFAULT_SMS_DELIVERY_BODY,
   DEFAULT_SMS_HP_REMINDER_BODY,
   DEFAULT_SMS_REPAIR_BODY,
@@ -8,7 +9,7 @@ import {
 export const SMS_PROVIDER_IDS = ['hexalyte', 'twilio', 'dialog', 'mobitel', 'hutch', 'generic'] as const
 export type SmsProviderId = (typeof SMS_PROVIDER_IDS)[number]
 
-export const SMS_EVENT_TYPES = ['sale', 'repair', 'hpReminder', 'delivery'] as const
+export const SMS_EVENT_TYPES = ['sale', 'repair', 'hpReminder', 'delivery', 'creditReminder'] as const
 export type SmsEventType = (typeof SMS_EVENT_TYPES)[number]
 
 export type SmsMessageTemplate = {
@@ -36,6 +37,7 @@ const DEFAULT_TEMPLATES: Record<SmsEventType, SmsMessageTemplate> = {
   repair: { enabled: true, body: DEFAULT_SMS_REPAIR_BODY },
   hpReminder: { enabled: true, body: DEFAULT_SMS_HP_REMINDER_BODY },
   delivery: { enabled: false, body: DEFAULT_SMS_DELIVERY_BODY },
+  creditReminder: { enabled: true, body: DEFAULT_SMS_CREDIT_REMINDER_BODY },
 }
 
 const DEFAULTS: SmsSettings = {
@@ -161,6 +163,7 @@ export function smsEventLogType(eventType: SmsEventType | string): string {
     repair: 'REPAIR',
     hpReminder: 'HP_REMINDER',
     delivery: 'DELIVERY',
+    creditReminder: 'CREDIT_REMINDER',
     test: 'TEST',
     manual: 'MANUAL',
   }

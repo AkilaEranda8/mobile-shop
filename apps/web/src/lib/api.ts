@@ -482,6 +482,12 @@ export const customersApi = {
   search: (q: string) => api.get(`/customers/search?q=${encodeURIComponent(q)}`),
   unpaidInvoices: (id: string) => api.get(`/customers/${id}/unpaid-invoices`),
   creditPayment: (id: string, body: unknown) => api.post(`/customers/${id}/credit-payment`, body),
+  getCreditControl: () => api.get('/customers/credit-control'),
+  updateCreditControl: (body: unknown) => api.put('/customers/credit-control', body),
+  sendCreditReminder: (id: string, body?: { sms?: boolean; whatsapp?: boolean }) =>
+    api.post(`/customers/${id}/credit-reminder`, body ?? {}),
+  sendCreditRemindersBulk: (body?: { sms?: boolean; whatsapp?: boolean }) =>
+    api.post('/customers/credit-reminders/bulk', body ?? {}),
   setActive: (id: string, isActive: boolean) => api.patch(`/customers/${id}/active`, { isActive }),
   remove: (id: string) => api.delete(`/customers/${id}`),
 }

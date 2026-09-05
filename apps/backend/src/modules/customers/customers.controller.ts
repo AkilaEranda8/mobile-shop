@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { customersService } from './customers.service'
+import { customerCreditControlService } from './customer-credit-control.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
 
 export const customersController = {
@@ -45,5 +46,35 @@ export const customersController = {
   },
   async creditPayment(req: Request, res: Response, next: NextFunction) {
     try { sendSuccess(res, await customersService.creditPayment(req.tenantId!, req.params.id, req.body, req)) } catch (e) { next(e) }
+  },
+  async getCreditControl(req: Request, res: Response, next: NextFunction) {
+    try { sendSuccess(res, await customerCreditControlService.getControl(req.tenantId!, req)) } catch (e) { next(e) }
+  },
+  async updateCreditControl(req: Request, res: Response, next: NextFunction) {
+    try {
+      sendSuccess(
+        res,
+        await customerCreditControlService.updateControl(req.tenantId!, req.body, req),
+        'Credit control settings saved',
+      )
+    } catch (e) { next(e) }
+  },
+  async sendCreditReminder(req: Request, res: Response, next: NextFunction) {
+    try {
+      sendSuccess(
+        res,
+        await customerCreditControlService.sendOne(req.tenantId!, req.params.id, req.body, req),
+        'Credit reminder sent',
+      )
+    } catch (e) { next(e) }
+  },
+  async sendCreditRemindersBulk(req: Request, res: Response, next: NextFunction) {
+    try {
+      sendSuccess(
+        res,
+        await customerCreditControlService.sendBulk(req.tenantId!, req.body, req),
+        'Bulk credit reminders processed',
+      )
+    } catch (e) { next(e) }
   },
 }
