@@ -937,7 +937,7 @@ export default function SettingsPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   {([
-                    { k: 'shopName', label: 'Business Name', ph: 'e.g. Akila Mobile Shop' },
+                    { k: 'shopName', label: 'Business Name', ph: 'e.g. Akila Computer Shop' },
                     { k: 'companyLegalName', label: 'Legal Company Name', ph: 'e.g. YOUR SHOP (PVT) LTD' },
                     { k: 'slogan',   label: 'Slogan / Tagline', ph: 'e.g. Your Trusted Store' },
                     { k: 'phone',    label: 'Phone', ph: '+94 77 123 4567' },

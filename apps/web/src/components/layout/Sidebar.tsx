@@ -182,7 +182,7 @@ const navItems: NavGroup[] = [
         permission: 'SUPPLIERS',
         submenu: purchaseOrdersSubmenu,
       },
-      { href: '/dashboard/imei', icon: Smartphone, label: 'IMEI Tracker', badge: 'NEW', feature: 'IMEI', permission: 'IMEI' },
+      { href: '/dashboard/imei', icon: Smartphone, label: 'Serial Tracker', badge: 'NEW', feature: 'IMEI', permission: 'IMEI' },
     ],
   },
   {

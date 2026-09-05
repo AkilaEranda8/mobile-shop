@@ -836,7 +836,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
           toast((t) => (
             <div className="text-sm">
               <p className="font-medium">Catalog copied to {destNames}</p>
-              <p className="text-xs opacity-80 mt-0.5">Details only — stock &amp; IMEI stay at {stockBranchName}</p>
+              <p className="text-xs opacity-80 mt-0.5">Details only — stock &amp; serials stay at {stockBranchName}</p>
               <button
                 type="button"
                 className="mt-2 text-xs font-semibold text-violet-400 hover:text-violet-300"
@@ -1239,7 +1239,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                         </div>
                         <p className="text-[10px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
                           <ArrowLeftRight size={11} className="flex-shrink-0 mt-0.5 opacity-70" />
-                          Copies image & details only. Stock and IMEI stay on this branch — use Stock Transfer to move units.
+                          Copies image & details only. Stock and serials stay on this branch — use Stock Transfer to move units.
                         </p>
                       </>
                     )}
@@ -1417,7 +1417,7 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                     {hasCreditPricing && (
                       <PreviewRow label="Cash Price" value={pricing.creditEx ? `LKR ${pricing.creditEx}` : undefined} />
                     )}
-                    <PreviewRow label="IMEI Type" value={trackImei ? 'Phone / Tablet' : 'No IMEI'} />
+                    <PreviewRow label="Serial Tracking" value={trackImei ? 'Serialized unit' : 'No serial'} />
                     <PreviewRow label="Warranty" value={warrantyTrack ? extra.warranty : 'None'} />
                     {warrantyTrack && extra.warrantyNote.trim() && (
                       <PreviewRow label="Warranty note" value={extra.warrantyNote.trim()} />
@@ -1614,9 +1614,9 @@ export function AddProductModal({ onClose, onSaved, copyFrom, editProduct }: Add
                 )}
         </div>
 
-              {/* 4. IMEI Tracking */}
+              {/* 4. Serial Number Tracking */}
               <div style={card}>
-                <SectionHeader n={4} title="IMEI Tracking" optional />
+                <SectionHeader n={4} title="Serial Number Tracking" optional />
                 <ImeiProductTypeSelector
                   value={imeiType}
                   onChange={type => { setImeiTouched(true); setImeiType(type) }}

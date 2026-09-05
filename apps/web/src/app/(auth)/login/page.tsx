@@ -280,7 +280,7 @@ export default function LoginPage() {
             <h2 className="text-4xl font-bold leading-tight" style={{ color: '#f1f5f9' }}>
               Run your entire<br />
               <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                mobile shop
+                retail shop
               </span><br />
               from one place
             </h2>
@@ -435,7 +435,7 @@ export default function LoginPage() {
           <h2 className="text-4xl font-bold leading-tight" style={{ color: '#f1f5f9' }}>
             Run your entire<br />
             <span className="bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
-              mobile shop
+              retail shop
             </span><br />
             from one place
           </h2>

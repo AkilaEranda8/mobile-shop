@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Hash, Loader2, Search, Smartphone } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { isValidUnitSerial, normalizeSerial } from '@/lib/serialNumber'
 import toast from 'react-hot-toast'
 
 export type ExchangeStockItem = {
@@ -201,17 +202,17 @@ function VariantImeiPicker({
   }
 
   const handleImeiScan = (raw: string) => {
-    const digits = raw.replace(/\D/g, '')
-    const imei = digits.length > 15 ? digits.slice(-15) : digits
-    if (imei.length !== 15) {
-      setImeiScanError('IMEI must be 15 digits')
+    const serial = normalizeSerial(raw)
+    if (!isValidUnitSerial(serial)) {
+      setImeiScanError('Enter a Serial Number or 15-digit IMEI')
       return
     }
-    if (availableImeis.some(i => i.imei === imei)) {
-      pickImei(imei)
-      toast.success('IMEI selected')
+    const match = availableImeis.find(i => normalizeSerial(i.imei) === serial)
+    if (match) {
+      pickImei(match.imei)
+      toast.success('Serial / IMEI selected')
     } else {
-      setImeiScanError('This IMEI is not in stock for this variant')
+      setImeiScanError('This serial / IMEI is not in stock for this variant')
     }
   }
 
@@ -302,7 +303,7 @@ function VariantImeiPicker({
                   if (e.key === 'Enter') { e.preventDefault(); handleImeiScan(imeiScanValue) }
                 }}
               />
-              {imeiScanValue.replace(/\D/g, '').length === 15 && (
+              {isValidUnitSerial(imeiScanValue) && (
                 <span className="text-[10px] text-emerald-500 font-bold flex-shrink-0">✓</span>
               )}
             </div>

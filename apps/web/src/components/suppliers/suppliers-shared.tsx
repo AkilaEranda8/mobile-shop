@@ -14,6 +14,7 @@ import { suppliersApi, imeiApi, productsApi } from '@/lib/api'
 import { getActiveBranchId, getVisibleBranches, hasMultipleBranches } from '@/lib/active-branch'
 import toast from 'react-hot-toast'
 import { productSearchHaystack } from '@/lib/barcode-scan'
+import { isValidUnitSerial, normalizeSerial, SERIAL_MAX_LEN } from '@/lib/serialNumber'
 import type { Supplier, PurchaseOrder, POItem } from '@/types'
 import { isImeiHealthBannerDismissed, dismissImeiHealthBanner } from '@/lib/productImei'
 import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
@@ -165,24 +166,26 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
   const setImei = (key: string, idx: number, val: string) =>
     setImeis(prev => ({ ...prev, [key]: prev[key].map((v, i) => i === idx ? val : v) }))
 
-  // Fill next empty IMEI slot from scanner
+  // Fill next empty serial/IMEI slot from scanner
   const handleScan = (scanned: string) => {
-    const digits = scanned.replace(/\D/g, '')
-    const imei = digits.length > 15 ? digits.slice(-15) : digits
-    if (imei.length !== 15) { toast.error('IMEI must be 15 digits'); return }
+    const serial = normalizeSerial(scanned)
+    if (!isValidUnitSerial(serial)) {
+      toast.error('Enter a Serial Number (5–64 chars) or a 15-digit IMEI')
+      return
+    }
     let filled = false
     setImeis(prev => {
       const next = { ...prev }
       outer: for (const key of Object.keys(next)) {
         const arr = [...next[key]]
         for (let i = 0; i < arr.length; i++) {
-          if (!arr[i]) { arr[i] = imei; next[key] = arr; filled = true; break outer }
+          if (!arr[i]) { arr[i] = serial; next[key] = arr; filled = true; break outer }
         }
       }
       return next
     })
     setScanValue('')
-    if (!filled) toast('All slots filled â€” scroll down to check')
+    if (!filled) toast('All slots filled — scroll down to check')
   }
 
   const handlePaste = (key: string, idx: number, text: string) => {
@@ -216,7 +219,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
             productName: item.productName,
             ...(item.id ? { poItemId: item.id } : {}),
             branchId: defaultBranch,
-            imei: imei.trim(),
+            imei: normalizeSerial(imei),
             variation: variationLabel,
           })
         }
@@ -257,7 +260,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 
   // Filled count
   const totalSlots  = Object.values(imeis).flat().length
-  const filledSlots = Object.values(imeis).flat().filter(v => v.length === 15).length
+  const filledSlots = Object.values(imeis).flat().filter(v => isValidUnitSerial(v)).length
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -288,12 +291,12 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
               autoFocus
               className="flex-1 bg-transparent outline-none text-sm font-mono tracking-widest placeholder:text-[var(--text-muted)] placeholder:opacity-50"
               style={{ color: 'var(--text-primary)' }}
-              placeholder="Scan or type IMEI then press Enter..."
+              placeholder="Scan or type Serial / IMEI then press Enter..."
               value={scanValue}
               onChange={e => setScanValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleScan(scanValue) } }}
             />
-            {scanValue.replace(/\D/g, '').length === 15 && <span className="text-[10px] text-green-400 font-bold">âœ“ VALID</span>}
+            {isValidUnitSerial(scanValue) && <span className="text-[10px] text-green-400 font-bold">✓ VALID</span>}
           </div>
 
           {prefillLoading && (
@@ -315,7 +318,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
           {!prefillLoading && imeiLines.map(item => {
             const key = itemKey(item)
             const slots = imeis[key] ?? []
-            const filled = slots.filter(v => v.length === 15).length
+            const filled = slots.filter(v => isValidUnitSerial(v)).length
             return (
               <div key={key} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
 
@@ -360,21 +363,21 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
                   </div>
                 </div>
 
-                {/* IMEI input grid */}
+                {/* Serial / IMEI input grid */}
                 <div className="p-4 space-y-3">
                   <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                    Paste multiple IMEIs separated by newlines or enter one per field
+                    Both work: Serial Number (laptops/PCs) or 15-digit IMEI (phones). Paste multiple separated by newlines.
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {slots.map((val, idx) => (
                       <div key={idx}>
                         <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Unit {idx + 1}</label>
                         <input
-                          className={`input-field font-mono text-xs tracking-wider w-full placeholder:text-[var(--text-muted)] placeholder:opacity-50 ${
-                            val.length === 15 ? 'border-green-500/40' : val.length > 0 ? 'border-red-500/40' : ''
+                          className={`input-field font-mono text-xs tracking-wider w-full uppercase placeholder:text-[var(--text-muted)] placeholder:opacity-50 ${
+                            isValidUnitSerial(val) ? 'border-green-500/40' : val.length > 0 ? 'border-red-500/40' : ''
                           }`}
-                          placeholder="000000000000000"
-                          maxLength={15}
+                          placeholder="Serial or IMEI"
+                          maxLength={SERIAL_MAX_LEN}
                           value={val}
                           onChange={e => setImei(key, idx, e.target.value)}
                           onPaste={e => {

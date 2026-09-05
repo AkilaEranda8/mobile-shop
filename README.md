@@ -1,6 +1,6 @@
-# Hexalyte — Enterprise Mobile Shop & Repair SaaS
+# Hexalyte — Enterprise Retail & Repair SaaS
 
-> The complete all-in-one platform for mobile phone shops, repair centers, accessory stores, and multi-branch retail operations.
+> The complete all-in-one platform for retail shops, computer & electronics stores, repair centers, accessory stores, and multi-branch operations.
 
 ---
 

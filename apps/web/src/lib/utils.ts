@@ -66,17 +66,24 @@ export function maskIMEI(imei: string): string {
 }
 
 export function validateIMEI(imei: string): boolean {
-  if (!imei || imei.length !== 15 || !/^\d+$/.test(imei)) return false
-  let sum = 0
-  for (let i = 0; i < 15; i++) {
-    let digit = parseInt(imei[i])
-    if (i % 2 === 1) {
-      digit *= 2
-      if (digit > 9) digit -= 9
+  // Accept general serials; keep Luhn check only for classic 15-digit IMEI
+  if (!imei) return false
+  const v = imei.trim()
+  if (/^\d{15}$/.test(v)) {
+    let sum = 0
+    for (let i = 0; i < 15; i++) {
+      let digit = parseInt(v[i], 10)
+      if (i % 2 === 1) {
+        digit *= 2
+        if (digit > 9) digit -= 9
+      }
+      sum += digit
     }
-    sum += digit
+    return sum % 10 === 0
   }
-  return sum % 10 === 0
+  // Alphanumeric serial (laptops/PCs) — length + charset
+  if (v.length < 5 || v.length > 64) return false
+  return /^[A-Za-z0-9][A-Za-z0-9\-]*$/.test(v)
 }
 
 export function getRepairStatusColor(status: string): string {

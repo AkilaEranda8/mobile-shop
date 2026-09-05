@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'Hexalyte Innovation terms of service for the mobile shop SaaS platform.',
+  description: 'Hexalyte Innovation terms of service for the Hexalyte retail SaaS platform.',
 }
 
 const COMPANY = 'Hexalyte Innovation (Pvt) Ltd'

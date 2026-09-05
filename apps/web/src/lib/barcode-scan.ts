@@ -1,11 +1,23 @@
-/** Shared barcode / SKU / IMEI scan helpers (keyboard-wedge scanners). */
+/** Shared barcode / SKU / serial / IMEI scan helpers (keyboard-wedge scanners). */
+
+import { isValidUnitSerial, normalizeSerial } from '@/lib/serialNumber'
 
 export function normalizeScanCode(raw: string): string {
   return raw.trim().replace(/\s+/g, '')
 }
 
+/** Classic 15-digit phone IMEI. */
 export function isImeiCode(code: string): boolean {
   return /^\d{15}$/.test(normalizeScanCode(code))
+}
+
+/** Phone IMEI or general unit serial (laptop/PC/etc.). */
+export function isUnitSerialCode(code: string): boolean {
+  return isValidUnitSerial(normalizeScanCode(code))
+}
+
+export function normalizeUnitSerial(code: string): string {
+  return normalizeSerial(normalizeScanCode(code))
 }
 
 export type ProductVariation = {

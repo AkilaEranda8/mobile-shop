@@ -1,6 +1,6 @@
 'use client'
 
-import { Smartphone, Package } from 'lucide-react'
+import { Cpu, Package } from 'lucide-react'
 import type { ImeiProductType } from '@/lib/productImei'
 import { inferImeiProductType } from '@/lib/productImei'
 
@@ -27,23 +27,23 @@ export function ImeiProductTypeSelector({
 
   const options: {
     type: ImeiProductType
-    icon: typeof Smartphone
+    icon: typeof Cpu
     title: string
     desc: string
     accent: string
   }[] = [
     {
       type: 'device',
-      icon: Smartphone,
-      title: 'Phone / Tablet',
-      desc: 'Has IMEI — required at POS sale & PO receive',
+      icon: Cpu,
+      title: 'Serialized unit',
+      desc: 'Serial / IMEI required at POS sale & stock receive',
       accent: 'var(--brand-light)',
     },
     {
       type: 'accessory',
       icon: Package,
-      title: 'No IMEI',
-      desc: 'Accessories, parts, chargers, cases — barcode only',
+      title: 'No serial',
+      desc: 'Accessories, parts, cables — quantity + barcode only',
       accent: '#64748b',
     },
   ]
@@ -53,10 +53,11 @@ export function ImeiProductTypeSelector({
       {!hideIntro && (
         <>
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
-            IMEI Tracking <span style={{ color: '#ef4444' }}>*</span>
+            Serial Number Tracking <span style={{ color: '#ef4444' }}>*</span>
           </label>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.45 }}>
-            Phones and tablets have a unique 15-digit IMEI. Other products do not — select the correct type.
+            Both work: <strong style={{ color: 'var(--text-secondary)' }}>Serial Number</strong> (laptops, PCs)
+            {' '}and <strong style={{ color: 'var(--text-secondary)' }}>15-digit IMEI</strong> (phones). Pick serialized if each unit has a unique ID.
           </p>
         </>
       )}
@@ -101,7 +102,7 @@ export function ImeiProductTypeSelector({
       {suggestion && suggestion !== value && (
         <p style={{ fontSize: 10, color: 'var(--status-warn)', marginTop: 8 }}>
           Tip: &quot;{categoryName || deviceModel}&quot; is usually{' '}
-          {suggestion === 'device' ? 'a phone/tablet with IMEI' : 'a product without IMEI'}.
+          {suggestion === 'device' ? 'a serialized unit (serial / IMEI)' : 'a product without serial tracking'}.
         </p>
       )}
     </div>

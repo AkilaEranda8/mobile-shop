@@ -13,14 +13,14 @@ const COMPANY = {
   email: 'info@hexalyte.com',
   phone: '+94 70 3130100',
   website: 'www.hexalyte.com',
-  tagline: 'The complete SaaS platform for mobile shops in Sri Lanka',
+  tagline: 'The complete SaaS platform for retail & repair shops in Sri Lanka',
 }
 
 const features = [
   {
     icon: Zap,
     title: 'Lightning POS',
-    description: 'Offline-ready billing with barcode scanning, IMEI entry, split payments, and instant thermal + PDF receipts.',
+    description: 'Offline-ready billing with barcode scanning, serial/IMEI entry, split payments, and instant thermal + PDF receipts.',
     color: 'from-yellow-500/20 to-orange-500/10',
     border: 'border-yellow-500/20',
     iconColor: 'text-yellow-400',
@@ -35,8 +35,8 @@ const features = [
   },
   {
     icon: Smartphone,
-    title: 'IMEI Tracking',
-    description: 'Every device tracked by IMEI from purchase to sale to warranty. Full audit trail throughout its lifecycle.',
+    title: 'Serial Tracking',
+    description: 'Every unit tracked by serial or IMEI from purchase to sale to warranty. Full audit trail throughout its lifecycle.',
     color: 'from-violet-500/20 to-purple-500/10',
     border: 'border-violet-500/20',
     iconColor: 'text-violet-400',
@@ -79,7 +79,7 @@ const plans = [
       '1 Branch',
       'Up to 5 Users',
       'POS & Billing',
-      'Inventory + IMEI Tracking',
+      'Inventory + Serial Tracking',
       'Customers & Credit',
       'Repairs & Warranty',
       'Daily Closing',
@@ -253,7 +253,7 @@ export default function LandingPage() {
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-white leading-tight mb-6">
             The Complete Platform for{' '}
             <span className="bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              Modern Mobile Shops
+              Modern Retail Shops
             </span>
           </h1>
 
@@ -519,7 +519,7 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="bg-gradient-to-br from-violet-600/20 to-cyan-600/10 border border-violet-500/20 rounded-3xl p-8 sm:p-12">
             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-              Ready to transform your mobile shop?
+              Ready to transform your shop?
             </h2>
             <p className="text-slate-400 mb-8">
               Join 500+ shops already running on Hexalyte. Start your 14-day free trial today.

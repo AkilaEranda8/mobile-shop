@@ -8,11 +8,11 @@ import { APPEARANCE_INIT_SCRIPT } from '@/lib/appearance'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Hexalyte — Mobile Shop & Repair SaaS',
+    default: 'Hexalyte — Retail & Repair SaaS',
     template: '%s | Hexalyte',
   },
-  description: 'The complete all-in-one platform for mobile phone shops, repair centers, accessory stores, and multi-branch retail operations.',
-  keywords: ['mobile shop', 'repair management', 'POS', 'inventory', 'SaaS', 'IMEI tracking', 'warranty management'],
+  description: 'The complete all-in-one platform for retail shops, computer & electronics stores, repair centers, and multi-branch operations.',
+  keywords: ['retail POS', 'shop management', 'repair management', 'inventory', 'SaaS', 'serial tracking', 'warranty management', 'computer shop'],
   authors: [{ name: 'Hexalyte Technologies' }],
   creator: 'Hexalyte Technologies',
   metadataBase: new URL('https://app.hexalyte.com'),
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_IN',
     url: 'https://app.hexalyte.com',
-    title: 'Hexalyte — Mobile Shop & Repair SaaS',
+    title: 'Hexalyte — Retail & Repair SaaS',
     description: 'Manage inventory, repairs, POS, and customers in one powerful platform.',
     siteName: 'Hexalyte',
   },

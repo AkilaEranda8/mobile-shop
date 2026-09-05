@@ -7,6 +7,7 @@ import {
   AlertCircle, CheckCircle, Cpu,
 } from 'lucide-react'
 import { productsApi, imeiApi, branchesApi } from '@/lib/api'
+import { isValidUnitSerial, normalizeSerial, SERIAL_MAX_LEN, serialValidationMessage } from '@/lib/serialNumber'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
 import { useProducts, useCategories } from '@/lib/hooks'
@@ -98,8 +99,8 @@ function DevicePreview({ entry }: { entry: DeviceEntry }) {
     ['Product', entry.productName || '—'],
     ['Storage', entry.storage || '—'],
     ['Color', entry.color || '—'],
-    ['IMEI 1', entry.imei1 || '—'],
-    ['IMEI 2', entry.imei2 || '—'],
+    ['Serial / IMEI', entry.imei1 || '—'],
+    ['Serial 2', entry.imei2 || '—'],
     ['Buying Price', entry.buyingPrice ? formatCurrency(Number(entry.buyingPrice)) : '—'],
     ['Selling Price', entry.sellingPrice ? formatCurrency(Number(entry.sellingPrice)) : '—'],
     ['Warranty', entry.warranty || '—'],
@@ -162,7 +163,7 @@ function DevicePreview({ entry }: { entry: DeviceEntry }) {
   )
 }
 
-// ── IMEI Input ─────────────────────────────────────────────────────────────
+// ── Serial / IMEI Input ────────────────────────────────────────────────────
 
 function ImeiInput({
   label,
@@ -176,6 +177,7 @@ function ImeiInput({
   required?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const invalid = value.length > 0 && !isValidUnitSerial(value)
 
   return (
     <div>
@@ -184,24 +186,23 @@ function ImeiInput({
         <input
           ref={inputRef}
           type="text"
-          inputMode="numeric"
-          maxLength={17}
-          placeholder="Enter 15-digit IMEI"
-          className="input-field pr-10 font-mono text-sm"
+          maxLength={SERIAL_MAX_LEN}
+          placeholder="Serial number or 15-digit IMEI"
+          className="input-field pr-10 font-mono text-sm uppercase"
           value={value}
-          onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 15))}
+          onChange={e => onChange(e.target.value.slice(0, SERIAL_MAX_LEN))}
         />
         <button
           type="button"
           className="absolute right-3 text-slate-500 hover:text-violet-400 transition-colors"
-          title="Scan IMEI / Barcode"
+          title="Scan serial / barcode"
           tabIndex={-1}
         >
           <QrCode size={15} />
         </button>
       </div>
-      {value && value.length !== 15 && (
-        <p className="text-[10px] text-amber-400 mt-1">IMEI must be exactly 15 digits</p>
+      {invalid && (
+        <p className="text-[10px] text-amber-400 mt-1">{serialValidationMessage(value)}</p>
       )}
     </div>
   )
@@ -244,10 +245,9 @@ function DeviceForm({
     onChange({ barcode: genBarcode(entry) })
   }
 
-  const imeiValid = !entry.imei1 || entry.imei1.length === 15
   const canAdd =
     entry.productId &&
-    entry.imei1.length === 15 &&
+    isValidUnitSerial(entry.imei1) &&
     Number(entry.buyingPrice) > 0 &&
     Number(entry.sellingPrice) > 0
 
@@ -299,11 +299,11 @@ function DeviceForm({
           </div>
         </div>
 
-        {/* IMEI 1 */}
-        <ImeiInput label="IMEI 1" value={entry.imei1} onChange={v => onChange({ imei1: v })} required />
+        {/* Serial / IMEI */}
+        <ImeiInput label="Serial / IMEI" value={entry.imei1} onChange={v => onChange({ imei1: v })} required />
 
-        {/* IMEI 2 */}
-        <ImeiInput label="IMEI 2" value={entry.imei2} onChange={v => onChange({ imei2: v })} />
+        {/* Serial 2 (optional dual-SIM / secondary) */}
+        <ImeiInput label="Serial 2 (optional)" value={entry.imei2} onChange={v => onChange({ imei2: v })} />
 
         {/* Barcode (Auto) */}
         <div>
@@ -430,14 +430,14 @@ function DeviceForm({
             }}
           >
             <Upload size={14} />
-            Import IMEI (Excel)
+            Import Serials (Excel)
           </button>
           <button
             type="button"
             className="btn-secondary flex items-center gap-2 text-sm"
           >
             <ScanLine size={14} />
-            Scan IMEI / Barcode
+            Scan Serial / Barcode
           </button>
         </div>
       </div>
@@ -492,7 +492,7 @@ function AddedDevicesTable({
           <table className="w-full text-xs">
             <thead>
               <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['#', 'Product', 'Storage / Model', 'Color', 'IMEI 1', 'IMEI 2', 'Buying Price', 'Selling Price', 'Warranty', 'Condition', 'Actions'].map(h => (
+                {['#', 'Product', 'Storage / Model', 'Color', 'Serial / IMEI', 'Serial 2', 'Buying Price', 'Selling Price', 'Warranty', 'Condition', 'Actions'].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                     {h}
                   </th>
@@ -727,16 +727,16 @@ export function AddStockModal({ onClose, onSaved }: AddStockModalProps) {
                     (v.storage === d.storage && v.colorName === d.color))
                 : undefined
               const variationLabel = matchedVar?.sku || `${matchedVar?.storage ?? d.storage}::${matchedVar?.colorName ?? d.color}`
-              if (d.imei1 && d.imei1.length === 15) {
-                await imeiApi.create({ imei: d.imei1, productId, branchId: primaryBranchId, variation: variationLabel }).catch((e) => {
-                  console.error('IMEI create failed:', e)
-                  toast.error(`Failed to register IMEI ${d.imei1}`)
+              if (d.imei1 && isValidUnitSerial(d.imei1)) {
+                await imeiApi.create({ imei: normalizeSerial(d.imei1), productId, branchId: primaryBranchId, variation: variationLabel }).catch((e) => {
+                  console.error('Serial create failed:', e)
+                  toast.error(`Failed to register serial ${d.imei1}`)
                 })
               }
-              if (d.imei2 && d.imei2.length === 15) {
-                await imeiApi.create({ imei: d.imei2, productId, branchId: primaryBranchId, variation: variationLabel }).catch((e) => {
-                  console.error('IMEI create failed:', e)
-                  toast.error(`Failed to register IMEI ${d.imei2}`)
+              if (d.imei2 && isValidUnitSerial(d.imei2)) {
+                await imeiApi.create({ imei: normalizeSerial(d.imei2), productId, branchId: primaryBranchId, variation: variationLabel }).catch((e) => {
+                  console.error('Serial create failed:', e)
+                  toast.error(`Failed to register serial ${d.imei2}`)
                 })
               }
             }

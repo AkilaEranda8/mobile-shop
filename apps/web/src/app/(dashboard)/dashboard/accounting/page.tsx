@@ -207,7 +207,7 @@ export default function AccountingPage() {
             <BookOpen size={22} className="text-violet-400" />
             Accounting
           </h1>
-          <p className="page-subtitle">Double-entry general ledger for your mobile shop</p>
+          <p className="page-subtitle">Double-entry general ledger for your shop</p>
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <button type="button" onClick={load} disabled={loading} className="btn-secondary flex items-center gap-2 text-sm">

@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'Hexalyte Innovation privacy policy for the mobile shop SaaS platform.',
+  description: 'Hexalyte Innovation privacy policy for the Hexalyte retail SaaS platform.',
 }
 
 const COMPANY = 'Hexalyte Innovation (Pvt) Ltd'

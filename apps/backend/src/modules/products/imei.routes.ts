@@ -6,6 +6,7 @@ import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { getPagination } from '../../utils/pagination'
 import { AppError } from '../../middleware/error.middleware'
 import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
+import { isValidUnitSerial, normalizeSerial, serialValidationMessage } from '../../utils/serialNumber'
 
 const router = Router()
 router.use(authenticate)
@@ -186,11 +187,15 @@ router.get('/lookup/:imei', async (req: Request, res: Response, next: NextFuncti
 
 router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { imei, productId, variation } = req.body
+    const { productId, variation } = req.body
+    const imei = typeof req.body.imei === 'string' ? normalizeSerial(req.body.imei) : ''
     const resolvedBranchId = await resolveMutationBranchId(req, { preferred: req.body.branchId })
-    if (!imei || !productId) throw new AppError('imei and productId are required', 400)
+    if (!imei || !productId) throw new AppError('serial/IMEI and productId are required', 400)
+    const serialErr = serialValidationMessage(imei)
+    if (serialErr) throw new AppError(serialErr, 400)
+    if (!isValidUnitSerial(imei)) throw new AppError('Invalid serial / IMEI', 400)
     const existing = await prisma.imeiRecord.findUnique({ where: { imei } })
-    if (existing) throw new AppError('IMEI already registered', 409)
+    if (existing) throw new AppError('Serial / IMEI already registered', 409)
     const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } })
     if (!product) throw new AppError('Product not found', 404)
     assertBranchRecordAccess(req, product.branchId)
@@ -201,7 +206,7 @@ router.post('/', authorize('OWNER', 'MANAGER'), async (req: Request, res: Respon
       data: { imei, productId, branchId: resolvedBranchId, variation, status: 'IN_STOCK' },
       include: { product: { select: { name: true, brand: { select: { name: true } } } } },
     })
-    sendSuccess(res, record, 'IMEI registered', 201)
+    sendSuccess(res, record, 'Serial / IMEI registered', 201)
   } catch (e) { next(e) }
 })
 

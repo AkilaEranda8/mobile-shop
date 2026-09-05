@@ -165,7 +165,7 @@ export function previewSmsTemplate(body: string): string {
     .replace(/\{\{totalAmount\}\}/g, '25,000.00')
     .replace(/\{\{paidAmount\}\}/g, '5,000.00')
     .replace(/\{\{dueAmount\}\}/g, '20,000.00')
-    .replace(/\{\{shopName\}\}/g, 'My Mobile Shop')
+    .replace(/\{\{shopName\}\}/g, 'My Shop')
     .replace(/\{\{message\}\}/g, 'Out for delivery')
 }
 

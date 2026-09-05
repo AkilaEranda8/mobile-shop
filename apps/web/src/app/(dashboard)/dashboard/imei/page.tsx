@@ -15,6 +15,7 @@ import { useActiveBranchId, useImeiRecords } from '@/lib/hooks'
 import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
+import { isValidUnitSerial, normalizeSerial, SERIAL_MAX_LEN, serialValidationMessage } from '@/lib/serialNumber'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   IN_STOCK:             { label: 'In Stock',     color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
@@ -545,22 +546,24 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!/^\d{15}$/.test(form.imei)) { setImeiError('IMEI must be exactly 15 digits'); return }
+    const serial = normalizeSerial(form.imei)
+    const err = serialValidationMessage(serial)
+    if (err) { setImeiError(err); return }
     if (!form.productId) { toast.error('Select a product'); return }
     setLoading(true)
     try {
       const selectedProduct = products.find((p: any) => p.id === form.productId)
       const branchId = activeBranchId || selectedProduct?.branchId
       if (!branchId) { toast.error('No active branch — switch branch in header'); return }
-      await imeiApi.create({ imei: form.imei, productId: form.productId, branchId })
-      toast.success('IMEI registered successfully')
+      await imeiApi.create({ imei: serial, productId: form.productId, branchId })
+      toast.success('Serial registered successfully')
       onSaved()
       onClose()
     } catch (err: any) {
       if (err?.message?.toLowerCase().includes('already')) {
-        setImeiError('Duplicate IMEI — this device is already in the system.')
+        setImeiError('Duplicate serial — this unit is already in the system.')
       } else {
-        toast.error(err?.message ?? 'Failed to register IMEI')
+        toast.error(err?.message ?? 'Failed to register serial')
       }
     } finally {
       setLoading(false)
@@ -572,23 +575,23 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Register Device IMEI</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Link IMEI to an existing product</p>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Register Serial / IMEI</h3>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Link serial number or IMEI to a product</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">IMEI Number * <span className="text-slate-600">(15 digits)</span></label>
+            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Serial Number / IMEI *</label>
             <input
-              required maxLength={15}
-              className={`input-field font-mono tracking-widest ${imeiError ? 'border-red-500/50' : ''}`}
-              placeholder="351756051523798"
+              required maxLength={SERIAL_MAX_LEN}
+              className={`input-field font-mono tracking-wide uppercase ${imeiError ? 'border-red-500/50' : ''}`}
+              placeholder="SN123456789 or 15-digit IMEI"
               value={form.imei} onChange={f('imei')}
             />
             {imeiError && <p className="text-xs text-red-400 mt-1">{imeiError}</p>}
-            {form.imei.length === 15 && !imeiError && (
-              <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CheckCircle size={11} />Valid IMEI format</p>
+            {form.imei && isValidUnitSerial(form.imei) && !imeiError && (
+              <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CheckCircle size={11} />Valid format</p>
             )}
           </div>
           <div>
@@ -603,7 +606,7 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
             <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Register IMEI
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Register Serial
             </button>
           </div>
         </form>
@@ -687,7 +690,7 @@ export default function IMEIPage() {
     {
       id: 'device',
       accessorFn: (row) => `${row.product?.name ?? ''} ${row.imei}`,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="IMEI / Device" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Serial / Device" />,
       cell: ({ row }) => (
         <button type="button" className="flex items-center gap-2.5 text-left" onClick={() => openDetail(row.original.imei)}>
           <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
@@ -754,35 +757,35 @@ export default function IMEIPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
-          <h1 className="page-title">IMEI Tracker</h1>
-          <p className="page-subtitle">Track every device by IMEI · Full repair & sale history</p>
+          <h1 className="page-title">Serial Tracker</h1>
+          <p className="page-subtitle">Track every unit by serial or IMEI · Full repair & sale history</p>
         </div>
         <div className="flex gap-2 sm:ml-auto">
           <button
             onClick={() => setScanMode(!scanMode)}
             className={`btn-secondary text-sm flex items-center gap-2 ${scanMode ? 'border-violet-500/40 text-violet-400' : ''}`}
           >
-            <Hash size={14} />{scanMode ? 'Scanner On' : 'Scan IMEI'}
+            <Hash size={14} />{scanMode ? 'Scanner On' : 'Scan Serial'}
           </button>
           <EditOnly><button onClick={() => setShowAdd(true)} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={14} />Register Device
+            <Plus size={14} />Register Unit
           </button></EditOnly>
         </div>
       </div>
 
-      {/* Quick IMEI Lookup */}
+      {/* Quick Serial Lookup */}
       <div className="card p-4">
         <p className="text-xs font-semibold mb-2.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-          <Search size={11} />Quick IMEI Lookup
+          <Search size={11} />Quick Serial / IMEI Lookup
         </p>
         <div className="flex gap-2">
           <input
             className="input-field font-mono flex-1"
-            placeholder="Enter IMEI number to lookup full device history..."
+            placeholder="Enter serial or IMEI to lookup unit history..."
             value={quickSearch}
             onChange={e => { setQuickSearch(e.target.value); setQuickResult(null) }}
             onKeyDown={e => e.key === 'Enter' && handleQuickLookup()}
-            maxLength={20}
+            maxLength={SERIAL_MAX_LEN}
           />
           <button
             onClick={handleQuickLookup}
@@ -794,7 +797,7 @@ export default function IMEIPage() {
           </button>
         </div>
         {quickResult === 'notfound' && (
-          <p className="text-xs text-amber-400 mt-2 flex items-center gap-1.5"><AlertTriangle size={11} />IMEI not found in this tenant's records</p>
+          <p className="text-xs text-amber-400 mt-2 flex items-center gap-1.5"><AlertTriangle size={11} />Serial / IMEI not found in this shop&apos;s records</p>
         )}
       </div>
 
@@ -805,12 +808,12 @@ export default function IMEIPage() {
             <Hash size={18} className="text-violet-400" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-violet-300">IMEI Scanner Active</p>
-            <p className="text-xs text-gray-500 dark:text-slate-500">Scan barcode or type IMEI then press Enter</p>
+            <p className="text-sm font-medium text-violet-300">Serial Scanner Active</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500">Scan barcode or type serial / IMEI then press Enter</p>
           </div>
           <input
             autoFocus className="input-field max-w-xs font-mono"
-            placeholder="Scan or type IMEI..."
+            placeholder="Scan or type serial / IMEI..."
             onKeyDown={e => {
               if (e.key === 'Enter') {
                 const val = (e.target as HTMLInputElement).value.trim()
@@ -844,7 +847,7 @@ export default function IMEIPage() {
       <ToolbarSearch
         value={listSearch}
         onChange={setListSearch}
-        placeholder="Filter by IMEI, product, brand…"
+        placeholder="Filter by serial, product, brand…"
         className="max-w-md"
       />
 

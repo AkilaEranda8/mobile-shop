@@ -64,7 +64,7 @@ const FALLBACK_PLANS: BillingPlan[] = [
     color: '#eab308',
     bg: 'rgba(234,179,8,0.08)',
     border: 'rgba(234,179,8,0.25)',
-    features: ['1 Branch', '2 Users', 'POS & Billing', 'Inventory + IMEI', 'Repairs', 'Basic Reports'],
+    features: ['1 Branch', '2 Users', 'POS & Billing', 'Inventory + Serial', 'Repairs', 'Basic Reports'],
   },
   {
     key: 'STARTER',
@@ -78,7 +78,7 @@ const FALLBACK_PLANS: BillingPlan[] = [
       '1 Branch',
       'Up to 5 Users',
       'POS & Billing',
-      'Inventory + IMEI',
+      'Inventory + Serial',
       'Customers & Credit',
       'Repairs & Warranty',
       'Daily Closing',

@@ -386,6 +386,7 @@
 [data-pos='nova'] .nova-cart .text-2xl {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+  color: var(--nova-text) !important;
 }
 
 /* Summary / total block — strengthen checkout CTA */
@@ -431,10 +432,9 @@
   font-weight: 650 !important;
 }
 
-[data-pos='nova'] .nova-cart .pos-price.text-xl {
+[data-pos='nova'] .nova-cart .text-xl.font-extrabold {
   font-size: 1.5rem !important;
   line-height: 1.15 !important;
-  color: var(--nova-text) !important;
 }
 
 /* ═══════════════════════════════════════════
@@ -594,27 +594,29 @@
   margin: 0;
 }
 
-/* Isolate Hire Purchase wizard from Nova POS chrome */
+/* Hire Purchase wizard — dark POS chrome */
 [data-hp-wizard] {
-  color-scheme: light;
+  color-scheme: dark;
 }
 [data-hp-wizard] [data-hp-panel] {
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #e2e8f0 !important;
+  background: #141a24 !important;
+  color: #f8fafc !important;
+  border-color: #1e2633 !important;
 }
 [data-hp-wizard] [data-hp-panel] input,
 [data-hp-wizard] [data-hp-panel] select,
 [data-hp-wizard] [data-hp-panel] textarea {
-  color: #0f172a !important;
-  background: #ffffff !important;
-  border-color: #cbd5e1 !important;
+  color: #f8fafc !important;
+  background: #1a2230 !important;
+  border-color: #1e2633 !important;
+  color-scheme: dark;
 }
-[data-hp-wizard] [data-hp-panel] label,
-[data-hp-wizard] [data-hp-panel] h3,
-[data-hp-wizard] [data-hp-panel] h4,
-[data-hp-wizard] [data-hp-panel] p {
-  color: inherit;
+[data-hp-wizard] [data-hp-panel] input::placeholder {
+  color: #64748b !important;
+}
+[data-hp-wizard] [data-hp-panel] option {
+  background: #1a2230;
+  color: #f8fafc;
 }
 
 /* ═══════════════════════════════════════════

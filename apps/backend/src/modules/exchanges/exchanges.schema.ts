@@ -1,4 +1,13 @@
 import { z } from 'zod'
+import { isValidUnitSerial, normalizeSerial } from '../../utils/serialNumber'
+
+const unitSerial = z
+  .string()
+  .min(1, 'Serial number or IMEI is required')
+  .transform((v) => normalizeSerial(v))
+  .refine((v) => isValidUnitSerial(v), {
+    message: 'Enter a Serial Number (5–64 chars) or a 15-digit IMEI',
+  })
 
 export const completeExchangeSchema = z.object({
   branchId:         z.string().optional(),
@@ -10,15 +19,15 @@ export const completeExchangeSchema = z.object({
   oldProductName:   z.string().optional(),
   oldBrand:         z.string().min(1, 'Brand is required'),
   oldModel:         z.string().min(1, 'Model is required'),
-  oldImei:          z.string().regex(/^\d{15}$/, 'IMEI must be 15 digits'),
+  oldImei:          unitSerial,
   oldColor:         z.string().optional(),
   oldStorage:       z.string().optional(),
   oldCondition:     z.string().optional().default('GOOD'),
   buyPrice:         z.coerce.number().min(0, 'Buy price must be 0 or more'),
   oldProductId:     z.string().optional(),
 
-  soldProductId:    z.string().min(1, 'Select a phone from stock'),
-  soldImei:         z.string().regex(/^\d{15}$/, 'Sold IMEI must be 15 digits'),
+  soldProductId:    z.string().min(1, 'Select a unit from stock'),
+  soldImei:         unitSerial,
   soldVariation:    z.string().optional(),
   soldSellPrice:    z.coerce.number().positive().optional(),
 

@@ -37,7 +37,7 @@ import {
 import { useUIStore } from '@/stores/ui-store'
 import { useProducts, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
 import { salesApi, customersApi, productsApi, imeiApi, servicesApi, financeApi, tenantApi, dailyClosingApi } from '@/lib/api'
-import { findProductByCode, isImeiCode, normalizeScanCode } from '@/lib/barcode-scan'
+import { findProductByCode, isUnitSerialCode, normalizeScanCode, normalizeUnitSerial } from '@/lib/barcode-scan'
 import { authStorage } from '@/lib/auth'
 import { getOperationalBranchId, ensureOperationalBranch } from '@/lib/active-branch'
 import { formatCurrency } from '@/lib/utils'
@@ -86,7 +86,7 @@ function posStockLabel(item: { trackImei?: boolean; stock?: number; imeiInStock?
   const color = isOut ? POS_THEME.muted : isLow ? POS_THEME.amber : POS_THEME.green
   if (item.trackImei && hasIMEI) {
     return {
-      label: isOut ? 'No IMEI registered' : `${qty} IMEI in stock`,
+      label: isOut ? 'No serials registered' : `${qty} serials in stock`,
       color,
       isOut,
       isLow,
@@ -624,21 +624,20 @@ function VariationPickerModal({
   }, [showImei, allowPriceEdit])
 
   const handleImeiScanInModal = (raw: string) => {
-    const digits = raw.replace(/\D/g, '')
-    const imei = digits.length > 15 ? digits.slice(-15) : digits
-    if (imei.length !== 15) {
-      setImeiScanError('IMEI must be 15 digits')
+    const serial = normalizeUnitSerial(raw)
+    if (!isUnitSerialCode(serial)) {
+      setImeiScanError('Enter a valid serial number or 15-digit IMEI')
       return false
     }
-    const match = availableImeis.find(i => i.imei === imei)
+    const match = availableImeis.find(i => normalizeUnitSerial(i.imei) === serial)
     if (match) {
-      setSelImei(imei)
+      setSelImei(match.imei)
       setImeiScanValue('')
       setImeiScanError('')
-      toast.success('IMEI selected')
+      toast.success('Serial selected')
       return true
     }
-    setImeiScanError('This IMEI is not in stock for this variant')
+    setImeiScanError('This serial / IMEI is not in stock for this variant')
     return false
   }
 
@@ -908,7 +907,7 @@ function VariationPickerModal({
                       ref={imeiScanRef}
                       className="flex-1 bg-transparent outline-none text-sm font-mono tracking-wider placeholder:opacity-35"
                       style={{ color: POS_THEME.text }}
-                      placeholder="Scan or type IMEI…"
+                      placeholder="Scan or type serial / IMEI…"
                       value={imeiScanValue}
                       onChange={e => { setImeiScanValue(e.target.value); setImeiScanError('') }}
                     />
@@ -2551,7 +2550,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (!code) return
     e.preventDefault()
 
-    if (isImeiCode(code)) {
+    if (isUnitSerialCode(code)) {
       setSearch('')
       await handleImeiScan(code)
       return
@@ -3620,7 +3619,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
 
   const imeiSlot = showScanInput ? (
     <div className="relative shrink-0 w-[min(9.5rem,42vw)] sm:w-40">
-      <input autoFocus type="text" placeholder="IMEI Search" className="h-9 w-full pl-3 pr-8 rounded-xl text-sm outline-none border"
+      <input autoFocus type="text" placeholder="Serial / IMEI Search" className="h-9 w-full pl-3 pr-8 rounded-xl text-sm outline-none border"
         style={{ background: POS_THEME.card, borderColor: 'rgba(59,130,246,0.4)', color: POS_THEME.text }}
         value={imeiScan} onChange={e => setImeiScan(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') { handleImeiScan(imeiScan); setShowScanInput(false) } if (e.key === 'Escape') { setShowScanInput(false); setImeiScan('') } }}
@@ -4229,7 +4228,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <ChevronLeft size={14} /><span>Cart</span>
                     </button>
                     <span className="font-bold text-sm truncate" style={{ color: POS_THEME.text }}>Checkout</span>
-                    <span className="pos-price text-sm font-bold shrink-0 ml-auto">{formatCurrency(saleTotal)}</span>
+                    <span className="text-sm font-bold shrink-0 ml-auto tabular-nums" style={{ color: POS_THEME.text }}>{formatCurrency(saleTotal)}</span>
                   </>
                 ) : (
                   <>
@@ -4364,7 +4363,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 <div className="p-3 border-t flex-shrink-0 space-y-2" style={{ borderColor: POS_THEME.border, background: POS_THEME.panel }}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs" style={{ color: POS_THEME.muted }}>{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
-                    <span className="pos-price text-xl font-extrabold">{formatCurrency(saleTotal)}</span>
+                    <span className="text-xl font-extrabold tabular-nums" style={{ color: POS_THEME.text }}>{formatCurrency(saleTotal)}</span>
                   </div>
                   <button type="button" onClick={() => {
                     if (hasWarranty && warrantyCartItems.length > 0 && !selectedCustomer) {
@@ -4623,7 +4622,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         style={{ color: POS_THEME.text }}
                       />
                     ) : (
-                      <span className="pos-price text-2xl font-extrabold">{formatCurrency(cart.length > 0 ? saleTotal : collectAtCheckout)}</span>
+                      <span className="text-2xl font-extrabold tabular-nums" style={{ color: POS_THEME.text }}>{formatCurrency(cart.length > 0 ? saleTotal : collectAtCheckout)}</span>
                     )}
                   </div>
                   {storeCreditApplied > 0 && (

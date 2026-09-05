@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { exchangesApi, customersApi, deviceCatalogApi, imeiApi, tenantApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
+import { SERIAL_MAX_LEN } from '@/lib/serialNumber'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
 import { authStorage } from '@/lib/auth'
 import { getActiveBranchId } from '@/lib/active-branch'
@@ -488,12 +489,12 @@ export function ExchangeWizard({ onClose, onSaved }: { onClose: () => void; onSa
                   </select>
                 </div>
                 <div>
-                  <FieldLabel>IMEI *</FieldLabel>
-                  <input className="input-field w-full font-mono" placeholder="15 digits" maxLength={15}
-                    value={form.oldImei} onChange={e => setForm(p => ({ ...p, oldImei: e.target.value.replace(/\D/g, '') }))} />
+                  <FieldLabel>Serial / IMEI *</FieldLabel>
+                  <input className="input-field w-full font-mono uppercase" placeholder="Serial number or 15-digit IMEI" maxLength={SERIAL_MAX_LEN}
+                    value={form.oldImei} onChange={e => setForm(p => ({ ...p, oldImei: e.target.value }))} />
                   {oldImeiChecking && (
                     <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
-                      <Loader2 size={10} className="animate-spin" /> Checking IMEI…
+                      <Loader2 size={10} className="animate-spin" /> Checking serial / IMEI…
                     </p>
                   )}
                   {oldImeiWarning && (

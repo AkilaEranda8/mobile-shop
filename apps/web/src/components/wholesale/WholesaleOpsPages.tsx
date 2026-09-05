@@ -5560,7 +5560,7 @@ function BindDispatchImeiModal({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!lineId) { toast.error('Select a line'); return }
-    if (imei.trim().length < 8) { toast.error('IMEI must be at least 8 characters'); return }
+    if (imei.trim().length < 5) { toast.error('Enter a Serial Number or IMEI (min 5 characters)'); return }
     setSaving(true)
     try {
       await wholesaleApi.bindDispatchImei(String(dispatch.id), {
