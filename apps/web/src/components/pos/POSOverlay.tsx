@@ -27,6 +27,7 @@ import type { CartItem } from './types'
 import { buildPosNavItems, buildCategoryTabs, buildBottomActions } from './pos-features'
 import {
   isQtyLockedLine,
+  canMergeCartLine,
   getWarrantyCartItems,
   extractSaleWarrantyCodes,
   extractSaleWarranties,
@@ -434,7 +435,7 @@ function RegisterCustomerInline({ onBack, onCreated }: { onBack: () => void; onC
       </div>
       {hasCustomerCredit && (
         <div>
-          <label className="text-xs font-medium text-white/70 mb-1.5 block">Prior credit (LKR, optional)</label>
+          <label className="text-xs font-medium text-white/70 mb-1.5 block">Prior credit (optional)</label>
           <input className={inputCls} style={inputStyle} type="number" min={0} step="0.01" placeholder="0.00"
             value={form.openingDue} onChange={e => setForm(p => ({ ...p, openingDue: e.target.value }))}
             onKeyDown={e => { if (e.key === 'Enter') submit() }} />
@@ -1564,9 +1565,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [calcOp, setCalcOp]                       = useState<string|null>(null)
   const [calcReset, setCalcReset]                 = useState(false)
   const searchRef                                 = useRef<HTMLInputElement>(null)
+  const custSearchRef                             = useRef<HTMLInputElement>(null)
   const payNowRef                                 = useRef<HTMLInputElement>(null)
   const customerPaidRef                           = useRef<HTMLInputElement>(null)
   const outstandingPayRef                         = useRef<HTMLInputElement>(null)
+  const [editingPriceCartId, setEditingPriceCartId] = useState<string | null>(null)
+  const [priceEditDraft, setPriceEditDraft]         = useState('')
   const prevSaleTotalRef                          = useRef(0)
   const handleCheckoutRef                         = useRef<() => Promise<void>>(async () => {})
   const checkoutKeyboardRef                       = useRef({
@@ -2089,11 +2093,17 @@ function POSContent({ onClose }: { onClose: () => void }) {
     if (cartView === 'checkout') {
       setShowCartCustDrop(true)
       setShowCustDrop(false)
+      if (!isDesktop) setMobileView('cart')
     } else {
       setShowCustDrop(true)
       setShowCartCustDrop(false)
     }
-  }, [cartView])
+    // Focus search after dropdown mounts (F2 / Customers)
+    window.setTimeout(() => {
+      custSearchRef.current?.focus()
+      custSearchRef.current?.select()
+    }, 30)
+  }, [cartView, isDesktop])
 
   const genDocNumber = (prefix: string) => `${prefix}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*9000+1000)}`
 
@@ -2343,21 +2353,27 @@ function POSContent({ onClose }: { onClose: () => void }) {
     const warrantyNote = isService
       ? undefined
       : (warranty?.note?.trim() || product.warrantyNote?.trim() || undefined)
+    const condition: CartItem['condition'] = isService
+      ? undefined
+      : (product.condition === 'USED' ? 'USED' : product.condition === 'BRAND_NEW' ? 'BRAND_NEW' : undefined)
     const isSyntheticVariant = Boolean(variation && variation.storage === 'Standard' && variation.colorName === 'Default')
+    const variationLabel = isSyntheticVariant ? undefined : (variation ? `${variation.storage}::${variation.colorName}` : undefined)
     setCart(prev => {
       const trackImei = Boolean(product.trackImei)
-      // Default: merge into existing line. When alwaysNewLineItem is on, every add is a new row.
-      if (!imei && !posUi.behavior.alwaysNewLineItem) {
-        // Match by productId + variation + price + warranty so different warranties stay separate
-        const varKey = isSyntheticVariant ? '' : (variation ? `${variation.storage}::${variation.colorName}` : '')
-        const existing = prev.find(i => i.isService
-          ? i.serviceId === serviceId && i.name === name && i.price === price
-          : i.productId === product.id
-            && !i.imei
-            && (i.variationLabel ?? '') === varKey
-            && i.price === price
-            && (i.warrantyMonths ?? 0) === warrantyMonths
-            && (i.warrantyNote ?? '') === (warrantyNote ?? ''))
+      // Merge only identical non-IMEI lines. Different warranty / variation / price stay separate.
+      if (!imei && !trackImei && !posUi.behavior.alwaysNewLineItem) {
+        const existing = prev.find(i => canMergeCartLine(i, {
+          productId: isService ? null : product.id,
+          serviceId,
+          name,
+          price,
+          isService,
+          variationLabel,
+          warrantyMonths,
+          warrantyNote,
+          trackImei,
+          condition,
+        }))
         if (existing) return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + qty } : i)
       }
       return [...prev, {
@@ -2372,11 +2388,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
         quantity: qty,
         imei,
         isService,
-        variationLabel: isSyntheticVariant ? undefined : (variation ? `${variation.storage}::${variation.colorName}` : undefined),
+        variationLabel,
         warrantyMonths,
         warrantyNote,
         trackImei,
-        condition: isService ? undefined : (product.condition === 'USED' ? 'USED' : product.condition === 'BRAND_NEW' ? 'BRAND_NEW' : undefined),
+        condition,
       }]
     })
   }
@@ -2593,8 +2609,21 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const setQty = (cartId: string, qty: number) =>
     setCart(prev => prev.map(i => {
       if (i.cartId !== cartId || isQtyLockedLine(i)) return i
-      return { ...i, quantity: Math.max(1, qty) }
+      if (!Number.isFinite(qty) || qty < 1) return i
+      return { ...i, quantity: Math.floor(qty) }
     }))
+
+  const updateCartLinePrice = (cartId: string, raw: string) => {
+    const val = parseFloat(raw)
+    if (!Number.isFinite(val) || val < 0) {
+      toast.error('Enter a valid price')
+      return false
+    }
+    setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, price: val } : i))
+    setEditingPriceCartId(null)
+    setPriceEditDraft('')
+    return true
+  }
 
   const subtotal       = cart.reduce((s, i) => s + i.price * i.quantity, 0)
   const serviceCostTotal = cart.filter(i => i.isService).reduce((s, i) => s + (i.cost ?? 0) * i.quantity, 0)
@@ -3205,23 +3234,36 @@ function POSContent({ onClose }: { onClose: () => void }) {
       if (e.key === 'Escape') {
         e.preventDefault()
         e.stopPropagation()
+        // Priority: topmost modal → dropdown → checkout → cart (stay) → close only if idle empty
         if (pricePrompt) { setPricePrompt(null); setPricePromptVal(''); setPricePromptQty('1'); return }
-        if (showRecentInvoices) setShowRecentInvoices(false)
-        else if (showHeldCarts) setShowHeldCarts(false)
-        else if (showCalc) setShowCalc(false)
-        else if (showReturnModal) { setShowReturnModal(false); setActiveNavId('products') }
-        else if (showDocPreview) setShowDocPreview(null)
-        else if (showMoreMenu) setShowMoreMenu(false)
-        else if (showFilters) setShowFilters(false)
-        else if (showOpeningCash) setShowOpeningCash(false)
-        else if (showDayEnd) setShowDayEnd(false)
-        else if (showCashFlow) setShowCashFlow(false)
-        else if (variationPickerProduct) setVariationPickerProduct(null)
-        else if (showRegister && (showCartCustDrop || showCustDrop)) setShowRegister(false)
-        else if (showCartCustDrop || showCustDrop) { setShowCartCustDrop(false); setShowCustDrop(false); setShowRegister(false) }
-        else if (cartView === 'checkout' && !completedSale) setCartView('items')
-        else if (mobileView === 'cart' && !isDesktop) setMobileView('products')
-        else requestClosePos()
+        if (variationPickerProduct) { setVariationPickerProduct(null); return }
+        if (showHirePurchaseWizard) { setShowHirePurchaseWizard(false); return }
+        if (showA4Invoice) { setShowA4Invoice(false); return }
+        if (showRecentInvoices) { setShowRecentInvoices(false); return }
+        if (showHeldCarts) { setShowHeldCarts(false); return }
+        if (showCalc) { setShowCalc(false); return }
+        if (showReturnModal) { setShowReturnModal(false); setActiveNavId('products'); return }
+        if (showDocPreview) { setShowDocPreview(null); return }
+        if (showMoreMenu) { setShowMoreMenu(false); return }
+        if (showFilters) { setShowFilters(false); return }
+        if (showOpeningCash) { setShowOpeningCash(false); return }
+        if (showDayEnd) { setShowDayEnd(false); return }
+        if (showCashFlow) { setShowCashFlow(false); return }
+        if (showScanInput) { setShowScanInput(false); setImeiScan(''); return }
+        if (editingPriceCartId) { setEditingPriceCartId(null); setPriceEditDraft(''); return }
+        if (pinGateMode === 'switch' && !pinLocked) { setPinGateMode(null); return }
+        if (showRegister && (showCartCustDrop || showCustDrop)) { setShowRegister(false); return }
+        if (showCartCustDrop || showCustDrop) {
+          setShowCartCustDrop(false)
+          setShowCustDrop(false)
+          setShowRegister(false)
+          return
+        }
+        if (cartView === 'checkout' && !completedSale) { setCartView('items'); return }
+        if (mobileView === 'cart' && !isDesktop) { setMobileView('products'); return }
+        // Keep POS open while cart has work in progress
+        if (cart.length > 0 || completedSale) return
+        requestClosePos()
         return
       }
 
@@ -3272,13 +3314,16 @@ function POSContent({ onClose }: { onClose: () => void }) {
               } else openRecentSales()
               break
             case 'reload':
-              if (hasDailyReload) {
-                setSelectedCategory('RELOAD')
-                setActiveNavId('products')
-              } else setShowHeldCarts(true)
+              if (!hasDailyReload) break
+              setSelectedCategory('RELOAD')
+              setActiveNavId('products')
               break
             case 'dayStart': openDayStartModal(); break
-            case 'cashFlow': setCashFlowMode('IN'); setShowCashFlow(true); break
+            case 'cashFlow':
+              if (!hasFinance) break
+              setCashFlowMode('IN')
+              setShowCashFlow(true)
+              break
             case 'checkout': openCheckout(); break
             case 'newSale': handleNewSale(); break
             case 'dayEnd': if (hasDailyClosing) openDayEnd(); break
@@ -3323,7 +3368,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings, pricePrompt, variationPickerProduct, mobileView, isDesktop, requestClosePos, openCustomerPicker, showCustDrop, showCartCustDrop, showRegister, showRecentInvoices, showHeldCarts, showCalc, showReturnModal, showDocPreview, showMoreMenu, showFilters, showOpeningCash, showDayEnd, showCashFlow, posUi])
+  }, [cart, cartView, checkoutLoading, completedSale, selectedCustomer, customerOutstanding, subtotal, discountAmount, saleTotal, invoiceSettings, pricePrompt, variationPickerProduct, mobileView, isDesktop, requestClosePos, openCustomerPicker, showCustDrop, showCartCustDrop, showRegister, showRecentInvoices, showHeldCarts, showCalc, showReturnModal, showDocPreview, showMoreMenu, showFilters, showOpeningCash, showDayEnd, showCashFlow, showHirePurchaseWizard, showA4Invoice, showScanInput, editingPriceCartId, pinGateMode, pinLocked, hasDailyReload, hasFinance, hasDailyClosing, posUi])
 
   const downloadInvoice = async () => {
     if (!a4Ref.current) return
@@ -3568,6 +3613,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
     <>
       <div className="p-2 border-b" style={{ borderColor: POS_THEME.border }}>
         <input
+          ref={custSearchRef}
           autoFocus={autoFocus}
           className="w-full h-8 px-2 rounded-lg text-xs outline-none border placeholder:opacity-40"
           style={{ background: POS_THEME.bg, borderColor: POS_THEME.border, color: POS_THEME.text }}
@@ -4326,8 +4372,54 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         </span>
                       )}
                       <p className="mt-1.5 text-[10px]" style={{ color: POS_THEME.muted }}>
-                        {formatCurrency(item.price)} each
-                        {item.price !== item.originalPrice && <span className="text-white ml-1">✓</span>}
+                        {hasPosPriceEdit && editingPriceCartId === item.cartId ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            inputMode="decimal"
+                            value={priceEditDraft}
+                            onChange={e => setPriceEditDraft(e.target.value.replace(/[^\d.]/g, ''))}
+                            onKeyDown={e => {
+                              e.stopPropagation()
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                updateCartLinePrice(item.cartId, priceEditDraft)
+                              }
+                              if (e.key === 'Escape') {
+                                e.preventDefault()
+                                setEditingPriceCartId(null)
+                                setPriceEditDraft('')
+                              }
+                            }}
+                            onBlur={() => {
+                              if (priceEditDraft.trim() === '') {
+                                setEditingPriceCartId(null)
+                                setPriceEditDraft('')
+                                return
+                              }
+                              updateCartLinePrice(item.cartId, priceEditDraft)
+                            }}
+                            className="w-24 h-7 px-1.5 rounded border text-xs font-bold outline-none"
+                            style={{ background: POS_THEME.bg, borderColor: POS_THEME.blue, color: POS_THEME.text }}
+                            aria-label="Edit line price"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={!hasPosPriceEdit}
+                            onClick={() => {
+                              if (!hasPosPriceEdit) return
+                              setEditingPriceCartId(item.cartId)
+                              setPriceEditDraft(String(item.price))
+                            }}
+                            className={`tabular-nums ${hasPosPriceEdit ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
+                            style={{ color: POS_THEME.muted }}
+                            title={hasPosPriceEdit ? 'Edit unit price' : undefined}
+                          >
+                            {formatCurrency(item.price)} each
+                            {item.price !== item.originalPrice && <span className="text-white ml-1">✓</span>}
+                          </button>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
@@ -4337,12 +4429,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
                         <>
                       <button onClick={() => updateQty(item.cartId, -1)} className="w-8 h-8 sm:w-6 sm:h-6 rounded-md bg-white/5 hover:bg-white/10 text-white flex items-center justify-center transition-colors touch-manipulation" aria-label="Decrease quantity"><Minus size={10} /></button>
                       <input
-                        type="number"
-                        min="1"
+                        type="text"
+                        inputMode="numeric"
                         value={item.quantity}
-                        onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setQty(item.cartId, v) }}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/\D/g, '')
+                          if (raw === '') return
+                          const v = parseInt(raw, 10)
+                          if (!isNaN(v) && v > 0) setQty(item.cartId, v)
+                        }}
+                        onKeyDown={e => e.stopPropagation()}
                         onFocus={e => e.target.select()}
-                        className="w-8 h-8 sm:h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-sky-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-8 h-8 sm:h-6 text-center text-xs font-bold rounded border focus:outline-none focus:border-sky-500"
                         style={{ color: POS_THEME.text, background: POS_THEME.card, borderColor: POS_THEME.border }}
                         aria-label="Quantity"
                       />
@@ -5121,7 +5219,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                 </p>
               )}
               <div>
-                <label className="block text-xs font-medium text-white/70 mb-1.5">Opening amount (LKR)</label>
+                <label className="block text-xs font-medium text-white/70 mb-1.5">Opening amount</label>
                 <input autoFocus type="number" min="0" step="1" placeholder="0" value={openingCashAmount} onChange={e => setOpeningCashAmount(e.target.value)}
                   className="w-full h-12 px-3 rounded-xl text-lg font-bold border outline-none text-white placeholder:text-white/40"
                   style={{ background: POS_THEME.bg, borderColor: POS_THEME.purple }}
@@ -5188,7 +5286,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   </button>
                 ))}
               </div>
-              <input type="number" min="0" step="0.01" placeholder="Amount (LKR)" value={cashFlowAmount} onChange={e => setCashFlowAmount(e.target.value)}
+              <input type="number" min="0" step="0.01" placeholder="Amount" value={cashFlowAmount} onChange={e => setCashFlowAmount(e.target.value)}
                 className="w-full h-10 px-3 rounded-xl text-sm font-bold border outline-none text-white placeholder:text-white/40"
                 style={{ background: POS_THEME.bg, borderColor: POS_THEME.border }} />
               <input type="text" placeholder="Note (optional)" value={cashFlowNote} onChange={e => setCashFlowNote(e.target.value)}

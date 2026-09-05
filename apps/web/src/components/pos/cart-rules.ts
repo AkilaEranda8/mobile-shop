@@ -4,8 +4,47 @@ import type { CartItem } from './types'
 export function isQtyLockedLine(item: CartItem): boolean {
   if (item.isReload) return true
   if (item.imei) return true
+  if (item.trackImei) return true
   if ((item.warrantyMonths ?? 0) > 0 && item.trackImei) return true
   return false
+}
+
+/** Whether an existing cart line can absorb another add (qty bump). IMEI / tracked units never merge. */
+export function canMergeCartLine(
+  existing: CartItem,
+  candidate: {
+    productId: string | null
+    serviceId?: string
+    name: string
+    price: number
+    imei?: string
+    isService?: boolean
+    variationLabel?: string
+    warrantyMonths?: number
+    warrantyNote?: string
+    trackImei?: boolean
+    condition?: CartItem['condition']
+  },
+): boolean {
+  if (candidate.imei || existing.imei) return false
+  if (candidate.trackImei || existing.trackImei) return false
+  if (candidate.isService || existing.isService) {
+    return Boolean(
+      existing.isService
+      && existing.serviceId === candidate.serviceId
+      && existing.name === candidate.name
+      && existing.price === candidate.price,
+    )
+  }
+  return (
+    existing.productId === candidate.productId
+    && !existing.imei
+    && (existing.variationLabel ?? '') === (candidate.variationLabel ?? '')
+    && existing.price === candidate.price
+    && (existing.warrantyMonths ?? 0) === (candidate.warrantyMonths ?? 0)
+    && (existing.warrantyNote ?? '') === (candidate.warrantyNote ?? '')
+    && (existing.condition ?? '') === (candidate.condition ?? '')
+  )
 }
 
 export function getWarrantyCartItems(cart: CartItem[], hasWarranty: boolean): CartItem[] {
