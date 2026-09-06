@@ -57,5 +57,18 @@ Write-Host "Uploading installer + version manifest..."
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $pscp -batch -pw $env:HEXALYTE_SSH_PASS -hostkey $hostkey $versionJson "root@${HostName}:${RemoteDir}/desktop-version.json"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# Next.js serves downloads from inside the web container image — sync there too.
+Write-Host "Syncing into live web container..."
+& $plink -ssh -batch -pw $env:HEXALYTE_SSH_PASS -hostkey $hostkey "root@${HostName}" @"
+set -e
+cd /opt/hexalyte
+docker compose cp apps/web/public/downloads/desktop-version.json web:/app/public/downloads/desktop-version.json
+docker compose cp apps/web/public/downloads/Hexalyte-Setup.exe web:/app/public/downloads/Hexalyte-Setup.exe
+curl -fsS http://127.0.0.1:3000/downloads/desktop-version.json
+echo
+"@
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "Uploaded. Download URL: https://app.hexalyte.com/downloads/Hexalyte-Setup.exe"
 Write-Host "Version manifest: https://app.hexalyte.com/downloads/desktop-version.json (v$version)"
