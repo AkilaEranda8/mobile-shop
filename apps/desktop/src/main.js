@@ -6,6 +6,7 @@ const https = require('https')
 const { spawn } = require('child_process')
 
 const DEFAULT_URL = 'https://app.hexalyte.com/login'
+const HOME_URL = 'https://app.hexalyte.com/dashboard'
 const APP_URL_ENV = process.env.HEXALYTE_DESKTOP_URL
 const VERSION_URL = 'https://app.hexalyte.com/downloads/desktop-version.json'
 const DOWNLOAD_URL = 'https://app.hexalyte.com/downloads/Hexalyte-Setup.exe'
@@ -58,11 +59,16 @@ function clearShopSlug() {
   }
 }
 
-/** Tenant subdomain login when slug is safe; reserved slugs stay on shared host. */
-function shopLoginUrl(slug) {
-  const s = normalizeShopSlug(slug)
-  if (!s || RESERVED_SHOP_SLUGS.has(s)) return DEFAULT_URL
-  return `https://${s}.app.hexalyte.com/login`
+/**
+ * Stay on shared app.hexalyte.com so localStorage auth survives restarts.
+ * Shop slug is stored separately for PIN — do not hop to tenant subdomains.
+ */
+function shopLoginUrl(_slug) {
+  return DEFAULT_URL
+}
+
+function shopHomeUrl(_slug) {
+  return HOME_URL
 }
 
 /**
@@ -103,8 +109,8 @@ function resolveStartUrl() {
     const envUrl = String(APP_URL_ENV).trim().replace(/\/$/, '')
     return toAppLoginUrl(envUrl) || envUrl
   }
-  const slug = loadShopSlug()
-  if (slug) return shopLoginUrl(slug)
+  // Returning installs open dashboard; layout sends unauthenticated users to /login.
+  if (loadShopSlug()) return shopHomeUrl()
   return DEFAULT_URL
 }
 
@@ -496,9 +502,23 @@ function buildMenu() {
           label: 'Change Shop…',
           click: () => {
             clearShopSlug()
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              void mainWindow.loadURL(DEFAULT_URL)
-            }
+            if (!mainWindow || mainWindow.isDestroyed()) return
+            void mainWindow.webContents
+              .executeJavaScript(
+                `(() => { try {
+                  localStorage.removeItem('hx_access_token');
+                  localStorage.removeItem('hx_refresh_token');
+                  localStorage.removeItem('hx_user');
+                  localStorage.removeItem('hx_pin_shop_slug');
+                  localStorage.removeItem('hx_tenant_features');
+                } catch (e) {} })()`,
+              )
+              .catch(() => {})
+              .finally(() => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  void mainWindow.loadURL(DEFAULT_URL)
+                }
+              })
           },
         },
         {
@@ -578,12 +598,18 @@ ipcMain.handle('desktop:clear-shop-slug', () => {
 })
 ipcMain.handle('desktop:open-shop-login', (_event, raw) => {
   const saved = saveShopSlug(raw)
-  const url = shopLoginUrl(saved)
+  // Stay on shared host so the existing session (localStorage) is not wiped by a subdomain hop.
+  const url = authLikelyHome()
   if (mainWindow && !mainWindow.isDestroyed()) {
     void mainWindow.loadURL(url)
   }
   return { slug: saved, url }
 })
+
+/** Prefer dashboard when a shop is already configured. */
+function authLikelyHome() {
+  return loadShopSlug() ? HOME_URL : DEFAULT_URL
+}
 ipcMain.handle('desktop:install-update', (_event, rawUrl, meta) => {
   return installDesktopUpdate(rawUrl || DOWNLOAD_URL, meta && typeof meta === 'object' ? meta : {})
 })

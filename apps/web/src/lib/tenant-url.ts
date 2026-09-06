@@ -62,7 +62,7 @@ export function isHexalyteDesktopShell(): boolean {
 /**
  * PIN login UI is available on shop subdomains always,
  * on the shared test host / localhost, and in the Electron desktop shell
- * (desktop opens `app.hexalyte.com` — shop slug comes from host, storage, or input).
+ * (desktop stays on `app.hexalyte.com` — shop slug comes from Electron config / storage).
  * Browser on production shared host `app.hexalyte.com` stays password-only.
  */
 export function canUsePinLoginOnHost(hostname?: string): boolean {

@@ -89,6 +89,12 @@ export default function LoginPage() {
     let cancelled = false
 
     const boot = async () => {
+      // Already signed in on this origin → skip login (desktop close/reopen).
+      if (authStorage.isLoggedIn()) {
+        goDashboard()
+        return
+      }
+
       const fromHost = getTenantSlugFromHost()
       setHostSlug(fromHost)
       const hostAllowsPin = canUsePinLoginOnHost()
@@ -133,6 +139,7 @@ export default function LoginPage() {
       }
 
       // ── Desktop shell only ────────────────────────────────────────────────
+      // Stay on shared app host — never hop to tenant subdomain (that clears session).
       const bridge = getHexalyteDesktopBridge()
       let desktopSlug: string | null = null
       if (bridge?.getShopSlug) {
@@ -157,19 +164,6 @@ export default function LoginPage() {
       const autoSlug = (fromHost || desktopSlug || '').trim().toLowerCase()
       if (autoSlug) setShopSlug(autoSlug)
       setShopLocked(true)
-
-      if (
-        !fromHost
-        && desktopSlug
-        && !['app', 'test', 'www', 'api', 'admin', 'platform'].includes(desktopSlug)
-        && bridge?.openShopLogin
-        && (window.location.hostname === 'app.hexalyte.com' || window.location.hostname === 'localhost')
-      ) {
-        try {
-          await bridge.openShopLogin(desktopSlug)
-          return
-        } catch { /* stay */ }
-      }
 
       if (!hostAllowsPin) {
         setShowPinOption(false)
