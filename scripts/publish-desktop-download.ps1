@@ -29,7 +29,11 @@ Write-Host "Local copy: $webCopy"
 $manifestObj = [ordered]@{
   version     = $version
   downloadUrl = '/downloads/Hexalyte-Setup.exe'
-  message     = 'A new Hexalyte desktop update is available. Please install it to continue.'
+  message     = if ($env:HEXALYTE_DESKTOP_UPDATE_MESSAGE) {
+    $env:HEXALYTE_DESKTOP_UPDATE_MESSAGE
+  } else {
+    "Hexalyte Desktop $version is ready. The app will download and restart automatically."
+  }
 }
 $manifest = ($manifestObj | ConvertTo-Json -Compress)
 [System.IO.File]::WriteAllText($versionJson, $manifest)
