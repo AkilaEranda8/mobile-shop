@@ -15,12 +15,15 @@ import {
   fetchBillingSettings,
   fetchSubscriptionPayments,
   rejectSubscriptionPaymentSlip,
+  testHelaposQr,
   updateBillingSettings,
   updateHelaposSettings,
   type BillingSettings,
   type HelaposAdminSettings,
+  type HelaposTestQrResult,
   type SubscriptionPaymentRow,
 } from '@/lib/api'
+import QRCode from 'qrcode'
 
 function fmtDate(v?: string | null) {
   if (!v) return '—'
@@ -57,6 +60,10 @@ export default function PaymentsPage() {
   const [savingHelapos, setSavingHelapos] = useState(false)
   const [showAppSecret, setShowAppSecret] = useState(false)
   const [showWebhookSecret, setShowWebhookSecret] = useState(false)
+  const [testAmount, setTestAmount] = useState(50)
+  const [testingQr, setTestingQr] = useState(false)
+  const [testResult, setTestResult] = useState<(HelaposTestQrResult & { qrImage?: string }) | null>(null)
+  const [testError, setTestError] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null)
@@ -189,6 +196,28 @@ export default function PaymentsPage() {
       flash('err', e?.message || 'HelaPOS save failed')
     } finally {
       setSavingHelapos(false)
+    }
+  }
+
+  const runHelaposTest = async () => {
+    setTestingQr(true)
+    setTestError(null)
+    setTestResult(null)
+    try {
+      const data = await testHelaposQr(testAmount)
+      const qrImage = await QRCode.toDataURL(data.qrPayload, {
+        margin: 2,
+        width: 220,
+        color: { dark: '#064e3b', light: '#ffffff' },
+      })
+      setTestResult({ ...data, qrImage })
+      flash('ok', `Test QR OK · Rs. ${data.amount}`)
+    } catch (e: any) {
+      const message = e?.message || 'HelaPOS test failed'
+      setTestError(message)
+      flash('err', message)
+    } finally {
+      setTestingQr(false)
     }
   }
 
@@ -479,6 +508,66 @@ export default function PaymentsPage() {
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               />
             </label>
+          </div>
+
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Test live LankaQR</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Calls HelaPay with saved credentials. Does not mark any invoice paid.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-xs space-y-1">
+                  <span className="font-semibold text-gray-600">Amount (LKR)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={5000}
+                    step={1}
+                    value={testAmount}
+                    onChange={(e) => setTestAmount(Number(e.target.value) || 50)}
+                    className="w-28 border rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={testingQr || !helaposForm.hasAppSecret}
+                  onClick={() => void runHelaposTest()}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  {testingQr ? <Loader2 size={13} className="animate-spin" /> : null}
+                  {testingQr ? 'Testing…' : 'Test QR'}
+                </button>
+              </div>
+            </div>
+
+            {testError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 whitespace-pre-wrap">
+                {testError}
+              </div>
+            )}
+
+            {testResult?.qrImage && (
+              <div className="flex flex-wrap items-start gap-4">
+                <img
+                  src={testResult.qrImage}
+                  alt="HelaPOS test QR"
+                  className="rounded-lg border border-white shadow-sm bg-white"
+                  width={220}
+                  height={220}
+                />
+                <div className="text-xs space-y-1.5 text-gray-700 min-w-[200px]">
+                  <p><span className="font-semibold text-gray-500">Amount:</span> LKR {testResult.amount}</p>
+                  <p><span className="font-semibold text-gray-500">Ref:</span> <code className="break-all">{testResult.reference}</code></p>
+                  {testResult.gatewayTxnId && (
+                    <p><span className="font-semibold text-gray-500">Gateway:</span> {testResult.gatewayTxnId}</p>
+                  )}
+                  <p className="text-gray-500 pt-1 break-all">Payload: {testResult.qrPayload.slice(0, 120)}{testResult.qrPayload.length > 120 ? '…' : ''}</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}

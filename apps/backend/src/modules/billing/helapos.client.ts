@@ -19,6 +19,8 @@ export type HelaposCreateQrInput = {
   notifyUrl: string
   description?: string
   invoiceNumber?: string
+  /** Admin connection probe — skip "enabled" gate, still needs credentials */
+  adminProbe?: boolean
 }
 
 export type HelaposCreateQrResult = {
@@ -92,7 +94,7 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | null
 
 export async function createHelaposQr(input: HelaposCreateQrInput): Promise<HelaposCreateQrResult> {
   const cfg = await getHelaposRuntimeConfig()
-  if (!cfg.enabled) {
+  if (!input.adminProbe && !cfg.enabled) {
     throw new AppError('HelaPOS QR payments are not enabled', 503)
   }
   if (!isConfigured(cfg)) {
@@ -148,7 +150,7 @@ export async function createHelaposQr(input: HelaposCreateQrInput): Promise<Hela
   if (!res.ok) {
     const msg = pickString(json, ['message', 'error', 'error_message', 'status_message'])
       || `HelaPOS QR create failed (${res.status})`
-    throw new AppError(msg, 502)
+    throw new AppError(`${msg} [HTTP ${res.status}]`, 502)
   }
 
   const qrPayload = pickString(json, [

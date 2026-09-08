@@ -52,6 +52,7 @@ import {
 } from '../billing/billing.service'
 import { getBillingConfig, upsertBillingConfig } from '../billing/billing-config'
 import { getHelaposAdminConfig, upsertHelaposConfig } from '../billing/helapos-config'
+import { createHelaposQr, helaposNotifyUrl } from '../billing/helapos.client'
 import { renderSubscriptionInvoicePdf } from '../../utils/render-subscription-invoice-pdf'
 
 const router = Router()
@@ -1028,6 +1029,44 @@ router.put('/helapos-settings', async (req: Request, res: Response, next: NextFu
       userId: (req as any).user?.userId,
     }).catch(() => {})
     sendSuccess(res, helapos, 'HelaPOS settings updated')
+  } catch (e) { next(e) }
+})
+
+/** Live HelaPOS QR probe — does not create a subscription payment */
+router.post('/helapos-test-qr', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawAmount = Number((req.body as any)?.amount)
+    const amount = Number.isFinite(rawAmount)
+      ? Math.min(5000, Math.max(1, Math.round(rawAmount * 100) / 100))
+      : 50
+    const reference = `ADMTEST_${Date.now()}`
+    const notifyUrl = helaposNotifyUrl()
+    const qr = await createHelaposQr({
+      amount,
+      reference,
+      notifyUrl,
+      description: 'Hexalyte admin LankaQR connection test',
+      adminProbe: true,
+    })
+    await logPlatformActivity({
+      eventType: 'HELAPOS_SETTINGS_UPDATED',
+      severity: 'INFO',
+      actorType: 'ADMIN',
+      actor: (req as any).user?.email ?? 'admin',
+      target: 'Platform',
+      details: `HelaPOS test QR OK · Rs.${amount} · ref ${reference}`,
+      ip: getClientIp(req),
+      userId: (req as any).user?.userId,
+    }).catch(() => {})
+    sendSuccess(res, {
+      ok: true,
+      amount,
+      reference,
+      notifyUrl,
+      qrPayload: qr.qrPayload,
+      gatewayTxnId: qr.gatewayTxnId ?? null,
+      rawPreview: JSON.stringify(qr.raw).slice(0, 600),
+    }, 'HelaPOS test QR created')
   } catch (e) { next(e) }
 })
 

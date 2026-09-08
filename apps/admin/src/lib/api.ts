@@ -583,6 +583,23 @@ export async function updateHelaposSettings(body: Partial<HelaposAdminSettings>)
   })
 }
 
+export type HelaposTestQrResult = {
+  ok: boolean
+  amount: number
+  reference: string
+  notifyUrl: string
+  qrPayload: string
+  gatewayTxnId: string | null
+  rawPreview?: string
+}
+
+export async function testHelaposQr(amount?: number) {
+  return req<HelaposTestQrResult>(ADMIN_BASE, '/helapos-test-qr', {
+    method: 'POST',
+    body: JSON.stringify({ amount: amount ?? 50 }),
+  })
+}
+
 // ─── Users (cross-tenant) ────────────────────────────────────────────────────
 export interface UserRow {
   id: string; name: string; email: string; role: string
