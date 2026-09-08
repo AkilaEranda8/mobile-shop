@@ -43,11 +43,11 @@ const TOPICS: Array<{
 ]
 
 function statusTone(status: string) {
-  if (status === 'OPEN') return 'bg-emerald-500/15 text-emerald-700 border-emerald-500/25'
-  if (status === 'IN_PROGRESS') return 'bg-amber-500/15 text-amber-700 border-amber-500/25'
-  if (status === 'WAITING_CUSTOMER') return 'bg-slate-500/15 text-slate-600 border-slate-500/25'
-  if (status === 'RESOLVED') return 'bg-brand-500/15 text-sky-700 border-brand-500/25'
-  return 'bg-slate-500/15 text-slate-600 border-slate-500/25'
+  if (status === 'OPEN') return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25'
+  if (status === 'IN_PROGRESS') return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25'
+  if (status === 'WAITING_CUSTOMER') return 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/25'
+  if (status === 'RESOLVED') return 'bg-brand-500/15 text-sky-700 dark:text-sky-300 border-brand-500/25'
+  return 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/25'
 }
 
 function initials(name: string) {
@@ -239,19 +239,19 @@ function SupportPageInner() {
         width: 'calc(100% + 2 * var(--main-pad))',
         height: 'calc(100dvh - 3.5rem)',
         minHeight: 560,
-        background: '#f1f5f9',
+        background: 'var(--bg-secondary)',
         color: 'var(--text-primary)',
       }}
     >
       {/* Header */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 md:px-5">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3 md:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white">
             <LifeBuoy size={18} />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-bold text-slate-900 md:text-lg">Support Center</h1>
-            <p className="truncate text-[11px] text-slate-500">
+            <h1 className="truncate text-base font-bold text-[var(--text-primary)] md:text-lg">Support Center</h1>
+            <p className="truncate text-[11px] text-[var(--text-muted)]">
               Tickets & live chat with Hexalyte
             </p>
           </div>
@@ -260,7 +260,7 @@ function SupportPageInner() {
         <div className="flex flex-wrap items-center gap-2">
           <div
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              teamOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+              teamOnline ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-[var(--bg-subtle-md)] text-[var(--text-muted)]'
             }`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${teamOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
@@ -277,7 +277,7 @@ function SupportPageInner() {
       </header>
 
       {/* Mobile tabs */}
-      <div className="flex shrink-0 border-b border-slate-200 bg-white lg:hidden">
+      <div className="flex shrink-0 border-b border-[var(--border-default)] bg-[var(--bg-card)] lg:hidden">
         {(
           [
             ['tickets', 'Tickets'],
@@ -289,7 +289,7 @@ function SupportPageInner() {
             key={key}
             type="button"
             className={`flex-1 py-2.5 text-xs font-bold ${
-              mobilePane === key ? 'border-b-2 border-brand-500 text-brand-600' : 'text-slate-400'
+              mobilePane === key ? 'border-b-2 border-brand-500 text-brand-600 dark:text-brand-400' : 'text-[var(--text-muted)]'
             }`}
             onClick={() => setMobilePane(key)}
           >
@@ -307,18 +307,18 @@ function SupportPageInner() {
       >
         {/* LEFT — tickets */}
         <aside
-          className={`min-h-0 flex-col bg-white lg:rounded-xl lg:border lg:border-slate-200 ${
+          className={`min-h-0 flex-col bg-[var(--bg-card)] lg:rounded-xl lg:border lg:border-[var(--border-default)] ${
             mobilePane === 'tickets' ? 'flex' : 'hidden'
           } lg:flex`}
         >
-          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-3">
-            <div className="text-sm font-bold text-slate-800">Your Tickets</div>
-            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-3">
+            <div className="text-sm font-bold text-[var(--text-primary)]">Your Tickets</div>
+            <span className="rounded-md bg-[var(--bg-subtle-md)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--text-secondary)]">
               {items.length}
             </span>
           </div>
 
-          <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-2 py-2">
+          <div className="flex gap-1 overflow-x-auto border-b border-[var(--border-subtle)] px-2 py-2">
             {filters.map((f) => {
               const n = filterCounts[f.key]
               return (
@@ -329,11 +329,11 @@ function SupportPageInner() {
                   className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold ${
                     ticketFilter === f.key
                       ? 'bg-brand-600 text-white'
-                      : 'text-slate-500 hover:bg-slate-100'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-subtle-md)]'
                   }`}
                 >
                   {f.label}
-                  <span className={`ml-1 ${ticketFilter === f.key ? 'text-brand-100' : 'text-slate-400'}`}>
+                  <span className={`ml-1 ${ticketFilter === f.key ? 'text-brand-100' : 'text-[var(--text-muted)]'}`}>
                     {n}
                   </span>
                 </button>
@@ -343,16 +343,16 @@ function SupportPageInner() {
 
           <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
             {loading && (
-              <div className="flex justify-center py-10 text-slate-400">
+              <div className="flex justify-center py-10 text-[var(--text-muted)]">
                 <Loader2 className="animate-spin" size={18} />
               </div>
             )}
             {!loading && filtered.length === 0 && (
               <div className="px-2 py-10 text-center">
-                <p className="text-sm text-slate-400">No tickets here</p>
+                <p className="text-sm text-[var(--text-muted)]">No tickets here</p>
                 <button
                   type="button"
-                  className="mt-2 text-xs font-semibold text-brand-600 hover:underline"
+                  className="mt-2 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
                   onClick={() => setTicketFilter('ALL')}
                 >
                   Show all tickets
@@ -366,23 +366,23 @@ function SupportPageInner() {
                 onClick={() => void openTicket(t.id)}
                 className={`block w-full rounded-lg border px-3 py-2.5 text-left transition ${
                   selected?.id === t.id
-                    ? 'border-sky-400 bg-brand-50'
-                    : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                    ? 'border-sky-400 bg-brand-500/10'
+                    : 'border-transparent hover:border-[var(--border-default)] hover:bg-[var(--bg-subtle)]'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[10px] text-slate-400">{t.ticketNumber}</span>
+                  <span className="font-mono text-[10px] text-[var(--text-muted)]">{t.ticketNumber}</span>
                   <span
                     className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${statusTone(t.status)}`}
                   >
                     {t.status.replace(/_/g, ' ')}
                   </span>
                 </div>
-                <div className="mt-0.5 truncate text-[13px] font-semibold text-slate-900">{t.subject}</div>
-                <div className="mt-0.5 text-[10px] text-slate-500">
+                <div className="mt-0.5 truncate text-[13px] font-semibold text-[var(--text-primary)]">{t.subject}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--text-muted)]">
                   {t.priority} · {t.category} · {timeAgo(t.createdAt)}
                   {t.slaBreached ? (
-                    <span className="ml-1 font-semibold text-rose-600">· SLA</span>
+                    <span className="ml-1 font-semibold text-rose-600 dark:text-rose-400">· SLA</span>
                   ) : null}
                 </div>
               </button>
@@ -392,18 +392,18 @@ function SupportPageInner() {
 
         {/* CENTER — hub / ticket detail */}
         <section
-          className={`min-h-0 flex-col overflow-hidden bg-white lg:rounded-xl lg:border lg:border-slate-200 ${
+          className={`min-h-0 flex-col overflow-hidden bg-[var(--bg-card)] lg:rounded-xl lg:border lg:border-[var(--border-default)] ${
             mobilePane === 'hub' ? 'flex' : 'hidden'
           } lg:flex`}
         >
           {selected ? (
             <>
-              <div className="shrink-0 border-b border-slate-100 px-5 py-3.5">
+              <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 py-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-mono text-[10px] text-slate-400">{selected.ticketNumber}</div>
-                    <h2 className="mt-0.5 text-base font-bold text-slate-900">{selected.subject}</h2>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                    <div className="font-mono text-[10px] text-[var(--text-muted)]">{selected.ticketNumber}</div>
+                    <h2 className="mt-0.5 text-base font-bold text-[var(--text-primary)]">{selected.subject}</h2>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
                       <span className={`rounded border px-1.5 py-0.5 font-bold uppercase ${statusTone(selected.status)}`}>
                         {selected.status.replace(/_/g, ' ')}
                       </span>
@@ -414,7 +414,7 @@ function SupportPageInner() {
                   </div>
                   <button
                     type="button"
-                    className="rounded-md px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-100"
+                    className="rounded-md px-2 py-1 text-[11px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-subtle-md)]"
                     onClick={() => setSelected(null)}
                   >
                     Back
@@ -423,19 +423,19 @@ function SupportPageInner() {
               </div>
               <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 py-4">
                 {(selected.messages ?? []).map((m) => (
-                  <div key={m.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-2.5 text-sm">
-                    <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <div key={m.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3.5 py-2.5 text-sm">
+                    <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
                       {m.authorType.replace(/_/g, ' ')} · {m.authorEmail}
                       <span className="ml-2 font-normal">{new Date(m.createdAt).toLocaleString()}</span>
                     </div>
-                    <div className="whitespace-pre-wrap leading-relaxed text-slate-800">{m.body}</div>
+                    <div className="whitespace-pre-wrap leading-relaxed text-[var(--text-primary)]">{m.body}</div>
                   </div>
                 ))}
               </div>
               {selected.status !== 'CLOSED' && (
-                <div className="flex shrink-0 gap-2 border-t border-slate-100 p-3">
+                <div className="flex shrink-0 gap-2 border-t border-[var(--border-subtle)] p-3">
                   <input
-                    className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500"
+                    className="h-10 flex-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-brand-500"
                     placeholder="Write a reply…"
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
@@ -454,7 +454,7 @@ function SupportPageInner() {
                   {selected.status === ('RESOLVED' as SupportTicketStatus) && (
                     <button
                       type="button"
-                      className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-semibold"
+                      className="h-10 rounded-lg border border-[var(--border-default)] px-3 text-xs font-semibold"
                       onClick={() =>
                         void supportTicketsApi.close(selected.id).then((r) => {
                           setSelected(r.data)
@@ -480,10 +480,10 @@ function SupportPageInner() {
                       style={{ width: '100%', height: 'auto' }}
                     />
                   </div>
-                  <h2 className="mt-1.5 text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
+                  <h2 className="mt-1.5 text-xl font-bold tracking-tight text-[var(--text-primary)] md:text-2xl">
                     How can we help?
                   </h2>
-                  <p className="mt-1.5 max-w-md text-[13px] text-slate-500 md:text-sm">
+                  <p className="mt-1.5 max-w-md text-[13px] text-[var(--text-muted)] md:text-sm">
                     Pick live chat or open a ticket — we&apos;re here for you.
                   </p>
                 </div>
@@ -492,16 +492,16 @@ function SupportPageInner() {
                   <button
                     type="button"
                     onClick={beginLiveChat}
-                    className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm md:p-5"
+                    className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4 text-left transition hover:border-brand-300 hover:shadow-sm md:p-5"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/15 text-brand-600 dark:text-brand-300">
                       <MessageCircle size={20} />
                     </div>
-                    <div className="mt-3 text-base font-bold text-slate-900">Live Chat</div>
-                    <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+                    <div className="mt-3 text-base font-bold text-[var(--text-primary)]">Live Chat</div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
                       Talk to a Hexalyte teammate in real time.
                     </p>
-                    <div className="mt-2.5 text-xs font-semibold text-emerald-600">
+                    <div className="mt-2.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                       {onlineCount > 0 ? `${onlineCount} online now` : 'Leave a message anytime'}
                     </div>
                     <span className="mt-4 inline-flex rounded-lg bg-brand-600 px-3.5 py-2 text-[13px] font-semibold text-white">
@@ -512,13 +512,13 @@ function SupportPageInner() {
                   <button
                     type="button"
                     onClick={() => openCreate()}
-                    className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:shadow-sm md:p-5"
+                    className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4 text-left transition hover:border-emerald-300 hover:shadow-sm md:p-5"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300">
                       <Ticket size={20} />
                     </div>
-                    <div className="mt-3 text-base font-bold text-slate-900">Support Ticket</div>
-                    <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+                    <div className="mt-3 text-base font-bold text-[var(--text-primary)]">Support Ticket</div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
                       Billing, bugs, account — tracked with SLA.
                     </p>
                     <span className="mt-9 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-[13px] font-semibold text-white">
@@ -528,7 +528,7 @@ function SupportPageInner() {
                 </div>
 
                 <div className="mt-7">
-                  <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                  <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                     Common topics
                   </div>
                   <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -539,16 +539,16 @@ function SupportPageInner() {
                           key={topic.key}
                           type="button"
                           onClick={() => openCreate(topic.key)}
-                          className="flex items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-left transition hover:border-brand-300 hover:bg-brand-50/60"
+                          className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] px-3.5 py-3 text-left transition hover:border-brand-300 hover:bg-brand-500/10"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-brand-600">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-subtle)] text-brand-600 dark:text-brand-400">
                             <Icon size={17} />
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate text-[13px] font-semibold text-slate-800">
+                            <div className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
                               {topic.title}
                             </div>
-                            <div className="mt-0.5 truncate text-[11px] text-slate-500">
+                            <div className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
                               {topic.blurb}
                             </div>
                           </div>
@@ -565,7 +565,7 @@ function SupportPageInner() {
         {/* RIGHT — only when chat / team pick is active */}
         {showChatPane && (
           <aside
-            className={`min-h-0 flex-col overflow-hidden bg-white lg:rounded-xl lg:border lg:border-slate-200 ${
+            className={`min-h-0 flex-col overflow-hidden bg-[var(--bg-card)] lg:rounded-xl lg:border lg:border-[var(--border-default)] ${
               mobilePane === 'chat' ? 'flex' : 'hidden'
             } lg:flex`}
           >
@@ -579,16 +579,16 @@ function SupportPageInner() {
               />
             ) : (
               <div className="flex h-full min-h-0 flex-col">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
                   <div>
-                    <div className="text-sm font-bold text-slate-900">Pick a teammate</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-sm font-bold text-[var(--text-primary)]">Pick a teammate</div>
+                    <div className="text-[11px] text-[var(--text-muted)]">
                       {onlineCount > 0 ? `${onlineCount} online` : 'Team offline — leave a message'}
                     </div>
                   </div>
                   <button
                     type="button"
-                    className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"
+                    className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle-md)]"
                     onClick={closeChat}
                     aria-label="Close"
                   >
@@ -597,14 +597,14 @@ function SupportPageInner() {
                 </div>
                 <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2.5">
                   {agents.length === 0 && (
-                    <p className="py-10 text-center text-sm text-slate-400">No agents available yet.</p>
+                    <p className="py-10 text-center text-sm text-[var(--text-muted)]">No agents available yet.</p>
                   )}
                   {agents.map((agent) => (
                     <button
                       key={agent.id}
                       type="button"
                       onClick={() => startWithAgent(agent)}
-                      className="flex w-full items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5 text-left transition hover:border-brand-300 hover:bg-brand-50/70"
+                      className="flex w-full items-center gap-3 rounded-lg border border-[var(--border-subtle)] px-3 py-2.5 text-left transition hover:border-brand-300 hover:bg-brand-500/10"
                     >
                       <div className="relative shrink-0">
                         <div
@@ -615,20 +615,20 @@ function SupportPageInner() {
                           {initials(agent.name)}
                         </div>
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${
+                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--bg-card)] ${
                             agent.isOnline ? 'bg-emerald-500' : 'bg-slate-300'
                           }`}
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-semibold text-slate-900">{agent.name}</div>
-                        <div className="truncate text-[10px] text-slate-500">{agent.title}</div>
+                        <div className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{agent.name}</div>
+                        <div className="truncate text-[10px] text-[var(--text-muted)]">{agent.title}</div>
                       </div>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
                           agent.isOnline
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-slate-100 text-slate-500'
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-[var(--bg-subtle-md)] text-[var(--text-muted)]'
                         }`}
                       >
                         {agent.isOnline ? 'Online' : 'Offline'}
@@ -654,20 +654,20 @@ function SupportPageInner() {
           <div
             role="dialog"
             aria-modal="true"
-            className="relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl"
+            className="relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-2xl sm:rounded-2xl"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
+            <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-3.5">
               <div>
-                <div className="text-base font-bold text-slate-900">New support ticket</div>
-                <div className="text-[12px] text-slate-500">Hexalyte will respond by SLA priority</div>
+                <div className="text-base font-bold text-[var(--text-primary)]">New support ticket</div>
+                <div className="text-[12px] text-[var(--text-muted)]">Hexalyte will respond by SLA priority</div>
               </div>
-              <button type="button" className="rounded-lg p-2 hover:bg-slate-100" onClick={() => setCreateOpen(false)}>
+              <button type="button" className="rounded-lg p-2 hover:bg-[var(--bg-subtle-md)]" onClick={() => setCreateOpen(false)}>
                 <X size={18} />
               </button>
             </div>
             <div className="space-y-3 px-5 py-4">
               <input
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand-500"
+                className="h-11 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-brand-500"
                 placeholder="Subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
@@ -675,7 +675,7 @@ function SupportPageInner() {
               />
               <div className="grid grid-cols-2 gap-2">
                 <select
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-2 text-sm"
+                  className="h-11 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] px-2 text-sm text-[var(--text-primary)]"
                   value={category}
                   onChange={(e) => setCategory(e.target.value as SupportTicketCategory)}
                 >
@@ -686,7 +686,7 @@ function SupportPageInner() {
                   ))}
                 </select>
                 <select
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-2 text-sm"
+                  className="h-11 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] px-2 text-sm text-[var(--text-primary)]"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as SupportTicketPriority)}
                 >
@@ -698,13 +698,13 @@ function SupportPageInner() {
                 </select>
               </div>
               <textarea
-                className="min-h-[140px] w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+                className="min-h-[140px] w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-brand-500"
                 placeholder="Describe the issue…"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
               />
             </div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-[var(--border-default)] px-5 py-3">
               <button type="button" className="rounded-xl px-4 py-2 text-sm font-semibold" onClick={() => setCreateOpen(false)}>
                 Cancel
               </button>
@@ -726,7 +726,7 @@ function SupportPageInner() {
 
 export default function SupportTicketsPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading support…</div>}>
+    <Suspense fallback={<div className="p-8 text-sm text-[var(--text-muted)]">Loading support…</div>}>
       <SupportPageInner />
     </Suspense>
   )
