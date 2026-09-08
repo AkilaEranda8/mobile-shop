@@ -537,6 +537,7 @@ export type HelaposAdminSettings = {
   appSecret: string
   hasAppSecret: boolean
   merchantId: string
+  businessUserId: string
   baseUrl: string
   createQrPath: string
   authMode: 'basic' | 'headers' | 'bearer'

@@ -172,6 +172,7 @@ export default function PaymentsPage() {
         appId: helaposForm.appId,
         appSecret: helaposForm.appSecret,
         merchantId: helaposForm.merchantId,
+        businessUserId: helaposForm.businessUserId,
         baseUrl: helaposForm.baseUrl,
         createQrPath: helaposForm.createQrPath,
         authMode: helaposForm.authMode,
@@ -301,9 +302,9 @@ export default function PaymentsPage() {
         <section className="card p-5 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-gray-900">LankaQR (HelaPOS) keys</h2>
+              <h2 className="text-sm font-bold text-gray-900">LankaQR (HelaPOS) credentials</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Update App ID / Secret here — stored in platform config (env is fallback). Secrets stay masked until you type a new value.
+                Update App ID, Password, Live Base URL, Business Id and Business User Id. Password stays masked until you type a new value.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -361,13 +362,13 @@ export default function PaymentsPage() {
                 value={helaposForm.appId}
                 onChange={(e) => setHelaposForm({ ...helaposForm, appId: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                placeholder="From HelaPay email"
+                placeholder="From HelaPay"
                 autoComplete="off"
               />
             </label>
             <label className="text-xs space-y-1">
               <span className="font-semibold text-gray-600">
-                App Secret {helaposForm.hasAppSecret ? '(set)' : '(empty)'}
+                Password {helaposForm.hasAppSecret ? '(set)' : '(empty)'}
               </span>
               <div className="flex gap-1">
                 <input
@@ -375,7 +376,7 @@ export default function PaymentsPage() {
                   value={helaposForm.appSecret}
                   onChange={(e) => setHelaposForm({ ...helaposForm, appSecret: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                  placeholder={helaposForm.hasAppSecret ? '•••••••• leave to keep' : 'Paste App Secret'}
+                  placeholder={helaposForm.hasAppSecret ? '•••••••• leave blank to keep' : 'Paste Password'}
                   autoComplete="new-password"
                 />
                 <button
@@ -388,21 +389,30 @@ export default function PaymentsPage() {
               </div>
             </label>
             <label className="text-xs space-y-1">
-              <span className="font-semibold text-gray-600">Merchant ID</span>
-              <input
-                value={helaposForm.merchantId}
-                onChange={(e) => setHelaposForm({ ...helaposForm, merchantId: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                placeholder="Optional"
-              />
-            </label>
-
-            <label className="text-xs space-y-1">
-              <span className="font-semibold text-gray-600">Base URL</span>
+              <span className="font-semibold text-gray-600">Live Base URL</span>
               <input
                 value={helaposForm.baseUrl}
                 onChange={(e) => setHelaposForm({ ...helaposForm, baseUrl: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="https://helapos.lk/merchant-api"
+              />
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Business Id</span>
+              <input
+                value={helaposForm.merchantId}
+                onChange={(e) => setHelaposForm({ ...helaposForm, merchantId: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder="e.g. 10525"
+              />
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="font-semibold text-gray-600">Business User Id</span>
+              <input
+                value={helaposForm.businessUserId ?? ''}
+                onChange={(e) => setHelaposForm({ ...helaposForm, businessUserId: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                placeholder="e.g. 20983"
               />
             </label>
             <label className="text-xs space-y-1">
@@ -411,7 +421,7 @@ export default function PaymentsPage() {
                 value={helaposForm.createQrPath}
                 onChange={(e) => setHelaposForm({ ...helaposForm, createQrPath: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                placeholder="/qr/create"
+                placeholder="/merchant/qr"
               />
             </label>
             <label className="text-xs space-y-1">
@@ -421,7 +431,7 @@ export default function PaymentsPage() {
                 onChange={(e) => setHelaposForm({ ...helaposForm, authMode: e.target.value as HelaposAdminSettings['authMode'] })}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               >
-                <option value="basic">Basic (AppId:Secret)</option>
+                <option value="basic">Basic (App ID:Password)</option>
                 <option value="headers">Headers X-App-Id / X-App-Secret</option>
                 <option value="bearer">Bearer token</option>
               </select>
