@@ -151,6 +151,7 @@ export async function createHelaposQrSession(opts: {
     notifyUrl,
     mock: false,
     gatewayTxnId: qr.gatewayTxnId ?? null,
+    qrReference: qr.qrReference ?? null,
     qrPayload: qr.qrPayload,
     createdAt: new Date().toISOString(),
     expiresAt: expiresAt.toISOString(),
@@ -280,21 +281,49 @@ export async function handleHelaposWebhook(opts: {
   }
 
   const parsed = parseHelaposWebhook(opts.body)
-  const paymentId = parsePaymentIdFromReference(parsed.reference)
+  let paymentId = parsePaymentIdFromReference(parsed.reference)
 
-  if (!paymentId) {
-    console.warn('[helapos-webhook] missing/unknown reference', JSON.stringify(parsed.raw).slice(0, 500))
-    return { ok: false, reason: 'unknown_reference' }
+  // Fallback: HelaPay may echo qr_reference / sale.reference_id instead of our merchant `r`
+  let payment = paymentId
+    ? await prisma.subscriptionPayment.findUnique({
+        where: { id: paymentId },
+        include: { invoice: true, tenant: { select: { id: true, name: true } } },
+      })
+    : null
+
+  if ((!payment || payment.channel !== 'HELAPOS') && (parsed.reference || parsed.gatewayTxnId)) {
+    const byRef = await prisma.subscriptionPayment.findFirst({
+      where: {
+        channel: 'HELAPOS',
+        OR: [
+          ...(parsed.reference ? [{ transactionRef: parsed.reference }] : []),
+          ...(parsed.gatewayTxnId
+            ? [
+                { transactionRef: parsed.gatewayTxnId },
+                { gatewayPayload: { path: ['qrReference'], equals: parsed.gatewayTxnId } },
+                { gatewayPayload: { path: ['gatewayTxnId'], equals: parsed.gatewayTxnId } },
+              ]
+            : []),
+          ...(parsed.reference
+            ? [
+                { gatewayPayload: { path: ['reference'], equals: parsed.reference } },
+                { gatewayPayload: { path: ['qrReference'], equals: parsed.reference } },
+              ]
+            : []),
+        ],
+      },
+      include: { invoice: true, tenant: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (byRef) {
+      payment = byRef
+      paymentId = byRef.id
+    }
   }
 
-  const payment = await prisma.subscriptionPayment.findUnique({
-    where: { id: paymentId },
-    include: { invoice: true, tenant: { select: { id: true, name: true } } },
-  })
-
-  if (!payment || payment.channel !== 'HELAPOS') {
-    console.warn('[helapos-webhook] payment not found', paymentId)
-    return { ok: false, reason: 'payment_not_found' }
+  if (!paymentId || !payment || payment.channel !== 'HELAPOS') {
+    console.warn('[helapos-webhook] missing/unknown reference', JSON.stringify(parsed.raw).slice(0, 500))
+    return { ok: false, reason: 'unknown_reference' }
   }
 
   if (payment.status === 'APPROVED') {

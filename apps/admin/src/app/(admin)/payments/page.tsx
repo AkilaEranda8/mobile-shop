@@ -450,7 +450,7 @@ export default function PaymentsPage() {
                 value={helaposForm.createQrPath}
                 onChange={(e) => setHelaposForm({ ...helaposForm, createQrPath: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                placeholder="/merchant/qr"
+                placeholder="/merchant/api/helapos/qr/generate"
               />
             </label>
             <label className="text-xs space-y-1">

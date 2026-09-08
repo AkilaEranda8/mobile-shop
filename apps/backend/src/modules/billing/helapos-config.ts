@@ -95,11 +95,11 @@ function envDefaults(): HelaposRuntimeConfig {
     merchantId: env.HELAPOS_MERCHANT_ID?.trim() || '',
     businessUserId: env.HELAPOS_BUSINESS_USER_ID?.trim() || '',
     baseUrl: env.HELAPOS_BASE_URL || 'https://helapos.lk/merchant-api',
-    createQrPath: env.HELAPOS_CREATE_QR_PATH || '/merchant/qr',
+    createQrPath: env.HELAPOS_CREATE_QR_PATH || '/merchant/api/helapos/qr/generate',
     authMode: (env.HELAPOS_AUTH_MODE as HelaposAuthMode) || 'basic',
     webhookSecret: env.HELAPOS_WEBHOOK_SECRET?.trim() || '',
     allowedIps: env.HELAPOS_ALLOWED_IPS?.trim() || '',
-    requireSignature: env.HELAPOS_REQUIRE_SIGNATURE !== 'false',
+    requireSignature: env.HELAPOS_REQUIRE_SIGNATURE === 'true',
     sessionTtlMinutes: env.HELAPOS_SESSION_TTL_MINUTES ?? 15,
   }
 }

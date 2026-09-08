@@ -48,14 +48,14 @@ const envSchema = z.object({
   HELAPOS_MERCHANT_ID: z.string().optional(),
   HELAPOS_BUSINESS_USER_ID: z.string().optional(),
   /** Relative to HELAPOS_BASE_URL — HelaPay live path is /merchant/qr */
-  HELAPOS_CREATE_QR_PATH: z.string().default('/merchant/qr'),
+  HELAPOS_CREATE_QR_PATH: z.string().default('/merchant/api/helapos/qr/generate'),
   HELAPOS_AUTH_MODE: z.enum(['basic', 'headers', 'bearer']).optional().default('basic'),
   /** Optional shared secret for webhook HMAC / header verify (if HelaPay provide one) */
   HELAPOS_WEBHOOK_SECRET: z.string().optional(),
   /** Comma-separated CIDRs/IPs allowed to hit notify URL (empty = allow all) */
   HELAPOS_ALLOWED_IPS: z.string().optional(),
-  /** Require HMAC signature even in non-production when secret is set (default true) */
-  HELAPOS_REQUIRE_SIGNATURE: z.enum(['true', 'false']).optional().default('true'),
+  /** HelaPay Merchant QR docs do not require HMAC — default off */
+  HELAPOS_REQUIRE_SIGNATURE: z.enum(['true', 'false']).optional().default('false'),
   /** QR session TTL minutes */
   HELAPOS_SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(60).optional().default(15),
 })

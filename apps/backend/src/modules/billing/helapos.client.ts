@@ -1,6 +1,8 @@
 /**
  * HelaPOS merchant API client (LankaQR).
- * Credentials resolve from PlatformConfig (admin UI) with env fallback.
+ * Contract: HelaPOS Merchant QR API v1.2.0
+ *  1) POST {base}/merchant/api/v1/getToken  (Basic appId:secret, grant_type=client_credentials)
+ *  2) POST {base}/merchant/api/helapos/qr/generate  (Bearer accessToken, body { b, r, am })
  */
 import { createHmac, timingSafeEqual } from 'crypto'
 import { env } from '../../config/env'
@@ -9,7 +11,6 @@ import { getHelaposFeePolicy } from './helapos-fees'
 import {
   getHelaposRuntimeConfig,
   helaposNotifyUrlFromEnv,
-  type HelaposAuthMode,
   type HelaposRuntimeConfig,
 } from './helapos-config'
 
@@ -26,12 +27,25 @@ export type HelaposCreateQrInput = {
 export type HelaposCreateQrResult = {
   qrPayload: string
   gatewayTxnId?: string | null
+  qrReference?: string | null
   raw: Record<string, unknown>
   mock: false
 }
 
+const DEFAULT_TOKEN_PATH = '/merchant/api/v1/getToken'
+const DEFAULT_QR_PATH = '/merchant/api/helapos/qr/generate'
+
+type TokenCache = {
+  accessToken: string
+  refreshToken: string | null
+  expiresAt: number
+  appId: string
+}
+
+let tokenCache: TokenCache | null = null
+
 function isConfigured(cfg: HelaposRuntimeConfig): boolean {
-  return !!(cfg.appId.trim() && cfg.appSecret.trim())
+  return !!(cfg.appId.trim() && cfg.appSecret.trim() && cfg.merchantId.trim())
 }
 
 export async function isHelaposEnabled(): Promise<boolean> {
@@ -45,33 +59,12 @@ export async function isHelaposMockMode(): Promise<boolean> {
   return false
 }
 
-function authHeaders(cfg: HelaposRuntimeConfig): Record<string, string> {
-  const appId = cfg.appId.trim()
-  const secret = cfg.appSecret.trim()
-  const mode: HelaposAuthMode = cfg.authMode || 'basic'
-  const common = {
+function jsonHeaders(extra?: Record<string, string>): Record<string, string> {
+  return {
     'Content-Type': 'application/json',
     Accept: 'application/json',
     'User-Agent': 'Hexalyte-Billing/1.0',
-  }
-  if (mode === 'headers') {
-    return {
-      ...common,
-      'X-App-Id': appId,
-      'X-App-Secret': secret,
-    }
-  }
-  if (mode === 'bearer') {
-    const token = Buffer.from(`${appId}:${secret}`).toString('base64')
-    return {
-      ...common,
-      Authorization: `Bearer ${token}`,
-    }
-  }
-  const basic = Buffer.from(`${appId}:${secret}`).toString('base64')
-  return {
-    ...common,
-    Authorization: `Basic ${basic}`,
+    ...extra,
   }
 }
 
@@ -81,8 +74,7 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | null
     if (typeof v === 'string' && v.trim()) return v.trim()
     if (typeof v === 'number' && Number.isFinite(v)) return String(v)
   }
-  // nested data / result
-  for (const nestKey of ['data', 'result', 'payload', 'qr']) {
+  for (const nestKey of ['data', 'result', 'payload', 'qr', 'sale']) {
     const nested = obj[nestKey]
     if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
       const found = pickString(nested as Record<string, unknown>, keys)
@@ -92,53 +84,29 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | null
   return null
 }
 
-export async function createHelaposQr(input: HelaposCreateQrInput): Promise<HelaposCreateQrResult> {
-  const cfg = await getHelaposRuntimeConfig()
-  if (!input.adminProbe && !cfg.enabled) {
-    throw new AppError('HelaPOS QR payments are not enabled', 503)
-  }
-  if (!isConfigured(cfg)) {
-    throw new AppError('HelaPOS QR payments are not configured (App ID / Secret)', 503)
-  }
+function joinUrl(base: string, path: string): string {
+  const b = base.replace(/\/$/, '')
+  const p = path.startsWith('/') ? path : `/${path}`
+  return `${b}${p}`
+}
 
-  const base = cfg.baseUrl.replace(/\/$/, '')
-  const path = cfg.createQrPath.startsWith('/')
-    ? cfg.createQrPath
-    : `/${cfg.createQrPath}`
-  const url = `${base}${path}`
+function resolveQrPath(cfg: HelaposRuntimeConfig): string {
+  const p = (cfg.createQrPath || '').trim()
+  // Migrate legacy / wrong paths to documented endpoint
+  if (!p || p === '/merchant/qr' || p === '/qr/create') return DEFAULT_QR_PATH
+  return p.startsWith('/') ? p : `/${p}`
+}
 
-  const body: Record<string, unknown> = {
-    amount: Number(input.amount.toFixed(2)),
-    currency: 'LKR',
-    reference: input.reference,
-    order_id: input.reference,
-    notify_url: input.notifyUrl,
-    notifyUrl: input.notifyUrl,
-    description: input.description ?? `Hexalyte subscription ${input.invoiceNumber ?? ''}`.trim(),
-  }
-  if (cfg.merchantId.trim()) {
-    body.merchant_id = cfg.merchantId.trim()
-    body.merchantId = cfg.merchantId.trim()
-    body.business_id = cfg.merchantId.trim()
-    body.businessId = cfg.merchantId.trim()
-  }
-  if (cfg.businessUserId.trim()) {
-    body.business_user_id = cfg.businessUserId.trim()
-    body.businessUserId = cfg.businessUserId.trim()
-    body.user_id = cfg.businessUserId.trim()
-  }
-
+async function fetchJson(
+  url: string,
+  init: RequestInit,
+): Promise<{ ok: boolean; status: number; json: Record<string, unknown>; text: string }> {
   let res: Response
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: authHeaders(cfg),
-      body: JSON.stringify(body),
-    })
+    res = await fetch(url, init)
   } catch (err: any) {
     throw new AppError(`HelaPOS unreachable: ${err?.message || 'network error'}`, 502)
   }
-
   const text = await res.text()
   let json: Record<string, unknown> = {}
   try {
@@ -146,14 +114,101 @@ export async function createHelaposQr(input: HelaposCreateQrInput): Promise<Hela
   } catch {
     json = { raw: text }
   }
+  return { ok: res.ok, status: res.status, json, text }
+}
 
-  if (!res.ok) {
-    const msg = pickString(json, ['message', 'error', 'error_message', 'status_message'])
-      || `HelaPOS QR create failed (${res.status})`
-    throw new AppError(`${msg} [HTTP ${res.status}]`, 502)
+async function requestAccessToken(cfg: HelaposRuntimeConfig): Promise<TokenCache> {
+  const url = joinUrl(cfg.baseUrl, DEFAULT_TOKEN_PATH)
+  const basic = Buffer.from(`${cfg.appId.trim()}:${cfg.appSecret.trim()}`).toString('base64')
+  const { ok, status, json } = await fetchJson(url, {
+    method: 'POST',
+    headers: jsonHeaders({ Authorization: `Basic ${basic}` }),
+    body: JSON.stringify({ grant_type: 'client_credentials' }),
+  })
+
+  if (!ok) {
+    const msg = pickString(json, ['message', 'error', 'statusMessage', 'status_message'])
+      || `HelaPOS getToken failed (${status})`
+    throw new AppError(`${msg} [HTTP ${status}]`, 502)
   }
 
-  const qrPayload = pickString(json, [
+  const accessToken = pickString(json, ['accessToken', 'access_token'])
+  if (!accessToken) {
+    throw new AppError('HelaPOS getToken response missing accessToken', 502)
+  }
+  const refreshToken = pickString(json, ['refreshToken', 'refresh_token'])
+
+  // Access tokens are short-lived; refresh before they expire. Docs don't publish TTL — cache ~50m.
+  const cache: TokenCache = {
+    accessToken,
+    refreshToken,
+    expiresAt: Date.now() + 50 * 60_000,
+    appId: cfg.appId.trim(),
+  }
+  tokenCache = cache
+  return cache
+}
+
+async function getAccessToken(cfg: HelaposRuntimeConfig, force = false): Promise<string> {
+  if (
+    !force
+    && tokenCache
+    && tokenCache.appId === cfg.appId.trim()
+    && tokenCache.expiresAt > Date.now() + 60_000
+  ) {
+    return tokenCache.accessToken
+  }
+  const next = await requestAccessToken(cfg)
+  return next.accessToken
+}
+
+export async function createHelaposQr(input: HelaposCreateQrInput): Promise<HelaposCreateQrResult> {
+  const cfg = await getHelaposRuntimeConfig()
+  if (!input.adminProbe && !cfg.enabled) {
+    throw new AppError('HelaPOS QR payments are not enabled', 503)
+  }
+  if (!isConfigured(cfg)) {
+    throw new AppError('HelaPOS QR payments are not configured (App ID / Secret / Business Id)', 503)
+  }
+
+  const url = joinUrl(cfg.baseUrl, resolveQrPath(cfg))
+  const body = {
+    b: cfg.merchantId.trim(),
+    r: input.reference,
+    am: Number(input.amount.toFixed(2)),
+  }
+
+  const tryCreate = async (forceToken: boolean) => {
+    const token = await getAccessToken(cfg, forceToken)
+    return fetchJson(url, {
+      method: 'POST',
+      headers: jsonHeaders({ Authorization: `Bearer ${token}` }),
+      body: JSON.stringify(body),
+    })
+  }
+
+  let result = await tryCreate(false)
+  // Token may have expired server-side — retry once with a fresh token
+  if (result.status === 401) {
+    result = await tryCreate(true)
+  }
+
+  if (!result.ok) {
+    const msg = pickString(result.json, ['message', 'error', 'statusMessage', 'status_message'])
+      || `HelaPOS QR create failed (${result.status})`
+    throw new AppError(`${msg} [HTTP ${result.status}]`, 502)
+  }
+
+  const statusCode = pickString(result.json, ['statusCode', 'status_code', 'code'])
+  if (statusCode && statusCode !== '200' && statusCode !== '201') {
+    const msg = pickString(result.json, ['statusMessage', 'status_message', 'message'])
+      || `HelaPOS QR create rejected (${statusCode})`
+    throw new AppError(msg, 502)
+  }
+
+  const qrPayload = pickString(result.json, [
+    'qr_data',
+    'qrData',
     'qr',
     'qr_code',
     'qrCode',
@@ -161,30 +216,27 @@ export async function createHelaposQr(input: HelaposCreateQrInput): Promise<Hela
     'qrString',
     'qr_payload',
     'qrPayload',
-    'data',
-    'payload',
     'emv',
     'emv_qr',
   ])
   if (!qrPayload) {
-    throw new AppError('HelaPOS response did not include a QR payload — check create QR path / API contract', 502)
+    throw new AppError('HelaPOS response did not include qr_data', 502)
   }
 
-  const gatewayTxnId = pickString(json, [
-    'transaction_id',
-    'transactionId',
-    'txn_id',
-    'payment_id',
-    'paymentId',
-    'id',
-    'session_id',
-    'sessionId',
-  ])
+  const qrReference = pickString(result.json, ['qr_reference', 'qrReference'])
+  const gatewayTxnId = qrReference
+    || pickString(result.json, ['reference', 'transaction_id', 'transactionId', 'sale_id', 'saleId'])
 
-  return { qrPayload, gatewayTxnId: gatewayTxnId ?? null, raw: json, mock: false }
+  return {
+    qrPayload,
+    gatewayTxnId: gatewayTxnId ?? null,
+    qrReference: qrReference ?? null,
+    raw: result.json,
+    mock: false,
+  }
 }
 
-/** Extract reference / status / amount / txn id from a flexible webhook body */
+/** Extract reference / status / amount / txn id from HelaPay webhook body */
 export function parseHelaposWebhook(body: unknown): {
   reference: string | null
   status: string | null
@@ -197,8 +249,7 @@ export function parseHelaposWebhook(body: unknown): {
     ? { ...(body as Record<string, unknown>) }
     : { value: body }) as Record<string, unknown>
 
-  // Flatten common wrappers
-  for (const nestKey of ['data', 'payload', 'result', 'payment', 'transaction']) {
+  for (const nestKey of ['data', 'payload', 'result', 'payment', 'transaction', 'sale']) {
     const nested = raw[nestKey]
     if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
       Object.assign(raw, nested as Record<string, unknown>)
@@ -217,6 +268,7 @@ export function parseHelaposWebhook(body: unknown): {
     'externalId',
   ])
 
+  const paymentStatusRaw = raw.payment_status ?? raw.paymentStatus
   const status = pickString(raw, [
     'status',
     'payment_status',
@@ -228,6 +280,12 @@ export function parseHelaposWebhook(body: unknown): {
 
   const statusCode = pickString(raw, ['status_code', 'statusCode', 'code'])
   const gatewayTxnId = pickString(raw, [
+    'qr_reference',
+    'qrReference',
+    'reference_id',
+    'referenceId',
+    'sale_id',
+    'saleId',
     'transaction_id',
     'transactionId',
     'payment_id',
@@ -238,27 +296,30 @@ export function parseHelaposWebhook(body: unknown): {
   ])
 
   let amount: number | null = null
-  for (const key of ['amount', 'pay_amount', 'payAmount', 'paid_amount', 'paidAmount', 'helapos_amount']) {
+  for (const key of ['amount', 'pay_amount', 'payAmount', 'paid_amount', 'paidAmount', 'helapos_amount', 'am']) {
     const v = raw[key]
     if (typeof v === 'number' && Number.isFinite(v)) { amount = v; break }
     if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v))) { amount = Number(v); break }
   }
 
-  const successTokens = new Set([
-    'success', 'successful', 'paid', 'completed', 'complete', 'approved', 'ok', '2', '1', 'true',
-  ])
-  const failTokens = new Set([
-    'failed', 'fail', 'cancelled', 'canceled', 'rejected', 'declined', '-1', '-2', '0', 'false',
-  ])
-
-  const normalized = (status || statusCode || '').toLowerCase().trim()
-  let success = successTokens.has(normalized)
-  if (!success && statusCode && successTokens.has(statusCode)) success = true
-  if (failTokens.has(normalized)) success = false
-  // Some gateways only send event type
-  const event = pickString(raw, ['event', 'event_type', 'eventType', 'type'])
-  if (event && /paid|success|complete/i.test(event)) success = true
-  if (event && /fail|cancel|reject/i.test(event)) success = false
+  // Docs: payment_status 2 = Success, -1 = Failed, 0 = Pending
+  let success = false
+  if (typeof paymentStatusRaw === 'number') {
+    success = paymentStatusRaw === 2
+  } else if (typeof paymentStatusRaw === 'string' && paymentStatusRaw.trim() !== '') {
+    success = paymentStatusRaw.trim() === '2'
+  } else {
+    const successTokens = new Set([
+      'success', 'successful', 'paid', 'completed', 'complete', 'approved', 'ok', '2', '1', 'true',
+    ])
+    const failTokens = new Set([
+      'failed', 'fail', 'cancelled', 'canceled', 'rejected', 'declined', '-1', '-2', '0', 'false',
+    ])
+    const normalized = (status || statusCode || '').toLowerCase().trim()
+    success = successTokens.has(normalized)
+    if (statusCode && successTokens.has(statusCode)) success = true
+    if (failTokens.has(normalized)) success = false
+  }
 
   return { reference, status: status || statusCode, amount, gatewayTxnId, success, raw }
 }
@@ -270,17 +331,6 @@ export async function verifyHelaposWebhookSignature(
   const cfg = await getHelaposRuntimeConfig()
   const secret = cfg.webhookSecret.trim()
   const requireSig = cfg.requireSignature
-  const live = cfg.enabled && isConfigured(cfg)
-
-  if (!secret) {
-    if (live && env.NODE_ENV === 'production') {
-      return { ok: false, reason: 'webhook_secret_required' }
-    }
-    if (requireSig && live) {
-      return { ok: false, reason: 'webhook_secret_required' }
-    }
-    return { ok: true }
-  }
 
   const get = (name: string) => {
     const v = headers[name] ?? headers[name.toLowerCase()]
@@ -293,7 +343,16 @@ export async function verifyHelaposWebhookSignature(
     || get('x-hub-signature-256')
     || get('signature')
 
-  if (!sig) return { ok: false, reason: 'missing_signature' }
+  // HelaPay Merchant QR API docs do not document HMAC signatures on callbacks.
+  // Only enforce when a signature header is actually present, or admin forced require+secret.
+  if (!sig) {
+    if (requireSig && secret) return { ok: false, reason: 'missing_signature' }
+    return { ok: true }
+  }
+
+  if (!secret) {
+    return { ok: false, reason: 'webhook_secret_required' }
+  }
 
   const body = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8')
   const expectedHex = createHmac('sha256', secret).update(body).digest('hex')
@@ -353,10 +412,8 @@ export async function getHelaposPublicConfig() {
     mock: false,
     notifyUrl: helaposNotifyUrl(),
     sessionTtlMinutes: cfg.sessionTtlMinutes,
-    signatureRequired: !!(
-      cfg.webhookSecret.trim()
-      || (cfg.enabled && env.NODE_ENV === 'production')
-    ),
+    // Docs do not require webhook HMAC — only flag when admin enabled require+secret
+    signatureRequired: !!(cfg.requireSignature && cfg.webhookSecret.trim()),
     configured,
     fees: getHelaposFeePolicy(),
   }
