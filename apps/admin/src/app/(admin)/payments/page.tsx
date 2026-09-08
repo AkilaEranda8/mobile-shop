@@ -168,7 +168,7 @@ export default function PaymentsPage() {
     try {
       const updated = await updateHelaposSettings({
         enabled: helaposForm.enabled,
-        mock: helaposForm.mock,
+        mock: false,
         appId: helaposForm.appId,
         appSecret: helaposForm.appSecret,
         merchantId: helaposForm.merchantId,
@@ -315,7 +315,7 @@ export default function PaymentsPage() {
                 }`}
               >
                 {helaposForm.enabled
-                  ? (helaposForm.mock ? 'Enabled · Mock' : helaposForm.configured ? 'Enabled · Live' : 'Enabled · Needs keys')
+                  ? (helaposForm.configured ? 'Enabled · Live' : 'Enabled · Needs keys')
                   : 'Disabled'}
               </span>
               <button
@@ -344,15 +344,6 @@ export default function PaymentsPage() {
                 className="rounded border-gray-300"
               />
               <span className="font-semibold text-gray-700">Enable LankaQR</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm sm:col-span-1">
-              <input
-                type="checkbox"
-                checked={helaposForm.mock}
-                onChange={(e) => setHelaposForm({ ...helaposForm, mock: e.target.checked })}
-                className="rounded border-gray-300"
-              />
-              <span className="font-semibold text-gray-700">Mock mode (no live settle)</span>
             </label>
             <label className="flex items-center gap-2 text-sm sm:col-span-1">
               <input

@@ -15,6 +15,7 @@ export type HelaposRuntimeConfig = {
   appId: string
   appSecret: string
   merchantId: string
+  businessUserId: string
   baseUrl: string
   createQrPath: string
   authMode: HelaposAuthMode
@@ -32,6 +33,7 @@ export type HelaposAdminConfig = {
   appSecret: string
   hasAppSecret: boolean
   merchantId: string
+  businessUserId: string
   baseUrl: string
   createQrPath: string
   authMode: HelaposAuthMode
@@ -51,6 +53,7 @@ const KEYS = {
   appId: 'helapos_app_id',
   appSecret: 'helapos_app_secret',
   merchantId: 'helapos_merchant_id',
+  businessUserId: 'helapos_business_user_id',
   baseUrl: 'helapos_base_url',
   createQrPath: 'helapos_create_qr_path',
   authMode: 'helapos_auth_mode',
@@ -90,8 +93,9 @@ function envDefaults(): HelaposRuntimeConfig {
     appId: env.HELAPOS_APP_ID?.trim() || '',
     appSecret: env.HELAPOS_APP_SECRET?.trim() || '',
     merchantId: env.HELAPOS_MERCHANT_ID?.trim() || '',
+    businessUserId: env.HELAPOS_BUSINESS_USER_ID?.trim() || '',
     baseUrl: env.HELAPOS_BASE_URL || 'https://helapos.lk/merchant-api',
-    createQrPath: env.HELAPOS_CREATE_QR_PATH || '/qr/create',
+    createQrPath: env.HELAPOS_CREATE_QR_PATH || '/merchant/qr',
     authMode: (env.HELAPOS_AUTH_MODE as HelaposAuthMode) || 'basic',
     webhookSecret: env.HELAPOS_WEBHOOK_SECRET?.trim() || '',
     allowedIps: env.HELAPOS_ALLOWED_IPS?.trim() || '',
@@ -122,6 +126,7 @@ export async function getHelaposRuntimeConfig(): Promise<HelaposRuntimeConfig> {
   const appId = pick(map[KEYS.appId], defaults.appId)
   const appSecret = pick(map[KEYS.appSecret], defaults.appSecret)
   const merchantId = pick(map[KEYS.merchantId], defaults.merchantId)
+  const businessUserId = pick(map[KEYS.businessUserId], defaults.businessUserId)
   const baseUrl = pick(map[KEYS.baseUrl], defaults.baseUrl)
   const createQrPath = pick(map[KEYS.createQrPath], defaults.createQrPath)
   const webhookSecret = pick(map[KEYS.webhookSecret], defaults.webhookSecret)
@@ -131,12 +136,12 @@ export async function getHelaposRuntimeConfig(): Promise<HelaposRuntimeConfig> {
     enabled: map[KEYS.enabled] != null && map[KEYS.enabled] !== ''
       ? parseBool(map[KEYS.enabled], defaults.enabled)
       : defaults.enabled,
-    mock: map[KEYS.mock] != null && map[KEYS.mock] !== ''
-      ? parseBool(map[KEYS.mock], defaults.mock)
-      : defaults.mock,
+    // Mock QR / simulate-pay removed — always live path only
+    mock: false,
     appId: appId.value,
     appSecret: appSecret.value,
     merchantId: merchantId.value,
+    businessUserId: businessUserId.value,
     baseUrl: baseUrl.value || defaults.baseUrl,
     createQrPath: createQrPath.value || defaults.createQrPath,
     authMode: parseAuthMode(map[KEYS.authMode], defaults.authMode),
@@ -182,6 +187,7 @@ export async function getHelaposAdminConfig(): Promise<HelaposAdminConfig> {
     appSecret: cfg.appSecret ? HELAPOS_SECRET_MASK : '',
     hasAppSecret: !!cfg.appSecret,
     merchantId: cfg.merchantId,
+    businessUserId: cfg.businessUserId,
     baseUrl: cfg.baseUrl,
     createQrPath: cfg.createQrPath,
     authMode: cfg.authMode,
@@ -203,6 +209,7 @@ export type UpsertHelaposConfigInput = {
   /** Masked or empty → keep previous; non-empty new value → replace */
   appSecret?: string
   merchantId?: string
+  businessUserId?: string
   baseUrl?: string
   createQrPath?: string
   authMode?: HelaposAuthMode
@@ -225,9 +232,11 @@ export async function upsertHelaposConfig(input: UpsertHelaposConfigInput): Prom
   const pairs: Array<[string, string]> = []
 
   if (input.enabled != null) pairs.push([KEYS.enabled, input.enabled ? 'true' : 'false'])
-  if (input.mock != null) pairs.push([KEYS.mock, input.mock ? 'true' : 'false'])
+  // Always persist mock=false (feature removed)
+  pairs.push([KEYS.mock, 'false'])
   if (input.appId != null) pairs.push([KEYS.appId, input.appId.trim()])
   if (input.merchantId != null) pairs.push([KEYS.merchantId, input.merchantId.trim()])
+  if (input.businessUserId != null) pairs.push([KEYS.businessUserId, input.businessUserId.trim()])
   if (input.baseUrl != null) pairs.push([KEYS.baseUrl, input.baseUrl.trim() || current.baseUrl])
   if (input.createQrPath != null) {
     const p = input.createQrPath.trim() || current.createQrPath

@@ -23,7 +23,6 @@ import {
   getHelaposPublicConfig,
   handleHelaposWebhook,
   quoteHelaposFeeForInvoice,
-  simulateHelaposPayment,
 } from './helapos.service'
 
 const SLIP_DIR = path.join(process.cwd(), 'uploads', 'payment-slips')
@@ -148,21 +147,6 @@ router.get(
         paymentId: req.params.paymentId,
       })
       sendSuccess(res, data)
-    } catch (e) { next(e) }
-  },
-)
-
-/** Mock settle (only when HELAPOS_MOCK / no live credentials) */
-router.post(
-  '/helapos/payments/:paymentId/mock-pay',
-  authorize('OWNER', 'MANAGER'),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const data = await simulateHelaposPayment({
-        tenantId: req.tenantId!,
-        paymentId: req.params.paymentId,
-      })
-      sendSuccess(res, data, 'Mock payment applied')
     } catch (e) { next(e) }
   },
 )

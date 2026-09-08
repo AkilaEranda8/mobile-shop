@@ -1006,7 +1006,7 @@ router.put('/billing-settings', async (req: Request, res: Response, next: NextFu
       actorType: 'ADMIN',
       actor: (req as any).user?.email ?? 'admin',
       target: 'Platform',
-      details: `Grace ${data.graceDays}d · due+${data.dueDaysAfterIssue}d · bank ${data.bank.bankName} · HelaPOS ${helapos.enabled ? (helapos.mock ? 'mock' : 'live') : 'off'}`,
+      details: `Grace ${data.graceDays}d · due+${data.dueDaysAfterIssue}d · bank ${data.bank.bankName} · HelaPOS ${helapos.enabled ? 'live' : 'off'}`,
       ip: getClientIp(req),
       userId: (req as any).user?.userId,
     }).catch(() => {})
@@ -1023,7 +1023,7 @@ router.put('/helapos-settings', async (req: Request, res: Response, next: NextFu
       actorType: 'ADMIN',
       actor: (req as any).user?.email ?? 'admin',
       target: 'Platform',
-      details: `HelaPOS ${helapos.enabled ? (helapos.mock ? 'mock' : 'live') : 'off'} · appId ${helapos.appId ? 'set' : 'empty'} · secret ${helapos.hasAppSecret ? 'set' : 'empty'}`,
+      details: `HelaPOS ${helapos.enabled ? 'live' : 'off'} · appId ${helapos.appId ? 'set' : 'empty'} · secret ${helapos.hasAppSecret ? 'set' : 'empty'}`,
       ip: getClientIp(req),
       userId: (req as any).user?.userId,
     }).catch(() => {})

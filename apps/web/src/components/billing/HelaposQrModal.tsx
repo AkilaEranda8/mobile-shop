@@ -84,7 +84,6 @@ export default function HelaposQrModal({
 }: Props) {
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
-  const [mockPaying, setMockPaying] = useState(false)
   const [copied, setCopied] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const countdown = useCountdown(session?.expiresAt)
@@ -437,39 +436,6 @@ export default function HelaposQrModal({
                   <CreditCard size={12} />
                   Prefer bank transfer?
                 </button>
-
-                {session.mock && (
-                  <div className="rounded-2xl border border-dashed border-amber-300/70 bg-amber-50/70 dark:bg-amber-400/[0.07] dark:border-amber-400/25 px-3.5 py-3 space-y-2">
-                    <p className="text-[11px] leading-snug text-amber-900/70 dark:text-amber-100/65">
-                      Sandbox — bank apps won’t settle this QR.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={mockPaying || countdown.expired}
-                      onClick={async () => {
-                        setMockPaying(true)
-                        try {
-                          await billingApi.helaposMockPay(session.paymentId)
-                          toast.success('Payment verified')
-                          onPaid()
-                        } catch (e: any) {
-                          toast.error(e?.message || 'Simulate failed')
-                        } finally {
-                          setMockPaying(false)
-                        }
-                      }}
-                      className="w-full text-xs font-bold py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-amber-950 disabled:opacity-45 transition"
-                    >
-                      {mockPaying ? (
-                        <span className="inline-flex items-center justify-center gap-2">
-                          <Loader2 size={13} className="animate-spin" /> Verifying…
-                        </span>
-                      ) : (
-                        'Simulate successful payment'
-                      )}
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>

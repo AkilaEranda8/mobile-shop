@@ -1484,8 +1484,6 @@ export const billingApi = {
       qrPayload: string | null
       invoice: { id: string; invoiceNumber: string; status: string; total: number; paidAt: string | null }
     } }>(`/billing/helapos/payments/${paymentId}`),
-  helaposMockPay: (paymentId: string) =>
-    api.post<{ data: any }>(`/billing/helapos/payments/${paymentId}/mock-pay`, {}),
   requestUpgrade: (targetPlan: 'STARTER' | 'PRO') =>
     api.post<{ data: {
       invoice: any

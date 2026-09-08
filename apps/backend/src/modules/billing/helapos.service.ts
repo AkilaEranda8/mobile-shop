@@ -16,7 +16,6 @@ import {
   helaposSessionExpiresAt,
   isHelaposEnabled,
   isHelaposIpAllowed,
-  isHelaposMockMode,
   parseHelaposWebhook,
   verifyHelaposWebhookSignature,
 } from './helapos.client'
@@ -127,11 +126,9 @@ export async function createHelaposQrSession(opts: {
         paymentDate: new Date(),
         status: 'PENDING',
         submittedById: opts.submittedById,
-        notes: (await isHelaposMockMode())
-          ? 'HelaPOS mock session'
-          : fee.feeApplies
-            ? `HelaPOS QR session · fee ${fee.processingFee.toFixed(2)} on net ${fee.subscriptionAmount.toFixed(2)}`
-            : 'HelaPOS QR session',
+        notes: fee.feeApplies
+          ? `HelaPOS QR session · fee ${fee.processingFee.toFixed(2)} on net ${fee.subscriptionAmount.toFixed(2)}`
+          : 'HelaPOS QR session',
       },
     })
   }
@@ -152,7 +149,7 @@ export async function createHelaposQrSession(opts: {
   const gatewayPayload: Prisma.InputJsonValue = {
     reference,
     notifyUrl,
-    mock: qr.mock,
+    mock: false,
     gatewayTxnId: qr.gatewayTxnId ?? null,
     qrPayload: qr.qrPayload,
     createdAt: new Date().toISOString(),
@@ -168,11 +165,9 @@ export async function createHelaposQrSession(opts: {
       gatewayPayload,
       ...feeData,
       paymentDate: new Date(),
-      notes: (await isHelaposMockMode())
-        ? 'HelaPOS mock session'
-        : fee.feeApplies
-          ? `HelaPOS QR · pay ${fee.customerPayableAmount.toFixed(2)} (net ${fee.subscriptionAmount.toFixed(2)} + fee ${fee.processingFee.toFixed(2)})`
-          : 'HelaPOS QR session',
+      notes: fee.feeApplies
+        ? `HelaPOS QR · pay ${fee.customerPayableAmount.toFixed(2)} (net ${fee.subscriptionAmount.toFixed(2)} + fee ${fee.processingFee.toFixed(2)})`
+        : 'HelaPOS QR session',
     },
   })
 
@@ -182,7 +177,7 @@ export async function createHelaposQrSession(opts: {
     actorType: 'USER',
     actor: opts.submittedById ?? 'tenant-user',
     target: opts.tenantId,
-    details: `HelaPOS QR session ${payment.id} · invoice ${invoice.invoiceNumber} · subscription Rs.${fee.subscriptionAmount.toLocaleString('en-LK')} · payable Rs.${fee.customerPayableAmount.toLocaleString('en-LK')}${fee.feeApplies ? ` · fee Rs.${fee.processingFee.toLocaleString('en-LK')}` : ''}${qr.mock ? ' · MOCK' : ''}`,
+    details: `HelaPOS QR session ${payment.id} · invoice ${invoice.invoiceNumber} · subscription Rs.${fee.subscriptionAmount.toLocaleString('en-LK')} · payable Rs.${fee.customerPayableAmount.toLocaleString('en-LK')}${fee.feeApplies ? ` · fee Rs.${fee.processingFee.toLocaleString('en-LK')}` : ''}`,
     tenantId: opts.tenantId,
     userId: opts.submittedById,
   })
@@ -195,7 +190,7 @@ export async function createHelaposQrSession(opts: {
     amount: fee.customerPayableAmount,
     reference,
     qrPayload: qr.qrPayload,
-    mock: qr.mock,
+    mock: false,
     status: payment.status,
     notifyUrl,
     expiresAt: expiresAt.toISOString(),
@@ -235,7 +230,7 @@ export async function getHelaposPaymentStatus(opts: {
     reference: payment.transactionRef,
     invoice: payment.invoice,
     qrPayload: typeof payload.qrPayload === 'string' ? payload.qrPayload : null,
-    mock: payload.mock === true,
+    mock: false,
     expiresAt: typeof payload.expiresAt === 'string' ? payload.expiresAt : null,
     expired: typeof payload.expiresAt === 'string' ? new Date(payload.expiresAt).getTime() < Date.now() : false,
     paid: payment.status === 'APPROVED' || payment.invoice.status === 'PAID',
@@ -276,8 +271,8 @@ export async function handleHelaposWebhook(opts: {
       }).catch(() => {})
       throw new AppError('Unauthorized', 401)
     }
-  } else if (!(await isHelaposMockMode())) {
-    // Live path without raw body cannot verify HMAC — refuse in non-mock
+  } else {
+    // Live path without raw body cannot verify HMAC
     const liveNeedsSig = await verifyHelaposWebhookSignature('', opts.headers)
     if (!liveNeedsSig.ok && liveNeedsSig.reason === 'webhook_secret_required') {
       throw new AppError('Unauthorized', 401)
@@ -343,8 +338,8 @@ export async function handleHelaposWebhook(opts: {
     return { ok: true, paid: false, paymentId: payment.id, status: parsed.status }
   }
 
-  // Live success must include amount (prevents forged "paid" without amount)
-  if (!(await isHelaposMockMode()) && parsed.amount == null) {
+  // Success must include amount (prevents forged "paid" without amount)
+  if (parsed.amount == null) {
     throw new AppError('Webhook amount required', 400)
   }
 
@@ -460,31 +455,4 @@ export async function handleHelaposWebhook(opts: {
     processingFee,
     settlementAmount,
   }
-}
-
-/** Dev / mock helper: simulate successful pay for a pending HELAPOS session */
-export async function simulateHelaposPayment(opts: {
-  tenantId: string
-  paymentId: string
-}) {
-  if (!(await isHelaposMockMode())) {
-    throw new AppError('Mock pay only allowed when HELAPOS_MOCK=true (or credentials missing)', 403)
-  }
-
-  const payment = await prisma.subscriptionPayment.findFirst({
-    where: { id: opts.paymentId, tenantId: opts.tenantId, channel: 'HELAPOS' },
-  })
-  if (!payment) throw new AppError('Payment not found', 404)
-
-  const payable = payment.customerPayableAmount ?? payment.amount
-
-  return handleHelaposWebhook({
-    body: {
-      reference: buildHelaposReference(payment.id),
-      status: 'SUCCESS',
-      amount: payable,
-      transaction_id: `mock_pay_${Date.now()}`,
-    },
-    headers: {},
-  })
 }

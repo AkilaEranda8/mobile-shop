@@ -1094,28 +1094,6 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                           <Loader2 size={10} className="animate-spin" /> Waiting for payment…
                         </p>
                       </div>
-                      {qrSession.mock && (
-                        <button
-                          type="button"
-                          disabled={upgradeBusy}
-                          onClick={async () => {
-                            setUpgradeBusy(true)
-                            try {
-                              await billingApi.helaposMockPay(qrSession.paymentId)
-                              setQrPaid(true)
-                              toast.success('Mock payment applied')
-                              onUpgraded?.()
-                            } catch (e: any) {
-                              toast.error(e?.message || 'Mock pay failed')
-                            } finally {
-                              setUpgradeBusy(false)
-                            }
-                          }}
-                          className="w-full text-xs font-bold py-2.5 rounded-xl border border-dashed border-amber-400 text-amber-700 dark:text-amber-300"
-                        >
-                          Simulate payment (mock)
-                        </button>
-                      )}
                       <button
                         type="button"
                         onClick={() => {

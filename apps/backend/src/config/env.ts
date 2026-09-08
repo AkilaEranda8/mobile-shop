@@ -46,8 +46,9 @@ const envSchema = z.object({
   HELAPOS_APP_ID: z.string().optional(),
   HELAPOS_APP_SECRET: z.string().optional(),
   HELAPOS_MERCHANT_ID: z.string().optional(),
-  /** Relative to HELAPOS_BASE_URL — adjust when HelaPay share the real path */
-  HELAPOS_CREATE_QR_PATH: z.string().default('/qr/create'),
+  HELAPOS_BUSINESS_USER_ID: z.string().optional(),
+  /** Relative to HELAPOS_BASE_URL — HelaPay live path is /merchant/qr */
+  HELAPOS_CREATE_QR_PATH: z.string().default('/merchant/qr'),
   HELAPOS_AUTH_MODE: z.enum(['basic', 'headers', 'bearer']).optional().default('basic'),
   /** Optional shared secret for webhook HMAC / header verify (if HelaPay provide one) */
   HELAPOS_WEBHOOK_SECRET: z.string().optional(),
