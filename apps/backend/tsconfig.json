@@ -18,5 +18,15 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/database/_*.ts", "src/database/seed*.ts", "src/database/merge-*.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/database/_*.ts",
+    "src/database/seed*.ts",
+    "src/database/merge-*.ts",
+    "src/modules/emi-locker/phase*.ts",
+    "src/modules/emi-locker/phase*.mjs",
+    "src/modules/emi-locker/**/*.test.ts",
+    "src/modules/emi-locker/**/*.acceptance.ts"
+  ]
 }

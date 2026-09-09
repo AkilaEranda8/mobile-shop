@@ -930,7 +930,7 @@ export class EmiLockerService {
     if (!settings.automaticRestriction && !opts.force) {
       const updated = await prisma.managedDevice.update({
         where: { id: deviceId },
-        data: { pendingRestriction: true, deviceStatus: device.deviceStatus === 'RESTRICTED' ? 'RESTRICTED' : 'OVERDUE' },
+        data: { pendingRestriction: true, deviceStatus: 'OVERDUE' },
       })
       await recordAuditEvent({
         tenantId,
