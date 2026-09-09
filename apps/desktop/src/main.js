@@ -12,6 +12,9 @@ const VERSION_URL = 'https://app.hexalyte.com/downloads/desktop-version.json'
 const DOWNLOAD_URL = 'https://app.hexalyte.com/downloads/Hexalyte-Setup.exe'
 const STATE_FILE = 'window-state.json'
 const SHOP_FILE = 'shop-config.json'
+const UPDATE_ATTEMPT_FILE = 'update-attempt.json'
+/** Don't auto-reinstall the same target version more often than this (prevents quit loops). */
+const UPDATE_SNOOZE_MS = 6 * 60 * 60 * 1000
 const RESERVED_SHOP_SLUGS = new Set(['app', 'test', 'www', 'api', 'admin', 'platform'])
 
 /** @type {BrowserWindow | null} */
@@ -210,17 +213,71 @@ function downloadFile(url, dest, onProgress) {
 
 /** Quit app, then silent NSIS install; installer relaunches Hexalyte when done. */
 function launchInstallerAndQuit(installerPath) {
-  const quoted = `"${installerPath.replace(/"/g, '')}"`
-  // Delay so Electron can release file locks before NSIS replaces files.
-  const child = spawn(
-    process.env.ComSpec || 'cmd.exe',
-    ['/d', '/c', `ping -n 2 127.0.0.1 >nul & start "" /b ${quoted} /S`],
-    { detached: true, stdio: 'ignore', windowsHide: true },
-  )
-  child.unref()
+  // Prefer argv form so /S is not swallowed by cmd quoting.
+  try {
+    const child = spawn(installerPath, ['/S'], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      shell: false,
+    })
+    child.unref()
+  } catch (err) {
+    console.warn('[hexalyte-desktop] spawn installer failed, fallback via cmd:', err)
+    const quoted = `"${String(installerPath).replace(/"/g, '')}"`
+    const child = spawn(
+      process.env.ComSpec || 'cmd.exe',
+      ['/d', '/c', `ping -n 3 127.0.0.1 >nul & start "" ${quoted} /S`],
+      { detached: true, stdio: 'ignore', windowsHide: true },
+    )
+    child.unref()
+  }
+  // Give Electron time to release file locks before NSIS replaces binaries.
   setTimeout(() => {
     app.quit()
-  }, 400)
+  }, 2500)
+}
+
+function updateAttemptPath() {
+  return path.join(app.getPath('userData'), UPDATE_ATTEMPT_FILE)
+}
+
+function readUpdateAttempt() {
+  try {
+    const raw = fs.readFileSync(updateAttemptPath(), 'utf8')
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') return parsed
+  } catch {
+    /* none */
+  }
+  return null
+}
+
+function writeUpdateAttempt(version) {
+  try {
+    fs.writeFileSync(
+      updateAttemptPath(),
+      JSON.stringify({ version: String(version || ''), at: Date.now() }, null, 2),
+      'utf8',
+    )
+  } catch (err) {
+    console.warn('[hexalyte-desktop] failed to save update attempt:', err)
+  }
+}
+
+function clearUpdateAttempt() {
+  try {
+    if (fs.existsSync(updateAttemptPath())) fs.unlinkSync(updateAttemptPath())
+  } catch {
+    /* ignore */
+  }
+}
+
+function shouldSnoozeAutoUpdate(latestVersion) {
+  const attempt = readUpdateAttempt()
+  if (!attempt?.version || !attempt?.at) return false
+  if (String(attempt.version) !== String(latestVersion)) return false
+  return Date.now() - Number(attempt.at) < UPDATE_SNOOZE_MS
 }
 
 async function installDesktopUpdate(downloadUrl, meta = {}) {
@@ -235,6 +292,8 @@ async function installDesktopUpdate(downloadUrl, meta = {}) {
   )
 
   try {
+    if (version) writeUpdateAttempt(version)
+
     broadcastUpdateProgress({
       phase: 'downloading',
       progress: 0,
@@ -281,6 +340,7 @@ async function checkForDesktopUpdate(opts = {}) {
     if (!latest) return
     const current = app.getVersion()
     if (compareSemver(current, latest) >= 0) {
+      clearUpdateAttempt()
       if (interactive) {
         const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined
         await dialog.showMessageBox(win, {
@@ -295,7 +355,30 @@ async function checkForDesktopUpdate(opts = {}) {
     }
 
     const download = absoluteDownloadUrl(remote.downloadUrl)
-    // Fully automatic: download → silent install → app restarts. No Save As.
+
+    // Prevent quit→open→update loops when a previous silent install did not bump version
+    // (e.g. portable exe, permissions, antivirus). Interactive Help menu still allows retry.
+    if (!interactive && shouldSnoozeAutoUpdate(latest)) {
+      console.warn(
+        `[hexalyte-desktop] snoozing auto-update for v${latest} (recent attempt still running older v${current})`,
+      )
+      return
+    }
+
+    if (interactive) {
+      const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined
+      const choice = await dialog.showMessageBox(win, {
+        type: 'info',
+        title: 'Update available',
+        message: `Hexalyte v${latest} is available`,
+        detail: `You have v${current}. Install now? The app will close and reopen after setup.`,
+        buttons: ['Install now', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      if (choice.response !== 0) return
+    }
+
     await installDesktopUpdate(download, { version: latest })
   } catch (err) {
     console.warn('[hexalyte-desktop] update check failed:', err)

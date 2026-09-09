@@ -6,6 +6,10 @@ import { restoreQrSessions } from './modules/whatsapp/whatsapp.service'
 import { startTrialExpiryJob, stopTrialExpiryJob } from './jobs/trial-expiry.job'
 import { startHirePurchaseMaintenanceJob, stopHirePurchaseMaintenanceJob } from './jobs/hire-purchase-maintenance.job'
 import {
+  startEmiLockerEnforcementJob,
+  stopEmiLockerEnforcementJob,
+} from './jobs/emi-locker-enforcement.job'
+import {
   startCustomerCreditReminderJob,
   stopCustomerCreditReminderJob,
 } from './jobs/customer-credit-reminder.job'
@@ -31,6 +35,7 @@ async function bootstrap() {
     })
     startTrialExpiryJob()
     startHirePurchaseMaintenanceJob()
+    startEmiLockerEnforcementJob()
     startCustomerCreditReminderJob()
     startSubscriptionRenewalReminderJob()
     startSubscriptionBillingJob()
@@ -46,6 +51,7 @@ async function bootstrap() {
       server.close(async () => {
         stopTrialExpiryJob()
         stopHirePurchaseMaintenanceJob()
+        stopEmiLockerEnforcementJob()
         stopCustomerCreditReminderJob()
         stopSubscriptionRenewalReminderJob()
         stopSubscriptionBillingJob()

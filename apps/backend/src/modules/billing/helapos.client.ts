@@ -257,15 +257,20 @@ export function parseHelaposWebhook(body: unknown): {
   }
 
   const reference = pickString(raw, [
+    'r', // HelaPay merchant reference used when generating QR
     'reference',
     'order_id',
     'orderId',
     'merchant_reference',
     'merchantReference',
+    'merchant_ref',
+    'merchantRef',
     'custom_1',
     'custom1',
     'external_id',
     'externalId',
+    'trx_ref',
+    'trxRef',
   ])
 
   const paymentStatusRaw = raw.payment_status ?? raw.paymentStatus
@@ -279,6 +284,7 @@ export function parseHelaposWebhook(body: unknown): {
   ])
 
   const statusCode = pickString(raw, ['status_code', 'statusCode', 'code'])
+  // Prefer gateway ids — do NOT treat merchant `r` / cuid as txn id here.
   const gatewayTxnId = pickString(raw, [
     'qr_reference',
     'qrReference',
@@ -292,11 +298,10 @@ export function parseHelaposWebhook(body: unknown): {
     'paymentId',
     'txn_id',
     'txnId',
-    'id',
   ])
 
   let amount: number | null = null
-  for (const key of ['amount', 'pay_amount', 'payAmount', 'paid_amount', 'paidAmount', 'helapos_amount', 'am']) {
+  for (const key of ['amount', 'pay_amount', 'payAmount', 'paid_amount', 'paidAmount', 'helapos_amount', 'am', 'sale_amount', 'total']) {
     const v = raw[key]
     if (typeof v === 'number' && Number.isFinite(v)) { amount = v; break }
     if (typeof v === 'string' && v.trim() && Number.isFinite(Number(v))) { amount = Number(v); break }

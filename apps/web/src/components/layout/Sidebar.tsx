@@ -107,6 +107,16 @@ const hirePurchaseSubmenu: NavSubItem[] = [
   { href: '/dashboard/hire-purchase/settings', icon: Settings, label: 'HP Settings', feature: 'HIRE_PURCHASE', permission: 'HIRE_PURCHASE', requiresEdit: true },
 ]
 
+const emiLockerSubmenu: NavSubItem[] = [
+  { href: '/dashboard/emi-locker', icon: LayoutDashboard, label: 'Locker Dashboard', feature: 'EMI_LOCKER', permission: 'EMI_LOCKER' },
+  { href: '/dashboard/emi-locker/devices', icon: Smartphone, label: 'Managed Devices', feature: 'EMI_LOCKER', permission: 'EMI_LOCKER' },
+  { href: '/dashboard/emi-locker/enrollment', icon: Lock, label: 'Enrollment', feature: 'EMI_LOCKER', permission: 'EMI_LOCKER', requiresEdit: true },
+  { href: '/dashboard/emi-locker/commands', icon: ClipboardList, label: 'Commands', feature: 'EMI_LOCKER', permission: 'EMI_LOCKER' },
+  { href: '/dashboard/emi-locker/policies', icon: FileText, label: 'Policies', feature: 'EMI_LOCKER', permission: 'EMI_LOCKER', requiresEdit: true },
+  { href: '/dashboard/emi-locker/reports', icon: BarChart3, label: 'Reports', feature: 'EMI_LOCKER', permission: 'EMI_LOCKER' },
+  { href: '/dashboard/emi-locker/settings', icon: Settings, label: 'Locker Settings', feature: 'EMI_LOCKER', permission: 'EMI_LOCKER', requiresEdit: true },
+]
+
 const wholesaleSubmenu: NavSubItem[] = [
   { href: '/dashboard/wholesale', icon: LayoutDashboard, label: 'Dashboard', feature: 'WHOLESALE', permission: 'WHOLESALE' },
   { href: '/dashboard/wholesale/pos', icon: ShoppingCart, label: 'Wholesale POS', badge: 'NEW', feature: 'WHOLESALE', permission: 'WHOLESALE_POS', requiresEdit: true },
@@ -209,6 +219,15 @@ const navItems: NavGroup[] = [
         feature: 'HIRE_PURCHASE',
         permission: 'HIRE_PURCHASE',
         submenu: hirePurchaseSubmenu,
+      },
+      {
+        href: '/dashboard/emi-locker',
+        icon: Smartphone,
+        label: 'EMI Device Locker',
+        badge: 'NEW',
+        feature: 'EMI_LOCKER',
+        permission: 'EMI_LOCKER',
+        submenu: emiLockerSubmenu,
       },
       {
         href: '/dashboard/accounting',

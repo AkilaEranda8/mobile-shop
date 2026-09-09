@@ -6,6 +6,7 @@ import { AlertTriangle, CreditCard, X } from 'lucide-react'
 import { billingApi, tenantApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import type { Tenant } from '@/types'
+import { BILLING_PAID_EVENT } from '@/lib/billing-events'
 
 function sessionKey(tenantId?: string) {
   return tenantId ? `hx_payment_due_banner_dismissed:${tenantId}` : null
@@ -63,12 +64,15 @@ export function PaymentDueBanner() {
     load()
     const id = window.setInterval(load, 60_000)
     const onFocus = () => { if (document.visibilityState === 'visible') load() }
+    const onPaid = () => load()
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
+    window.addEventListener(BILLING_PAID_EVENT, onPaid)
     return () => {
       window.clearInterval(id)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener(BILLING_PAID_EVENT, onPaid)
     }
   }, [load])
 

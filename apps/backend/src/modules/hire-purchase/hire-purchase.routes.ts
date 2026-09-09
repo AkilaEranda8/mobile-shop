@@ -18,6 +18,7 @@ import {
   emitHirePurchaseAgreementAccounting,
   emitHirePurchasePaymentAccounting,
 } from '../accounting/integration/accounting-events.service'
+import { emiLockerService } from '../emi-locker/emi-locker.service'
 
 const router = Router()
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -761,6 +762,10 @@ router.post('/agreements/:id/payments', requireModuleAccess('HIRE_PURCHASE', 'ed
     await Promise.all(result.transactionIds.map(id =>
       emitHirePurchasePaymentAccounting(req.tenantId!, id, agreement.branchId, req.user?.email),
     ))
+    void emiLockerService.tryRestoreAfterVerifiedPayment(req.tenantId!, agreement.id, {
+      userId: req.user?.userId,
+      email: req.user?.email,
+    })
     sendSuccess(res, result, 'Hire purchase payment recorded', 201)
   } catch (error) { next(error) }
 })
@@ -1067,6 +1072,10 @@ router.post('/agreements/:id/early-settlement', requireModuleAccess('HIRE_PURCHA
     await Promise.all(result.transactionIds.map(id =>
       emitHirePurchasePaymentAccounting(req.tenantId!, id, agreement.branchId, req.user?.email),
     ))
+    void emiLockerService.tryRestoreAfterVerifiedPayment(req.tenantId!, agreement.id, {
+      userId: req.user?.userId,
+      email: req.user?.email,
+    })
     sendSuccess(res, result, 'Early settlement completed', 201)
   } catch (error) { next(error) }
 })

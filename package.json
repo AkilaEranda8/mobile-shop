@@ -15,6 +15,7 @@
     "install:all": "npm install --workspaces --include-workspace-root"
   },
   "devDependencies": {
+    "playwright": "^1.49.1",
     "typescript": "^5.4.5"
   }
 }

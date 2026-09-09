@@ -15,6 +15,7 @@ export function planBranchLimit(plan: string | null | undefined): number {
 export const BRANCH_OPT_OUT_FEATURES = [
   'ACCOUNTING',
   'HIRE_PURCHASE',
+  'EMI_LOCKER',
   'DAILY_RELOAD',
   'PROFIT_ALLOCATION',
   'CUSTOMER_CREDIT',

@@ -338,8 +338,13 @@ export async function handleHelaposWebhook(opts: {
     ? payment.gatewayPayload as Record<string, unknown>
     : {})
 
-  // Reject expired QR sessions (except already approved above)
-  if (typeof prev.expiresAt === 'string' && new Date(prev.expiresAt).getTime() < Date.now()) {
+  // Reject expired QR for *pending* callbacks only. Verified success after expiry still activates
+  // (customer may have paid just before expiry while webhook arrived late).
+  if (
+    !parsed.success
+    && typeof prev.expiresAt === 'string'
+    && new Date(prev.expiresAt).getTime() < Date.now()
+  ) {
     await logPlatformActivity({
       eventType: 'SECURITY_ALERT',
       severity: 'WARN',
@@ -367,30 +372,36 @@ export async function handleHelaposWebhook(opts: {
     return { ok: true, paid: false, paymentId: payment.id, status: parsed.status }
   }
 
-  // Success must include amount (prevents forged "paid" without amount)
-  if (parsed.amount == null) {
-    throw new AppError('Webhook amount required', 400)
-  }
-
-  // Match against customer payable (gross QR amount), not invoice.total
+  // Match against customer payable (gross QR amount). Also accept net subscription / invoice total
+  // in case HelaPay echoes the plan amount without fee gross-up.
   const expectedPayable = payment.customerPayableAmount ?? payment.amount
-  if (parsed.amount != null && Math.abs(parsed.amount - expectedPayable) > 0.5) {
-    console.warn('[helapos-webhook] amount mismatch', {
-      expected: expectedPayable,
-      got: parsed.amount,
-      subscriptionAmount: payment.subscriptionAmount ?? payment.invoice.total,
+  const subscriptionAmount = payment.subscriptionAmount ?? payment.invoice.total
+  const amountCandidates = [expectedPayable, subscriptionAmount, payment.invoice.total]
+  if (parsed.amount == null) {
+    console.warn('[helapos-webhook] success without amount — using stored payable', {
       paymentId: payment.id,
+      expectedPayable,
     })
-    await logPlatformActivity({
-      eventType: 'SECURITY_ALERT',
-      severity: 'WARN',
-      actorType: 'SYSTEM',
-      actor: 'helapos-webhook',
-      target: payment.tenant.name,
-      details: `HelaPOS amount mismatch · expected payable ${expectedPayable} got ${parsed.amount}`,
-      tenantId: payment.tenantId,
-    }).catch(() => {})
-    throw new AppError('Webhook amount does not match invoice payment', 400)
+  } else {
+    const matched = amountCandidates.some((n) => Math.abs(parsed.amount! - n) <= 0.5)
+    if (!matched) {
+      console.warn('[helapos-webhook] amount mismatch', {
+        expected: expectedPayable,
+        got: parsed.amount,
+        subscriptionAmount,
+        paymentId: payment.id,
+      })
+      await logPlatformActivity({
+        eventType: 'SECURITY_ALERT',
+        severity: 'WARN',
+        actorType: 'SYSTEM',
+        actor: 'helapos-webhook',
+        target: payment.tenant.name,
+        details: `HelaPOS amount mismatch · expected payable ${expectedPayable} got ${parsed.amount}`,
+        tenantId: payment.tenantId,
+      }).catch(() => {})
+      throw new AppError('Webhook amount does not match invoice payment', 400)
+    }
   }
 
   // Gateway txn idempotency — block reuse across payments
@@ -421,7 +432,6 @@ export async function handleHelaposWebhook(opts: {
     }
   }
 
-  const subscriptionAmount = payment.subscriptionAmount ?? payment.invoice.total
   const processingFee = payment.processingFee ?? Math.max(0, expectedPayable - subscriptionAmount)
   // Prefer gateway-reported settlement if present; else expected net = subscription revenue
   const settlementAmount =

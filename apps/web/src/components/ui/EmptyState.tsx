@@ -4,7 +4,7 @@ import Link from 'next/link'
 interface QuickAction { label: string; href?: string; onClick?: () => void; primary?: boolean }
 
 interface EmptyStateProps {
-  icon: LucideIcon
+  icon?: LucideIcon
   title: string
   description: string
   actions?: QuickAction[]
@@ -23,12 +23,13 @@ ACCENT.violet = ACCENT.blue
 
 export function EmptyState({ icon: Icon, title, description, actions = [], hints = [], accentColor = 'blue' }: EmptyStateProps) {
   const a = ACCENT[accentColor] ?? ACCENT.blue
+  const IconCmp = Icon
 
   return (
     <div className={`card bg-gradient-to-b ${a.card} to-transparent p-10 sm:p-16 flex flex-col items-center text-center gap-6 animate-fade-up`}>
       <div className="relative">
         <div className={`w-20 h-20 rounded-3xl border ${a.icon} flex items-center justify-center`}>
-          <Icon size={32} />
+          {IconCmp ? <IconCmp size={32} /> : <span className="text-2xl font-semibold opacity-70">∅</span>}
         </div>
         <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${a.dot} opacity-60`} />
         <span className={`absolute -bottom-1 -left-1 w-2 h-2 rounded-full ${a.dot} opacity-30`} />

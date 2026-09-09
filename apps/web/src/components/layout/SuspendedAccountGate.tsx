@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AlertTriangle, CreditCard, Loader2 } from 'lucide-react'
 import { billingApi, tenantApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
+import { BILLING_PAID_EVENT } from '@/lib/billing-events'
 
 const ALLOWED_WHEN_SUSPENDED = [
   '/dashboard/billing',
@@ -60,9 +61,15 @@ export function SuspendedAccountGate({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     void load()
-    const id = window.setInterval(() => void load(), 60_000)
-    return () => window.clearInterval(id)
-  }, [load])
+    // While suspended, poll often so LankaQR webhook activation unlocks the UI quickly.
+    const id = window.setInterval(() => void load(), suspended ? 5_000 : 60_000)
+    const onPaid = () => { void load() }
+    window.addEventListener(BILLING_PAID_EVENT, onPaid)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener(BILLING_PAID_EVENT, onPaid)
+    }
+  }, [load, suspended])
 
   useEffect(() => {
     if (!suspended || checking) return

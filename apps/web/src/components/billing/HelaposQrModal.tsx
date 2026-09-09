@@ -99,9 +99,12 @@ export default function HelaposQrModal({
 
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  const onPaidRef = useRef(onPaid)
+  onPaidRef.current = onPaid
 
   useEffect(() => {
     if (!paid) return
+    onPaidRef.current()
     const id = window.setTimeout(() => onCloseRef.current(), 3200)
     return () => window.clearTimeout(id)
   }, [paid])
@@ -156,9 +159,9 @@ export default function HelaposQrModal({
           transition={{ type: 'spring', stiffness: 440, damping: 36 }}
           className="relative w-full max-w-[392px] max-h-[min(94vh,740px)] flex flex-col rounded-t-[26px] sm:rounded-[26px] shadow-[0_24px_80px_-20px_rgba(15,23,42,0.45)] border overflow-hidden"
           style={{
-            background: 'var(--surface-elevated, #ffffff)',
-            borderColor: 'var(--border-subtle, #e2e8f0)',
-            color: 'var(--text-primary, #0f172a)',
+            background: 'var(--bg-card)',
+            borderColor: 'var(--border-default)',
+            color: 'var(--text-primary)',
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -184,7 +187,11 @@ export default function HelaposQrModal({
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">
                   LankaQR
                 </p>
-                <h2 id={titleId} className="text-[13px] font-semibold tracking-tight truncate opacity-70">
+                <h2
+                  id={titleId}
+                  className="text-[13px] font-semibold tracking-tight truncate"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {invoiceNumber}
                 </h2>
               </div>
@@ -205,9 +212,9 @@ export default function HelaposQrModal({
               <div className="flex flex-col items-center gap-4 py-12" aria-busy="true" aria-live="polite">
                 <div
                   className="w-[216px] aspect-square rounded-[22px] border border-dashed animate-pulse"
-                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle, #f8fafc)' }}
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
                 />
-                <div className="flex items-center gap-2 text-sm opacity-55">
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
                   <Loader2 size={15} className="animate-spin text-emerald-600" />
                   Preparing your QR…
                 </div>
@@ -230,8 +237,12 @@ export default function HelaposQrModal({
                   />
                 </div>
                 <div>
-                  <p className="text-lg font-bold tracking-tight">Payment received</p>
-                  <p className="mt-1 text-sm opacity-50">Subscription updated · closing…</p>
+                  <p className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                    Payment received
+                  </p>
+                  <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Subscription updated · closing…
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -250,29 +261,40 @@ export default function HelaposQrModal({
                 <div className="rounded-[22px] border px-4 pt-5 pb-4 space-y-4"
                   style={{
                     borderColor: 'var(--border-subtle)',
-                    background: 'linear-gradient(180deg, rgba(16,185,129,0.04) 0%, transparent 42%)',
+                    background: 'linear-gradient(180deg, rgba(16,185,129,0.08) 0%, var(--bg-subtle) 42%)',
                   }}
                 >
                   <div className="text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-40">
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       Amount to pay
                     </p>
                     <p className="mt-1.5 flex items-baseline justify-center gap-1.5 tabular-nums">
                       {currency ? (
-                        <span className="text-sm font-bold opacity-45 tracking-wide">{currency}</span>
+                        <span
+                          className="text-sm font-bold tracking-wide"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          {currency}
+                        </span>
                       ) : null}
-                      <span className="text-[2.15rem] leading-none font-black tracking-tight">
+                      <span
+                        className="text-[2.15rem] leading-none font-black tracking-tight"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
                         {figure || formatCurrency(payable)}
                       </span>
                     </p>
                     {showFee ? (
-                      <p className="text-[11px] opacity-50 mt-2">
+                      <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
                         Plan {formatCurrency(session.subscriptionAmount ?? session.amount)}
                         {' + '}
                         fee {formatCurrency(session.processingFee ?? 0)}
                       </p>
                     ) : (
-                      <p className="text-[11px] opacity-45 mt-2">
+                      <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
                         Scan with HelaPay or any LankaQR app
                       </p>
                     )}
@@ -281,13 +303,19 @@ export default function HelaposQrModal({
                   {showFee && (
                     <details
                       className="rounded-xl border text-[12px]"
-                      style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle, rgba(255,255,255,0.6))' }}
+                      style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
                     >
-                      <summary className="cursor-pointer list-none px-3 py-2 font-medium opacity-65 select-none">
+                      <summary
+                        className="cursor-pointer list-none px-3 py-2 font-medium select-none"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
                         Fee breakdown
                       </summary>
                       <div className="px-3 pb-2.5 space-y-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                        <div className="flex justify-between pt-2 opacity-65">
+                        <div
+                          className="flex justify-between pt-2"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
                           <span>Subscription</span>
                           <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                             {formatCurrency(
@@ -296,13 +324,16 @@ export default function HelaposQrModal({
                             )}
                           </span>
                         </div>
-                        <div className="flex justify-between opacity-65">
+                        <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
                           <span>Processing fee</span>
                           <span className="font-semibold text-amber-700 dark:text-amber-300">
                             {formatCurrency(session.processingFee ?? 0)}
                           </span>
                         </div>
-                        <div className="flex justify-between font-bold pt-0.5">
+                        <div
+                          className="flex justify-between font-bold pt-0.5"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
                           <span>Total</span>
                           <span>{formatCurrency(payable)}</span>
                         </div>
@@ -337,10 +368,15 @@ export default function HelaposQrModal({
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 rounded-[20px] bg-white/92 dark:bg-slate-950/88 backdrop-blur-[2px] p-4 text-center"
+                          className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 rounded-[20px] backdrop-blur-[2px] p-4 text-center"
+                          style={{ background: 'color-mix(in srgb, var(--bg-card) 92%, transparent)' }}
                         >
-                          <p className="text-sm font-bold">QR expired</p>
-                          <p className="text-[11px] opacity-55 -mt-1">Generate a new code to continue</p>
+                          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                            QR expired
+                          </p>
+                          <p className="text-[11px] -mt-1" style={{ color: 'var(--text-muted)' }}>
+                            Generate a new code to continue
+                          </p>
                           <button
                             type="button"
                             onClick={handleRefresh}
@@ -409,12 +445,22 @@ export default function HelaposQrModal({
                 <button
                   type="button"
                   onClick={() => void copyRef()}
-                  className="w-full flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.04] transition active:scale-[0.99]"
-                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle, transparent)' }}
+                  className="w-full flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition active:scale-[0.99]"
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
                 >
                   <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-wide opacity-40 font-bold">Reference</p>
-                    <p className="text-[11px] font-mono truncate opacity-75 mt-0.5">{session.reference}</p>
+                    <p
+                      className="text-[10px] uppercase tracking-wide font-bold"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      Reference
+                    </p>
+                    <p
+                      className="text-[11px] font-mono truncate mt-0.5"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      {session.reference}
+                    </p>
                   </div>
                   <span
                     className={`inline-flex items-center gap-1 text-[11px] font-bold shrink-0 px-2 py-1 rounded-lg ${
@@ -431,7 +477,8 @@ export default function HelaposQrModal({
                 <button
                   type="button"
                   onClick={onSwitchBank}
-                  className="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-medium py-1.5 opacity-45 hover:opacity-80 transition"
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-medium py-1.5 transition hover:opacity-100"
+                  style={{ color: 'var(--text-muted)' }}
                 >
                   <CreditCard size={12} />
                   Prefer bank transfer?

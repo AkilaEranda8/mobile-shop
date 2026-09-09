@@ -32,6 +32,7 @@ import type { Tenant } from '@/types'
 import { billingApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { calculateHelaposCustomerPayable } from '@/lib/helapos-fees'
+import { notifyBillingPaid } from '@/lib/billing-events'
 import BillingLottie from '@/components/billing/BillingLottie'
 
 export type BillingPlan = {
@@ -311,15 +312,20 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
         const res: any = await billingApi.helaposPaymentStatus(qrSession.paymentId)
         const data = res?.data ?? res
         if (cancelled) return
-        if (data?.paid || data?.status === 'APPROVED') {
+        if (data?.paid || data?.status === 'APPROVED' || data?.invoice?.status === 'PAID') {
           setQrPaid(true)
-          toast.success(`Upgraded to ${upgradePlan?.label ?? 'new plan'}`)
+          toast.success(`Payment received — ${upgradePlan?.label ?? 'plan'} activated`)
+          notifyBillingPaid({
+            invoiceNumber: data?.invoice?.invoiceNumber || qrSession.invoiceNumber,
+            paymentId: qrSession.paymentId,
+          })
           onUpgraded?.()
+          window.setTimeout(() => closeUpgrade(), 2800)
         }
       } catch { /* keep polling */ }
     }
     void tick()
-    const id = window.setInterval(() => { void tick() }, 3000)
+    const id = window.setInterval(() => { void tick() }, 1500)
     return () => {
       cancelled = true
       window.clearInterval(id)

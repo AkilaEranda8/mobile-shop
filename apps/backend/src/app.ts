@@ -47,6 +47,7 @@ import supportChatRoutes from './modules/support-tickets/support-chat.routes'
 import customerServiceTicketsRoutes from './modules/support-tickets/customer-service-tickets.routes'
 import productTraceabilityRoutes from './modules/product-traceability/product-traceability.routes'
 import hirePurchaseRoutes from './modules/hire-purchase/hire-purchase.routes'
+import emiLockerRoutes from './modules/emi-locker/emi-locker.routes'
 import wholesaleRoutes from './modules/wholesale/wholesale.routes'
 import smsRoutes from './modules/sms/sms.routes'
 import billingRoutes from './modules/billing/billing.routes'
@@ -213,6 +214,7 @@ app.use(`${API}/daily-reloads`, dailyReloadRoutes)
 app.use(`${API}/daily-closing`, dailyClosingRoutes)
 app.use(`${API}/profit-allocation`, profitAllocationRoutes)
 app.use(`${API}/hire-purchase`, hirePurchaseRoutes)
+app.use(`${API}/emi-locker`, emiLockerRoutes)
 app.use(`${API}/wholesale`, wholesaleRoutes)
 app.use(`${API}/accounting`, accountingRoutes)
 app.use(`${API}/hr`, hrRoutes)

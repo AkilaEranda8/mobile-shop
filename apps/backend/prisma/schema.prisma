@@ -370,6 +370,69 @@ enum HpDocumentType {
   OTHER
 }
 
+// ─────────────── EMI Device Locker / Android Management ───────────────
+
+enum ManagedDeviceStatus {
+  PENDING_ENROLLMENT
+  ENROLLED
+  ACTIVE
+  PAYMENT_DUE
+  WARNING
+  GRACE_PERIOD
+  OVERDUE
+  RESTRICTED
+  SUSPENDED
+  RELEASED
+  ENROLLMENT_FAILED
+  MANAGEMENT_ERROR
+  RELEASE_FAILED
+}
+
+enum ManagedEnrollmentStatus {
+  CREATED
+  ENROLLMENT_PENDING
+  QR_GENERATED
+  DEVICE_SCANNED
+  ENROLLMENT_IN_PROGRESS
+  ENROLLED
+  ACTIVE
+  ENROLLMENT_FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum ManagedDeviceOnlineStatus {
+  ONLINE
+  OFFLINE
+  UNKNOWN
+}
+
+enum DeviceCommandType {
+  APPLY_RESTRICTION
+  REMOVE_RESTRICTION
+  SYNC_POLICY
+  REFRESH_STATUS
+  RELEASE_DEVICE
+}
+
+enum DeviceCommandStatus {
+  PENDING
+  APPROVED
+  SENT
+  EXECUTED
+  FAILED
+  CANCELLED
+  SUPERSEDED
+  DRY_RUN
+}
+
+enum DevicePolicyKind {
+  ACTIVE
+  WARNING
+  RESTRICTED
+  RELEASED
+}
+
 // ─────────────── Tenant / Auth ───────────────
 
 model Tenant {
@@ -514,6 +577,12 @@ model Tenant {
   repVisits                   RepVisit[]
   vanLoadSheets               VanLoadSheet[]
   vanSettlements              VanSettlement[]
+  managedDevices              ManagedDevice[]
+  deviceEnrollments           DeviceEnrollment[]
+  devicePolicies              DevicePolicy[]
+  deviceCommands              DeviceCommand[]
+  deviceEvents                DeviceEvent[]
+  emiLockerSettings           EmiLockerSettings[]
 }
 
 model TenantFeature {
@@ -628,6 +697,12 @@ model Branch {
   dealerPayments              DealerPayment[]
   dealerCollectionTasks       DealerCollectionTask[]
   wholesaleCreditNotes        WholesaleCreditNote[]
+  managedDevices              ManagedDevice[]
+  deviceEnrollments           DeviceEnrollment[]
+  devicePolicies              DevicePolicy[]
+  deviceCommands              DeviceCommand[]
+  deviceEvents                DeviceEvent[]
+  emiLockerSettings           EmiLockerSettings[]
 
   @@index([tenantId, kind])
 }
@@ -821,6 +896,7 @@ model ImeiRecord {
   hirePurchaseAgreements HirePurchaseAgreement[]
   stockReservations      StockReservation[]
   wholesaleDispatchSerials WholesaleDispatchSerial[]
+  managedDevices         ManagedDevice[]
 
   @@index([softReservedUntil])
 }
@@ -872,6 +948,7 @@ model Customer {
   exchanges              DeviceExchange[]
   hirePurchaseAgreements HirePurchaseAgreement[]
   dealers                Dealer[]
+  managedDevices         ManagedDevice[]
 
   @@unique([tenantId, branchId, phone])
   @@index([tenantId, branchId])
@@ -1518,6 +1595,10 @@ model HirePurchaseAgreement {
   qrCode               String?
   barcode              String?
   customerSignatureUrl String?
+  /// EMI locker: customer consented to device management under agreement terms
+  deviceMgmtConsentVersion String?
+  deviceMgmtConsentedAt    DateTime?
+  deviceMgmtEnabled        Boolean           @default(false)
   status               HpAgreementStatus @default(PENDING)
   approvedAt           DateTime?
   completedAt          DateTime?
@@ -1539,6 +1620,8 @@ model HirePurchaseAgreement {
   documents    HirePurchaseDocument[]
   penalties    HirePurchasePenalty[]
   logs         HirePurchaseLog[]
+  managedDevices ManagedDevice[]
+  deviceEnrollments DeviceEnrollment[]
 
   @@unique([tenantId, agreementNumber])
   @@index([tenantId, branchId, status])
@@ -4761,3 +4844,197 @@ model VanSettlementPaymentBucket {
   @@unique([settlementId, method])
   @@index([settlementId])
 }
+
+// ─────────────── EMI Device Locker ───────────────
+
+model ManagedDevice {
+  id                 String                    @id @default(cuid())
+  tenantId           String
+  branchId           String
+  customerId         String
+  /// Hire Purchase agreement (financial source of truth) — API may expose as hirePurchaseId
+  agreementId        String
+  imeiRecordId       String?
+  /// External Android Management API device resource name (enterprises/.../devices/...)
+  androidDeviceName  String?
+  imei1              String
+  imei2              String?
+  serialNumber       String?
+  brand              String?
+  model              String?
+  androidVersion     String?
+  enrollmentStatus   ManagedEnrollmentStatus   @default(CREATED)
+  managementStatus   String?
+  deviceStatus       ManagedDeviceStatus       @default(PENDING_ENROLLMENT)
+  onlineStatus       ManagedDeviceOnlineStatus @default(UNKNOWN)
+  policyStatus       String?
+  activePolicyId     String?
+  lastSeenAt         DateTime?
+  enrolledAt         DateTime?
+  restrictedAt       DateTime?
+  restoredAt         DateTime?
+  releasedAt         DateTime?
+  pendingRestriction Boolean                   @default(false)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch             @relation(fields: [branchId], references: [id])
+  customer    Customer           @relation(fields: [customerId], references: [id])
+  agreement   HirePurchaseAgreement @relation(fields: [agreementId], references: [id], onDelete: Restrict)
+  imeiRecord  ImeiRecord?        @relation(fields: [imeiRecordId], references: [id], onDelete: SetNull)
+  activePolicy DevicePolicy?     @relation("ManagedDeviceActivePolicy", fields: [activePolicyId], references: [id], onDelete: SetNull)
+  enrollments DeviceEnrollment[]
+  commands    DeviceCommand[]
+  events      DeviceEvent[]
+
+  @@unique([tenantId, imei1])
+  @@index([tenantId, branchId, deviceStatus])
+  @@index([tenantId, agreementId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, imeiRecordId])
+  @@index([tenantId, lastSeenAt])
+  @@index([androidDeviceName])
+}
+
+model DeviceEnrollment {
+  id                    String                  @id @default(cuid())
+  tenantId              String
+  branchId              String
+  deviceId              String?
+  agreementId           String
+  enrollmentCode        String
+  /// One-time opaque token hash (never store raw token long-term after consume)
+  tokenHash             String
+  /// Short-lived raw token only until expiry (cleared on consume); never put secrets in QR beyond this
+  tokenPreview          String?
+  amapiEnrollmentToken  String?
+  qrPayloadJson         Json?
+  status                ManagedEnrollmentStatus @default(CREATED)
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  failedAt              DateTime?
+  failureReason         String?
+  consentVersion        String?
+  consentedAt           DateTime?
+  createdBy             String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch                  @relation(fields: [branchId], references: [id])
+  device    ManagedDevice?          @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  agreement HirePurchaseAgreement   @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, enrollmentCode])
+  @@index([tenantId, status, expiresAt])
+  @@index([deviceId])
+  @@index([agreementId])
+  @@index([tokenHash])
+}
+
+model DevicePolicy {
+  id              String          @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  name            String
+  kind            DevicePolicyKind
+  /// AMAPI policy resource name enterprises/{e}/policies/{p}
+  amapiPolicyName String?
+  policyJson      Json?
+  isDefault       Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  devices ManagedDevice[]  @relation("ManagedDeviceActivePolicy")
+
+  @@unique([tenantId, name])
+  @@index([tenantId, kind, isActive])
+}
+
+model DeviceCommand {
+  id              String              @id @default(cuid())
+  tenantId        String
+  branchId        String
+  deviceId        String
+  commandType     DeviceCommandType
+  reason          String?
+  status          DeviceCommandStatus @default(PENDING)
+  idempotencyKey  String
+  requestedBy     String?
+  approvedBy      String?
+  amapiRequestId  String?
+  failureReason   String?
+  createdAt       DateTime            @default(now())
+  approvedAt      DateTime?
+  sentAt          DateTime?
+  executedAt      DateTime?
+  acknowledgedAt  DateTime?
+  updatedAt       DateTime            @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch        @relation(fields: [branchId], references: [id])
+  device ManagedDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, deviceId, createdAt])
+  @@index([tenantId, status, commandType])
+  @@index([deviceId, status])
+}
+
+model DeviceEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  branchId  String?
+  deviceId  String
+  eventType String
+  source    String   @default("system")
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  device ManagedDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deviceId, createdAt])
+  @@index([tenantId, eventType, createdAt])
+}
+
+model EmiLockerSettings {
+  id                       String   @id @default(cuid())
+  tenantId                 String
+  branchId                 String
+  enabled                  Boolean  @default(true)
+  /// Default true until Google AE quota + credentials are live
+  dryRunEnabled            Boolean  @default(true)
+  automaticRestriction     Boolean  @default(true)
+  manualApprovalRequired   Boolean  @default(false)
+  /// Extra days after HP agreement.gracePeriodDays before restriction
+  gracePeriodDays          Int      @default(0)
+  /// Days before due date to mark PAYMENT_DUE / WARNING
+  warningDays              Int      @default(3)
+  /// Extra days after HP grace before restriction (alias of gracePeriodDays for branch overrides)
+  restrictionExtraGraceDays Int     @default(0)
+  offlineThresholdHours    Int      @default(24)
+  restoreWithRemainingOverdue Boolean @default(false)
+  autoRestoreEnabled       Boolean  @default(true)
+  autoReleaseEnabled       Boolean  @default(true)
+  consentTextVersion       String   @default("v1")
+  consentText              String?
+  supportPhone             String?
+  supportEmail             String?
+  paymentInfoText          String?
+  restrictionPolicyHint    String?
+  amapiEnterpriseName      String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, branchId])
+}
+

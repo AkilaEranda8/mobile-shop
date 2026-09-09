@@ -594,6 +594,34 @@ export const hirePurchaseApi = {
     api.post('/hire-purchase/reminders/send', { agreementIds, channel }),
 }
 
+export const emiLockerApi = {
+  dashboard: () => api.get('/emi-locker/dashboard'),
+  devices: (params?: Record<string, string>) =>
+    api.get(`/emi-locker/devices${params ? `?${new URLSearchParams(params)}` : ''}`),
+  device: (id: string) => api.get(`/emi-locker/devices/${id}`),
+  registerDevice: (body: unknown) => api.post('/emi-locker/devices', body),
+  updateDevice: (id: string, body: unknown) => api.patch(`/emi-locker/devices/${id}`, body),
+  createEnrollment: (id: string, body: unknown) => api.post(`/emi-locker/devices/${id}/enrollment`, body),
+  syncDevice: (id: string) => api.post(`/emi-locker/devices/${id}/sync`, {}),
+  restrictDevice: (id: string, body?: unknown) => api.post(`/emi-locker/devices/${id}/restrict`, body ?? {}),
+  restoreDevice: (id: string, body?: unknown) => api.post(`/emi-locker/devices/${id}/restore`, body ?? {}),
+  releaseDevice: (id: string, body?: unknown) => api.post(`/emi-locker/devices/${id}/release`, body ?? {}),
+  commands: (id: string) => api.get(`/emi-locker/devices/${id}/commands`),
+  listCommands: (params?: Record<string, string>) =>
+    api.get(`/emi-locker/commands${params ? `?${new URLSearchParams(params)}` : ''}`),
+  events: (id: string) => api.get(`/emi-locker/devices/${id}/events`),
+  settings: () => api.get('/emi-locker/settings'),
+  updateSettings: (body: unknown) => api.patch('/emi-locker/settings', body),
+  reportDevices: () => api.get('/emi-locker/reports/devices'),
+  reportOverdue: () => api.get('/emi-locker/reports/overdue'),
+  reportRestrictions: () => api.get('/emi-locker/reports/restrictions'),
+  reportCollections: () => api.get('/emi-locker/reports/collections'),
+  policies: () => api.get('/emi-locker/policies'),
+  createPolicy: (body: unknown) => api.post('/emi-locker/policies', body),
+  updatePolicy: (id: string, body: unknown) => api.patch(`/emi-locker/policies/${id}`, body),
+  enrollmentHistory: (id: string) => api.get(`/emi-locker/devices/${id}/enrollment`),
+}
+
 export const branchesApi = {
   list: () => api.get('/branches'),
   create: (body: unknown) => api.post('/branches', body),

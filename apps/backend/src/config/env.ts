@@ -58,6 +58,16 @@ const envSchema = z.object({
   HELAPOS_REQUIRE_SIGNATURE: z.enum(['true', 'false']).optional().default('false'),
   /** QR session TTL minutes */
   HELAPOS_SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(60).optional().default(15),
+
+  /** Global kill-switch for EMI locker worker/API (tenant feature still required) */
+  EMI_LOCKER_ENABLED: z.enum(['true', 'false']).optional().default('true'),
+  /** Force dry-run for all tenants until Google AE is ready */
+  EMI_LOCKER_DRY_RUN: z.enum(['true', 'false']).optional().default('true'),
+  /** Live AMAPI calls — keep false until enterprise + quota + credentials */
+  ANDROID_MANAGEMENT_ENABLED: z.enum(['true', 'false']).optional().default('false'),
+  ANDROID_MANAGEMENT_ENTERPRISE_NAME: z.string().optional(),
+  GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
+  ANDROID_MANAGEMENT_SERVICE_ACCOUNT_JSON: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)

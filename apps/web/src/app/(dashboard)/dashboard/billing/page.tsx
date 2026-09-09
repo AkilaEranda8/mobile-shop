@@ -27,6 +27,7 @@ import { formatCurrency, cn } from '@/lib/utils'
 import { calculateHelaposCustomerPayable } from '@/lib/helapos-fees'
 import SubscriptionInvoiceViewer, { type BillingInvoiceViewModel } from '@/components/billing/SubscriptionInvoiceViewer'
 import HelaposQrModal, { type HelaposQrSession } from '@/components/billing/HelaposQrModal'
+import { notifyBillingPaid } from '@/lib/billing-events'
 import BillingLottie from '@/components/billing/BillingLottie'
 
 type InvoiceRow = {
@@ -215,15 +216,19 @@ export default function BillingPage() {
         const res: any = await billingApi.helaposPaymentStatus(qrSession.paymentId)
         const data = res?.data ?? res
         if (cancelled) return
-        if (data?.paid || data?.status === 'APPROVED') {
+        if (data?.paid || data?.status === 'APPROVED' || data?.invoice?.status === 'PAID') {
           setQrPaid(true)
-          toast.success('Payment received — subscription updated')
+          toast.success('Payment received — account activated')
+          notifyBillingPaid({
+            invoiceNumber: data?.invoice?.invoiceNumber || qrSession.invoiceNumber,
+            paymentId: qrSession.paymentId,
+          })
           await load()
         }
       } catch { /* keep polling */ }
     }
     void tick()
-    const id = window.setInterval(() => { void tick() }, 3000)
+    const id = window.setInterval(() => { void tick() }, 1500)
     return () => {
       cancelled = true
       window.clearInterval(id)
