@@ -105,11 +105,13 @@ export default function LoginPage() {
         .then(s => { if (!cancelled) setMaintenance(s.maintenance) })
         .catch(() => {})
 
-      // ── Web (browser): unchanged — if PIN enabled for this shop host, open PIN ──
+      // ── Web (browser): never ask for shop code — take it from host / last shop ──
       if (!desktop) {
         setDesktopFirstSetup(false)
-        if (resolved.slug) setShopSlug(resolved.slug)
-        if (fromHost) setShopLocked(true)
+        if (resolved.slug) {
+          setShopSlug(resolved.slug)
+          setShopLocked(true)
+        }
 
         if (!hostAllowsPin) {
           setShowPinOption(false)
@@ -462,13 +464,13 @@ export default function LoginPage() {
                   Enter PIN · then branch if needed · start work
                 </p>
 
-                {hostSlug || (shopLocked && effectiveSlug) ? (
+                {effectiveSlug ? (
                   <div className="mt-4 flex flex-col items-center gap-1.5">
                     <p className="inline-flex items-center gap-2 text-xs font-medium" style={{ color: '#ffffff' }}>
                       <Store size={13} style={{ color: '#ffffff' }} />
                       <span>Shop: {hostSlug || effectiveSlug}</span>
                     </p>
-                    {!hostSlug ? (
+                    {isHexalyteDesktopShell() && !hostSlug ? (
                       <button
                         type="button"
                         className="text-[11px] font-medium underline-offset-2 hover:underline"
@@ -492,7 +494,7 @@ export default function LoginPage() {
                       </button>
                     ) : null}
                   </div>
-                ) : (
+                ) : isHexalyteDesktopShell() ? (
                   <div className="mt-4 w-full text-left">
                     <label className="block text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>
                       Shop code
@@ -531,7 +533,7 @@ export default function LoginPage() {
                       From your shop URL: yourshop.app.hexalyte.com — saved for next launch
                     </p>
                   </div>
-                )}
+                ) : null}
               </div>
 
               {maintenance?.enabled && (
@@ -566,7 +568,11 @@ export default function LoginPage() {
                 />
               ) : (
                 <div className="px-1 py-4 text-center space-y-2 mb-4">
-                  <p className="text-sm" style={{ color: '#ffffff' }}>Enter your shop code above to unlock PIN</p>
+                  <p className="text-sm" style={{ color: '#ffffff' }}>
+                    {isHexalyteDesktopShell()
+                      ? 'Enter your shop code above to unlock PIN'
+                      : 'PIN login is available on your shop URL'}
+                  </p>
                 </div>
               )}
 
