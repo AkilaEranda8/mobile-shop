@@ -15,6 +15,8 @@ export type QrSessionStatus =
 export interface QrSessionState {
   status: QrSessionStatus
   qr?: string
+  /** 8-digit code for mobile "Link with phone number" (no QR scan needed). */
+  pairingCode?: string
   phoneNumber?: string
   displayName?: string
   lastChecked?: string
@@ -24,6 +26,7 @@ interface TenantRuntime {
   tenantId: string
   status: QrSessionStatus
   qr?: string
+  pairingCode?: string
   phoneNumber?: string
   displayName?: string
   socket?: any
@@ -123,6 +126,7 @@ async function bindSocket(tenantId: string, sock: any) {
       const jid: string | undefined = sock.user?.id
       rt.status = 'connected'
       rt.qr = undefined
+      rt.pairingCode = undefined
       rt.phoneNumber = formatPhone(jid)
       rt.displayName = sock.user?.name ?? rt.phoneNumber
       await persistConnected(tenantId, rt.phoneNumber, rt.displayName)
@@ -134,6 +138,7 @@ async function bindSocket(tenantId: string, sock: any) {
 
       rt.socket = undefined
       rt.qr = undefined
+      rt.pairingCode = undefined
 
       if (loggedOut) {
         rt.status = 'disconnected'
@@ -185,6 +190,7 @@ export async function startQrSession(
     clearAuthFiles(tenantId)
     rt.status = 'disconnected'
     rt.qr = undefined
+    rt.pairingCode = undefined
   }
 
   if (rt.socket && !opts.force) {
@@ -256,10 +262,81 @@ export function getQrState(tenantId: string): QrSessionState {
   return {
     status:      rt.status,
     qr:          rt.qr,
+    pairingCode: rt.pairingCode,
     phoneNumber: rt.phoneNumber,
     displayName: rt.displayName,
     lastChecked: new Date().toISOString(),
   }
+}
+
+/** Digits-only WhatsApp number with country code (e.g. 94771234567). */
+function toPairingPhoneDigits(phone: string): string {
+  let digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0') && digits.length >= 9) {
+    digits = `94${digits.slice(1)}`
+  }
+  if (digits.length < 8 || digits.length > 15) {
+    throw new Error('Enter a valid WhatsApp number with country code (e.g. 0771234567 or +94771234567)')
+  }
+  return digits
+}
+
+/**
+ * Mobile-friendly link: request an 8-digit pairing code so the user can enter it in
+ * WhatsApp → Linked Devices → Link with phone number (no QR scan on the same phone).
+ */
+export async function requestPairingCode(
+  tenantId: string,
+  phone: string,
+): Promise<QrSessionState & { pairingCode: string }> {
+  const digits = toPairingPhoneDigits(phone)
+  const rt = getRuntime(tenantId)
+
+  if (rt.status === 'connected' && rt.socket) {
+    throw new Error('WhatsApp is already connected. Disconnect first to link again.')
+  }
+
+  // Fresh socket so pairing can run (registered sessions skip the pairing window).
+  const needsFresh =
+    !rt.socket ||
+    !!rt.socket?.authState?.creds?.registered ||
+    rt.status === 'disconnected'
+
+  await startQrSession(tenantId, { force: needsFresh })
+
+  const live = getRuntime(tenantId)
+  const sock = live.socket
+  if (!sock) {
+    throw new Error('Could not start WhatsApp session. Try again.')
+  }
+
+  if (sock.authState?.creds?.registered) {
+    throw new Error('Session already registered. Disconnect WhatsApp, then try pairing again.')
+  }
+
+  // Baileys is ready to pair once the first QR update arrives (even if we ignore the QR).
+  if (!live.qr) await waitForQr(live, 25000)
+  if (!live.socket) {
+    throw new Error('WhatsApp session dropped while waiting. Try again.')
+  }
+
+  let raw: string
+  try {
+    raw = await live.socket.requestPairingCode(digits)
+  } catch (err: any) {
+    throw new Error(err?.message || 'Could not generate pairing code. Check the number and try again.')
+  }
+
+  const cleaned = String(raw ?? '').replace(/\D/g, '')
+  if (cleaned.length < 8) {
+    throw new Error('WhatsApp did not return a pairing code. Try New code again.')
+  }
+  const pairingCode = `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}`
+  live.pairingCode = pairingCode
+  live.status = 'qr_pending'
+  live.phoneNumber = `+${digits}`
+
+  return { ...getQrState(tenantId), pairingCode }
 }
 
 export function isQrConnected(tenantId: string): boolean {
@@ -326,6 +403,7 @@ export async function disconnectQrSession(tenantId: string) {
   } catch {}
   rt.socket = undefined
   rt.qr = undefined
+  rt.pairingCode = undefined
   rt.status = 'disconnected'
   rt.phoneNumber = undefined
   rt.displayName = undefined

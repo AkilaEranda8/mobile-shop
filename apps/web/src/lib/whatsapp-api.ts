@@ -22,6 +22,7 @@ export interface WAStatusInfo {
   connectionMode?: WAConnectionMode
   enabled?: boolean
   qr?: string
+  pairingCode?: string
   phoneNumber?: string
   displayName?: string
   lastChecked?: string
@@ -32,6 +33,7 @@ export interface WAQrSession {
   status: 'disconnected' | 'qr_pending' | 'connecting' | 'connected'
   connectionMode: 'qr'
   qr?: string
+  pairingCode?: string
   phoneNumber?: string
   displayName?: string
   lastChecked?: string
@@ -99,6 +101,7 @@ export const whatsappApi = {
   getQrSession:      ()                              => api.get<{ data: WAQrSession }>(`${BASE}/qr`),
   startQrConnect:    ()                              => api.post<{ data: WAQrSession }>(`${BASE}/qr/start`, {}),
   refreshQrConnect:  ()                              => api.post<{ data: WAQrSession }>(`${BASE}/qr/refresh`, {}),
+  requestPairingCode:(phone: string)                 => api.post<{ data: WAQrSession }>(`${BASE}/qr/pairing-code`, { phone }),
   connect:           (body: Partial<WAConfig>)       => api.post<{ data: WAStatusInfo }>(`${BASE}/connect`, body),
   disconnect:        ()                              => api.post<{ data: { success: boolean } }>(`${BASE}/disconnect`, {}),
   updateConfig:      (body: Partial<WAConfig>)       => api.put<{ data: WAConfig }>(`${BASE}/config`, body),

@@ -59,6 +59,9 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
   const [enabled,        setEnabled]        = useState(config.enabled ?? false)
   const [copied,         setCopied]          = useState(false)
   const [disconnecting,  setDisconnecting]   = useState(false)
+  const [pairPhone,      setPairPhone]       = useState('')
+  const [pairingCode,    setPairingCode]     = useState<string | null>(status?.pairingCode ?? null)
+  const [pairingLoading, setPairingLoading]  = useState(false)
 
   const currentStatus = status?.status ?? 'disconnected'
   const scfg          = STATUS_CFG[currentStatus] ?? STATUS_CFG.disconnected
@@ -67,9 +70,12 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
 
   const applySession = useCallback((data: WAStatusInfo) => {
     onStatusChange(data)
+    if (data.pairingCode) setPairingCode(data.pairingCode)
     if (data.status === 'connected') {
+      setPairingCode(null)
       saveLocalWAConfig({ connectionMode: mode, enabled }, tenantId)
     }
+    if (data.status === 'disconnected') setPairingCode(null)
   }, [enabled, mode, onStatusChange, tenantId])
 
   const renderQr = useCallback(async (qr?: string) => {
@@ -178,6 +184,7 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
     try {
       await whatsappApi.updateConfig({ connectionMode: 'qr', enabled: true }).catch(() => {})
       setEnabled(true)
+      setPairingCode(null)
       const res: any = await whatsappApi.refreshQrConnect()
       const data: WAStatusInfo = res?.data ?? res
       if (data.qr) await renderQr(data.qr)
@@ -187,6 +194,31 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to refresh QR')
     } finally { setQrRefreshing(false) }
+  }
+
+  const handlePairingCode = async () => {
+    if (!canEdit) return viewOnlyToast('WhatsApp')
+    const normalized = normalizePhone(pairPhone)
+    if (!/^\+[1-9]\d{6,14}$/.test(normalized)) {
+      toast.error('Enter your WhatsApp number (e.g. 0771234567)')
+      return
+    }
+    setPairingLoading(true)
+    try {
+      await whatsappApi.updateConfig({ connectionMode: 'qr', enabled: true }).catch(() => {})
+      setEnabled(true)
+      const res: any = await whatsappApi.requestPairingCode(normalized)
+      const data: WAStatusInfo = res?.data ?? res
+      if (data.qr) await renderQr(data.qr)
+      if (data.pairingCode) setPairingCode(data.pairingCode)
+      applySession(data)
+      startPolling()
+      toast.success('Enter this code in WhatsApp → Linked Devices')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to get pairing code')
+    } finally {
+      setPairingLoading(false)
+    }
   }
 
   const handleSave = async () => {
@@ -251,6 +283,7 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
       setForm({ accessToken: '', phoneNumberId: '', wabaId: '', verifyToken: '' })
       setEnabled(false)
       setQrImage(null)
+      setPairingCode(null)
       onStatusChange({ status: 'disconnected', connectionMode: mode })
       onConfigChange({ accessToken: '', phoneNumberId: '', wabaId: '', verifyToken: '', enabled: false, connectionMode: mode })
       toast.success('WhatsApp disconnected')
@@ -337,9 +370,65 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
             <div className="border-b border-white/5 pb-3">
               <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>QR Code Connect</h2>
               <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
-                {shopName ? `${shopName} — ` : ''}Scan with your shop phone to connect
+                {shopName ? `${shopName} — ` : ''}Phone browser: use pairing code below. Computer: scan the QR.
               </p>
             </div>
+
+            {!isConnected && (
+              <div
+                className="rounded-xl border p-4 space-y-3"
+                style={{ borderColor: 'rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.06)' }}
+              >
+                <div className="flex items-start gap-2">
+                  <Phone size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-green-400">Phone browser — Pairing code</p>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">
+                      Same phone එකේ QR scan කරන්න බෑ. Number එක දාලා code එක WhatsApp එකට type කරන්න.
+                    </p>
+                  </div>
+                </div>
+                {pairingCode ? (
+                  <div className="text-center space-y-2 py-2">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Enter in WhatsApp</p>
+                    <p className="text-3xl sm:text-4xl font-mono font-bold tracking-[0.2em] text-white tabular-nums">
+                      {pairingCode}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      WhatsApp → Linked Devices → Link a Device → <span className="text-green-400">Link with phone number</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handlePairingCode}
+                      disabled={pairingLoading || !pairPhone.trim()}
+                      className="text-xs text-green-400 hover:underline disabled:opacity-50"
+                    >
+                      {pairingLoading ? 'Getting new code…' : 'Get new code'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      className="input-field text-sm flex-1"
+                      placeholder="0771234567 or +94771234567"
+                      value={pairPhone}
+                      onChange={e => setPairPhone(e.target.value)}
+                      inputMode="tel"
+                      autoComplete="tel"
+                    />
+                    <button
+                      type="button"
+                      onClick={handlePairingCode}
+                      disabled={pairingLoading || qrLoading}
+                      className="btn-primary flex items-center justify-center gap-2 disabled:opacity-60 whitespace-nowrap"
+                    >
+                      {pairingLoading ? <Loader2 size={13} className="animate-spin" /> : <Hash size={13} />}
+                      Get code
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col items-center gap-4 py-2">
               {isConnected ? (
@@ -350,45 +439,56 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
                   <p className="text-sm font-semibold text-green-400">WhatsApp Connected</p>
                   <p className="text-xs text-gray-500 dark:text-slate-500">{status?.phoneNumber}</p>
                 </div>
-              ) : qrImage ? (
-                <div className="p-4 rounded-2xl bg-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qrImage} alt="WhatsApp QR Code" width={260} height={260} className="block" />
-                </div>
               ) : (
-                <div className="w-[260px] h-[260px] rounded-2xl border border-dashed border-white/10 flex flex-col items-center justify-center gap-3 text-slate-500">
-                  {qrLoading ? (
-                    <>
-                      <Loader2 size={40} className="opacity-50 animate-spin" />
-                      <p className="text-xs text-center px-6 text-blue-400">Generating QR code…</p>
-                    </>
+                <>
+                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold self-start w-full">
+                    Computer — QR scan
+                  </p>
+                  {qrImage ? (
+                    <div className="p-4 rounded-2xl bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={qrImage} alt="WhatsApp QR Code" width={260} height={260} className="block max-w-full h-auto" />
+                    </div>
                   ) : (
-                    <>
-                      <QrCode size={48} className="opacity-30" />
-                      <p className="text-xs text-center px-6">Click QR Connect or Show QR Code, then scan with your phone</p>
-                    </>
+                    <div className="w-full max-w-[260px] aspect-square rounded-2xl border border-dashed border-white/10 flex flex-col items-center justify-center gap-3 text-slate-500">
+                      {qrLoading ? (
+                        <>
+                          <Loader2 size={40} className="opacity-50 animate-spin" />
+                          <p className="text-xs text-center px-6 text-blue-400">Generating QR code…</p>
+                        </>
+                      ) : (
+                        <>
+                          <QrCode size={48} className="opacity-30" />
+                          <p className="text-xs text-center px-6">Optional on phone — use pairing code above, or Show QR on a computer</p>
+                        </>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
 
               {(currentStatus === 'qr_pending' || currentStatus === 'connecting') && (
                 <p className="text-xs text-blue-400 flex items-center gap-1.5">
                   <Loader2 size={12} className="animate-spin" />
-                  {currentStatus === 'connecting' ? 'Connecting on your phone…' : 'Scan the QR code…'}
+                  {currentStatus === 'connecting'
+                    ? 'Connecting on your phone…'
+                    : pairingCode
+                      ? 'Waiting for pairing code…'
+                      : 'Scan the QR code…'}
                 </p>
               )}
             </div>
 
             <div className="flex flex-wrap gap-2">
               {!isConnected && (
-                <button onClick={handleStartQr} disabled={qrLoading || qrRefreshing}
+                <button onClick={handleStartQr} disabled={qrLoading || qrRefreshing || pairingLoading}
                   className="btn-primary flex items-center gap-2 disabled:opacity-60">
                   {qrLoading ? <Loader2 size={13} className="animate-spin" /> : <QrCode size={13} />}
                   {qrImage ? 'Reconnect QR' : 'Show QR Code'}
                 </button>
               )}
               {!isConnected && qrImage && (
-                <button onClick={handleRefreshQr} disabled={qrRefreshing || qrLoading}
+                <button onClick={handleRefreshQr} disabled={qrRefreshing || qrLoading || pairingLoading}
                   className="flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium rounded-lg border"
                   style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}>
                   {qrRefreshing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -440,10 +540,10 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
             <div className="card p-4 space-y-3">
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">How to connect</h3>
               {[
-                'Open WhatsApp on your phone',
-                'Go to Settings → Linked Devices → Link a Device',
-                'Scan the QR code shown here',
-                'Once connected, you can send invoices and messages',
+                'On this phone browser: enter your WhatsApp number → Get code',
+                'Open WhatsApp → Linked Devices → Link a Device',
+                'Tap “Link with phone number instead” and enter the 8-digit code',
+                'Or on a computer: Show QR Code and scan with WhatsApp',
               ].map((text, i) => (
                 <div key={i} className="flex items-center gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/25 text-green-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0">

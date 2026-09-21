@@ -114,6 +114,13 @@ export const whatsappController = {
     } catch (e) { next(e) }
   },
 
+  async requestPairingCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await whatsappService.requestPairingCode(req.user!.tenantId, req.body.phone)
+      sendSuccess(res, data, 'Pairing code ready')
+    } catch (e) { next(e) }
+  },
+
   // ── Meta webhook verification (public) ──────────────────────────────────────
   async webhookVerify(req: Request, res: Response) {
     const mode      = req.query['hub.mode']

@@ -39,6 +39,11 @@ export const sendTestMessageSchema = z.object({
   phone: phoneSchema,
 })
 
+/** Phone number for Baileys pairing-code link (mobile browser — no QR scan). */
+export const pairingCodeSchema = z.object({
+  phone: phoneSchema,
+})
+
 export const sendInvoiceSchema = z.object({
   orderId:      z.string().min(1, 'Order ID is required'),
   phone:        phoneSchema,

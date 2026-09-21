@@ -9,6 +9,7 @@ import {
   sendQrDocument,
   isQrConnected,
   restoreQrSessions,
+  requestPairingCode as startPairingCodeSession,
   type QrSessionState,
 } from './whatsapp-session.manager'
 import { loadInvoiceSettingsForTemplates, renderWhatsAppSaleInvoice } from '../template-engine/template-engine.service'
@@ -195,6 +196,12 @@ export const whatsappService = {
   async refreshQrConnect(tenantId: string) {
     await ensureWhatsAppConfig(tenantId, { connectionMode: 'qr', enabled: true })
     const state = await startQrSession(tenantId, { force: true })
+    return { ...state, connectionMode: 'qr' as const }
+  },
+
+  async requestPairingCode(tenantId: string, phone: string) {
+    await ensureWhatsAppConfig(tenantId, { connectionMode: 'qr', enabled: true })
+    const state = await startPairingCodeSession(tenantId, phone)
     return { ...state, connectionMode: 'qr' as const }
   },
 

@@ -9,6 +9,7 @@ import {
   sendTestMessageSchema,
   sendInvoiceSchema,
   sendMessageSchema,
+  pairingCodeSchema,
 } from './whatsapp.schema'
 
 const router = Router()
@@ -30,6 +31,7 @@ router.get('/messages/recent',     whatsappController.getRecentMessages)
 router.get('/qr',                 authorize('OWNER', 'MANAGER'),                                   whatsappController.getQrSession)
 router.post('/qr/start',          authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'),           whatsappController.startQrConnect)
 router.post('/qr/refresh',        authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'),           whatsappController.refreshQrConnect)
+router.post('/qr/pairing-code',   authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), validate(pairingCodeSchema), whatsappController.requestPairingCode)
 
 router.post('/connect',            authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'), validate(connectSchema),          whatsappController.connect)
 router.post('/disconnect',         authorize('OWNER', 'MANAGER', 'CASHIER', 'TECHNICIAN'),                                   whatsappController.disconnect)
