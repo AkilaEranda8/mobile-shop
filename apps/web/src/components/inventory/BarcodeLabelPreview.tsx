@@ -56,106 +56,111 @@ function StickerFace({
     resolved.showSku &&
     resolved.showBarcodeText &&
     resolved.showPrice
-  const pricePt = Math.min(dense ? 7.5 : 9, Math.max(resolved.nameFontPt + 1.2, 7))
+  const showTop =
+    resolved.showShopName ||
+    resolved.showProductName ||
+    (resolved.showSku && !!label.sku)
+  const minimal =
+    !resolved.showShopName &&
+    !resolved.showProductName &&
+    !resolved.showSku &&
+    resolved.showBarcodeText &&
+    resolved.showPrice
+  const pricePt = Math.min(dense ? 7.5 : minimal ? 9.5 : 9, Math.max(resolved.nameFontPt + 1.2, 7))
   const namePt = Math.min(resolved.nameFontPt, dense ? 5.8 : 6.8) * scale * 0.88
   const metaPt = Math.max(8, (dense ? 3.6 : 4) * scale * 0.9)
-  const digitsPt = Math.max(8, barcodeDigitsFontPt(label.barcode, dense) * scale * 0.92)
-  const gap = Math.max(2, scale * 0.22)
-  const padX = Math.max(6, scale * 1.1)
-  const accentH = Math.max(2, scale * 0.4)
+  const digitsPt = Math.max(9, barcodeDigitsFontPt(label.barcode, dense) * scale * (minimal ? 1.05 : 0.95))
+  const gap = Math.max(2, scale * 0.28)
+  const padX = Math.max(8, scale * (minimal ? 1.4 : 1.2))
+  const padY = Math.max(6, scale * (minimal ? 1.1 : 0.85))
 
   return (
     <div
-      className="bg-white text-black shadow-lg border border-slate-400/80"
+      className="bg-white text-black shadow-md border border-slate-300/90"
       style={{
         width: `${resolved.widthMm * scale}px`,
         height: `${resolved.heightMm * scale}px`,
-        padding: `0 ${padX}px ${Math.max(4, scale * 0.7)}px`,
+        padding: `${padY}px ${padX}px`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
-        justifyContent: 'flex-start',
+        justifyContent: minimal ? 'center' : 'flex-start',
         textAlign: 'center',
         position: 'relative',
         fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        borderRadius: 3,
+        borderRadius: 4,
       }}
     >
-      <div
-        style={{
-          height: accentH,
-          width: '100%',
-          background: '#000',
-          flexShrink: 0,
-          marginBottom: Math.max(3, gap * 1.2),
-        }}
-      />
-
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: Math.max(1, gap * 0.55),
-          flexShrink: 0,
-          width: '100%',
-        }}
-      >
-        {resolved.showShopName && (
-          <p
-            className="truncate w-full"
-            style={{
-              fontSize: `${metaPt}px`,
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: '#333',
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
-            {shopName?.trim() || 'DEMO SPARE PARTS STORE'}
-          </p>
-        )}
-        {resolved.showProductName && (
-          <p
-            className="w-full"
-            style={{
-              fontSize: `${Math.max(10, namePt)}px`,
-              fontWeight: 800,
-              letterSpacing: '-0.015em',
-              color: '#000',
-              lineHeight: 1.12,
-              display: '-webkit-box',
-              WebkitLineClamp: resolved.nameMaxLines,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              wordBreak: 'break-word',
-              margin: 0,
-            }}
-          >
-            {label.name}
-          </p>
-        )}
-        {resolved.showSku && label.sku && (
-          <p
-            className="truncate w-full"
-            style={{
-              fontSize: `${metaPt * 0.92}px`,
-              fontWeight: 600,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: '#555',
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
-            {label.sku}
-          </p>
-        )}
-      </div>
+      {showTop && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: Math.max(2, gap * 0.55),
+            flexShrink: 0,
+            width: '100%',
+            paddingBottom: Math.max(3, gap * 0.7),
+            marginBottom: Math.max(3, gap * 0.55),
+            borderBottom: `${Math.max(1, scale * 0.14)}px solid #d4d4d4`,
+          }}
+        >
+          {resolved.showShopName && (
+            <p
+              className="truncate w-full"
+              style={{
+                fontSize: `${metaPt}px`,
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: '#525252',
+                lineHeight: 1.15,
+                margin: 0,
+              }}
+            >
+              {shopName?.trim() || 'DEMO SPARE PARTS STORE'}
+            </p>
+          )}
+          {resolved.showProductName && (
+            <p
+              className="w-full"
+              style={{
+                fontSize: `${Math.max(10, namePt)}px`,
+                fontWeight: 700,
+                letterSpacing: '-0.01em',
+                color: '#0a0a0a',
+                lineHeight: 1.15,
+                display: '-webkit-box',
+                WebkitLineClamp: resolved.nameMaxLines,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'break-word',
+                margin: 0,
+              }}
+            >
+              {label.name}
+            </p>
+          )}
+          {resolved.showSku && label.sku && (
+            <p
+              className="truncate w-full"
+              style={{
+                fontSize: `${metaPt * 0.95}px`,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#737373',
+                lineHeight: 1.1,
+                margin: 0,
+              }}
+            >
+              {label.sku}
+            </p>
+          )}
+        </div>
+      )}
 
       <div
         style={{
@@ -164,11 +169,11 @@ function StickerFace({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: Math.max(2, gap * 0.5),
+          gap: Math.max(3, gap * (minimal ? 0.85 : 0.55)),
           flex: '1 1 auto',
           minHeight: 0,
           overflow: 'hidden',
-          padding: `${Math.max(2, gap * 0.4)}px 0`,
+          padding: `${Math.max(2, gap * 0.35)}px 0`,
         }}
       >
         <div
@@ -184,18 +189,15 @@ function StickerFace({
         />
         {resolved.showBarcodeText && (
           <p
-            className="w-full"
+            className="w-full truncate"
             style={{
               fontSize: `${digitsPt}px`,
-              fontWeight: 700,
-              fontFamily: 'Consolas, "Courier New", Courier, monospace',
-              letterSpacing: '0.04em',
-              color: '#111',
-              lineHeight: 1.15,
+              fontWeight: 600,
+              fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
+              letterSpacing: '0.12em',
+              color: '#171717',
+              lineHeight: 1.2,
               margin: 0,
-              whiteSpace: 'normal',
-              wordBreak: 'break-all',
-              overflowWrap: 'anywhere',
               flexShrink: 0,
             }}
           >
@@ -209,19 +211,19 @@ function StickerFace({
           style={{
             width: '100%',
             flexShrink: 0,
-            marginTop: Math.max(2, gap * 0.4),
-            paddingTop: Math.max(3, gap * 0.7),
-            borderTop: `${Math.max(1.5, scale * 0.28)}px solid #000`,
+            marginTop: Math.max(4, gap * (minimal ? 0.9 : 0.5)),
+            paddingTop: Math.max(4, gap * (minimal ? 0.85 : 0.65)),
+            borderTop: `${Math.max(1, scale * 0.16)}px solid #a3a3a3`,
           }}
         >
           <p
             className="w-full"
             style={{
-              fontSize: `${Math.max(12, pricePt * scale * 0.88)}px`,
-              fontWeight: 900,
-              letterSpacing: '-0.02em',
-              color: '#000',
-              lineHeight: 1.05,
+              fontSize: `${Math.max(13, pricePt * scale * 0.9)}px`,
+              fontWeight: 800,
+              letterSpacing: '0.01em',
+              color: '#0a0a0a',
+              lineHeight: 1.1,
               margin: 0,
               paddingBottom: resolved.showCopyIndex && (label.qty ?? 1) > 1 ? gap : 0,
             }}
@@ -233,14 +235,14 @@ function StickerFace({
 
       {resolved.showCopyIndex && (label.qty ?? 1) > 1 && (
         <span
-          className="absolute font-bold"
+          className="absolute font-semibold"
           style={{
-            right: padX * 0.4,
-            bottom: Math.max(3, scale * 0.35),
-            fontSize: `${Math.max(8, 3.6 * scale * 0.85)}px`,
-            color: '#444',
+            right: padX * 0.45,
+            bottom: Math.max(4, scale * 0.4),
+            fontSize: `${Math.max(8, 3.5 * scale * 0.85)}px`,
+            color: '#737373',
             lineHeight: 1,
-            letterSpacing: '0.02em',
+            letterSpacing: '0.04em',
           }}
         >
           1/{label.qty ?? 1}
@@ -250,7 +252,7 @@ function StickerFace({
   )
 }
 
-/** Full sticker preview — modern: accent → shop → name → sku → barcode → digits → price */
+/** Full sticker preview — clean: shop/name/sku → barcode → digits → price */
 export function BarcodeStickerPreview({
   item,
   settings,
@@ -280,12 +282,18 @@ export function BarcodeStickerPreview({
     resolved.showSku &&
     resolved.showBarcodeText &&
     resolved.showPrice
+  const minimal =
+    !resolved.showShopName &&
+    !resolved.showProductName &&
+    !resolved.showSku &&
+    resolved.showBarcodeText &&
+    resolved.showPrice
   const barcodeMaxH = Math.max(
-    16,
+    18,
     Math.min(
-      resolved.heightMm * scale * (dense ? 0.18 : 0.24),
-      (dense ? 3.8 : 5) * scale,
-      resolved.barcodeHeight * scale * 0.2,
+      resolved.heightMm * scale * (dense ? 0.18 : minimal ? 0.4 : 0.28),
+      (dense ? 3.8 : minimal ? 7.2 : 5.4) * scale,
+      resolved.barcodeHeight * scale * (minimal ? 0.32 : 0.22),
     ),
   )
 
@@ -311,7 +319,7 @@ export function BarcodeStickerPreview({
     const renderH = Math.max(16, Math.round(barcodeMaxH / Math.max(scale, 1)))
     barcodeRef.current.innerHTML = renderBarcodeSvg(label.barcode, {
       height: Math.min(resolved.barcodeHeight, renderH),
-      width: Math.min(resolved.barcodeBarWidth, dense ? 1.15 : 1.4),
+      width: Math.min(resolved.barcodeBarWidth, dense ? 1.15 : minimal ? 1.55 : 1.4),
       displayValue: false,
     })
     const svg = barcodeRef.current.querySelector('svg')
@@ -322,7 +330,7 @@ export function BarcodeStickerPreview({
       svg.style.maxHeight = `${barcodeMaxH}px`
       svg.style.display = 'block'
     }
-  }, [label.barcode, resolved.barcodeHeight, resolved.barcodeBarWidth, barcodeMaxH, scale, dense])
+  }, [label.barcode, resolved.barcodeHeight, resolved.barcodeBarWidth, barcodeMaxH, scale, dense, minimal])
 
   if (large) {
     return (

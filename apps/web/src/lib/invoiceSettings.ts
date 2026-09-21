@@ -121,13 +121,13 @@ export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>
   },
   standard: {
     label: 'Design 2',
-    description: 'Modern sheet · shop + name + sku + barcode + price',
+    description: 'Clean sheet · shop + name + barcode + price',
     widthMm: 50,
     heightMm: 30,
     preset: 'standard',
     showShopName: true,
     showProductName: true,
-    showSku: true,
+    showSku: false,
     showPrice: true,
     showBarcodeText: true,
     showCopyIndex: false,
@@ -155,20 +155,25 @@ export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>
   },
 }
 
+/**
+ * System default barcode label = the approved clean design:
+ * shop name → product name → barcode → digits → price (no SKU line).
+ * 50×30mm sheet. SKU can still be turned on per-shop via the customizer.
+ */
 export const DEFAULT_BARCODE_LABEL_SETTINGS: BarcodeLabelSettings = {
-  widthMm: BARCODE_LABEL_DESIGNS.standard.widthMm,
-  heightMm: BARCODE_LABEL_DESIGNS.standard.heightMm,
-  preset: BARCODE_LABEL_DESIGNS.standard.preset,
-  showShopName: BARCODE_LABEL_DESIGNS.standard.showShopName,
-  showProductName: BARCODE_LABEL_DESIGNS.standard.showProductName,
-  showSku: BARCODE_LABEL_DESIGNS.standard.showSku,
-  showPrice: BARCODE_LABEL_DESIGNS.standard.showPrice,
-  showBarcodeText: BARCODE_LABEL_DESIGNS.standard.showBarcodeText,
-  showCopyIndex: BARCODE_LABEL_DESIGNS.standard.showCopyIndex,
-  nameFontPt: BARCODE_LABEL_DESIGNS.standard.nameFontPt,
-  barcodeHeight: BARCODE_LABEL_DESIGNS.standard.barcodeHeight,
-  barcodeBarWidth: BARCODE_LABEL_DESIGNS.standard.barcodeBarWidth,
-  nameMaxLines: BARCODE_LABEL_DESIGNS.standard.nameMaxLines,
+  widthMm: 50,
+  heightMm: 30,
+  preset: 'standard',
+  showShopName: true,
+  showProductName: true,
+  showSku: false,
+  showPrice: true,
+  showBarcodeText: true,
+  showCopyIndex: false,
+  nameFontPt: 6,
+  barcodeHeight: 24,
+  barcodeBarWidth: 1.15,
+  nameMaxLines: 2,
 }
 
 export const BARCODE_QUICK_DESIGNS = ['compact', 'standard', 'detailed'] as const

@@ -45,6 +45,15 @@ export function barcodeDigitsFontPt(value: string, dense: boolean): number {
   return dense ? 5.2 : 5.6
 }
 
+/** Reject symbology labels accidentally saved as barcode (e.g. "Code 128 (C128)"). */
+export function isUsableBarcodeValue(value: string): boolean {
+  const v = value.trim()
+  if (!v) return false
+  if (/^(code\s*128|code\s*39|ean-?13|ean-?8|upc-?a|qr\s*code)\b/i.test(v)) return false
+  if (/\(\s*c128\s*\)|\(\s*c39\s*\)/i.test(v)) return false
+  return true
+}
+
 export function renderBarcodeSvg(
   value: string,
   opts?: {
@@ -54,7 +63,7 @@ export function renderBarcodeSvg(
     fontSize?: number
   },
 ): string {
-  if (!value?.trim()) return ''
+  if (!value?.trim() || !isUsableBarcodeValue(value)) return ''
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   try {
     JsBarcode(svg, value.trim(), {
@@ -64,7 +73,11 @@ export function renderBarcodeSvg(
       displayValue: opts?.displayValue !== false,
       fontSize: opts?.fontSize ?? 7,
       textMargin: 0,
-      margin: 1,
+      margin: 0,
+      marginTop: 0,
+      marginBottom: 0,
+      marginLeft: 2,
+      marginRight: 2,
       background: '#ffffff',
       lineColor: '#000000',
     })
@@ -96,6 +109,10 @@ function singleLabelHtml(
     width: settings.barcodeBarWidth,
     displayValue: false,
   })
+  const hasTop =
+    (settings.showShopName && !!shopName?.trim()) ||
+    settings.showProductName ||
+    (settings.showSku && !!item.sku)
   const seq =
     settings.showCopyIndex && copyTotal > 1
       ? `<span class="seq">${copyIndex}/${copyTotal}</span>`
@@ -109,9 +126,8 @@ function singleLabelHtml(
     : ''
   const sku =
     settings.showSku && item.sku
-      ? `<span class="sku">${escapeHtml(item.sku)}</span>`
+      ? `<p class="sku">${escapeHtml(item.sku)}</p>`
       : ''
-  const meta = sku ? `<div class="meta">${sku}</div>` : ''
   const digitsPt = barcodeDigitsFontPt(item.barcode, dense)
   const digits = settings.showBarcodeText
     ? `<p class="digits" style="font-size:${digitsPt}pt">${escapeHtml(item.barcode.trim())}</p>`
@@ -122,13 +138,8 @@ function singleLabelHtml(
       : '<div class="footer footer-empty"></div>'
 
   return `
-    <div class="label">
-      <div class="accent"></div>
-      <div class="top">
-        ${shop}
-        ${name}
-        ${meta}
-      </div>
+    <div class="label${hasTop ? '' : ' label-minimal'}">
+      ${hasTop ? `<div class="top">${shop}${name}${sku}</div>` : ''}
       <div class="mid">
         <div class="barcode">${svg}</div>
         ${digits}
@@ -155,7 +166,7 @@ export function printBarcodeLabels(
   items: BarcodeLabelItem[],
   options?: BarcodePrintOptions,
 ) {
-  const valid = items.filter(i => i.barcode?.trim())
+  const valid = items.filter(i => i.barcode?.trim() && isUsableBarcodeValue(i.barcode))
   if (!valid.length) return false
 
   const settings = resolvePrintBarcodeLabelSettings(options?.settings)
@@ -168,9 +179,18 @@ export function printBarcodeLabels(
     settings.showSku &&
     settings.showBarcodeText &&
     settings.showPrice
+  const minimal =
+    !settings.showShopName &&
+    !settings.showProductName &&
+    !settings.showSku &&
+    settings.showBarcodeText &&
+    settings.showPrice
   // Keep bars short enough that digits + price never collide on 50×30 dense labels
-  const svgMaxH = Math.max(5, Math.min(hMm * (dense ? 0.18 : 0.24), dense ? 5.8 : 7.4))
-  const pricePt = Math.min(dense ? 7.2 : 8.5, Math.max(settings.nameFontPt + 1.2, 6.5))
+  const svgMaxH = Math.max(
+    5.5,
+    Math.min(hMm * (dense ? 0.18 : minimal ? 0.38 : 0.28), dense ? 5.8 : minimal ? 11 : 8.2),
+  )
+  const pricePt = Math.min(dense ? 7.2 : minimal ? 9.2 : 8.5, Math.max(settings.nameFontPt + 1.2, 6.5))
   const namePt = Math.min(settings.nameFontPt, dense ? 5.6 : 6.4)
   const labelCount = valid.reduce((sum, item) => sum + Math.max(1, Math.min(item.qty ?? 1, 99)), 0)
   const labelsBody = valid.map(item => labelHtml(item, settings, options?.shopName, dense)).join('')
@@ -247,48 +267,46 @@ export function printBarcodeLabels(
   .label {
     width: ${wMm - 1.2}mm;
     height: ${hMm - 1.2}mm;
-    padding: 0 1.5mm 1mm;
+    padding: ${minimal ? '1.4mm 2mm 1.2mm' : '1.2mm 1.8mm 1.1mm'};
     page-break-after: always;
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    justify-content: flex-start;
+    justify-content: ${minimal ? 'center' : 'flex-start'};
     text-align: center;
     overflow: hidden;
     background: #fff;
-    ${previewFirst ? `border: 1px solid #94a3b8; border-radius: 3px; box-shadow: 0 8px 24px rgba(15,23,42,0.12);` : ''}
-  }
-  .accent {
-    height: 0.55mm;
-    width: 100%;
-    background: #000;
-    flex-shrink: 0;
-    margin-bottom: 0.7mm;
+    ${previewFirst ? `border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 6px 18px rgba(15,23,42,0.1);` : ''}
   }
   .top, .mid {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25mm;
+    gap: ${dense ? '0.35mm' : '0.55mm'};
     flex-shrink: 0;
+  }
+  .top {
+    padding-bottom: 0.55mm;
+    margin-bottom: 0.45mm;
+    border-bottom: 0.18mm solid #d4d4d4;
   }
   .mid {
     flex: 1 1 auto;
     justify-content: center;
     min-height: 0;
     overflow: hidden;
-    gap: 0.35mm;
-    padding: 0.2mm 0;
+    gap: ${minimal ? '0.9mm' : '0.55mm'};
+    padding: ${minimal ? '0.4mm 0' : '0.35mm 0'};
   }
   .shop {
     font-size: ${dense ? 3.6 : 4}pt;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #333;
-    line-height: 1.1;
+    color: #525252;
+    line-height: 1.15;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
@@ -296,10 +314,10 @@ export function printBarcodeLabels(
   }
   .name {
     font-size: ${namePt}pt;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    color: #000;
-    line-height: 1.12;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #0a0a0a;
+    line-height: 1.15;
     max-width: 100%;
     word-break: break-word;
     overflow-wrap: anywhere;
@@ -308,19 +326,12 @@ export function printBarcodeLabels(
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .meta {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 0.1mm;
-  }
   .sku {
-    font-size: ${dense ? 3.5 : 3.8}pt;
+    font-size: ${dense ? 3.5 : 3.9}pt;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #555;
+    color: #737373;
     line-height: 1.1;
     max-width: 100%;
     white-space: nowrap;
@@ -347,26 +358,24 @@ export function printBarcodeLabels(
     max-height: ${svgMaxH}mm !important;
   }
   .digits {
-    font-weight: 700;
-    font-family: "Consolas", "Courier New", Courier, monospace;
-    letter-spacing: 0.04em;
-    color: #111;
-    line-height: 1.15;
+    font-weight: 600;
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    letter-spacing: 0.12em;
+    color: #171717;
+    line-height: 1.2;
     max-width: 100%;
-    white-space: normal;
-    word-break: break-all;
-    overflow-wrap: anywhere;
-    overflow: visible;
-    text-overflow: clip;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     flex-shrink: 0;
-    padding: 0 0.2mm;
+    padding: 0 0.3mm;
   }
   .footer {
     width: 100%;
     flex-shrink: 0;
-    margin-top: 0.35mm;
-    padding-top: 0.55mm;
-    border-top: 0.35mm solid #000;
+    margin-top: ${minimal ? '1mm' : '0.55mm'};
+    padding-top: ${minimal ? '0.85mm' : '0.65mm'};
+    border-top: 0.2mm solid #a3a3a3;
   }
   .footer-empty {
     border-top: 0;
@@ -375,20 +384,20 @@ export function printBarcodeLabels(
   }
   .price {
     font-size: ${pricePt}pt;
-    font-weight: 900;
-    letter-spacing: -0.02em;
-    color: #000;
-    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: #0a0a0a;
+    line-height: 1.1;
     padding-bottom: ${settings.showCopyIndex ? '1.1mm' : '0'};
   }
   .seq {
     position: absolute;
-    right: 0.9mm;
-    bottom: 0.45mm;
-    font-size: 3.6pt;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: #444;
+    right: 1mm;
+    bottom: 0.55mm;
+    font-size: 3.5pt;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #737373;
     line-height: 1;
   }
   @media print {
@@ -428,8 +437,11 @@ export function effectiveBarcodeValue(product: {
   barcode?: string | null
   sku?: string
 }): string | null {
-  const code = product.barcode?.trim() || product.sku?.trim()
-  return code || null
+  const barcode = product.barcode?.trim()
+  if (barcode && isUsableBarcodeValue(barcode)) return barcode
+  const sku = product.sku?.trim()
+  if (sku && isUsableBarcodeValue(sku)) return sku
+  return null
 }
 
 export function toBarcodeLabelItem(product: {
