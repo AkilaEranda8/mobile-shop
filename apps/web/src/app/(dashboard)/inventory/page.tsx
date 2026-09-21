@@ -1280,8 +1280,18 @@ export default function InventoryPage() {
       toast.error('No barcode or SKU to print for this product')
       return
     }
-    void openBarcodePreview([label], opts?.sku || product.sku || product.name)
+    void openBarcodePreview([label], opts?.name || product.name || opts?.sku || product.sku || 'Product')
   }, [openBarcodePreview])
+
+  const previewCopies = barcodePreviewLabels.length === 1
+    ? Math.max(1, barcodePreviewLabels[0]?.qty ?? 1)
+    : 1
+  const setPreviewCopies = useCallback((copies: number) => {
+    const n = Math.max(1, Math.floor(copies) || 1)
+    setBarcodePreviewLabels(prev =>
+      prev.length === 1 ? [{ ...prev[0], qty: n }] : prev,
+    )
+  }, [])
 
   const confirmPrintFromPreview = useCallback(() => {
     if (!barcodePreviewLabels.length) {
@@ -1797,6 +1807,8 @@ export default function InventoryPage() {
         shopName={shopName}
         loading={barcodePreviewLoading}
         printing={barcodePreviewPrinting}
+        copies={previewCopies}
+        onCopiesChange={setPreviewCopies}
         onClose={closeBarcodePreview}
         onPrint={confirmPrintFromPreview}
       />

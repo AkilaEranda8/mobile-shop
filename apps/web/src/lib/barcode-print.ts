@@ -18,6 +18,16 @@ export type BarcodeLabelItem = {
 export const BARCODE_LABEL_WIDTH_MM = DEFAULT_BARCODE_LABEL_SETTINGS.widthMm
 export const BARCODE_LABEL_HEIGHT_MM = DEFAULT_BARCODE_LABEL_SETTINGS.heightMm
 
+/** Max copies of a single label per print job (manual quantity input). */
+export const MAX_LABEL_COPIES = 500
+
+/** Clamp a user-typed copies value to a safe printable range. */
+export function clampLabelCopies(raw: number | string): number {
+  const n = Math.floor(Number(raw))
+  if (!Number.isFinite(n) || n < 1) return 1
+  return Math.min(n, MAX_LABEL_COPIES)
+}
+
 export type BarcodePrintOptions = {
   settings?: Partial<BarcodeLabelSettings> | BarcodeLabelSettings | null
   shopName?: string
@@ -156,7 +166,7 @@ function labelHtml(
   shopName?: string,
   dense = false,
 ): string {
-  const copies = Math.max(1, Math.min(item.qty ?? 1, 99))
+  const copies = Math.max(1, Math.min(item.qty ?? 1, MAX_LABEL_COPIES))
   return Array.from({ length: copies }, (_, i) =>
     singleLabelHtml(item, i + 1, copies, settings, shopName, dense),
   ).join('')
@@ -192,7 +202,7 @@ export function printBarcodeLabels(
   )
   const pricePt = Math.min(dense ? 7.2 : minimal ? 9.2 : 8.5, Math.max(settings.nameFontPt + 1.2, 6.5))
   const namePt = Math.min(settings.nameFontPt, dense ? 5.6 : 6.4)
-  const labelCount = valid.reduce((sum, item) => sum + Math.max(1, Math.min(item.qty ?? 1, 99)), 0)
+  const labelCount = valid.reduce((sum, item) => sum + Math.max(1, Math.min(item.qty ?? 1, MAX_LABEL_COPIES)), 0)
   const labelsBody = valid.map(item => labelHtml(item, settings, options?.shopName, dense)).join('')
 
   const toolbar = previewFirst
