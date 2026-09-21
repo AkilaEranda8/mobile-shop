@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, RotateCcw, Smartphone, Shield, Copy, Hash, Calendar, Route } from 'lucide-react'
+import { Plus, Package, AlertTriangle, Download, Upload, Edit, Trash2, Loader2, X, CheckCircle, AlertCircle, FileText, TrendingUp, Tag, Layers, BarChart2, ShoppingCart, ArrowUpRight, ArrowDownRight, RotateCcw, Smartphone, Shield, Copy, Hash, Calendar, Route, Printer } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header'
@@ -30,9 +30,40 @@ import {
   type ProductCsvRow,
 } from '@/lib/productCsvImport'
 import { findProductByCode, normalizeScanCode, productSearchHaystack } from '@/lib/barcode-scan'
-import { effectiveBarcodeValue } from '@/lib/barcode-print'
+import {
+  effectiveBarcodeValue,
+  printBarcodeLabels,
+  toBarcodeLabelItem,
+  type BarcodeLabelItem,
+} from '@/lib/barcode-print'
 import { BarcodeLabelPreview } from '@/components/inventory/BarcodeLabelPreview'
+import BarcodeLabelsPreviewModal from '@/components/inventory/BarcodeLabelsPreviewModal'
+import {
+  DEFAULT_BARCODE_LABEL_SETTINGS,
+  fetchInvoiceSettings,
+  resolveBarcodeLabelSettings,
+  type BarcodeLabelSettings,
+} from '@/lib/invoiceSettings'
+import { authStorage } from '@/lib/auth'
 import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl, StatusBadge } from '@/components/design-system'
+
+function barcodeLabelFromProduct(
+  product: Product,
+  opts?: { name?: string; sku?: string; price?: number; qty?: number },
+): BarcodeLabelItem | null {
+  const sku = opts?.sku ?? product.sku
+  const item = toBarcodeLabelItem(
+    {
+      name: opts?.name ?? product.name,
+      barcode: product.barcode,
+      sku,
+      sellingPrice: opts?.price ?? product.sellingPrice,
+    },
+    opts?.qty ?? 1,
+  )
+  if (!item) return null
+  return { ...item, sku, name: opts?.name ?? product.name, price: opts?.price ?? product.sellingPrice }
+}
 
 /* ── CSV Export ─────────────────────────────────────────────────────── */
 function exportProductsCSV(products: Product[]) {
@@ -575,7 +606,19 @@ function warrantyMonthsLabel(months: number): string {
 }
 
 /* ── Product Detail Modal (Sales Details layout) ─────────────────────── */
-function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Product; onClose: () => void; onEdit?: () => void; onCopy?: () => void }) {
+function ProductDetailModal({
+  product,
+  onClose,
+  onEdit,
+  onCopy,
+  onPrintBarcode,
+}: {
+  product: Product
+  onClose: () => void
+  onEdit?: () => void
+  onCopy?: () => void
+  onPrintBarcode?: () => void
+}) {
   const [detail, setDetail] = useState<Product>(product)
   const [loadingDetail, setLoadingDetail] = useState(true)
   const hasWholesalePricing = useFeatureFlag('WHOLESALE_PRICING')
@@ -646,6 +689,15 @@ function ProductDetailModal({ product, onClose, onEdit, onCopy }: { product: Pro
             <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/25">
               {productConditionLabel(detail.condition)}
             </span>
+            {onPrintBarcode && barcode && (
+              <button
+                type="button"
+                onClick={onPrintBarcode}
+                className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-semibold text-violet-700 dark:text-violet-300 border-violet-500/25 bg-violet-500/10 hover:bg-violet-500/20"
+              >
+                <Printer size={12} /> Print barcode
+              </button>
+            )}
             {onCopy && (
               <button
                 type="button"
@@ -1144,6 +1196,15 @@ export default function InventoryPage() {
   const [showManageBrand, setShowManageBrand] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewProduct, setViewProduct] = useState<Product | null>(null)
+  const [barcodePreviewOpen, setBarcodePreviewOpen] = useState(false)
+  const [barcodePreviewLoading, setBarcodePreviewLoading] = useState(false)
+  const [barcodePreviewPrinting, setBarcodePreviewPrinting] = useState(false)
+  const [barcodePreviewTitle, setBarcodePreviewTitle] = useState('')
+  const [barcodePreviewLabels, setBarcodePreviewLabels] = useState<BarcodeLabelItem[]>([])
+  const [shopName, setShopName] = useState('')
+  const [barcodeLabel, setBarcodeLabel] = useState<BarcodeLabelSettings>({ ...DEFAULT_BARCODE_LABEL_SETTINGS })
+  const barcodeLabelRef = useRef<BarcodeLabelSettings>({ ...DEFAULT_BARCODE_LABEL_SETTINGS })
+  const tenantId = authStorage.getUser()?.tenantId
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [brandFilter, setBrandFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'in' | 'low' | 'out'>('all')
@@ -1159,6 +1220,94 @@ export default function InventoryPage() {
   const canViewTraceability = useHasPermission(PERMISSIONS.PRODUCT_TRACEABILITY_VIEW)
   const allCategories: Category[] = (catsData ?? []) as Category[]
   const products: Product[] = (productsData?.data ?? []) as Product[]
+
+  const loadBarcodeSettings = useCallback(async () => {
+    if (!tenantId) return
+    try {
+      const s = await fetchInvoiceSettings(tenantId)
+      const resolved = resolveBarcodeLabelSettings(s)
+      barcodeLabelRef.current = resolved
+      setBarcodeLabel(resolved)
+      setShopName(s.shopName ?? '')
+    } catch {
+      /* keep defaults */
+    }
+  }, [tenantId])
+
+  useEffect(() => {
+    void loadBarcodeSettings()
+  }, [loadBarcodeSettings])
+
+  useEffect(() => {
+    const onUpdated = () => { void loadBarcodeSettings() }
+    window.addEventListener('invoice-settings-updated', onUpdated)
+    return () => window.removeEventListener('invoice-settings-updated', onUpdated)
+  }, [loadBarcodeSettings])
+
+  const closeBarcodePreview = useCallback(() => {
+    setBarcodePreviewOpen(false)
+    setBarcodePreviewLabels([])
+    setBarcodePreviewTitle('')
+    setBarcodePreviewLoading(false)
+    setBarcodePreviewPrinting(false)
+  }, [])
+
+  const openBarcodePreview = useCallback(async (
+    labels: BarcodeLabelItem[],
+    title: string,
+  ) => {
+    if (!labels.length) {
+      toast.error('No barcode or SKU to print for this product')
+      return
+    }
+    setBarcodePreviewTitle(title)
+    setBarcodePreviewLabels(labels)
+    setBarcodePreviewOpen(true)
+    setBarcodePreviewLoading(true)
+    try {
+      await loadBarcodeSettings()
+    } finally {
+      setBarcodePreviewLoading(false)
+    }
+  }, [loadBarcodeSettings])
+
+  const openPrintForProduct = useCallback((
+    product: Product,
+    opts?: { name?: string; sku?: string; price?: number },
+  ) => {
+    const label = barcodeLabelFromProduct(product, { ...opts, qty: 1 })
+    if (!label) {
+      toast.error('No barcode or SKU to print for this product')
+      return
+    }
+    void openBarcodePreview([label], opts?.sku || product.sku || product.name)
+  }, [openBarcodePreview])
+
+  const confirmPrintFromPreview = useCallback(() => {
+    if (!barcodePreviewLabels.length) {
+      toast.error('No barcode labels to print')
+      return
+    }
+    const printWin = window.open('', '_blank', 'width=720,height=780')
+    if (!printWin) {
+      toast.error('Popup blocked — allow popups for this site to print barcodes')
+      return
+    }
+    setBarcodePreviewPrinting(true)
+    const opened = printBarcodeLabels(barcodePreviewLabels, {
+      settings: barcodeLabelRef.current,
+      shopName,
+      preview: true,
+      targetWindow: printWin,
+    })
+    setBarcodePreviewPrinting(false)
+    if (!opened) {
+      toast.error('Could not open print preview')
+      return
+    }
+    const total = barcodePreviewLabels.reduce((s, l) => s + (l.qty ?? 1), 0)
+    toast.success(`${total} label(s) — use Print in the preview window`)
+  }, [barcodePreviewLabels, shopName])
 
   const handleInventoryScan = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
@@ -1583,6 +1732,20 @@ export default function InventoryPage() {
               <Copy size={14} />
             </button>
           )}
+          <button
+            type="button"
+            title="Print barcode"
+            onClick={() =>
+              openPrintForProduct(row.original.product, {
+                name: row.original.displayName,
+                sku: row.original.displaySku,
+                price: row.original.displayPrice,
+              })
+            }
+            className="p-1.5 rounded-lg transition-colors hover:bg-violet-500/10 text-violet-400"
+          >
+            <Printer size={14} />
+          </button>
           {canViewTraceability && (
             <button
               type="button"
@@ -1596,7 +1759,7 @@ export default function InventoryPage() {
         </div>
       ),
     },
-  ], [canEditInventory, handleDelete, openCopy, openEdit, setViewProduct, hasWholesalePricing, hasCreditPricing, canViewTraceability, router])
+  ], [canEditInventory, handleDelete, openCopy, openEdit, setViewProduct, hasWholesalePricing, hasCreditPricing, canViewTraceability, router, openPrintForProduct])
 
 
   if (showAddProduct || copyProduct || editProduct) {
@@ -1623,8 +1786,20 @@ export default function InventoryPage() {
           onClose={() => setViewProduct(null)}
           onEdit={canEditInventory ? () => { void openEdit(viewProduct) } : undefined}
           onCopy={canEditInventory ? () => openCopy(viewProduct) : undefined}
+          onPrintBarcode={() => openPrintForProduct(viewProduct)}
         />
       )}
+      <BarcodeLabelsPreviewModal
+        open={barcodePreviewOpen}
+        poNumber={barcodePreviewTitle || 'Inventory'}
+        labels={barcodePreviewLabels}
+        settings={barcodeLabel}
+        shopName={shopName}
+        loading={barcodePreviewLoading}
+        printing={barcodePreviewPrinting}
+        onClose={closeBarcodePreview}
+        onPrint={confirmPrintFromPreview}
+      />
 
       <ImeiHealthBanner onFixed={refetch} />
 

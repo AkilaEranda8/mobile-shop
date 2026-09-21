@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Save, Building2, User, Bell, Shield, Palette, CreditCard, Users,
   Loader2, Eye, EyeOff, Trash2, Plus, X, Check, FileText, Smartphone, ChevronRight, BookOpen,
-  Package, Tag, Wallet, Copy, Monitor, MessageSquare, KeyRound,
+  Package, Tag, Wallet, Copy, Monitor, MessageSquare, KeyRound, RefreshCw,
 } from 'lucide-react'
 import { authApi, usersApi, tenantApi, uploadApi, deviceCatalogApi, plansApi, branchesApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
@@ -50,6 +50,7 @@ import toast from 'react-hot-toast'
 import UserManualPanel from '@/components/settings/UserManualPanel'
 import SmsSettingsPanel from '@/components/settings/SmsSettingsPanel'
 import BillingSubscriptionPanel from '@/components/settings/BillingSubscriptionPanel'
+import ReloadSettingsPanel from '@/components/settings/ReloadSettingsPanel'
 import {
   DEFAULT_PAYMENT_METHODS,
   makePaymentMethodId,
@@ -83,6 +84,7 @@ const tabs = [
   { key: 'manual',        label: 'User Manual',     icon: BookOpen   },
   { key: 'devices',       label: 'Devices',         icon: Smartphone },
   { key: 'payments',      label: 'Payment Methods', icon: Wallet     },
+  { key: 'reload',        label: 'Reload',          icon: RefreshCw  },
   { key: 'profile',       label: 'Profile',         icon: User       },
   { key: 'notifications', label: 'Notifications',   icon: Bell       },
   { key: 'sms',           label: 'SMS Gateway',     icon: MessageSquare },
@@ -103,6 +105,7 @@ export default function SettingsPage() {
   const { canView: canViewRole, canEdit: canEditRole } = useRolePermissions()
   const canViewStaff = canViewRole('STAFF')
   const canEditStaff = canEditRole('STAFF')
+  const hasDailyReload = useFeatureFlag('DAILY_RELOAD')
   const [activeTab, setActiveTab] = useState('shop')
   const currentUser = authStorage.getUser()
   const tenantId = currentUser?.tenantId
@@ -118,8 +121,12 @@ export default function SettingsPage() {
       setActiveTab('shop')
       return
     }
+    if (tab === 'reload' && !hasDailyReload) {
+      setActiveTab('shop')
+      return
+    }
     if (tab && tabs.some(t => t.key === tab)) setActiveTab(tab)
-  }, [searchParams, router, canViewStaff])
+  }, [searchParams, router, canViewStaff, hasDailyReload])
   const canManageFeatures = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER'
 
   /* ── Plans ── */
@@ -609,7 +616,10 @@ export default function SettingsPage() {
         {/* Sidebar */}
         <div className="lg:w-52 flex-shrink-0">
           <nav className="card p-2 space-y-0.5">
-            {tabs.filter(tab => tab.key !== 'team' || canViewStaff).map(tab => (
+            {tabs.filter(tab =>
+              (tab.key !== 'team' || canViewStaff) &&
+              (tab.key !== 'reload' || hasDailyReload)
+            ).map(tab => (
               <button
                 key={tab.key}
                 type="button"
@@ -1551,6 +1561,9 @@ export default function SettingsPage() {
               </div>}
             </div>
           )}
+
+          {/* ── RELOAD COMMISSION ── */}
+          {activeTab === 'reload' && hasDailyReload && <ReloadSettingsPanel />}
 
           {/* ── NOTIFICATIONS ── */}
           {activeTab === 'notifications' && (
