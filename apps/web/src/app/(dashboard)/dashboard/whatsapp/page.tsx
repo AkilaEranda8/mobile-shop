@@ -85,6 +85,20 @@ export default function WhatsAppPage() {
     setShopName(tenant?.name ?? tenant?.businessName ?? 'Your shop')
 
     let resolved: WAStatusInfo | null = s ?? localStatus
+    // Stale browser cache after server restart — don't keep "Scan QR" / connecting UI.
+    if (
+      s
+      && (s.status === 'disconnected' || s.status === 'token_expired')
+      && localStatus
+      && (localStatus.status === 'qr_pending' || localStatus.status === 'connecting')
+    ) {
+      resolved = s
+      try {
+        const key = `hx_wa_status_${tid}`
+        sessionStorage.removeItem(key)
+        localStorage.removeItem(key)
+      } catch { /* ignore */ }
+    }
     if (
       resolved?.status !== 'connected' &&
       localConfig.connectionMode !== 'qr' &&

@@ -116,7 +116,7 @@ async function bindSocket(tenantId: string, sock: any) {
 
     if (connection === 'connecting') {
       rt.status = 'connecting'
-      rt.qr = undefined
+      // Keep last QR visible until a new QR arrives or we open — clearing it leaves the UI blank.
     }
 
     if (connection === 'open') {
@@ -154,7 +154,7 @@ async function bindSocket(tenantId: string, sock: any) {
   })
 }
 
-async function waitForQr(rt: TenantRuntime, timeoutMs = 20000): Promise<void> {
+async function waitForQr(rt: TenantRuntime, timeoutMs = 35000): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     if (rt.qr) return

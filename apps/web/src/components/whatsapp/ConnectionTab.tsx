@@ -41,6 +41,7 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
   const [qrLoading, setQrLoading] = useState(false)
   const [qrRefreshing, setQrRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const emptyQrPollsRef = useRef(0)
 
   const [form, setForm] = useState({
     accessToken:   config.accessToken   ?? '',
@@ -85,18 +86,44 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
     try {
       const res: any = await whatsappApi.getQrSession()
       const data: WAStatusInfo = res?.data ?? res
-      if (data.qr) await renderQr(data.qr)
+      if (data.qr) {
+        emptyQrPollsRef.current = 0
+        await renderQr(data.qr)
+      } else if (data.status === 'qr_pending' || data.status === 'connecting') {
+        emptyQrPollsRef.current += 1
+        // After backend restart / lost socket, GET /qr returns pending with no QR forever.
+        if (emptyQrPollsRef.current >= 3 && canEdit) {
+          emptyQrPollsRef.current = 0
+          try {
+            const refreshed: any = await whatsappApi.refreshQrConnect()
+            const next: WAStatusInfo = refreshed?.data ?? refreshed
+            if (next.qr) await renderQr(next.qr)
+            applySession(next)
+            return
+          } catch {
+            /* keep polling; user can tap New QR */
+          }
+        }
+      } else {
+        emptyQrPollsRef.current = 0
+        if (pollRef.current) {
+          clearInterval(pollRef.current)
+          pollRef.current = null
+        }
+        setQrImage(null)
+      }
       applySession(data)
       if (data.status === 'connected') {
         if (pollRef.current) clearInterval(pollRef.current)
         pollRef.current = null
+        toast.success('WhatsApp connected')
       }
     } catch (err: any) {
       if (pollRef.current) clearInterval(pollRef.current)
       pollRef.current = null
       toast.error(err?.message ?? 'QR session error')
     }
-  }, [applySession, renderQr])
+  }, [applySession, canEdit, renderQr])
 
   const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
