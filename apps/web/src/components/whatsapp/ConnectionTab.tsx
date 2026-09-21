@@ -400,7 +400,7 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
                   <div>
                     <p className="text-sm font-semibold text-green-400">Phone browser — Pairing code</p>
                     <p className="text-[11px] text-gray-500 dark:text-slate-500 mt-0.5">
-                      Same phone එකේ QR scan කරන්න බෑ. Number එක දාලා code එක WhatsApp එකට type කරන්න.
+                      You can’t scan a QR code on the same phone. Enter your number, get a code, then type it in WhatsApp.
                     </p>
                   </div>
                 </div>
