@@ -100,7 +100,23 @@ async function persistDisconnected(tenantId: string) {
 
 function clearAuthFiles(tenantId: string) {
   const dir = sessionDir(tenantId)
-  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true })
+  try {
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true })
+  } catch (err) {
+    console.warn(`[whatsapp] clearAuthFiles ${tenantId}:`, (err as Error)?.message)
+  }
+}
+
+/** Kill socket before deleting auth files — otherwise Baileys saveCreds crashes the process (ENOENT). */
+async function destroySocket(rt: TenantRuntime) {
+  const sock = rt.socket
+  rt.socket = undefined
+  if (!sock) return
+  try { sock.ev?.removeAllListeners?.() } catch {}
+  try { await sock.logout?.() } catch {}
+  try { sock.end?.(undefined) } catch {}
+  // Let in-flight creds.write settle / fail before we rm the folder.
+  await new Promise((r) => setTimeout(r, 400))
 }
 
 async function bindSocket(tenantId: string, sock: any) {
@@ -110,51 +126,58 @@ async function bindSocket(tenantId: string, sock: any) {
   const { DisconnectReason } = await loadBaileys()
 
   sock.ev.on('connection.update', async (update: any) => {
-    const { connection, lastDisconnect, qr } = update
+    try {
+      // Ignore events from a superseded socket (force refresh / pairing restart).
+      if (rt.socket !== sock) return
 
-    if (qr) {
-      rt.status = 'qr_pending'
-      rt.qr = qr
-    }
+      const { connection, lastDisconnect, qr } = update
 
-    if (connection === 'connecting') {
-      rt.status = 'connecting'
-      // Keep last QR visible until a new QR arrives or we open — clearing it leaves the UI blank.
-    }
-
-    if (connection === 'open') {
-      const jid: string | undefined = sock.user?.id
-      rt.status = 'connected'
-      rt.qr = undefined
-      rt.pairingCode = undefined
-      rt.phoneNumber = formatPhone(jid)
-      rt.displayName = sock.user?.name ?? rt.phoneNumber
-      await persistConnected(tenantId, rt.phoneNumber, rt.displayName)
-    }
-
-    if (connection === 'close') {
-      const code = (lastDisconnect?.error as any)?.output?.statusCode
-      const loggedOut = code === DisconnectReason.loggedOut
-
-      rt.socket = undefined
-      rt.qr = undefined
-      rt.pairingCode = undefined
-
-      if (loggedOut) {
-        rt.status = 'disconnected'
-        clearAuthFiles(tenantId)
-        await persistDisconnected(tenantId)
-        return
+      if (qr) {
+        rt.status = 'qr_pending'
+        rt.qr = qr
       }
 
-      // Network blip — try to restore if creds still on disk
-      if (fs.existsSync(sessionDir(tenantId))) {
+      if (connection === 'connecting') {
         rt.status = 'connecting'
-        setTimeout(() => { startQrSession(tenantId, { force: false }).catch(() => {}) }, 3000)
-      } else {
-        rt.status = 'disconnected'
-        await persistDisconnected(tenantId)
+        // Keep last QR visible until a new QR arrives or we open — clearing it leaves the UI blank.
       }
+
+      if (connection === 'open') {
+        const jid: string | undefined = sock.user?.id
+        rt.status = 'connected'
+        rt.qr = undefined
+        rt.pairingCode = undefined
+        rt.phoneNumber = formatPhone(jid)
+        rt.displayName = sock.user?.name ?? rt.phoneNumber
+        await persistConnected(tenantId, rt.phoneNumber, rt.displayName)
+      }
+
+      if (connection === 'close') {
+        const code = (lastDisconnect?.error as any)?.output?.statusCode
+        const loggedOut = code === DisconnectReason.loggedOut
+
+        if (rt.socket === sock) rt.socket = undefined
+        rt.qr = undefined
+        rt.pairingCode = undefined
+
+        if (loggedOut) {
+          rt.status = 'disconnected'
+          clearAuthFiles(tenantId)
+          await persistDisconnected(tenantId)
+          return
+        }
+
+        // Network blip — try to restore if creds still on disk
+        if (fs.existsSync(sessionDir(tenantId))) {
+          rt.status = 'connecting'
+          setTimeout(() => { startQrSession(tenantId, { force: false }).catch(() => {}) }, 3000)
+        } else {
+          rt.status = 'disconnected'
+          await persistDisconnected(tenantId)
+        }
+      }
+    } catch (err) {
+      console.warn(`[whatsapp] connection.update ${tenantId}:`, (err as Error)?.message)
     }
   })
 }
@@ -184,9 +207,7 @@ export async function startQrSession(
   }
 
   if (opts.force) {
-    try { await rt.socket?.logout?.() } catch {}
-    try { rt.socket?.end?.() } catch {}
-    rt.socket = undefined
+    await destroySocket(rt)
     clearAuthFiles(tenantId)
     rt.status = 'disconnected'
     rt.qr = undefined
@@ -198,8 +219,7 @@ export async function startQrSession(
       if (!rt.qr && rt.status === 'qr_pending') await waitForQr(rt, 5000)
       return getQrState(tenantId)
     }
-    try { rt.socket?.end?.() } catch {}
-    rt.socket = undefined
+    await destroySocket(rt)
   }
 
   rt.starting = true
@@ -211,6 +231,17 @@ export async function startQrSession(
     fs.mkdirSync(dir, { recursive: true })
 
     const { state, saveCreds } = await useMultiFileAuthState(dir)
+    const sockRef: { current: any } = { current: null }
+    const safeSaveCreds = async () => {
+      try {
+        // Force-refresh can delete the folder while Baileys still fires creds.update.
+        if (getRuntime(tenantId).socket !== sockRef.current) return
+        fs.mkdirSync(dir, { recursive: true })
+        await saveCreds()
+      } catch (err) {
+        console.warn(`[whatsapp] saveCreds ${tenantId}:`, (err as Error)?.message)
+      }
+    }
 
     let version: [number, number, number]
     try {
@@ -234,9 +265,10 @@ export async function startQrSession(
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
     })
+    sockRef.current = sock
 
-    sock.ev.on('creds.update', saveCreds)
-    bindSocket(tenantId, sock)
+    sock.ev.on('creds.update', () => { void safeSaveCreds() })
+    await bindSocket(tenantId, sock)
 
     rt.status = state.creds?.registered ? 'connecting' : 'qr_pending'
     await waitForQr(rt)
@@ -247,8 +279,7 @@ export async function startQrSession(
   } catch (err) {
     rt.status = 'disconnected'
     rt.qr = undefined
-    try { rt.socket?.end?.() } catch {}
-    rt.socket = undefined
+    await destroySocket(rt)
     throw err
   } finally {
     rt.starting = false
@@ -398,10 +429,7 @@ export async function sendQrDocument(
 
 export async function disconnectQrSession(tenantId: string) {
   const rt = getRuntime(tenantId)
-  try {
-    if (rt.socket) await rt.socket.logout()
-  } catch {}
-  rt.socket = undefined
+  await destroySocket(rt)
   rt.qr = undefined
   rt.pairingCode = undefined
   rt.status = 'disconnected'

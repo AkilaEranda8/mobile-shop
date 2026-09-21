@@ -42,6 +42,8 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
   const [qrRefreshing, setQrRefreshing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const emptyQrPollsRef = useRef(0)
+  const autoRefreshTriedRef = useRef(false)
+  const pollInFlightRef = useRef(false)
 
   const [form, setForm] = useState({
     accessToken:   config.accessToken   ?? '',
@@ -89,6 +91,8 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
   }, [])
 
   const pollQrStatus = useCallback(async () => {
+    if (pollInFlightRef.current) return
+    pollInFlightRef.current = true
     try {
       const res: any = await whatsappApi.getQrSession()
       const data: WAStatusInfo = res?.data ?? res
@@ -97,17 +101,20 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
         await renderQr(data.qr)
       } else if (data.status === 'qr_pending' || data.status === 'connecting') {
         emptyQrPollsRef.current += 1
-        // After backend restart / lost socket, GET /qr returns pending with no QR forever.
-        if (emptyQrPollsRef.current >= 3 && canEdit) {
+        // After backend restart / lost socket, GET /qr returns pending with no QR.
+        // Only auto-refresh once — looping force-refresh crashes Baileys (creds ENOENT → 502).
+        if (emptyQrPollsRef.current >= 4 && canEdit && !autoRefreshTriedRef.current) {
+          autoRefreshTriedRef.current = true
           emptyQrPollsRef.current = 0
           try {
             const refreshed: any = await whatsappApi.refreshQrConnect()
             const next: WAStatusInfo = refreshed?.data ?? refreshed
             if (next.qr) await renderQr(next.qr)
+            if (next.pairingCode) setPairingCode(next.pairingCode)
             applySession(next)
             return
           } catch {
-            /* keep polling; user can tap New QR */
+            /* user can tap New QR / Get code */
           }
         }
       } else {
@@ -128,13 +135,15 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
       if (pollRef.current) clearInterval(pollRef.current)
       pollRef.current = null
       toast.error(err?.message ?? 'QR session error')
+    } finally {
+      pollInFlightRef.current = false
     }
   }, [applySession, canEdit, renderQr])
 
   const startPolling = useCallback(() => {
-    if (pollRef.current) clearInterval(pollRef.current)
+    if (pollRef.current) return
     pollRef.current = setInterval(pollQrStatus, 2500)
-    pollQrStatus()
+    void pollQrStatus()
   }, [pollQrStatus])
 
   useEffect(() => {
@@ -146,6 +155,7 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
     if (!canEdit) return viewOnlyToast('WhatsApp')
     if (qrLoading || qrRefreshing) return
     setQrLoading(true)
+    autoRefreshTriedRef.current = false
     try {
       await whatsappApi.updateConfig({ connectionMode: 'qr', enabled: true }).catch(() => {})
       setEnabled(true)
@@ -163,7 +173,7 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
       const msg = err?.message ?? 'Failed to start QR session'
       toast.error(msg.includes('Forbidden') ? 'Only Owner/Manager can connect WhatsApp' : msg)
     } finally { setQrLoading(false) }
-  }, [applySession, enabled, onConfigChange, qrLoading, qrRefreshing, renderQr, startPolling, tenantId])
+  }, [applySession, canEdit, enabled, onConfigChange, qrLoading, qrRefreshing, renderQr, startPolling, tenantId])
 
   const selectMode = useCallback((key: WAConnectionMode) => {
     setMode(key)
@@ -172,15 +182,21 @@ export default function ConnectionTab({ shopName, canEdit, status, config, onSta
   useEffect(() => {
     if (!isQrMode) return
     if (currentStatus === 'qr_pending' || currentStatus === 'connecting') startPolling()
-    if (status?.qr) renderQr(status.qr)
+    if (status?.qr) void renderQr(status.qr)
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
     }
-  }, [isQrMode, currentStatus, status?.qr, startPolling, renderQr])
+    // Only (re)start when mode/status bucket changes — not on every polled status object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isQrMode, currentStatus])
 
   const handleRefreshQr = async () => {
     if (!canEdit) return viewOnlyToast('WhatsApp')
     setQrRefreshing(true)
+    autoRefreshTriedRef.current = true
     try {
       await whatsappApi.updateConfig({ connectionMode: 'qr', enabled: true }).catch(() => {})
       setEnabled(true)
