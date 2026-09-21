@@ -201,8 +201,12 @@ export const whatsappService = {
 
   async requestPairingCode(tenantId: string, phone: string) {
     await ensureWhatsAppConfig(tenantId, { connectionMode: 'qr', enabled: true })
-    const state = await startPairingCodeSession(tenantId, phone)
-    return { ...state, connectionMode: 'qr' as const }
+    try {
+      const state = await startPairingCodeSession(tenantId, phone)
+      return { ...state, connectionMode: 'qr' as const }
+    } catch (err: any) {
+      throw new AppError(err?.message || 'Could not generate pairing code', 400)
+    }
   },
 
   async getConfig(tenantId: string) {

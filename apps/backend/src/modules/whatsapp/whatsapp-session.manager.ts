@@ -313,7 +313,7 @@ function toPairingPhoneDigits(phone: string): string {
 }
 
 /**
- * Mobile-friendly link: request an 8-digit pairing code so the user can enter it in
+ * Mobile-friendly link: request an 8-char pairing code so the user can enter it in
  * WhatsApp → Linked Devices → Link with phone number (no QR scan on the same phone).
  */
 export async function requestPairingCode(
@@ -327,13 +327,8 @@ export async function requestPairingCode(
     throw new Error('WhatsApp is already connected. Disconnect first to link again.')
   }
 
-  // Fresh socket so pairing can run (registered sessions skip the pairing window).
-  const needsFresh =
-    !rt.socket ||
-    !!rt.socket?.authState?.creds?.registered ||
-    rt.status === 'disconnected'
-
-  await startQrSession(tenantId, { force: needsFresh })
+  // Always start a fresh unregistered socket — pairing only works before registration.
+  await startQrSession(tenantId, { force: true })
 
   const live = getRuntime(tenantId)
   const sock = live.socket
@@ -351,18 +346,28 @@ export async function requestPairingCode(
     throw new Error('WhatsApp session dropped while waiting. Try again.')
   }
 
+  // Baileys 7 defaults to Crockford (letters+digits). Pass an 8-digit custom code so
+  // WhatsApp's phone keypad UI accepts it cleanly.
+  const customCode = Array.from({ length: 8 }, () => Math.floor(Math.random() * 10)).join('')
+
   let raw: string
   try {
-    raw = await live.socket.requestPairingCode(digits)
+    raw = await live.socket.requestPairingCode(digits, customCode)
   } catch (err: any) {
-    throw new Error(err?.message || 'Could not generate pairing code. Check the number and try again.')
+    // Fallback without custom code (Crockford) if WA rejects the custom one.
+    try {
+      raw = await live.socket.requestPairingCode(digits)
+    } catch (err2: any) {
+      throw new Error(err2?.message || err?.message || 'Could not generate pairing code. Check the number and try again.')
+    }
   }
 
-  const cleaned = String(raw ?? '').replace(/\D/g, '')
-  if (cleaned.length < 8) {
-    throw new Error('WhatsApp did not return a pairing code. Try New code again.')
+  const code = String(raw ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (code.length < 8) {
+    console.warn('[whatsapp] unexpected pairing code payload:', raw)
+    throw new Error('WhatsApp did not return a pairing code. Try Get code again.')
   }
-  const pairingCode = `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}`
+  const pairingCode = `${code.slice(0, 4)}-${code.slice(4, 8)}`
   live.pairingCode = pairingCode
   live.status = 'qr_pending'
   live.phoneNumber = `+${digits}`
