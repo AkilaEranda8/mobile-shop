@@ -10,6 +10,7 @@ import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { Prisma } from '@prisma/client'
 import { isInventoryEngineEnabled } from '../inventory-engine/inventory-engine.feature'
 import { applyStockAdjustmentEffects } from '../inventory-engine/inventory-engine.service'
+import { isValidUnitSerial, normalizeSerial } from '../../utils/serialNumber'
 
 function withEffectiveStock<T extends { stock: number; storageVariations?: unknown }>(p: T): T {
   if (!hasVariants(p.storageVariations)) return p
@@ -209,10 +210,11 @@ export const productsService = {
       return base
     }
 
-    if (/^\d{15}$/.test(trimmed)) {
+    const unitCode = normalizeSerial(trimmed)
+    if (isValidUnitSerial(unitCode)) {
       const record = await prisma.imeiRecord.findFirst({
         where: {
-          imei: trimmed,
+          OR: [{ imei: unitCode }, { imei: trimmed }],
           product: { tenantId, isActive: true, ...(branchId && { branchId }) },
         },
         include: {
@@ -222,7 +224,7 @@ export const productsService = {
       if (record?.product) {
         return {
           matchType: 'imei' as const,
-          imei: trimmed,
+          imei: record.imei,
           product: formatProduct(record.product),
           record: {
             id: record.id,

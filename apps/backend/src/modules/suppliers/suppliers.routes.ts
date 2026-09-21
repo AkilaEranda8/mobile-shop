@@ -18,6 +18,7 @@ import { recordSupplierPayment } from './supplier-payment.service'
 import { processPurchaseReturn, listPurchaseReturns } from './purchase-return.service'
 import { OPENING_BALANCE_SUPPLIER_PO_NOTES } from '../../constants/business-rules.constants'
 import { assertPurchaseOrderTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
+import { isValidUnitSerial, normalizeSerial, serialValidationMessage } from '../../utils/serialNumber'
 
 const router = Router()
 router.use(authenticate)
@@ -1035,13 +1036,16 @@ router.post('/purchase-orders/:id/register-imei', authorize('OWNER', 'MANAGER', 
     for (const entry of entries) {
       const { imei, variation, poItemId } = entry
       const branchId = po.branchId
-      const trimmed = (imei ?? '').trim()
-      if (!trimmed || !/^\d{15}$/.test(trimmed)) { results.errors.push(`Invalid IMEI: ${imei}`); continue }
-      if (!branchId) { results.errors.push(`Missing branch for IMEI ${trimmed}`); continue }
+      const trimmed = normalizeSerial(imei ?? '')
+      if (!trimmed || !isValidUnitSerial(trimmed)) {
+        results.errors.push(serialValidationMessage(imei ?? '') || `Invalid serial/IMEI: ${imei}`)
+        continue
+      }
+      if (!branchId) { results.errors.push(`Missing branch for serial ${trimmed}`); continue }
 
       const product = await resolveProduct(entry)
-      if (!product) { results.errors.push(`Product not found for IMEI ${trimmed}`); continue }
-      if (!product.trackImei) { results.errors.push(`${product.name} does not track IMEI`); continue }
+      if (!product) { results.errors.push(`Product not found for serial ${trimmed}`); continue }
+      if (!product.trackImei) { results.errors.push(`${product.name} does not track serial/IMEI`); continue }
 
       const poItem = matchPoItem(product.id, variation, poItemId)
       if (poItem && !poItem.productId) {
