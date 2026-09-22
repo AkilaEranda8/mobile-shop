@@ -893,6 +893,7 @@ export const imeiApi = {
   lookup: (imei: string) => api.get(`/imei/lookup/${imei}`),
   create: (body: unknown) => api.post('/imei', body),
   updateStatus: (id: string, status: string) => api.patch(`/imei/${id}/status`, { status }),
+  remove: (id: string, body: { adminPassword: string }) => api.post(`/imei/${id}/delete`, body),
 }
 
 export const plansApi = {

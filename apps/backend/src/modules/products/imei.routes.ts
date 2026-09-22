@@ -7,6 +7,7 @@ import { getPagination } from '../../utils/pagination'
 import { AppError } from '../../middleware/error.middleware'
 import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
 import { isValidUnitSerial, normalizeSerial, serialValidationMessage } from '../../utils/serialNumber'
+import { verifyTenantAdminPassword } from '../../utils/admin-password.util'
 
 const router = Router()
 router.use(authenticate)
@@ -227,6 +228,75 @@ router.patch('/:id/status', authorize('OWNER', 'MANAGER', 'TECHNICIAN'), async (
     }
     const record = await prisma.imeiRecord.update({ where: { id: req.params.id }, data: { status } })
     sendSuccess(res, record, 'Status updated')
+  } catch (e) { next(e) }
+})
+
+/** Delete a serial/IMEI record — requires OWNER/MANAGER + owner admin password (same gate as sale void). */
+router.post('/:id/delete', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = req.tenantId!
+    await verifyTenantAdminPassword(tenantId, req.body?.adminPassword)
+
+    const existing = await prisma.imeiRecord.findFirst({
+      where: { id: req.params.id, product: { tenantId } },
+      include: { product: { select: { id: true, name: true, trackImei: true, stock: true } } },
+    })
+    if (!existing) throw new AppError('IMEI record not found', 404)
+    assertBranchRecordAccess(req, existing.branchId)
+
+    if (existing.softReservedUntil && existing.softReservedUntil.getTime() > Date.now()) {
+      throw new AppError('Cannot delete — serial is soft-reserved for wholesale. Clear the reservation first.', 409)
+    }
+
+    const activeAgreement = await prisma.hirePurchaseAgreement.findFirst({
+      where: {
+        OR: [{ imeiRecordId: existing.id }, { imei: existing.imei }],
+        tenantId,
+        status: { in: ['PENDING', 'ACTIVE', 'DEFAULTED'] },
+      },
+      select: { agreementNumber: true },
+    })
+    if (activeAgreement) {
+      throw new AppError(
+        `Cannot delete — locked by hire purchase agreement ${activeAgreement.agreementNumber}`,
+        409,
+      )
+    }
+
+    const performedBy = req.user?.email || req.user?.userId || 'admin'
+
+    await prisma.$transaction(async (tx) => {
+      // Detach historical HP links (FK has no onDelete)
+      await tx.hirePurchaseAgreement.updateMany({
+        where: { imeiRecordId: existing.id },
+        data: { imeiRecordId: null },
+      })
+
+      // If unit was counted in stock, reverse one unit
+      if (existing.status === 'IN_STOCK' && existing.product.trackImei) {
+        const dec = await tx.product.updateMany({
+          where: { id: existing.productId, stock: { gte: 1 } },
+          data: { stock: { decrement: 1 } },
+        })
+        if (dec.count > 0) {
+          await tx.stockMovement.create({
+            data: {
+              productId: existing.productId,
+              branchId: existing.branchId,
+              type: 'ADJUSTMENT',
+              quantity: -1,
+              reference: existing.imei,
+              note: `Serial deleted from Serial Tracker (${existing.imei})`,
+              performedBy,
+            },
+          })
+        }
+      }
+
+      await tx.imeiRecord.delete({ where: { id: existing.id } })
+    })
+
+    sendSuccess(res, { id: existing.id, imei: existing.imei }, 'Serial / IMEI deleted')
   } catch (e) { next(e) }
 })
 

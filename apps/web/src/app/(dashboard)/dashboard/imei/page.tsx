@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import {
   Smartphone, Plus, CheckCircle, X, Loader2, Hash, ShoppingBag, Wrench,
   Search, History, User, Tag, Calendar, ChevronRight, RefreshCw, AlertTriangle,
-  Package, Receipt, Phone, Shield, ExternalLink,
+  Package, Receipt, Phone, Shield, ExternalLink, Trash2, Lock,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -41,12 +41,100 @@ const repairStatusColors: Record<string, string> = {
 function formatCurrency(v: any) { return `Rs. ${Number(v ?? 0).toLocaleString('en-LK')}` }
 function formatDate(d: string)  { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) }
 
+/** Owner/admin password gate — same pattern as sales void/edit. */
+function DeleteSerialPasswordModal({
+  imei,
+  statusLabel,
+  onClose,
+  onConfirm,
+}: {
+  imei: string
+  statusLabel: string
+  onClose: () => void
+  onConfirm: (adminPassword: string) => Promise<void>
+}) {
+  const [adminPassword, setAdminPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    if (!adminPassword.trim()) {
+      toast.error('Admin password is required')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await onConfirm(adminPassword)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
+      <form
+        className="rounded-xl w-full max-w-md border shadow-2xl p-5 space-y-4"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+        onSubmit={(e) => { e.preventDefault(); void submit() }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-red-500/15 text-red-500">
+            <Lock size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Delete serial</p>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+              Enter the owner / admin password to permanently remove{' '}
+              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{imei}</span>
+              {' '}({statusLabel}) from Serial Tracker.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: 'rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: 'var(--text-secondary)' }}>
+          This cannot be undone. In-stock units also reduce product stock by 1. Active hire-purchase locks block delete.
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+            <span className="inline-flex items-center gap-1"><Lock size={11} /> Owner / Admin password</span>
+          </label>
+          <input
+            type="password"
+            autoFocus
+            className="input-field w-full text-sm"
+            value={adminPassword}
+            onChange={e => setAdminPassword(e.target.value)}
+            placeholder="Enter owner password to confirm"
+            autoComplete="current-password"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} disabled={submitting}
+            className="px-3 py-2 text-xs font-semibold rounded-lg border"
+            style={{ borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
+            Cancel
+          </button>
+          <button type="submit" disabled={submitting}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg text-white bg-red-600 hover:bg-red-500 disabled:opacity-50">
+            {submitting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            Delete serial
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 /* ── IMEI Detail Modal (Sales Details layout) ─────────────────────────── */
 function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onClose: () => void; onStatusChange: () => void }) {
+  const { canEdit } = useModuleAccess()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [warranty, setWarranty] = useState<any>(null)
+  const [showDeleteGate, setShowDeleteGate] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -83,6 +171,20 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
       setData(r.data)
     } catch { toast.error('Failed to update status') }
     finally { setUpdating(false) }
+  }
+
+  const handleDelete = async (adminPassword: string) => {
+    if (!data?.record?.id) return
+    try {
+      await imeiApi.remove(data.record.id, { adminPassword })
+      toast.success('Serial deleted')
+      setShowDeleteGate(false)
+      onStatusChange()
+      onClose()
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete serial')
+      throw e
+    }
   }
 
   const record = data?.record
@@ -510,7 +612,34 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-end pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between pt-2">
+              <div className="flex flex-col gap-1">
+                {record && canEdit && (
+                  <button
+                    type="button"
+                    disabled={updating || Boolean(hirePurchase)}
+                    onClick={() => {
+                      if (hirePurchase) {
+                        toast.error(`Locked by hire purchase ${hirePurchase.agreementNumber}`)
+                        return
+                      }
+                      if (!canEdit) return viewOnlyToast('IMEI')
+                      setShowDeleteGate(true)
+                    }}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold text-red-500 disabled:opacity-40"
+                    style={{ borderColor: 'rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)' }}
+                    title={hirePurchase ? 'Clear hire purchase before deleting' : 'Delete serial (requires admin password)'}
+                  >
+                    <Trash2 size={13} />
+                    Delete serial
+                  </button>
+                )}
+                {hirePurchase && (
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    Delete blocked while hire purchase is active.
+                  </p>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={onClose}
@@ -523,6 +652,15 @@ function IMEIDetailModal({ imei, onClose, onStatusChange }: { imei: string; onCl
           </div>
         )}
       </div>
+
+      {showDeleteGate && record && (
+        <DeleteSerialPasswordModal
+          imei={imei}
+          statusLabel={st.label}
+          onClose={() => setShowDeleteGate(false)}
+          onConfirm={handleDelete}
+        />
+      )}
     </div>
   )
 }
