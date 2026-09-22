@@ -512,7 +512,7 @@ export const repairsApi = {
   faultOptions: () => api.get('/repairs/fault-options'),
   createFaultOption: (name: string) => api.post('/repairs/fault-options', { name }),
   update: (id: string, body: unknown) => api.put(`/repairs/${id}`, body),
-  delete: (id: string) => api.delete(`/repairs/${id}`),
+  delete: (id: string, body: { adminPassword: string }) => api.post(`/repairs/${id}/delete`, body),
   updateStatus: (id: string, status: string, note?: string) =>
     api.patch(`/repairs/${id}/status`, { status, note }),
   addPart: (id: string, body: { productId: string; quantity: number; unitCost?: number }) =>

@@ -7,7 +7,7 @@ import {
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
   History, XCircle, AlertCircle, ArrowLeft, MoreVertical, Phone, Mail, MapPin,
-  Shield, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, RefreshCw, Trash2,
+  Shield, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, RefreshCw, Trash2, Lock,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -963,6 +963,123 @@ const STATUS_CHIPS: { id: RepairStatusFilter; label: string }[] = [
 
 const ACTIVE_STATUSES = ['RECEIVED', 'DIAGNOSED', 'IN_REPAIR', 'QC']
 
+function DeleteRepairModal({
+  repair,
+  onClose,
+  onDeleted,
+}: {
+  repair: RepairTicket
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [adminPassword, setAdminPassword] = useState('')
+  const [saving, setSaving] = useState(false)
+  const delivered = repair.status === 'DELIVERED'
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, saving])
+
+  const submit = async () => {
+    if (!adminPassword.trim()) {
+      toast.error('Admin password is required')
+      return
+    }
+    setSaving(true)
+    try {
+      await repairsApi.delete(repair.id, { adminPassword })
+      toast.success(`Deleted ${repair.ticketNumber}`)
+      onDeleted()
+      onClose()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to delete repair ticket')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm"
+      onClick={() => { if (!saving) onClose() }}
+    >
+      <form
+        className="rounded-xl w-full max-w-md border shadow-2xl p-5 space-y-4"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+        onClick={e => e.stopPropagation()}
+        onSubmit={(e) => { e.preventDefault(); void submit() }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-rose-500/15 text-rose-500 shrink-0">
+            <AlertTriangle size={18} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Delete repair ticket?
+            </h3>
+            <p className="text-[12px] mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              Ticket{' '}
+              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {repair.ticketNumber}
+              </span>
+              {delivered
+                ? ' is delivered. This will reverse accounting journals, void the linked repair sale, restore spare-part stock, and remove the ticket.'
+                : ' will be permanently removed.'}
+              {' '}This cannot be undone.
+            </p>
+          </div>
+        </div>
+
+        {delivered && (
+          <div
+            className="rounded-lg border px-3 py-2.5 text-[11px] space-y-1"
+            style={{ borderColor: 'rgba(244,63,94,0.35)', background: 'rgba(244,63,94,0.08)', color: 'var(--text-secondary)' }}
+          >
+            <p className="font-semibold text-rose-500/90">Delivered ticket cleanup</p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>Accounting journals reversed</li>
+              <li>Linked repair sale voided</li>
+              <li>Spare-part stock restored</li>
+            </ul>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-[11px] font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+            <span className="inline-flex items-center gap-1"><Lock size={11} /> Owner / Admin password</span>
+          </label>
+          <input
+            type="password"
+            autoFocus
+            className="input-field w-full text-sm"
+            value={adminPassword}
+            onChange={e => setAdminPassword(e.target.value)}
+            placeholder="Enter owner password to confirm"
+            autoComplete="current-password"
+          />
+        </div>
+
+        <div className="flex gap-2 justify-end pt-1">
+          <button type="button" className="btn-secondary text-sm" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-60"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            {saving ? 'Deleting…' : 'Delete ticket'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
 
 export default function RepairsPage() {
   const hasAccess = useFeatureFlag('REPAIRS')
@@ -973,6 +1090,7 @@ export default function RepairsPage() {
   const [prefillData, setPrefillData]       = useState<any>(null)
   const [detailRepair, setDetailRepair]     = useState<RepairTicket | null>(null)
   const [editRepair,   setEditRepair]       = useState<RepairTicket | null>(null)
+  const [deleteRepair, setDeleteRepair]     = useState<RepairTicket | null>(null)
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatusFilter] = useState<RepairStatusFilter>('all')
   const [filtersReady, setFiltersReady] = useState(false)
@@ -990,28 +1108,19 @@ export default function RepairsPage() {
     setEditRepair(repair)
   }, [canEdit])
 
-  const handleDelete = useCallback(async (repair: RepairTicket) => {
+  const requestDelete = useCallback((repair: RepairTicket) => {
     if (!canEdit) {
       viewOnlyToast('repairs')
       return
     }
-    const delivered = repair.status === 'DELIVERED'
-    const ok = confirm(
-      delivered
-        ? `Delete delivered ticket ${repair.ticketNumber}?\n\nThis will reverse accounting journals, void the linked repair sale, restore spare-part stock, and remove the ticket. This cannot be undone.`
-        : `Delete repair ticket ${repair.ticketNumber}?\n\nThis cannot be undone.`,
-    )
-    if (!ok) return
-    try {
-      await repairsApi.delete(repair.id)
-      toast.success(`Deleted ${repair.ticketNumber}`)
-      if (detailRepair?.id === repair.id) setDetailRepair(null)
-      if (editRepair?.id === repair.id) setEditRepair(null)
-      refetch()
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to delete repair ticket')
-    }
-  }, [canEdit, detailRepair?.id, editRepair?.id, refetch])
+    setDeleteRepair(repair)
+  }, [canEdit])
+
+  const handleDeleted = useCallback(() => {
+    if (deleteRepair && detailRepair?.id === deleteRepair.id) setDetailRepair(null)
+    if (deleteRepair && editRepair?.id === deleteRepair.id) setEditRepair(null)
+    refetch()
+  }, [deleteRepair, detailRepair?.id, editRepair?.id, refetch])
 
   useEffect(() => {
     try {
@@ -1198,25 +1307,15 @@ export default function RepairsPage() {
           >
             <Printer size={13} />
           </button>
-          {canEdit && (
-            <button
-              onClick={() => void handleDelete(row.original)}
-              title="Delete repair ticket"
-              className="p-1.5 rounded-lg transition-colors hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
           <TableActionsRow
             showAction={{ action: () => openDetail(row.original) }}
             {...(canEdit ? { editAction: { action: () => openEdit(row.original) } } : {})}
-            {...(canEdit ? { deleteAction: { action: () => void handleDelete(row.original) } } : {})}
+            {...(canEdit ? { deleteAction: { action: () => requestDelete(row.original) } } : {})}
           />
         </div>
       ),
     },
-  ], [canEdit, openDetail, openEdit, handleDelete])
+  ], [canEdit, openDetail, openEdit, requestDelete])
 
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -1233,6 +1332,13 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {showAddModal  && <NewTicketModal onClose={() => { setShowAddModal(false); setPrefillData(null) }} onSaved={refetch} prefill={prefillData ?? undefined} />}
+      {deleteRepair && (
+        <DeleteRepairModal
+          repair={deleteRepair}
+          onClose={() => setDeleteRepair(null)}
+          onDeleted={handleDeleted}
+        />
+      )}
       {detailRepair  && (
         <RepairDetailsModal
           repair={detailRepair}
@@ -1243,7 +1349,7 @@ export default function RepairsPage() {
             setEditRepair(detailRepair)
             setDetailRepair(null)
           }}
-          onDelete={() => void handleDelete(detailRepair)}
+          onDelete={() => requestDelete(detailRepair)}
           onStatusChange={async (id, status) => {
             if (!canEdit) { viewOnlyToast('repairs'); return }
             try {

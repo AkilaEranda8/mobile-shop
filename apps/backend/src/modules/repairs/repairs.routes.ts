@@ -4,6 +4,7 @@ import { sendSuccess, sendPaginated } from '../../utils/response'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { redactRepairCost, redactRepairCostList } from '../../utils/product-cost-redact'
+import { verifyTenantAdminPassword } from '../../utils/admin-password.util'
 
 const router = Router()
 router.use(authenticate)
@@ -36,8 +37,16 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     sendSuccess(res, redactRepairCost(req, await repairsService.update(req.tenantId!, req.params.id, req.body, req)))
   } catch (e) { next(e) }
 })
-router.delete('/:id', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    await verifyTenantAdminPassword(req.tenantId!, req.body?.adminPassword)
+    sendSuccess(res, await repairsService.delete(req.tenantId!, req.params.id, req), 'Repair ticket deleted')
+  } catch (e) { next(e) }
+})
+/** Preferred delete path — admin password in JSON body (same gate as sale void / IMEI delete). */
+router.post('/:id/delete', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await verifyTenantAdminPassword(req.tenantId!, req.body?.adminPassword)
     sendSuccess(res, await repairsService.delete(req.tenantId!, req.params.id, req), 'Repair ticket deleted')
   } catch (e) { next(e) }
 })
