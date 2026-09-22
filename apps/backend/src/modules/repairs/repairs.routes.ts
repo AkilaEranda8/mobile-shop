@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { repairsService } from './repairs.service'
 import { sendSuccess, sendPaginated } from '../../utils/response'
-import { authenticate } from '../../middleware/auth.middleware'
+import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { enforceModuleAccess } from '../../middleware/module-access.middleware'
 import { redactRepairCost, redactRepairCostList } from '../../utils/product-cost-redact'
 
@@ -34,6 +34,11 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     sendSuccess(res, redactRepairCost(req, await repairsService.update(req.tenantId!, req.params.id, req.body, req)))
+  } catch (e) { next(e) }
+})
+router.delete('/:id', authorize('OWNER', 'MANAGER', 'CASHIER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await repairsService.delete(req.tenantId!, req.params.id, req), 'Repair ticket deleted')
   } catch (e) { next(e) }
 })
 router.post('/:id/status', async (req: Request, res: Response, next: NextFunction) => {

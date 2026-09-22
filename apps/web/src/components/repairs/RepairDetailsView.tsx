@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Loader2, X, Check, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   CheckCircle2, CheckCircle, MessageSquare, Package, ArrowRight, ArrowLeft, MoreVertical, Phone,
-  MapPin, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, History, Hash, Printer, Shield,
+  MapPin, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, History, Hash, Printer, Shield, Trash2,
 } from 'lucide-react'
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useProducts, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
@@ -152,10 +152,11 @@ function calcRepairTotals(repair: Pick<RepairTicket, 'estimatedCost' | 'sparePar
   const serviceFee = estimatedCost
   return { serviceFee, partsTotal, estimatedTotal: estimatedCost, subtotal: estimatedCost, estimatedCost }
 }
-export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChange, onRefresh, onRepairUpdate, allRepairs, showPageHeader = true }: {
+export default function RepairDetailsView({ repair, onBack, onEdit, onDelete, onStatusChange, onRefresh, onRepairUpdate, allRepairs, showPageHeader = true }: {
   repair: RepairTicket
   onBack: () => void
   onEdit: () => void
+  onDelete?: () => void
   onStatusChange: (id: string, status: string) => Promise<void>
   onRefresh: () => void
   onRepairUpdate: (repair: RepairTicket) => void
@@ -713,6 +714,15 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onStatusChan
           className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
         >
           <Pencil size={14} /> Edit
+        </button>
+      )}
+      {canEdit && onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="btn-secondary text-sm flex items-center gap-2 text-rose-500 border-rose-500/30 hover:bg-rose-500/10"
+        >
+          <Trash2 size={14} /> Delete
         </button>
       )}
       <button

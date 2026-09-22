@@ -512,4 +512,104 @@ export const repairsService = {
     void emitRepairAccounting(tenantId, id, r.branchId, body.cashierName)
     return serializeRepair(ticket!)
   },
+
+  async delete(tenantId: string, id: string, req?: Request) {
+    const r = await prisma.repairTicket.findFirst({
+      where: { id, tenantId },
+      include: { spareParts: true },
+    })
+    if (!r) throw new AppError('Repair ticket not found', 404)
+    if (req) assertBranchRecordAccess(req, r.branchId)
+
+    await prisma.$transaction(async (tx) => {
+      if (r.status === 'DELIVERED') {
+        const sale = await tx.sale.findFirst({
+          where: { tenantId, invoiceNumber: r.ticketNumber, source: 'REPAIR' },
+          include: { items: true },
+        })
+
+        // Restore spare-part stock that was deducted on collectPayment
+        for (const part of r.spareParts) {
+          if (!part.productId || part.quantity <= 0) continue
+          await tx.product.update({
+            where: { id: part.productId },
+            data: { stock: { increment: part.quantity } },
+          }).catch(() => {})
+          await tx.stockMovement.create({
+            data: {
+              productId: part.productId,
+              branchId: r.branchId,
+              type: 'ADJUSTMENT',
+              quantity: part.quantity,
+              reference: r.ticketNumber,
+              note: `Stock restored — repair ${r.ticketNumber} deleted`,
+              performedBy: req?.user?.email ?? 'system',
+            },
+          }).catch(() => {})
+        }
+
+        if (sale && sale.status !== 'RETURNED') {
+          if (r.customerId && Number(sale.dueAmount) > 0) {
+            await tx.customer.update({
+              where: { id: r.customerId },
+              data: {
+                totalDue: { decrement: Number(sale.dueAmount) },
+                totalPurchases: { decrement: 1 },
+              },
+            }).catch(() => {})
+          } else if (r.customerId) {
+            await tx.customer.update({
+              where: { id: r.customerId },
+              data: { totalPurchases: { decrement: 1 } },
+            }).catch(() => {})
+          }
+
+          const voidNote = `[VOIDED via repair delete ${new Date().toISOString().slice(0, 10)}] Repair ticket deleted`
+          await tx.sale.update({
+            where: { id: sale.id },
+            data: {
+              status: 'RETURNED',
+              notes: sale.notes ? `${sale.notes}\n${voidNote}` : voidNote,
+              paidAmount: 0,
+              dueAmount: 0,
+            },
+          })
+        }
+
+        // End warranties created for this repair invoice
+        await tx.warranty.updateMany({
+          where: { tenantId, invoiceNumber: r.ticketNumber },
+          data: { status: 'VOID', endDate: new Date() },
+        }).catch(() => {})
+
+        // Reverse income transaction posted for this repair
+        await tx.transaction.deleteMany({
+          where: {
+            tenantId,
+            type: 'INCOME',
+            category: 'Repairs',
+            reference: { contains: r.ticketNumber },
+          },
+        }).catch(() => {})
+      }
+
+      // Unlink any warranty claims pointing at this ticket
+      await tx.warrantyClaim.updateMany({
+        where: { repairTicketId: id },
+        data: { repairTicketId: null },
+      }).catch(() => {})
+
+      if (r.imei) {
+        await tx.imeiRecord.updateMany({
+          where: { imei: r.imei, status: 'IN_REPAIR' },
+          data: { status: 'IN_STOCK' },
+        }).catch(() => {})
+      }
+
+      // Cascade deletes notes, spareParts, history
+      await tx.repairTicket.delete({ where: { id } })
+    })
+
+    return { success: true, id, ticketNumber: r.ticketNumber }
+  },
 }

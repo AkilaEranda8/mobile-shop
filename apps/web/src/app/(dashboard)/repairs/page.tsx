@@ -990,6 +990,29 @@ export default function RepairsPage() {
     setEditRepair(repair)
   }, [canEdit])
 
+  const handleDelete = useCallback(async (repair: RepairTicket) => {
+    if (!canEdit) {
+      viewOnlyToast('repairs')
+      return
+    }
+    const delivered = repair.status === 'DELIVERED'
+    const ok = confirm(
+      delivered
+        ? `Delete delivered ticket ${repair.ticketNumber}?\n\nThis will void the linked repair sale, restore spare-part stock, and remove the ticket. This cannot be undone.`
+        : `Delete repair ticket ${repair.ticketNumber}?\n\nThis cannot be undone.`,
+    )
+    if (!ok) return
+    try {
+      await repairsApi.delete(repair.id)
+      toast.success(`Deleted ${repair.ticketNumber}`)
+      if (detailRepair?.id === repair.id) setDetailRepair(null)
+      if (editRepair?.id === repair.id) setEditRepair(null)
+      refetch()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to delete repair ticket')
+    }
+  }, [canEdit, detailRepair?.id, editRepair?.id, refetch])
+
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(REP_FILTERS_KEY)
@@ -1178,11 +1201,12 @@ export default function RepairsPage() {
           <TableActionsRow
             showAction={{ action: () => openDetail(row.original) }}
             {...(canEdit ? { editAction: { action: () => openEdit(row.original) } } : {})}
+            {...(canEdit ? { deleteAction: { action: () => void handleDelete(row.original) } } : {})}
           />
         </div>
       ),
     },
-  ], [canEdit, openDetail, openEdit])
+  ], [canEdit, openDetail, openEdit, handleDelete])
 
   if (!hasAccess) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -1209,6 +1233,7 @@ export default function RepairsPage() {
             setEditRepair(detailRepair)
             setDetailRepair(null)
           }}
+          onDelete={() => void handleDelete(detailRepair)}
           onStatusChange={async (id, status) => {
             if (!canEdit) { viewOnlyToast('repairs'); return }
             try {

@@ -5,10 +5,11 @@ import { ArrowLeft, X } from 'lucide-react'
 import RepairDetailsView from '@/components/repairs/RepairDetailsView'
 import type { RepairTicket } from '@/types'
 
-export default function RepairDetailsModal({ repair, onClose, onEdit, onStatusChange, onRefresh, onRepairUpdate, allRepairs }: {
+export default function RepairDetailsModal({ repair, onClose, onEdit, onDelete, onStatusChange, onRefresh, onRepairUpdate, allRepairs }: {
   repair: RepairTicket
   onClose: () => void
   onEdit: () => void
+  onDelete?: () => void
   onStatusChange: (id: string, status: string) => Promise<void>
   onRefresh: () => void
   onRepairUpdate: (repair: RepairTicket) => void
@@ -61,6 +62,7 @@ export default function RepairDetailsModal({ repair, onClose, onEdit, onStatusCh
             allRepairs={allRepairs}
             onBack={onClose}
             onEdit={onEdit}
+            onDelete={onDelete}
             onStatusChange={onStatusChange}
             onRepairUpdate={onRepairUpdate}
             onRefresh={onRefresh}
