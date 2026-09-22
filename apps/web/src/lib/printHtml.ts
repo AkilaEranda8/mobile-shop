@@ -3,8 +3,45 @@
  * - Prefer a pre-opened popup (must be opened in the same user-gesture as checkout click).
  * - If that popup is gone/blocked after async checkout, fall back to a hidden iframe
  *   (iframe.print does not need a user gesture).
+ * - Wait for <img> logos to load before print — thermal jobs often miss remote logos otherwise.
  * - Never close the print window within a few hundred ms — that cancels thermal print jobs.
  */
+
+function whenDocumentImagesReady(doc: Document, timeoutMs = 5000): Promise<void> {
+  const imgs = Array.from(doc.images ?? [])
+  if (!imgs.length) return Promise.resolve()
+
+  return new Promise(resolve => {
+    let pending = 0
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    const timer = window.setTimeout(finish, timeoutMs)
+
+    const onOne = () => {
+      pending -= 1
+      if (pending <= 0) {
+        window.clearTimeout(timer)
+        finish()
+      }
+    }
+
+    for (const img of imgs) {
+      if (img.complete && img.naturalHeight > 0) continue
+      pending += 1
+      img.addEventListener('load', onOne, { once: true })
+      img.addEventListener('error', onOne, { once: true })
+    }
+
+    if (pending <= 0) {
+      window.clearTimeout(timer)
+      finish()
+    }
+  })
+}
 
 function schedulePrint(win: Window, closeAfter: boolean) {
   let closed = false
@@ -27,8 +64,11 @@ function schedulePrint(win: Window, closeAfter: boolean) {
     if (closeAfter) setTimeout(close, 60_000)
   }
 
-  // document.write can finish load before onload is assigned
-  setTimeout(runPrint, 80)
+  const doc = win.document
+  void whenDocumentImagesReady(doc).then(() => {
+    // One more frame so layout/paint settles with the logo
+    requestAnimationFrame(() => setTimeout(runPrint, 50))
+  })
 }
 
 function printViaIframe(html: string): boolean {
@@ -63,14 +103,17 @@ function printViaIframe(html: string): boolean {
       cw.addEventListener('afterprint', cleanup)
     } catch { /* ignore */ }
 
-    setTimeout(() => {
-      try {
-        cw.focus()
-        cw.print()
-      } catch { /* ignore */ }
-      // keep iframe until afterprint or long timeout
-      setTimeout(cleanup, 60_000)
-    }, 100)
+    void whenDocumentImagesReady(doc).then(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try {
+            cw.focus()
+            cw.print()
+          } catch { /* ignore */ }
+          setTimeout(cleanup, 60_000)
+        }, 50)
+      })
+    })
 
     return true
   } catch {
@@ -129,4 +172,32 @@ export function printHtmlDocument(
 
   if (opts?.alertOnBlock) alert(opts.alertOnBlock)
   return false
+}
+
+/**
+ * Fetch a logo/image and return a data URL so thermal print does not depend on
+ * remote image load timing / desktop webview network quirks.
+ */
+export async function embedImageAsDataUrl(src?: string | null, timeoutMs = 4000): Promise<string | null> {
+  const raw = String(src ?? '').trim()
+  if (!raw) return null
+  if (raw.startsWith('data:')) return raw
+
+  try {
+    const ctrl = new AbortController()
+    const timer = window.setTimeout(() => ctrl.abort(), timeoutMs)
+    const res = await fetch(raw, { signal: ctrl.signal, mode: 'cors', credentials: 'omit', cache: 'force-cache' })
+    window.clearTimeout(timer)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    if (!blob.type.startsWith('image/')) return null
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
 }

@@ -5,7 +5,8 @@ import type { InvoiceSettings, ShopContext } from '@/lib/invoiceSettings'
 import { mergeReceiptSettings, HEXALYTE_SOFTWARE_FOOTER, thermalLogoMaxHeight, thermalBodyFontWeight } from '@/lib/invoiceSettings'
 import { formatWarrantyPeriodLabel, matchWarrantyMonths } from '@/components/pos/cart-rules'
 import { productConditionLabel } from '@/lib/productCondition'
-import { openReceiptPrintWindow, printHtmlDocument } from '@/lib/printHtml'
+import { openReceiptPrintWindow, printHtmlDocument, embedImageAsDataUrl } from '@/lib/printHtml'
+import { resolveUploadUrl } from '@/lib/api'
 
 export { openReceiptPrintWindow }
 
@@ -179,7 +180,11 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {show.logo && settings.logo && (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={settings.logo} alt="logo" style={{ display: 'block', maxHeight: logoHeight, maxWidth: '90%', objectFit: 'contain' }} />
+            <img
+              src={resolveUploadUrl(settings.logo) || settings.logo}
+              alt="logo"
+              style={{ display: 'block', maxHeight: logoHeight, maxWidth: '90%', objectFit: 'contain' }}
+            />
           </div>
         )}
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: fs.title }}>
@@ -336,7 +341,30 @@ export function printThermalReceipt(
   ctx?: ShopContext,
   opts?: { targetWindow?: Window | null },
 ): boolean {
+  void printThermalReceiptAsync(sale, settings, ctx, opts)
+  return true
+}
+
+async function printThermalReceiptAsync(
+  sale: ThermalSale,
+  settings: InvoiceSettings,
+  ctx?: ShopContext,
+  opts?: { targetWindow?: Window | null },
+): Promise<boolean> {
   settings = mergeReceiptSettings(settings, ctx)
+  if (settings.logo?.trim()) {
+    const resolved = resolveUploadUrl(settings.logo) || settings.logo.trim()
+    const embedded = await embedImageAsDataUrl(resolved)
+    settings = { ...settings, logo: embedded || resolved }
+  }
+  return buildAndPrintThermalReceipt(sale, settings, opts)
+}
+
+function buildAndPrintThermalReceipt(
+  sale: ThermalSale,
+  settings: InvoiceSettings,
+  opts?: { targetWindow?: Window | null },
+): boolean {
   const currency = settings.currency || 'LKR'
   const f = (n: number) => esc(currency + ' ' + fmtAmt(n))
   const fs = thermalFontScale(settings.thermalFontSize || 'md')
@@ -447,7 +475,7 @@ export function printThermalReceipt(
   </style>
 </head>
 <body>
-  ${show.logo && settings.logo ? `<div style="margin-bottom:6px;display:flex;justify-content:center"><img src="${esc(settings.logo)}" style="display:block;max-height:${logoHeight}px;max-width:90%;object-fit:contain"/></div>` : ''}
+  ${show.logo && settings.logo ? `<div style="margin-bottom:6px;display:flex;justify-content:center"><img src="${settings.logo.startsWith('data:') ? settings.logo.replace(/"/g, '') : esc(settings.logo)}" style="display:block;max-height:${logoHeight}px;max-width:90%;object-fit:contain"/></div>` : ''}
   <div class="center bold large wrap">${esc(settings.shopName || 'My Shop')}</div>
   ${show.slogan && settings.slogan ? `<div class="center small wrap">${esc(settings.slogan)}</div>` : ''}
   ${show.address && settings.address ? `<div class="center small wrap">${esc(settings.address)}</div>` : ''}

@@ -114,7 +114,7 @@ function BranchModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+      <div className="rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}>
         <div className="flex items-center justify-between p-5 border-b sticky top-0"
           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
