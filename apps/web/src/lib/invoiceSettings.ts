@@ -92,10 +92,20 @@ export interface BarcodeLabelSettings {
   showBarcodeText: boolean
   showCopyIndex: boolean
   nameFontPt: number
+  /** Price text size on the sticker (pt). Independent of name font. */
+  priceFontPt: number
   barcodeHeight: number
   barcodeBarWidth: number
   nameMaxLines: 1 | 2
 }
+
+/** Quick price-size buttons in the barcode customizer. */
+export const BARCODE_PRICE_SIZE_PRESETS = [
+  { id: 'small', label: 'Small', pt: 7 },
+  { id: 'medium', label: 'Medium', pt: 9 },
+  { id: 'large', label: 'Large', pt: 12 },
+  { id: 'xl', label: 'XL', pt: 15 },
+] as const
 
 /** Quick-start designs — user can then fully customize (becomes `custom`). */
 export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>, BarcodeLabelSettings & {
@@ -115,6 +125,7 @@ export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>
     showBarcodeText: true,
     showCopyIndex: false,
     nameFontPt: 5.5,
+    priceFontPt: 9,
     barcodeHeight: 20,
     barcodeBarWidth: 1.1,
     nameMaxLines: 2,
@@ -132,6 +143,7 @@ export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>
     showBarcodeText: true,
     showCopyIndex: false,
     nameFontPt: 6,
+    priceFontPt: 9,
     barcodeHeight: 24,
     barcodeBarWidth: 1.15,
     nameMaxLines: 2,
@@ -149,6 +161,7 @@ export const BARCODE_LABEL_DESIGNS: Record<Exclude<BarcodeLabelPreset, 'custom'>
     showBarcodeText: true,
     showCopyIndex: true,
     nameFontPt: 5.5,
+    priceFontPt: 9,
     barcodeHeight: 18,
     barcodeBarWidth: 1.1,
     nameMaxLines: 2,
@@ -171,6 +184,7 @@ export const DEFAULT_BARCODE_LABEL_SETTINGS: BarcodeLabelSettings = {
   showBarcodeText: true,
   showCopyIndex: false,
   nameFontPt: 6,
+  priceFontPt: 9,
   barcodeHeight: 24,
   barcodeBarWidth: 1.15,
   nameMaxLines: 2,
@@ -373,6 +387,10 @@ export function resolveBarcodeLabelSettings(
     showBarcodeText: typeof src.showBarcodeText === 'boolean' ? src.showBarcodeText : designBase.showBarcodeText,
     showCopyIndex: typeof src.showCopyIndex === 'boolean' ? src.showCopyIndex : designBase.showCopyIndex,
     nameFontPt: Math.max(4, Math.min(12, Number(src.nameFontPt ?? designBase.nameFontPt) || designBase.nameFontPt)),
+    priceFontPt: Math.max(
+      6,
+      Math.min(18, Number(src.priceFontPt ?? designBase.priceFontPt) || designBase.priceFontPt),
+    ),
     barcodeHeight: Math.max(12, Math.min(60, Number(src.barcodeHeight ?? designBase.barcodeHeight) || designBase.barcodeHeight)),
     barcodeBarWidth: Math.max(0.6, Math.min(2.5, Number(src.barcodeBarWidth ?? designBase.barcodeBarWidth) || designBase.barcodeBarWidth)),
     nameMaxLines: Number(src.nameMaxLines ?? designBase.nameMaxLines) === 1 ? 1 : 2,

@@ -6,6 +6,7 @@ import { BarcodeStickerPreview } from '@/components/inventory/BarcodeLabelPrevie
 import type { BarcodeLabelItem } from '@/lib/barcode-print'
 import {
   BARCODE_LABEL_DESIGNS,
+  BARCODE_PRICE_SIZE_PRESETS,
   BARCODE_QUICK_DESIGNS,
   DEFAULT_BARCODE_LABEL_SETTINGS,
   type BarcodeLabelSettings,
@@ -63,6 +64,7 @@ export default function BarcodeLabelCustomizer({
       showBarcodeText: design.showBarcodeText,
       showCopyIndex: design.showCopyIndex,
       nameFontPt: design.nameFontPt,
+      priceFontPt: design.priceFontPt,
       barcodeHeight: design.barcodeHeight,
       barcodeBarWidth: design.barcodeBarWidth,
       nameMaxLines: design.nameMaxLines,
@@ -286,6 +288,34 @@ export default function BarcodeLabelCustomizer({
               />
               <p className="text-[10px] text-slate-500 mt-0.5">{settings.barcodeBarWidth.toFixed(1)}</p>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] text-slate-400 mb-2">Price size</label>
+            <div className="flex gap-2 flex-wrap">
+              {BARCODE_PRICE_SIZE_PRESETS.map(p => {
+                const active = Math.abs(settings.priceFontPt - p.pt) < 0.51
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => patchCustom({ priceFontPt: p.pt })}
+                    className={`min-w-[4.5rem] px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                      active
+                        ? 'bg-brand-600 border-brand-500 text-white'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:border-brand-500/40'
+                    }`}
+                  >
+                    <span className="block">{p.label}</span>
+                    <span className={`block mt-0.5 ${active ? 'text-white/80' : 'text-slate-500'}`}>{p.pt} pt</span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2">
+              Use <strong className="font-semibold text-slate-400">Large</strong> or{' '}
+              <strong className="font-semibold text-slate-400">XL</strong> when price must stand out on the sticker.
+            </p>
           </div>
         </div>
       </div>

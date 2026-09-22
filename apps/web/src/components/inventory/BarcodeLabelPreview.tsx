@@ -66,7 +66,7 @@ function StickerFace({
     !resolved.showSku &&
     resolved.showBarcodeText &&
     resolved.showPrice
-  const pricePt = Math.min(dense ? 7.5 : minimal ? 9.5 : 9, Math.max(resolved.nameFontPt + 1.2, 7))
+  const pricePt = Math.max(6, Math.min(resolved.priceFontPt, Math.max(8, resolved.heightMm * 0.55)))
   const namePt = Math.min(resolved.nameFontPt, dense ? 5.8 : 6.8) * scale * 0.88
   const metaPt = Math.max(8, (dense ? 3.6 : 4) * scale * 0.9)
   const digitsPt = Math.max(9, barcodeDigitsFontPt(label.barcode, dense) * scale * (minimal ? 1.05 : 0.95))
