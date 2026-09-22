@@ -67,16 +67,20 @@ function StickerFace({
     resolved.showBarcodeText &&
     resolved.showPrice
   const pricePt = Math.max(6, Math.min(resolved.priceFontPt, Math.max(8, resolved.heightMm * 0.55)))
-  const namePt = Math.min(resolved.nameFontPt, dense ? 5.8 : 6.8) * scale * 0.88
-  const metaPt = Math.max(8, (dense ? 3.6 : 4) * scale * 0.9)
-  const digitsPt = Math.max(9, barcodeDigitsFontPt(label.barcode, dense) * scale * (minimal ? 1.05 : 0.95))
-  const gap = Math.max(2, scale * 0.28)
-  const padX = Math.max(8, scale * (minimal ? 1.4 : 1.2))
-  const padY = Math.max(6, scale * (minimal ? 1.1 : 0.85))
+  const namePt = Math.min(resolved.nameFontPt, dense ? 5.8 : 6.8) * scale * 0.92
+  const metaPt = Math.max(9, (dense ? 3.8 : 4.2) * scale * 0.95)
+  const digitsPt = Math.max(10, barcodeDigitsFontPt(label.barcode, dense) * scale * (minimal ? 1.08 : 1))
+  const gap = Math.max(3, scale * 0.32)
+  const padX = Math.max(10, scale * (minimal ? 1.5 : 1.35))
+  const padY = Math.max(8, scale * (minimal ? 1.2 : 1))
+  const shop = shopName?.trim() || 'DEMO SPARE PARTS STORE'
+  const shopTracking = shop.length > 22 ? '0.04em' : shop.length > 14 ? '0.08em' : '0.12em'
+  const pricePx = Math.max(14, pricePt * scale * 0.98)
+  const rule = Math.max(1, Math.round(scale * 0.14))
 
   return (
     <div
-      className="bg-white text-black shadow-md border border-slate-300/90"
+      className="bg-white text-black shadow-lg border border-slate-300/90"
       style={{
         width: `${resolved.widthMm * scale}px`,
         height: `${resolved.heightMm * scale}px`,
@@ -84,54 +88,61 @@ function StickerFace({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
-        justifyContent: minimal ? 'center' : 'flex-start',
+        justifyContent: minimal ? 'center' : 'space-between',
         textAlign: 'center',
         position: 'relative',
         fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        borderRadius: 4,
+        borderRadius: Math.max(4, scale * 0.35),
       }}
     >
+      {/* 1 — Header: shop → product → sku */}
       {showTop && (
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: Math.max(2, gap * 0.55),
-            flexShrink: 0,
+            justifyContent: 'flex-start',
+            gap: Math.max(2, gap * 0.45),
+            flex: '0 0 auto',
             width: '100%',
-            paddingBottom: Math.max(3, gap * 0.7),
-            marginBottom: Math.max(3, gap * 0.55),
-            borderBottom: `${Math.max(1, scale * 0.14)}px solid #d4d4d4`,
+            paddingBottom: Math.max(4, gap * 0.65),
+            borderBottom: `${rule}px solid #d4d4d4`,
           }}
         >
           {resolved.showShopName && (
             <p
-              className="truncate w-full"
+              className="w-full"
               style={{
                 fontSize: `${metaPt}px`,
                 fontWeight: 700,
-                letterSpacing: '0.14em',
+                letterSpacing: shopTracking,
                 textTransform: 'uppercase',
                 color: '#525252',
-                lineHeight: 1.15,
+                lineHeight: 1.2,
                 margin: 0,
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 1,
+                WebkitBoxOrient: 'vertical',
+                wordBreak: 'break-word',
               }}
+              title={shop}
             >
-              {shopName?.trim() || 'DEMO SPARE PARTS STORE'}
+              {shop}
             </p>
           )}
           {resolved.showProductName && (
             <p
               className="w-full"
               style={{
-                fontSize: `${Math.max(10, namePt)}px`,
+                fontSize: `${Math.max(11, namePt)}px`,
                 fontWeight: 700,
                 letterSpacing: '-0.01em',
                 color: '#0a0a0a',
-                lineHeight: 1.15,
+                lineHeight: 1.18,
                 display: '-webkit-box',
                 WebkitLineClamp: resolved.nameMaxLines,
                 WebkitBoxOrient: 'vertical',
@@ -145,11 +156,11 @@ function StickerFace({
           )}
           {resolved.showSku && label.sku && (
             <p
-              className="truncate w-full"
+              className="w-full truncate"
               style={{
-                fontSize: `${metaPt * 0.95}px`,
+                fontSize: `${metaPt * 0.92}px`,
                 fontWeight: 600,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 color: '#737373',
                 lineHeight: 1.1,
@@ -162,6 +173,7 @@ function StickerFace({
         </div>
       )}
 
+      {/* 2 — Barcode + digits */}
       <div
         style={{
           width: '100%',
@@ -169,11 +181,11 @@ function StickerFace({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: Math.max(3, gap * (minimal ? 0.85 : 0.55)),
+          gap: Math.max(4, gap * 0.7),
           flex: '1 1 auto',
           minHeight: 0,
           overflow: 'hidden',
-          padding: `${Math.max(2, gap * 0.35)}px 0`,
+          padding: `${Math.max(4, gap * 0.5)}px 0`,
         }}
       >
         <div
@@ -194,7 +206,7 @@ function StickerFace({
               fontSize: `${digitsPt}px`,
               fontWeight: 600,
               fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
-              letterSpacing: '0.12em',
+              letterSpacing: '0.1em',
               color: '#171717',
               lineHeight: 1.2,
               margin: 0,
@@ -206,26 +218,27 @@ function StickerFace({
         )}
       </div>
 
+      {/* 3 — Price */}
       {resolved.showPrice && label.price != null ? (
         <div
           style={{
             width: '100%',
-            flexShrink: 0,
-            marginTop: Math.max(4, gap * (minimal ? 0.9 : 0.5)),
-            paddingTop: Math.max(4, gap * (minimal ? 0.85 : 0.65)),
-            borderTop: `${Math.max(1, scale * 0.16)}px solid #a3a3a3`,
+            flex: '0 0 auto',
+            marginTop: 0,
+            paddingTop: Math.max(5, gap * 0.75),
+            borderTop: `${rule}px solid #a3a3a3`,
           }}
         >
           <p
             className="w-full"
             style={{
-              fontSize: `${Math.max(13, pricePt * scale * 0.9)}px`,
+              fontSize: `${pricePx}px`,
               fontWeight: 800,
               letterSpacing: '0.01em',
               color: '#0a0a0a',
-              lineHeight: 1.1,
+              lineHeight: 1.12,
               margin: 0,
-              paddingBottom: resolved.showCopyIndex && (label.qty ?? 1) > 1 ? gap : 0,
+              paddingBottom: resolved.showCopyIndex && (label.qty ?? 1) > 1 ? gap * 0.6 : 0,
             }}
           >
             {formatCurrency(label.price)}
@@ -237,9 +250,9 @@ function StickerFace({
         <span
           className="absolute font-semibold"
           style={{
-            right: padX * 0.45,
-            bottom: Math.max(4, scale * 0.4),
-            fontSize: `${Math.max(8, 3.5 * scale * 0.85)}px`,
+            right: padX * 0.4,
+            bottom: Math.max(5, scale * 0.45),
+            fontSize: `${Math.max(9, 3.6 * scale * 0.9)}px`,
             color: '#737373',
             lineHeight: 1,
             letterSpacing: '0.04em',
@@ -269,7 +282,7 @@ export function BarcodeStickerPreview({
 }) {
   const barcodeRef = useRef<HTMLDivElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
-  const [fillScale, setFillScale] = useState(large ? 6 : 2)
+  const [fillScale, setFillScale] = useState(large ? 8 : 2)
 
   const resolved = resolveBarcodeLabelSettings({
     barcodeLabel: { ...DEFAULT_BARCODE_LABEL_SETTINGS, ...settings } as BarcodeLabelSettings,
@@ -289,11 +302,11 @@ export function BarcodeStickerPreview({
     resolved.showBarcodeText &&
     resolved.showPrice
   const barcodeMaxH = Math.max(
-    18,
+    22,
     Math.min(
-      resolved.heightMm * scale * (dense ? 0.18 : minimal ? 0.4 : 0.28),
-      (dense ? 3.8 : minimal ? 7.2 : 5.4) * scale,
-      resolved.barcodeHeight * scale * (minimal ? 0.32 : 0.22),
+      resolved.heightMm * scale * (dense ? 0.2 : minimal ? 0.42 : 0.3),
+      (dense ? 4.2 : minimal ? 7.8 : 5.8) * scale,
+      resolved.barcodeHeight * scale * (minimal ? 0.34 : 0.24),
     ),
   )
 
@@ -301,12 +314,13 @@ export function BarcodeStickerPreview({
     if (!large || !boxRef.current) return
     const el = boxRef.current
     const update = () => {
-      const pad = 40
-      const availW = Math.max(180, el.clientWidth - pad)
-      const availH = Math.max(140, el.clientHeight - pad)
+      const pad = 28
+      const availW = Math.max(220, el.clientWidth - pad)
+      const availH = Math.max(200, el.clientHeight - pad)
       const sW = availW / resolved.widthMm
       const sH = availH / resolved.heightMm
-      setFillScale(Math.max(3.5, Math.min(sW, sH, 8.5) * 0.86))
+      // Fill most of the preview pane so the sticker reads clearly
+      setFillScale(Math.max(5.5, Math.min(sW, sH, 16) * 0.97))
     }
     update()
     const ro = new ResizeObserver(update)
@@ -334,7 +348,10 @@ export function BarcodeStickerPreview({
 
   if (large) {
     return (
-      <div ref={boxRef} className={`w-full h-full min-h-[280px] flex items-center justify-center ${className ?? ''}`}>
+      <div
+        ref={boxRef}
+        className={`w-full h-full min-h-[320px] flex flex-col items-center justify-center gap-3 ${className ?? ''}`}
+      >
         <StickerFace
           label={label}
           resolved={resolved}
@@ -343,6 +360,10 @@ export function BarcodeStickerPreview({
           barcodeRef={barcodeRef}
           barcodeMaxH={barcodeMaxH}
         />
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+          Print size {resolved.widthMm}×{resolved.heightMm} mm
+          {resolved.showPrice ? ` · price ${resolved.priceFontPt}pt` : ''}
+        </p>
       </div>
     )
   }

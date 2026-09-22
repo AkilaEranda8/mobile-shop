@@ -284,7 +284,7 @@ export function printBarcodeLabels(
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    justify-content: ${minimal ? 'center' : 'flex-start'};
+    justify-content: ${minimal ? 'center' : 'space-between'};
     text-align: center;
     overflow: hidden;
     background: #fff;
@@ -314,14 +314,16 @@ export function printBarcodeLabels(
   .shop {
     font-size: ${dense ? 3.6 : 4}pt;
     font-weight: 700;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #525252;
-    line-height: 1.15;
+    line-height: 1.2;
     max-width: 100%;
-    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
   }
   .name {
     font-size: ${namePt}pt;
