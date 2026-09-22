@@ -35,6 +35,12 @@ const SAMPLE_ITEM: BarcodeLabelItem = {
   qty: 2,
 }
 
+/** Convert print points → screen px when `scale` is px-per-mm. */
+const PT_MM = 25.4 / 72
+function ptToPx(pt: number, scale: number) {
+  return Math.max(1, pt * PT_MM * scale)
+}
+
 function StickerFace({
   label,
   resolved,
@@ -66,21 +72,29 @@ function StickerFace({
     !resolved.showSku &&
     resolved.showBarcodeText &&
     resolved.showPrice
-  const pricePt = Math.max(6, Math.min(resolved.priceFontPt, Math.max(8, resolved.heightMm * 0.55)))
-  const namePt = Math.min(resolved.nameFontPt, dense ? 5.8 : 6.8) * scale * 0.92
-  const metaPt = Math.max(9, (dense ? 3.8 : 4.2) * scale * 0.95)
-  const digitsPt = Math.max(10, barcodeDigitsFontPt(label.barcode, dense) * scale * (minimal ? 1.08 : 1))
-  const gap = Math.max(3, scale * 0.32)
-  const padX = Math.max(10, scale * (minimal ? 1.5 : 1.35))
-  const padY = Math.max(8, scale * (minimal ? 1.2 : 1))
+
+  // Cap price so it never dominates a 25–30mm tall sticker
+  const pricePt = Math.max(6, Math.min(resolved.priceFontPt, resolved.heightMm * 0.42, dense ? 10 : 12))
+  const namePt = Math.min(resolved.nameFontPt, dense ? 5.2 : 5.8)
+  const shopPt = dense ? 3.4 : 3.8
+  const digitsPt = Math.min(barcodeDigitsFontPt(label.barcode, dense), dense ? 4.2 : 4.8)
+
+  const shopPx = ptToPx(shopPt, scale)
+  const namePx = ptToPx(namePt, scale)
+  const digitsPx = ptToPx(digitsPt, scale)
+  const pricePx = ptToPx(pricePt, scale)
+  const skuPx = ptToPx(shopPt * 0.92, scale)
+
+  const gap = Math.max(1, scale * 0.22)
+  const padX = Math.max(4, scale * 1.1)
+  const padY = Math.max(3, scale * 0.85)
   const shop = shopName?.trim() || 'DEMO SPARE PARTS STORE'
-  const shopTracking = shop.length > 22 ? '0.04em' : shop.length > 14 ? '0.08em' : '0.12em'
-  const pricePx = Math.max(14, pricePt * scale * 0.98)
-  const rule = Math.max(1, Math.round(scale * 0.14))
+  const shopTracking = shop.length > 22 ? '0.03em' : shop.length > 14 ? '0.06em' : '0.1em'
+  const rule = Math.max(1, Math.round(scale * 0.12))
 
   return (
     <div
-      className="bg-white text-black shadow-lg border border-slate-300/90"
+      className="bg-white text-black shadow-md border border-slate-300/90"
       style={{
         width: `${resolved.widthMm * scale}px`,
         height: `${resolved.heightMm * scale}px`,
@@ -88,46 +102,41 @@ function StickerFace({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
-        justifyContent: minimal ? 'center' : 'space-between',
+        justifyContent: minimal ? 'center' : 'flex-start',
         textAlign: 'center',
         position: 'relative',
         fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        borderRadius: Math.max(4, scale * 0.35),
+        borderRadius: Math.max(3, scale * 0.28),
       }}
     >
-      {/* 1 — Header: shop → product → sku */}
+      {/* 1 — Header */}
       {showTop && (
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'flex-start',
-            gap: Math.max(2, gap * 0.45),
+            gap: Math.max(1, gap * 0.4),
             flex: '0 0 auto',
             width: '100%',
-            paddingBottom: Math.max(4, gap * 0.65),
+            paddingBottom: Math.max(2, gap * 0.55),
+            marginBottom: Math.max(2, gap * 0.45),
             borderBottom: `${rule}px solid #d4d4d4`,
           }}
         >
           {resolved.showShopName && (
             <p
-              className="w-full"
+              className="w-full truncate"
               style={{
-                fontSize: `${metaPt}px`,
+                fontSize: `${shopPx}px`,
                 fontWeight: 700,
                 letterSpacing: shopTracking,
                 textTransform: 'uppercase',
                 color: '#525252',
-                lineHeight: 1.2,
+                lineHeight: 1.15,
                 margin: 0,
-                overflow: 'hidden',
-                display: '-webkit-box',
-                WebkitLineClamp: 1,
-                WebkitBoxOrient: 'vertical',
-                wordBreak: 'break-word',
               }}
               title={shop}
             >
@@ -138,11 +147,11 @@ function StickerFace({
             <p
               className="w-full"
               style={{
-                fontSize: `${Math.max(11, namePt)}px`,
+                fontSize: `${namePx}px`,
                 fontWeight: 700,
                 letterSpacing: '-0.01em',
                 color: '#0a0a0a',
-                lineHeight: 1.18,
+                lineHeight: 1.15,
                 display: '-webkit-box',
                 WebkitLineClamp: resolved.nameMaxLines,
                 WebkitBoxOrient: 'vertical',
@@ -158,7 +167,7 @@ function StickerFace({
             <p
               className="w-full truncate"
               style={{
-                fontSize: `${metaPt * 0.92}px`,
+                fontSize: `${skuPx}px`,
                 fontWeight: 600,
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase',
@@ -173,7 +182,7 @@ function StickerFace({
         </div>
       )}
 
-      {/* 2 — Barcode + digits */}
+      {/* 2 — Barcode + digits (kept together, never clipped into each other) */}
       <div
         style={{
           width: '100%',
@@ -181,11 +190,11 @@ function StickerFace({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: Math.max(4, gap * 0.7),
+          gap: Math.max(2, gap * 0.55),
           flex: '1 1 auto',
-          minHeight: 0,
+          minHeight: barcodeMaxH + digitsPx + gap,
           overflow: 'hidden',
-          padding: `${Math.max(4, gap * 0.5)}px 0`,
+          padding: `${Math.max(1, gap * 0.25)}px 0`,
         }}
       >
         <div
@@ -203,12 +212,12 @@ function StickerFace({
           <p
             className="w-full truncate"
             style={{
-              fontSize: `${digitsPt}px`,
+              fontSize: `${digitsPx}px`,
               fontWeight: 600,
               fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
-              letterSpacing: '0.1em',
+              letterSpacing: '0.08em',
               color: '#171717',
-              lineHeight: 1.2,
+              lineHeight: 1.15,
               margin: 0,
               flexShrink: 0,
             }}
@@ -224,8 +233,8 @@ function StickerFace({
           style={{
             width: '100%',
             flex: '0 0 auto',
-            marginTop: 0,
-            paddingTop: Math.max(5, gap * 0.75),
+            marginTop: Math.max(2, gap * 0.45),
+            paddingTop: Math.max(2, gap * 0.55),
             borderTop: `${rule}px solid #a3a3a3`,
           }}
         >
@@ -236,9 +245,9 @@ function StickerFace({
               fontWeight: 800,
               letterSpacing: '0.01em',
               color: '#0a0a0a',
-              lineHeight: 1.12,
+              lineHeight: 1.1,
               margin: 0,
-              paddingBottom: resolved.showCopyIndex && (label.qty ?? 1) > 1 ? gap * 0.6 : 0,
+              paddingBottom: resolved.showCopyIndex && (label.qty ?? 1) > 1 ? gap * 0.5 : 0,
             }}
           >
             {formatCurrency(label.price)}
@@ -250,9 +259,9 @@ function StickerFace({
         <span
           className="absolute font-semibold"
           style={{
-            right: padX * 0.4,
-            bottom: Math.max(5, scale * 0.45),
-            fontSize: `${Math.max(9, 3.6 * scale * 0.9)}px`,
+            right: padX * 0.35,
+            bottom: Math.max(2, scale * 0.35),
+            fontSize: `${ptToPx(3.2, scale)}px`,
             color: '#737373',
             lineHeight: 1,
             letterSpacing: '0.04em',
@@ -265,7 +274,7 @@ function StickerFace({
   )
 }
 
-/** Full sticker preview — clean: shop/name/sku → barcode → digits → price */
+/** Full sticker preview — shop → name → barcode → digits → price */
 export function BarcodeStickerPreview({
   item,
   settings,
@@ -277,12 +286,12 @@ export function BarcodeStickerPreview({
   settings?: Partial<BarcodeLabelSettings> | BarcodeLabelSettings | null
   shopName?: string
   className?: string
-  /** Larger on-screen preview (Settings page) — fills container */
+  /** Larger on-screen preview (Settings page) */
   large?: boolean
 }) {
   const barcodeRef = useRef<HTMLDivElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
-  const [fillScale, setFillScale] = useState(large ? 8 : 2)
+  const [fillScale, setFillScale] = useState(large ? 5 : 2)
 
   const resolved = resolveBarcodeLabelSettings({
     barcodeLabel: { ...DEFAULT_BARCODE_LABEL_SETTINGS, ...settings } as BarcodeLabelSettings,
@@ -301,12 +310,13 @@ export function BarcodeStickerPreview({
     !resolved.showSku &&
     resolved.showBarcodeText &&
     resolved.showPrice
+
+  // Barcode band ~22–28% of sticker height so text + price still fit cleanly
   const barcodeMaxH = Math.max(
-    22,
+    scale * 4.5,
     Math.min(
-      resolved.heightMm * scale * (dense ? 0.2 : minimal ? 0.42 : 0.3),
-      (dense ? 4.2 : minimal ? 7.8 : 5.8) * scale,
-      resolved.barcodeHeight * scale * (minimal ? 0.34 : 0.24),
+      resolved.heightMm * scale * (dense ? 0.22 : minimal ? 0.36 : 0.26),
+      (dense ? 6.2 : minimal ? 10 : 7.5) * scale,
     ),
   )
 
@@ -314,13 +324,13 @@ export function BarcodeStickerPreview({
     if (!large || !boxRef.current) return
     const el = boxRef.current
     const update = () => {
-      const pad = 28
-      const availW = Math.max(220, el.clientWidth - pad)
-      const availH = Math.max(200, el.clientHeight - pad)
+      const pad = 48
+      const availW = Math.max(160, el.clientWidth - pad)
+      const availH = Math.max(120, el.clientHeight - pad)
       const sW = availW / resolved.widthMm
       const sH = availH / resolved.heightMm
-      // Fill most of the preview pane so the sticker reads clearly
-      setFillScale(Math.max(5.5, Math.min(sW, sH, 16) * 0.97))
+      // Readable but not oversized — true print proportions
+      setFillScale(Math.max(3.2, Math.min(sW, sH, 7.5) * 0.88))
     }
     update()
     const ro = new ResizeObserver(update)
@@ -330,10 +340,10 @@ export function BarcodeStickerPreview({
 
   useEffect(() => {
     if (!barcodeRef.current) return
-    const renderH = Math.max(16, Math.round(barcodeMaxH / Math.max(scale, 1)))
+    const renderH = Math.max(14, Math.round(barcodeMaxH / Math.max(scale, 1)))
     barcodeRef.current.innerHTML = renderBarcodeSvg(label.barcode, {
       height: Math.min(resolved.barcodeHeight, renderH),
-      width: Math.min(resolved.barcodeBarWidth, dense ? 1.15 : minimal ? 1.55 : 1.4),
+      width: Math.min(resolved.barcodeBarWidth, dense ? 1.1 : minimal ? 1.45 : 1.25),
       displayValue: false,
     })
     const svg = barcodeRef.current.querySelector('svg')
@@ -350,7 +360,7 @@ export function BarcodeStickerPreview({
     return (
       <div
         ref={boxRef}
-        className={`w-full h-full min-h-[320px] flex flex-col items-center justify-center gap-3 ${className ?? ''}`}
+        className={`w-full h-full min-h-[260px] flex flex-col items-center justify-center gap-2.5 ${className ?? ''}`}
       >
         <StickerFace
           label={label}

@@ -200,9 +200,9 @@ export function printBarcodeLabels(
     5.5,
     Math.min(hMm * (dense ? 0.18 : minimal ? 0.38 : 0.28), dense ? 5.8 : minimal ? 11 : 8.2),
   )
-  // Soft-cap by label height so XL still fits; otherwise use the customized price size
-  const pricePt = Math.max(6, Math.min(settings.priceFontPt, Math.max(8, hMm * 0.55)))
-  const namePt = Math.min(settings.nameFontPt, dense ? 5.6 : 6.4)
+  // Soft-cap by label height so XL still fits; keep print text compact
+  const pricePt = Math.max(6, Math.min(settings.priceFontPt, hMm * 0.42, dense ? 10 : 12))
+  const namePt = Math.min(settings.nameFontPt, dense ? 5.2 : 5.8)
   const labelCount = valid.reduce((sum, item) => sum + Math.max(1, Math.min(item.qty ?? 1, MAX_LABEL_COPIES)), 0)
   const labelsBody = valid.map(item => labelHtml(item, settings, options?.shopName, dense)).join('')
 

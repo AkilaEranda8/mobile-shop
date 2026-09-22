@@ -134,8 +134,8 @@ export default function BarcodeLabelCustomizer({
         )}
       </div>
 
-      {/* Live preview — large, fills the pane */}
-      <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 p-4 sm:p-5">
+      {/* Live preview — true print proportions, neat text */}
+      <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 p-4">
         <div className="flex items-center justify-between gap-3 mb-3">
           <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">Live sticker preview</p>
           <p className="text-[10px] text-slate-500">
@@ -143,7 +143,7 @@ export default function BarcodeLabelCustomizer({
             {settings.preset === 'custom' ? ' · custom' : ` · ${settings.preset}`}
           </p>
         </div>
-        <div className="w-full min-h-[min(520px,68vh)] h-[min(520px,68vh)] rounded-lg bg-slate-100 dark:bg-white/5 overflow-hidden flex">
+        <div className="w-full min-h-[340px] h-[340px] rounded-lg bg-slate-100 dark:bg-white/5 overflow-hidden flex">
           <BarcodeStickerPreview
             item={sampleItem}
             settings={settings}
