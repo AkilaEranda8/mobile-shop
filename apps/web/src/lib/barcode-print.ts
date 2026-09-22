@@ -284,7 +284,7 @@ export function printBarcodeLabels(
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    justify-content: ${minimal ? 'center' : 'space-between'};
+    justify-content: ${minimal ? 'center' : 'flex-start'};
     text-align: center;
     overflow: hidden;
     background: #fff;
