@@ -2,6 +2,7 @@ import { prisma } from '../../../config/database'
 import { enqueueOutboxItem } from './accounting-outbox.service'
 import { processAccountingOutbox } from './accounting-processor.service'
 import { isFeatureEnabledForBranch } from '../../../utils/tenant-feature.util'
+import { reverseRepairAccountingJournals } from './auto-journal.engine'
 
 type EventPayload = {
   tenantId: string
@@ -98,7 +99,6 @@ export async function reverseRepairAccounting(
   actorEmail?: string,
 ) {
   try {
-    const { reverseRepairAccountingJournals } = await import('./auto-journal.engine')
     return await reverseRepairAccountingJournals(tenantId, repairId, ticketNumber, actorEmail)
   } catch (err) {
     console.error('[accounting] reverseRepairAccounting failed:', err)
