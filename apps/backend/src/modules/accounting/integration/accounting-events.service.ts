@@ -90,6 +90,22 @@ export function emitRepairAccounting(tenantId: string, repairId: string, branchI
   ], actorEmail)
 }
 
+/** Reverse posted repair GL journals when a ticket is deleted. Safe no-op if accounting is off. */
+export async function reverseRepairAccounting(
+  tenantId: string,
+  repairId: string,
+  ticketNumber: string,
+  actorEmail?: string,
+) {
+  try {
+    const { reverseRepairAccountingJournals } = await import('./auto-journal.engine')
+    return await reverseRepairAccountingJournals(tenantId, repairId, ticketNumber, actorEmail)
+  } catch (err) {
+    console.error('[accounting] reverseRepairAccounting failed:', err)
+    throw err
+  }
+}
+
 export function emitPurchaseAccounting(tenantId: string, poId: string, branchId: string | null, actorEmail?: string) {
   return emitAccountingEvents([
     { tenantId, branchId, sourceType: 'PurchaseOrder', sourceId: poId, eventType: 'PURCHASE_RECEIVED' },

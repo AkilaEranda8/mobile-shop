@@ -7,7 +7,7 @@ import {
   Eye, Edit, ChevronRight, Smartphone, User, Wrench, DollarSign, AlertTriangle,
   Calendar, Hash, Save, ArrowRight, MessageSquare, Package, Search, UserPlus, CheckCircle2, Download, Printer,
   History, XCircle, AlertCircle, ArrowLeft, MoreVertical, Phone, Mail, MapPin,
-  Shield, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, RefreshCw,
+  Shield, Upload, SlidersHorizontal, FileText, Pencil, Zap, ClipboardList, RefreshCw, Trash2,
 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ClientSideTable } from '@/components/table/client-side-table'
@@ -998,7 +998,7 @@ export default function RepairsPage() {
     const delivered = repair.status === 'DELIVERED'
     const ok = confirm(
       delivered
-        ? `Delete delivered ticket ${repair.ticketNumber}?\n\nThis will void the linked repair sale, restore spare-part stock, and remove the ticket. This cannot be undone.`
+        ? `Delete delivered ticket ${repair.ticketNumber}?\n\nThis will reverse accounting journals, void the linked repair sale, restore spare-part stock, and remove the ticket. This cannot be undone.`
         : `Delete repair ticket ${repair.ticketNumber}?\n\nThis cannot be undone.`,
     )
     if (!ok) return
@@ -1198,6 +1198,16 @@ export default function RepairsPage() {
           >
             <Printer size={13} />
           </button>
+          {canEdit && (
+            <button
+              onClick={() => void handleDelete(row.original)}
+              title="Delete repair ticket"
+              className="p-1.5 rounded-lg transition-colors hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
           <TableActionsRow
             showAction={{ action: () => openDetail(row.original) }}
             {...(canEdit ? { editAction: { action: () => openEdit(row.original) } } : {})}

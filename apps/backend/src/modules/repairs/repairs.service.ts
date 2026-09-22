@@ -6,7 +6,7 @@ import { linkRepairToClaim, createWarrantiesFromRepair } from '../warranty/warra
 import { Request } from 'express'
 import { assertBusinessDayOpenIfEnabled } from '../daily-closing/day-lock.util'
 import { effectiveBranchId, assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/active-branch'
-import { emitRepairAccounting } from '../accounting/integration/accounting-events.service'
+import { emitRepairAccounting, reverseRepairAccounting } from '../accounting/integration/accounting-events.service'
 import { formatRepairServiceItemName } from '../../utils/repair-item-label'
 import { applyRepairSparePartsStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { assertRepairTransitionIfEnabled } from '../workflow-validators/workflow-validators.service'
@@ -520,6 +520,21 @@ export const repairsService = {
     })
     if (!r) throw new AppError('Repair ticket not found', 404)
     if (req) assertBranchRecordAccess(req, r.branchId)
+
+    // Reverse GL journals before deleting the ticket (posted entries stay as audit trail)
+    if (r.status === 'DELIVERED') {
+      try {
+        await reverseRepairAccounting(tenantId, id, r.ticketNumber, req?.user?.email)
+      } catch (err) {
+        console.error('[repairs] reverseRepairAccounting failed:', err)
+        throw new AppError(
+          err instanceof AppError
+            ? err.message
+            : 'Could not reverse accounting journals for this repair — delete cancelled',
+          err instanceof AppError ? err.statusCode : 500,
+        )
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       if (r.status === 'DELIVERED') {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { prisma } from '../../../config/database'
 import { AppError } from '../../../middleware/error.middleware'
 import { isReloadSaleItem } from '../../finance/reload-item.util'
@@ -1331,5 +1332,93 @@ export async function postHirePurchaseAgreementJournal(tenantId: string, agreeme
     data: { tenantId, sourceType: 'HirePurchaseAgreement', sourceId: agreement.id, eventType: 'HP_AGREEMENT_ACTIVATED', journalEntryId: je.id },
   })
   return je
+}
+
+/**
+ * Reverse posted REPAIR_DELIVERED / REPAIR_COGS journals when a ticket is deleted.
+ * Creates debit/credit-swapped reversal entries and clears integration + outbox links.
+ */
+export async function reverseRepairAccountingJournals(
+  tenantId: string,
+  repairId: string,
+  ticketNumber: string,
+  actorEmail?: string,
+) {
+  const settings = await prisma.accountingSettings.findUnique({ where: { tenantId } })
+  if (!settings?.initializedAt) return { reversed: 0 }
+
+  const links = await prisma.integrationLink.findMany({
+    where: {
+      tenantId,
+      sourceType: 'RepairTicket',
+      sourceId: repairId,
+      eventType: { in: ['REPAIR_DELIVERED', 'REPAIR_COGS'] },
+    },
+  })
+
+  const journalIds = [...new Set(links.map(l => l.journalEntryId))]
+  let reversed = 0
+
+  for (const journalEntryId of journalIds) {
+    const original = await prisma.journalEntry.findFirst({
+      where: { id: journalEntryId, tenantId, status: 'POSTED' },
+      include: { lines: { orderBy: { lineNo: 'asc' } } },
+    })
+    if (!original) continue
+
+    const already = await prisma.journalEntry.findFirst({
+      where: { tenantId, reversalOfId: original.id, status: 'POSTED' },
+      select: { id: true },
+    })
+    if (already) continue
+
+    const lines: JournalDraftLine[] = original.lines.map(l => ({
+      accountId: l.accountId,
+      debit: round2(Number(l.credit)),
+      credit: round2(Number(l.debit)),
+      description: `Reversal: ${l.description ?? ''}`.trim(),
+      taxCodeId: l.taxCodeId ?? undefined,
+      customerId: l.customerId ?? undefined,
+      supplierId: l.supplierId ?? undefined,
+    }))
+    if (!lines.length) continue
+
+    const reversalId = randomUUID()
+    await createPostedJournalEntry({
+      tenantId,
+      branchId: original.branchId,
+      sourceModule: 'REPAIR',
+      sourceRefType: 'RepairTicket',
+      sourceRefId: reversalId,
+      sourceEvent: `${original.sourceEvent ?? 'REPAIR'}_REVERSED`,
+      memo: `Reversal of ${original.entryNo} — repair ${ticketNumber} deleted`,
+      createdByEmail: actorEmail,
+      reversalOfId: original.id,
+      lines,
+    })
+    reversed += 1
+  }
+
+  if (links.length) {
+    await prisma.integrationLink.deleteMany({
+      where: {
+        tenantId,
+        sourceType: 'RepairTicket',
+        sourceId: repairId,
+        eventType: { in: ['REPAIR_DELIVERED', 'REPAIR_COGS'] },
+      },
+    })
+  }
+
+  await prisma.accountingOutbox.deleteMany({
+    where: {
+      tenantId,
+      sourceType: 'RepairTicket',
+      sourceId: repairId,
+      eventType: { in: ['REPAIR_DELIVERED', 'REPAIR_COGS'] },
+    },
+  }).catch(() => {})
+
+  return { reversed }
 }
 
