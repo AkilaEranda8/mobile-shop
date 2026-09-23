@@ -66,8 +66,7 @@ router.use(authorize('PLATFORM_ADMIN'))
 
 function redactMrrFromTenant<T extends Record<string, any>>(t: T, canFinance: boolean): T {
   if (canFinance) return t
-  const { mrr: _m, ...rest } = t
-  return { ...rest, mrr: null } as T
+  return { ...t, mrr: null } as unknown as T
 }
 
 const BILLING_TENANT_SLUG = 'hexalyte-billing-internal'
