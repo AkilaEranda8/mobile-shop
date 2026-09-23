@@ -911,12 +911,7 @@ function SaleDetailsModal({
   const printThermalOrStock = () => {
     try {
       const receipt = buildReceiptFromApiSale(liveSale)
-      printReceipt(receipt, invSettings, {
-        shopName: invSettings.shopName,
-        address: invSettings.address,
-        phone: invSettings.phone,
-        email: invSettings.email,
-      })
+      printReceipt(receipt, invSettings)
     } catch {
       toast.error('Thermal print failed')
     }
