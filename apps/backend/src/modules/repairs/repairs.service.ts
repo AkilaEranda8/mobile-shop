@@ -563,39 +563,55 @@ export const repairsService = {
           }).catch(() => {})
         }
 
-        if (sale && sale.status !== 'RETURNED') {
-          if (r.customerId && Number(sale.dueAmount) > 0) {
-            await tx.customer.update({
-              where: { id: r.customerId },
-              data: {
-                totalDue: { decrement: Number(sale.dueAmount) },
-                totalPurchases: { decrement: 1 },
-              },
-            }).catch(() => {})
-          } else if (r.customerId) {
-            await tx.customer.update({
-              where: { id: r.customerId },
-              data: { totalPurchases: { decrement: 1 } },
-            }).catch(() => {})
+        if (sale) {
+          if (sale.status !== 'RETURNED') {
+            if (r.customerId && Number(sale.dueAmount) > 0) {
+              await tx.customer.update({
+                where: { id: r.customerId },
+                data: {
+                  totalDue: { decrement: Number(sale.dueAmount) },
+                  totalPurchases: { decrement: 1 },
+                },
+              }).catch(() => {})
+            } else if (r.customerId) {
+              await tx.customer.update({
+                where: { id: r.customerId },
+                data: { totalPurchases: { decrement: 1 } },
+              }).catch(() => {})
+            }
           }
 
           const voidNote = `[VOIDED via repair delete ${new Date().toISOString().slice(0, 10)}] Repair ticket deleted`
+          // Free the (tenantId, invoiceNumber) unique slot so a reissued ticket number
+          // can collect payment without P2002 "Record already exists".
+          const voidedInvoiceNumber =
+            sale.invoiceNumber === r.ticketNumber
+              ? `${sale.invoiceNumber}-VOID-${sale.id.slice(-6)}`
+              : sale.invoiceNumber
           await tx.sale.update({
             where: { id: sale.id },
             data: {
               status: 'RETURNED',
-              notes: sale.notes ? `${sale.notes}\n${voidNote}` : voidNote,
+              invoiceNumber: voidedInvoiceNumber,
+              notes: sale.notes?.includes('[VOIDED via repair delete')
+                ? sale.notes
+                : sale.notes
+                  ? `${sale.notes}\n${voidNote}`
+                  : voidNote,
               paidAmount: 0,
               dueAmount: 0,
             },
           })
+          await tx.warranty.updateMany({
+            where: { tenantId, invoiceNumber: r.ticketNumber },
+            data: { invoiceNumber: voidedInvoiceNumber, status: 'VOID', endDate: new Date() },
+          }).catch(() => {})
+        } else {
+          await tx.warranty.updateMany({
+            where: { tenantId, invoiceNumber: r.ticketNumber },
+            data: { status: 'VOID', endDate: new Date() },
+          }).catch(() => {})
         }
-
-        // End warranties created for this repair invoice
-        await tx.warranty.updateMany({
-          where: { tenantId, invoiceNumber: r.ticketNumber },
-          data: { status: 'VOID', endDate: new Date() },
-        }).catch(() => {})
 
         // Reverse income transaction posted for this repair
         await tx.transaction.deleteMany({

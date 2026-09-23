@@ -184,12 +184,27 @@ export async function generateVanSettlementNumber(tenantId: string): Promise<str
 export async function generateTicketNumber(tenantId: string): Promise<string> {
   const today = new Date()
   const prefix = `TKT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
-  const last = await prisma.repairTicket.findFirst({
-    where: { tenantId, ticketNumber: { startsWith: prefix } },
-    orderBy: { ticketNumber: 'desc' },
-    select: { ticketNumber: true },
-  })
-  return nextSeq(last?.ticketNumber, prefix)
+  // Also scan Sale.invoiceNumber — collect-payment uses ticketNumber as the sale
+  // invoice, and voided/deleted repairs leave RETURNED sales that still occupy the
+  // unique (tenantId, invoiceNumber) slot. Ignoring them reissues the same TKT-*.
+  const [lastTicket, lastSale] = await Promise.all([
+    prisma.repairTicket.findFirst({
+      where: { tenantId, ticketNumber: { startsWith: prefix } },
+      orderBy: { ticketNumber: 'desc' },
+      select: { ticketNumber: true },
+    }),
+    prisma.sale.findFirst({
+      where: { tenantId, invoiceNumber: { startsWith: prefix } },
+      orderBy: { invoiceNumber: 'desc' },
+      select: { invoiceNumber: true },
+    }),
+  ])
+  const last =
+    [lastTicket?.ticketNumber, lastSale?.invoiceNumber]
+      .filter((v): v is string => !!v)
+      .sort()
+      .at(-1)
+  return nextSeq(last, prefix)
 }
 
 export async function generatePONumber(tenantId: string): Promise<string> {
