@@ -16,6 +16,8 @@ import {
 } from '@/lib/api'
 import { Switch } from '@/components/ui/Switch'
 import { formatMoney } from '@/lib/format-money'
+import { hubSession } from '@/lib/hub-session'
+import { canAccessPlatformFinance } from '@/lib/platform-admin-role'
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'badge-green', TRIAL: 'badge-blue', SUSPENDED: 'badge-yellow', CANCELLED: 'badge-gray',
@@ -96,6 +98,7 @@ export default function TenantDetailPage() {
     name: string; ownerName: string; ownerEmail: string; phone: string
   } | null>(null)
   const [editInfoErr, setEditInfoErr] = useState('')
+  const canFinance = canAccessPlatformFinance(hubSession.getUser('enterprise'))
 
   const loadTenant = useCallback(() => {
     setLoading(true)
@@ -395,7 +398,7 @@ export default function TenantDetailPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-5 pt-5 border-t border-gray-100">
           {[
-            { label: 'MRR',       value: tenant.status === 'TRIAL' ? 'Trial' : (tenant.mrr ? formatMoney(tenant.mrr) : '—'), icon: CreditCard },
+            ...(canFinance ? [{ label: 'MRR', value: tenant.status === 'TRIAL' ? 'Trial' : (tenant.mrr ? formatMoney(tenant.mrr) : '—'), icon: CreditCard }] : []),
             { label: 'Users',     value: String(tenant._count?.users ?? (tenant.users?.length ?? '—')), icon: Users },
             { label: 'Sales',     value: (tenant._count?.sales ?? '—').toLocaleString(), icon: ShoppingCart },
             { label: 'Repairs',   value: (tenant._count?.repairs ?? '—').toLocaleString(), icon: Wrench },
@@ -432,18 +435,20 @@ export default function TenantDetailPage() {
           <div className="card p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="section-title !mb-0">Subscription</h3>
+              {canFinance && (
               <button onClick={() => setEditPlan({
                 plan: tenant.plan,
                 mrr: String(tenant.mrr ?? ''),
                 clearTrialData: tenant.status === 'TRIAL',
               })}
                 className="text-xs text-blue-600 hover:underline">Edit</button>
+              )}
             </div>
             <dl className="space-y-2.5">
               {[
                 ['Plan',  <span className={PLAN_BADGE[tenant.plan] ?? 'badge-gray'}>{tenant.plan}</span>],
                 ['Status', <span className={STATUS_BADGE[tenant.status] ?? 'badge-gray'}>{tenant.status}</span>],
-                ['MRR',  tenant.status === 'TRIAL' ? 'Free Trial' : (tenant.mrr ? formatMoney(tenant.mrr) : '—')],
+                ...(canFinance ? [['MRR',  tenant.status === 'TRIAL' ? 'Free Trial' : (tenant.mrr ? formatMoney(tenant.mrr) : '—')]] : []),
                 ['Sub. Ends', tenant.subscriptionEndsAt ? fmtDate(tenant.subscriptionEndsAt) : '—'],
                 ['Trial Ends', tenant.trialEndsAt ? fmtDate(tenant.trialEndsAt) : '—'],
                 ['Joined', fmtDate(tenant.createdAt)],

@@ -18,7 +18,14 @@ const SALON_GATE = 'hx_salon_token'
 const GATE_VALUE = '1'
 const COOKIE_MAX = ADMIN_SESSION_MAX_AGE
 
-export type HubUserInfo = { id?: string; name: string; email: string; role: string }
+export type HubUserInfo = {
+  id?: string
+  name: string
+  email: string
+  role: string
+  /** SUPER_ADMIN | SUPPORT_ADMIN | BILLING_ADMIN — PLATFORM_ADMIN only */
+  platformAdminRole?: string
+}
 
 function setGateCookie(name: string) {
   document.cookie = `${name}=${GATE_VALUE}; path=/; max-age=${COOKIE_MAX}; SameSite=Strict`

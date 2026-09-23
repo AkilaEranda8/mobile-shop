@@ -11,7 +11,13 @@ const API_BASE   = process.env.NEXT_PUBLIC_API_URL       || 'http://localhost:30
 const TOKEN_KEY = 'admin_token'
 const USER_KEY = 'admin_user'
 
-export type AdminUserInfo = { id?: string; name: string; email: string; role: string }
+export type AdminUserInfo = {
+  id?: string
+  name: string
+  email: string
+  role: string
+  platformAdminRole?: string
+}
 
 function touchAdminGateCookie() {
   if (typeof document === 'undefined') return
@@ -132,8 +138,8 @@ async function req<T>(
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface PlatformStats {
   totalTenants: number; activeTenants: number; trialTenants: number
-  suspendedTenants: number; mrr: number; arr: number; totalUsers: number
-  newTenantsThisMonth: number; mrrDelta: number; churnRate: number
+  suspendedTenants: number; mrr: number | null; arr: number | null; totalUsers: number
+  newTenantsThisMonth: number; mrrDelta: number | null; churnRate: number | null
 }
 
 export interface TenantUser {
@@ -192,7 +198,7 @@ export interface HealthData {
 export async function adminLogin(email: string, password: string) {
   const data = await req<{
     accessToken: string
-    user: { id?: string; name?: string; email?: string; role: string }
+    user: { id?: string; name?: string; email?: string; role: string; platformAdminRole?: string }
   }>(
     API_BASE, '/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) },
   )
@@ -205,6 +211,7 @@ export async function adminLogin(email: string, password: string) {
     name: data.user.name || data.user.email || 'Admin',
     email: data.user.email || email,
     role: data.user.role,
+    platformAdminRole: data.user.platformAdminRole || 'SUPER_ADMIN',
   })
   return data
 }
@@ -893,12 +900,18 @@ export async function savePlatformConfig(data: PlatformConfigMap): Promise<null>
 
 export interface AdminUserRow {
   id: string; name: string; email: string; role: string
+  platformAdminRole?: string
   isActive: boolean; createdAt: string; lastLoginAt: string | null
 }
 export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
   return req<AdminUserRow[]>(ADMIN_BASE, '/settings/admins')
 }
-export async function createAdminUser(data: { name: string; email: string; password: string }): Promise<AdminUserRow> {
+export async function createAdminUser(data: {
+  name: string
+  email: string
+  password: string
+  adminRole?: string
+}): Promise<AdminUserRow> {
   return req<AdminUserRow>(ADMIN_BASE, '/settings/admins', { method: 'POST', body: JSON.stringify(data) })
 }
 export async function deleteAdminUser(id: string): Promise<null> {

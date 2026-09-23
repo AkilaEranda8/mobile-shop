@@ -17,6 +17,8 @@ import {
   buildTenantOnboardShareMessage,
 } from '@/lib/tenantOnboardMessage'
 import { formatMoney } from '@/lib/format-money'
+import { hubSession } from '@/lib/hub-session'
+import { canAccessPlatformFinance } from '@/lib/platform-admin-role'
 
 function WhatsAppFormattedLine({ line }: { line: string }) {
   const parts = line.split(/(\*[^*]+\*|_[^_]+_)/g)
@@ -92,6 +94,8 @@ export default function TenantsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [showOnboard, setShowOnboard]     = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const canFinance = canAccessPlatformFinance(hubSession.getUser('enterprise'))
+  const colSpan = canFinance ? 9 : 8
 
   const load = useCallback((params: { search?: string; status?: string; plan?: string; page?: number } = {}) => {
     setLoading(true)
@@ -224,7 +228,7 @@ export default function TenantsPage() {
                 <th className="th">Owner</th>
                 <th className="th">Plan</th>
                 <th className="th">Status</th>
-                <th className="th text-right">MRR</th>
+                {canFinance && <th className="th text-right">MRR</th>}
                 <th className="th text-right">Sales</th>
                 <th className="th text-right">Users</th>
                 <th className="th whitespace-nowrap">Joined</th>
@@ -233,12 +237,12 @@ export default function TenantsPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading && (
-                <tr><td colSpan={9} className="td py-12 text-center">
+                <tr><td colSpan={colSpan} className="td py-12 text-center">
                   <RefreshCw size={18} className="animate-spin mx-auto text-gray-400" />
                 </td></tr>
               )}
               {!loading && tenants.length === 0 && (
-                <tr><td colSpan={9} className="td py-10 text-center text-gray-400 text-sm">No tenants match your filters.</td></tr>
+                <tr><td colSpan={colSpan} className="td py-10 text-center text-gray-400 text-sm">No tenants match your filters.</td></tr>
               )}
               {!loading && tenants.map(t => (
                 <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${actionLoading === t.id ? 'opacity-50' : ''}`}>
@@ -259,7 +263,9 @@ export default function TenantsPage() {
                   </td>
                   <td className="td"><span className={PLAN_BADGE[t.plan] ?? 'badge-gray'}>{t.plan}</span></td>
                   <td className="td"><span className={STATUS_BADGE[t.status] ?? 'badge-gray'}>{t.status}</span></td>
-                  <td className="td text-right font-semibold text-xs text-gray-800">{fmtMRR(t.status === 'TRIAL' ? 0 : (t.mrr ?? 0))}</td>
+                  {canFinance && (
+                    <td className="td text-right font-semibold text-xs text-gray-800">{fmtMRR(t.status === 'TRIAL' ? 0 : (t.mrr ?? 0))}</td>
+                  )}
                   <td className="td text-right text-xs text-gray-600">{t._count?.sales?.toLocaleString() ?? '—'}</td>
                   <td className="td text-right text-xs text-gray-600">{t._count?.users ?? '—'}</td>
                   <td className="td text-xs text-gray-500 whitespace-nowrap">{fmtDate(t.createdAt)}</td>
@@ -279,10 +285,12 @@ export default function TenantsPage() {
                             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
                             <Eye size={13} />View Details
                           </Link>
+                          {canFinance && (
                           <Link href={`/tenants/${t.id}`} onClick={() => setMenuOpen(null)}
                             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
                             <Edit2 size={13} />Edit Plan / MRR
                           </Link>
+                          )}
                           <a href="https://auth.hexalyte.com/admin/console" target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
                             <KeyRound size={13} />Keycloak Realm

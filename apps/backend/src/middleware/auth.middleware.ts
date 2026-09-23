@@ -11,6 +11,7 @@ import { resolveActiveBranch } from '../utils/active-branch'
 import { isKcAuthEnabled } from '../utils/keycloakAdmin'
 import { prisma } from '../config/database'
 import { roleHasPermission, type PermissionKey } from '../utils/permissions'
+import { canAccessPlatformFinance } from '../utils/platform-admin-role'
 
 declare global {
   namespace Express {
@@ -54,12 +55,12 @@ async function verifyKcToken(token: string): Promise<JwtPayload> {
   const user = claimUserId
     ? await prisma.user.findFirst({
         where: { id: claimUserId, isActive: true },
-        select: { id: true, tenantId: true, role: true, email: true },
+        select: { id: true, tenantId: true, role: true, email: true, platformAdminRole: true },
       })
     : email
       ? await prisma.user.findFirst({
           where: { email: { equals: email, mode: 'insensitive' }, isActive: true },
-          select: { id: true, tenantId: true, role: true, email: true },
+          select: { id: true, tenantId: true, role: true, email: true, platformAdminRole: true },
         })
       : null
 
@@ -70,6 +71,9 @@ async function verifyKcToken(token: string): Promise<JwtPayload> {
     tenantId: user.tenantId,
     role: validRoles.includes(user.role) ? user.role : 'CASHIER',
     email: user.email,
+    ...(user.role === 'PLATFORM_ADMIN'
+      ? { platformAdminRole: user.platformAdminRole || 'SUPER_ADMIN' }
+      : {}),
   }
 }
 
@@ -154,6 +158,20 @@ export function authorize(...roles: string[]) {
     }
     next()
   }
+}
+
+/** Blocks SUPPORT_ADMIN from platform finance / billing / MRR APIs. */
+export function requirePlatformFinance(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) { sendError(res, 'Unauthorized', 401); return }
+  if (req.user.role !== 'PLATFORM_ADMIN') {
+    sendError(res, 'Forbidden', 403)
+    return
+  }
+  if (!canAccessPlatformFinance(req.user.platformAdminRole)) {
+    sendError(res, 'Finance access is limited to platform owners', 403)
+    return
+  }
+  next()
 }
 
 export function requirePermission(permission: PermissionKey) {

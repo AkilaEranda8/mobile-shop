@@ -714,6 +714,8 @@ model User {
   name      String
   password  String
   role      UserRole @default(CASHIER)
+  /// Platform hub sub-role for PLATFORM_ADMIN only: SUPER_ADMIN | SUPPORT_ADMIN | BILLING_ADMIN
+  platformAdminRole  String?
   avatar    String?
   isActive  Boolean  @default(true)
   /// HMAC digest for tenant-scoped unique PIN lookup (never reversible)

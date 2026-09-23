@@ -53,8 +53,17 @@ async function issueLocalTokens(user: {
   tenantId: string
   role: string
   email: string
+  platformAdminRole?: string | null
 }) {
-  const payload = { userId: user.id, tenantId: user.tenantId, role: user.role, email: user.email }
+  const payload = {
+    userId: user.id,
+    tenantId: user.tenantId,
+    role: user.role,
+    email: user.email,
+    ...(user.role === 'PLATFORM_ADMIN'
+      ? { platformAdminRole: user.platformAdminRole || 'SUPER_ADMIN' }
+      : {}),
+  }
   const accessToken = signAccessToken(payload)
   const refreshToken = signRefreshToken(payload)
   const days = user.role === 'PLATFORM_ADMIN' ? 30 : 7
@@ -132,6 +141,7 @@ async function buildUserSession(user: {
   role: string
   tenantId: string
   avatar: string | null
+  platformAdminRole?: string | null
   branches: Array<{ branchId: string }>
   pinMustChange?: boolean
 }) {
@@ -152,6 +162,9 @@ async function buildUserSession(user: {
     email: user.email,
     name: user.name,
     role: user.role,
+    platformAdminRole: user.role === 'PLATFORM_ADMIN'
+      ? (user.platformAdminRole || 'SUPER_ADMIN')
+      : undefined,
     tenantId: user.tenantId,
     tenantSlug: tenant?.slug,
     branchIds,

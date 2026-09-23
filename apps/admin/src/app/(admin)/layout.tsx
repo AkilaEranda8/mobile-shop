@@ -6,6 +6,7 @@ import AdminSidebar from '@/components/layout/AdminSidebar'
 import AdminHeader from '@/components/layout/AdminHeader'
 import { hubSession } from '@/lib/hub-session'
 import { getProduct, type HubProduct } from '@/lib/products'
+import { canAccessPlatformFinance, isFinancePath } from '@/lib/platform-admin-role'
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -84,6 +85,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     if (pathProduct && pathProduct !== stored) {
       hubSession.setProduct(pathProduct)
+    }
+
+    const user = hubSession.getUser(product)
+    if (isFinancePath(path) && !canAccessPlatformFinance(user)) {
+      router.replace(product === 'fashion' ? '/fashion/dashboard' : product === 'salon' ? '/salon/dashboard' : '/dashboard')
+      return
     }
 
     setReady(true)

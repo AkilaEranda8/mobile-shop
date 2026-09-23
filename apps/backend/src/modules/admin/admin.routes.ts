@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { sendSuccess, sendError } from '../../utils/response'
-import { authenticate, authorize } from '../../middleware/auth.middleware'
+import { authenticate, authorize, requirePlatformFinance } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
 import { authService } from '../auth/auth.service'
 import {
@@ -54,10 +54,21 @@ import { getBillingConfig, upsertBillingConfig } from '../billing/billing-config
 import { getHelaposAdminConfig, upsertHelaposConfig } from '../billing/helapos-config'
 import { createHelaposQr, helaposNotifyUrl } from '../billing/helapos.client'
 import { renderSubscriptionInvoicePdf } from '../../utils/render-subscription-invoice-pdf'
+import {
+  canAccessPlatformFinance,
+  canManagePlatformAdmins,
+  normalizePlatformAdminRole,
+} from '../../utils/platform-admin-role'
 
 const router = Router()
 router.use(authenticate)
 router.use(authorize('PLATFORM_ADMIN'))
+
+function redactMrrFromTenant<T extends Record<string, any>>(t: T, canFinance: boolean): T {
+  if (canFinance) return t
+  const { mrr: _m, ...rest } = t
+  return { ...rest, mrr: null } as T
+}
 
 const BILLING_TENANT_SLUG = 'hexalyte-billing-internal'
 
@@ -117,7 +128,7 @@ function normalizeBillingPhone(phone: string): string {
 const MRR_WHERE: Prisma.TenantWhereInput = { status: 'ACTIVE' }
 
 // ── Dashboard Stats ──────────────────────────────────────────────────────────
-router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/stats', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const [
       totalTenants, activeTenants, trialTenants, suspendedTenants,
@@ -133,11 +144,15 @@ router.get('/stats', async (_req: Request, res: Response, next: NextFunction) =>
         where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
       }),
     ])
+    const canFinance = canAccessPlatformFinance(req.user?.platformAdminRole)
     const mrr = mrrAgg._sum?.mrr ?? 0
     sendSuccess(res, {
       totalTenants, activeTenants, trialTenants, suspendedTenants,
-      mrr, arr: mrr * 12, totalUsers, newTenantsThisMonth,
-      mrrDelta: 12.4, churnRate: 2.1,
+      mrr: canFinance ? mrr : null,
+      arr: canFinance ? mrr * 12 : null,
+      totalUsers, newTenantsThisMonth,
+      mrrDelta: canFinance ? 12.4 : null,
+      churnRate: canFinance ? 2.1 : null,
     })
   } catch (e) { next(e) }
 })
@@ -183,8 +198,12 @@ router.get('/tenants', async (req: Request, res: Response, next: NextFunction) =
       }),
       prisma.tenant.count({ where }),
     ])
+    const canFinance = canAccessPlatformFinance(req.user?.platformAdminRole)
     sendSuccess(res, {
-      data: tenants.map(t => ({ ...t, mrr: t.status === 'TRIAL' ? 0 : t.mrr })),
+      data: tenants.map(t => redactMrrFromTenant(
+        { ...t, mrr: t.status === 'TRIAL' ? 0 : t.mrr },
+        canFinance,
+      )),
       total, page: parseInt(page), limit: parseInt(limit),
     })
   } catch (e) { next(e) }
@@ -202,7 +221,8 @@ router.get('/tenants/:id', async (req: Request, res: Response, next: NextFunctio
     })
     if (!tenant) throw new AppError('Tenant not found', 404)
     const { phone: ownerPhone, source: ownerPhoneSource } = await resolveTenantOwnerPhone(tenant.id)
-    sendSuccess(res, { ...tenant, ownerPhone, ownerPhoneSource })
+    const canFinance = canAccessPlatformFinance(req.user?.platformAdminRole)
+    sendSuccess(res, redactMrrFromTenant({ ...tenant, ownerPhone, ownerPhoneSource }, canFinance))
   } catch (e) { next(e) }
 })
 
@@ -278,6 +298,12 @@ router.patch('/tenants/:id', async (req: Request, res: Response, next: NextFunct
     const allowed = ['name', 'plan', 'status', 'mrr', 'trialEndsAt', 'subscriptionEndsAt', 'ownerName', 'ownerEmail']
     const data: Record<string, unknown> = {}
     for (const k of allowed) if (k in req.body) data[k] = req.body[k]
+
+    if (!canAccessPlatformFinance(req.user?.platformAdminRole)) {
+      for (const k of ['mrr', 'plan', 'subscriptionEndsAt'] as const) {
+        if (k in data) throw new AppError('Finance access is limited to platform owners', 403)
+      }
+    }
 
     const phoneRaw = typeof req.body.phone === 'string' ? req.body.phone.trim() : undefined
     const phoneProvided = 'phone' in req.body
@@ -655,7 +681,7 @@ router.post('/billing/whatsapp/send-onboard-credentials', validate(sendOnboardCr
 })
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────
-router.get('/subscriptions', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/subscriptions', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = req.query as Record<string, string>
     const where: Record<string, unknown> = {}
@@ -728,7 +754,7 @@ router.get('/subscriptions', async (req: Request, res: Response, next: NextFunct
 })
 
 /** Mark next-period invoice as payment due — creates a permanent SubscriptionInvoice */
-router.post('/subscriptions/:tenantId/mark-payment-due', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/subscriptions/:tenantId/mark-payment-due', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
     if (!tenant) throw new AppError('Tenant not found', 404)
@@ -796,7 +822,7 @@ router.post('/subscriptions/:tenantId/mark-payment-due', async (req: Request, re
 })
 
 /** Clear payment-due flag without extending */
-router.post('/subscriptions/:tenantId/clear-payment-due', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/subscriptions/:tenantId/clear-payment-due', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
     if (!tenant) throw new AppError('Tenant not found', 404)
@@ -821,7 +847,7 @@ router.post('/subscriptions/:tenantId/clear-payment-due', async (req: Request, r
 })
 
 /** Confirm payment received → clear due AND extend subscriptionEndsAt (legacy + ledger) */
-router.post('/subscriptions/:tenantId/confirm-payment', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/subscriptions/:tenantId/confirm-payment', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: req.params.tenantId } })
     if (!tenant) throw new AppError('Tenant not found', 404)
@@ -934,7 +960,7 @@ router.post('/subscriptions/:tenantId/confirm-payment', async (req: Request, res
 })
 
 // ── Subscription Payments (manual bank transfer approval) ─────────────────────
-router.get('/payments', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/payments', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status, search } = req.query as Record<string, string>
     const data = await listAdminPayments({
@@ -945,7 +971,7 @@ router.get('/payments', async (req: Request, res: Response, next: NextFunction) 
   } catch (e) { next(e) }
 })
 
-router.post('/payments/:id/approve', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/payments/:id/approve', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const payment = await approveSubscriptionPayment({
       paymentId: req.params.id,
@@ -956,7 +982,7 @@ router.post('/payments/:id/approve', async (req: Request, res: Response, next: N
   } catch (e) { next(e) }
 })
 
-router.post('/payments/:id/reject', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/payments/:id/reject', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const reason = String(req.body?.reason || '').trim()
     if (reason.length < 3) throw new AppError('Rejection reason is required', 400)
@@ -971,7 +997,7 @@ router.post('/payments/:id/reject', async (req: Request, res: Response, next: Ne
 })
 
 /** Download Hexalyte subscription invoice PDF (platform → tenant) — same bytes as shop /billing/invoices/:id/pdf */
-router.get('/subscriptions/invoices/:id/pdf', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/subscriptions/invoices/:id/pdf', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await getSubscriptionInvoiceById(req.params.id)
     const config = await getBillingConfig()
@@ -982,7 +1008,7 @@ router.get('/subscriptions/invoices/:id/pdf', async (req: Request, res: Response
   } catch (e) { next(e) }
 })
 
-router.get('/billing-settings', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/billing-settings', requirePlatformFinance, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const config = await getBillingConfig()
     const helapos = await getHelaposAdminConfig()
@@ -990,7 +1016,7 @@ router.get('/billing-settings', async (_req: Request, res: Response, next: NextF
   } catch (e) { next(e) }
 })
 
-router.put('/billing-settings', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/billing-settings', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = await upsertBillingConfig({
       graceDays: req.body?.graceDays,
@@ -1015,7 +1041,7 @@ router.put('/billing-settings', async (req: Request, res: Response, next: NextFu
   } catch (e) { next(e) }
 })
 
-router.put('/helapos-settings', async (req: Request, res: Response, next: NextFunction) => {
+router.put('/helapos-settings', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const helapos = await upsertHelaposConfig(req.body ?? {})
     await logPlatformActivity({
@@ -1033,7 +1059,7 @@ router.put('/helapos-settings', async (req: Request, res: Response, next: NextFu
 })
 
 /** Live HelaPOS QR probe — does not create a subscription payment */
-router.post('/helapos-test-qr', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/helapos-test-qr', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rawAmount = Number((req.body as any)?.amount)
     const amount = Number.isFinite(rawAmount)
@@ -1070,7 +1096,7 @@ router.post('/helapos-test-qr', async (req: Request, res: Response, next: NextFu
   } catch (e) { next(e) }
 })
 
-router.get('/invoices', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/invoices', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { tenantId, status } = req.query as Record<string, string>
     const where: any = {}
@@ -1089,7 +1115,7 @@ router.get('/invoices', async (req: Request, res: Response, next: NextFunction) 
   } catch (e) { next(e) }
 })
 
-router.get('/subscriptions/:tenantId/contact', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/subscriptions/:tenantId/contact', requirePlatformFinance, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.params.tenantId },
@@ -1105,7 +1131,7 @@ router.get('/subscriptions/:tenantId/contact', async (req: Request, res: Respons
   } catch (e) { next(e) }
 })
 
-router.post('/subscriptions/:tenantId/send-invoice', validate(sendInvoiceSchema), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/subscriptions/:tenantId/send-invoice', requirePlatformFinance, validate(sendInvoiceSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const billingTenantId = await ensureBillingWhatsAppTenant()
     const billingStatus = await whatsappService.getStatus(billingTenantId)
@@ -1140,7 +1166,7 @@ router.post('/subscriptions/:tenantId/send-invoice', validate(sendInvoiceSchema)
 })
 
 // ── Platform Analytics ────────────────────────────────────────────────────────
-router.get('/analytics', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/analytics', requirePlatformFinance, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const now = new Date()
     const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -1921,7 +1947,7 @@ router.get('/server-stats', async (_req: Request, res: Response, next: NextFunct
 })
 
 // ── MRR Chart (last 12 months) ────────────────────────────────────────────────
-router.get('/mrr-chart', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/mrr-chart', requirePlatformFinance, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const months: { month: string; mrr: number }[] = []
     for (let i = 11; i >= 0; i--) {
@@ -2232,7 +2258,7 @@ router.get('/settings/admins', async (_req: Request, res: Response, next: NextFu
     const admins = await prisma.user.findMany({
       where: { role: 'PLATFORM_ADMIN' },
       select: {
-        id: true, name: true, email: true, role: true,
+        id: true, name: true, email: true, role: true, platformAdminRole: true,
         isActive: true, createdAt: true,
         refreshTokens: { select: { createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
       },
@@ -2240,6 +2266,7 @@ router.get('/settings/admins', async (_req: Request, res: Response, next: NextFu
     })
     const result = admins.map(a => ({
       id: a.id, name: a.name, email: a.email, role: a.role,
+      platformAdminRole: normalizePlatformAdminRole(a.platformAdminRole),
       isActive: a.isActive, createdAt: a.createdAt,
       lastLoginAt: a.refreshTokens[0]?.createdAt ?? null,
     }))
@@ -2249,14 +2276,22 @@ router.get('/settings/admins', async (_req: Request, res: Response, next: NextFu
 
 router.post('/settings/admins', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const requester = (req as any).user
+    if (!canManagePlatformAdmins(requester?.platformAdminRole)) {
+      throw new AppError('Only platform owners can add admin users', 403)
+    }
     const { name, email, password, adminRole = 'SUPPORT_ADMIN' } = req.body
     if (!name || !email || !password) throw new AppError('name, email and password are required', 400)
+    const platformAdminRole = normalizePlatformAdminRole(adminRole === 'SUPER_ADMIN' || adminRole === 'BILLING_ADMIN' || adminRole === 'SUPPORT_ADMIN' ? adminRole : 'SUPPORT_ADMIN')
+    // New staff default SUPPORT_ADMIN; only owners may create another SUPER_ADMIN
+    if (platformAdminRole === 'SUPER_ADMIN' && !canManagePlatformAdmins(requester?.platformAdminRole)) {
+      throw new AppError('Cannot create SUPER_ADMIN', 403)
+    }
     const normalizedEmail = String(email).trim().toLowerCase()
     const existing = await prisma.user.findFirst({ where: { email: { equals: normalizedEmail, mode: 'insensitive' } } })
     if (existing) throw new AppError('Email already in use', 409)
     const bcrypt = await import('bcryptjs')
     const hashed = await bcrypt.default.hash(password, 12)
-    const requester = (req as any).user
     const created = await prisma.user.create({
       data: {
         tenantId: requester.tenantId,
@@ -2264,6 +2299,7 @@ router.post('/settings/admins', async (req: Request, res: Response, next: NextFu
         email: normalizedEmail,
         password: hashed,
         role: 'PLATFORM_ADMIN',
+        platformAdminRole,
       },
     })
     const { ensureKcUser, createOrGetGroup, isKcConfigured } = await import('../../utils/keycloakAdmin.js')
@@ -2289,13 +2325,23 @@ router.post('/settings/admins', async (req: Request, res: Response, next: NextFu
         throw new AppError('Failed to create admin on the authentication server', 503)
       }
     }
-    sendSuccess(res, { id: created.id, name: created.name, email: created.email, role: created.role, createdAt: created.createdAt }, 'Admin created', 201)
+    sendSuccess(res, {
+      id: created.id,
+      name: created.name,
+      email: created.email,
+      role: created.role,
+      platformAdminRole: normalizePlatformAdminRole(created.platformAdminRole),
+      createdAt: created.createdAt,
+    }, 'Admin created', 201)
   } catch (e) { next(e) }
 })
 
 router.delete('/settings/admins/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const requester = (req as any).user
+    if (!canManagePlatformAdmins(requester?.platformAdminRole)) {
+      throw new AppError('Only platform owners can deactivate admins', 403)
+    }
     if (req.params.id === requester.userId) throw new AppError('Cannot delete yourself', 400)
     await prisma.user.update({ where: { id: req.params.id }, data: { isActive: false } })
     try {

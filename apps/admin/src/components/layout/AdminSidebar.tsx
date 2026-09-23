@@ -18,6 +18,7 @@ import {
 import { hubSession, type HubUserInfo } from '@/lib/hub-session'
 import { type HubProduct, getProduct } from '@/lib/products'
 import ProductSwitcher from './ProductSwitcher'
+import { canAccessPlatformFinance, FINANCE_NAV_HREFS } from '@/lib/platform-admin-role'
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard }
 
@@ -116,6 +117,12 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
     setUser(hubSession.getUser(p))
   }, [path])
 
+  const displayName = user?.name || 'Admin'
+  const displayEmail = user?.email || ''
+  const canFinance = canAccessPlatformFinance(user)
+  const nav = navFor(product).filter((item) => canFinance || !FINANCE_NAV_HREFS.has(item.href))
+  const productLabel = getProduct(product).shortLabel
+
   useEffect(() => {
     // Only Enterprise sidebar badges hit Enterprise admin APIs.
     // Guard against mount race (product defaults before hub session is read)
@@ -130,9 +137,10 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
     const load = async () => {
       const next: Record<string, string | null> = {}
       try {
+        const financeOk = canAccessPlatformFinance(hubSession.getUser('enterprise'))
         const [stats, overdue, health, notifs, suggestions] = await Promise.all([
           fetchStats().catch(() => null),
-          fetchSubscriptions('OVERDUE').catch(() => null),
+          financeOk ? fetchSubscriptions('OVERDUE').catch(() => null) : Promise.resolve(null),
           fetchHealth().catch(() => null),
           fetchNotifications().catch(() => null),
           featureSuggestionsAdminApi.summary().catch(() => null),
@@ -142,7 +150,9 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
         if (stats) next['/tenants'] = fmtBadgeCount(stats.totalTenants)
 
         const overdueCount = overdue?.data?.length ?? 0
-        next['/subscriptions'] = overdueCount > 0 ? `${overdueCount} overdue` : null
+        if (financeOk) {
+          next['/subscriptions'] = overdueCount > 0 ? `${overdueCount} overdue` : null
+        }
 
         if (health) {
           const issues = Object.values(health).filter(
@@ -177,11 +187,6 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
       clearInterval(t)
     }
   }, [product])
-
-  const displayName = user?.name || 'Admin'
-  const displayEmail = user?.email || ''
-  const nav = navFor(product)
-  const productLabel = getProduct(product).shortLabel
 
   return (
     <aside className="flex flex-col h-full bg-white border-r border-gray-200 w-[220px] flex-shrink-0">

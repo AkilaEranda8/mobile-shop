@@ -13,6 +13,8 @@ import {
   type PlatformConfigMap, type AdminUserRow,
 } from '@/lib/api'
 import { Switch } from '@/components/ui/Switch'
+import { hubSession } from '@/lib/hub-session'
+import { canManagePlatformAdmins } from '@/lib/platform-admin-role'
 
 const TABS = ['Platform', 'Admins', 'Email', 'SMS', 'Security']
 
@@ -153,7 +155,8 @@ function AdminsTab() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [saving, setSaving]     = useState(false)
   const [showPw, setShowPw]     = useState(false)
-  const [form, setForm]         = useState({ name: '', email: '', password: '' })
+  const [form, setForm]         = useState({ name: '', email: '', password: '', adminRole: 'SUPPORT_ADMIN' })
+  const canManage = canManagePlatformAdmins(hubSession.getUser('enterprise'))
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -169,7 +172,7 @@ function AdminsTab() {
       const a = await createAdminUser(form)
       setAdmins(prev => [...prev, { ...a, isActive: true, lastLoginAt: null }])
       setShowAdd(false)
-      setForm({ name: '', email: '', password: '' })
+      setForm({ name: '', email: '', password: '', adminRole: 'SUPPORT_ADMIN' })
     } catch (e) { alert(e instanceof Error ? e.message : 'Failed') } finally { setSaving(false) }
   }
 
@@ -184,10 +187,20 @@ function AdminsTab() {
     ? new Date(s).toLocaleString('en-LK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     : '—'
 
+  const roleLabel = (r?: string) => {
+    if (r === 'SUPPORT_ADMIN') return 'Staff (no finance)'
+    if (r === 'BILLING_ADMIN') return 'Billing'
+    return 'Owner'
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button onClick={() => setShowAdd(true)} className="btn-primary text-sm"><Plus size={14} />Add Admin</button>
+        {canManage ? (
+          <button onClick={() => setShowAdd(true)} className="btn-primary text-sm"><Plus size={14} />Add Staff Admin</button>
+        ) : (
+          <p className="text-xs text-gray-400">Only platform owners can add staff admins.</p>
+        )}
       </div>
 
       {loading ? (
@@ -197,6 +210,7 @@ function AdminsTab() {
           <table className="w-full">
             <thead><tr className="bg-gray-50">
               <th className="th">Admin</th>
+              <th className="th">Access</th>
               <th className="th">Status</th>
               <th className="th">Last Login</th>
               <th className="th">Joined</th>
@@ -204,13 +218,22 @@ function AdminsTab() {
             </tr></thead>
             <tbody className="divide-y divide-gray-50">
               {admins.length === 0 && (
-                <tr><td colSpan={5} className="td text-center text-sm text-gray-400 py-8">No admin users found</td></tr>
+                <tr><td colSpan={6} className="td text-center text-sm text-gray-400 py-8">No admin users found</td></tr>
               )}
               {admins.map(a => (
                 <tr key={a.id} className="hover:bg-gray-50 transition-colors">
                   <td className="td">
                     <p className="text-xs font-semibold text-gray-800">{a.name}</p>
                     <p className="text-[10px] text-gray-400">{a.email}</p>
+                  </td>
+                  <td className="td">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                      a.platformAdminRole === 'SUPPORT_ADMIN' ? 'bg-slate-100 text-slate-600'
+                        : a.platformAdminRole === 'BILLING_ADMIN' ? 'bg-amber-50 text-amber-700'
+                        : 'bg-emerald-50 text-emerald-700'
+                    }`}>
+                      {roleLabel(a.platformAdminRole)}
+                    </span>
                   </td>
                   <td className="td">
                     {a.isActive
@@ -222,10 +245,12 @@ function AdminsTab() {
                     {new Date(a.createdAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: '2-digit' })}
                   </td>
                   <td className="td text-center">
-                    <button onClick={() => handleDelete(a.id)} disabled={deleting === a.id}
-                      className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                      {deleting === a.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                    </button>
+                    {canManage ? (
+                      <button onClick={() => handleDelete(a.id)} disabled={deleting === a.id}
+                        className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        {deleting === a.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      </button>
+                    ) : <span className="text-[10px] text-gray-300">—</span>}
                   </td>
                 </tr>
               ))}
@@ -234,18 +259,28 @@ function AdminsTab() {
         </div>
       )}
 
-      {showAdd && (
+      {showAdd && canManage && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-sm font-bold text-gray-900 mb-4">Add Admin User</h3>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">Add Staff Admin</h3>
+            <p className="text-[11px] text-gray-400 mb-4">Staff can use the admin panel but cannot see finance, payments, or MRR.</p>
             <div className="space-y-3">
               {(['name', 'email'] as const).map(field => (
                 <div key={field}>
                   <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{field}</label>
-                  <input className="input" value={form[field]} placeholder={field === 'email' ? 'admin@hexalyte.com' : 'Full Name'}
+                  <input className="input" value={form[field]} placeholder={field === 'email' ? 'staff@hexalyte.com' : 'Full Name'}
                     onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} />
                 </div>
               ))}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Access level</label>
+                <select className="input" value={form.adminRole}
+                  onChange={e => setForm(f => ({ ...f, adminRole: e.target.value }))}>
+                  <option value="SUPPORT_ADMIN">Staff — hide finance</option>
+                  <option value="BILLING_ADMIN">Billing — finance only</option>
+                  <option value="SUPER_ADMIN">Owner — full access</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Temporary Password</label>
                 <div className="relative">

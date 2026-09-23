@@ -14,6 +14,8 @@ import {
   type PlatformStats, type TenantRow, type MrrPoint, type AnalyticsData, type ActivityLog,
 } from '@/lib/api'
 import { formatMoney as fmt } from '@/lib/format-money'
+import { hubSession } from '@/lib/hub-session'
+import { canAccessPlatformFinance } from '@/lib/platform-admin-role'
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: '2-digit' })
 }
@@ -66,11 +68,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setLoading(true)
+    const canFinance = canAccessPlatformFinance(hubSession.getUser('enterprise'))
     Promise.all([
       fetchStats(),
-      fetchMrrChart(),
+      canFinance ? fetchMrrChart().catch(() => [] as MrrPoint[]) : Promise.resolve([] as MrrPoint[]),
       fetchTenants({ limit: '20' }),
-      fetchAnalytics(),
+      canFinance ? fetchAnalytics().catch(() => null) : Promise.resolve(null),
     ])
       .then(([stats, chart, tRes, an]) => {
         setS(stats); setMrrChart(chart); setTenants(tRes.data); setAnalytics(an)
@@ -104,13 +107,31 @@ export default function DashboardPage() {
   const mrrLast  = mrrChart[mrrChart.length - 1]?.mrr ?? 0
   const ytdPct   = mrrFirst > 0 ? (((mrrLast - mrrFirst) / mrrFirst) * 100).toFixed(1) : '—'
 
+  const canFinance = canAccessPlatformFinance(hubSession.getUser('enterprise'))
+
   const statCards = s ? [
-    { label: 'Monthly Recurring Revenue', value: fmt(s.mrr),                      delta: `${s.mrrDelta >= 0 ? '+' : ''}${s.mrrDelta}% vs last month`, up: s.mrrDelta >= 0,     icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    ...(canFinance && s.mrr != null ? [{
+      label: 'Monthly Recurring Revenue',
+      value: fmt(s.mrr),
+      delta: `${(s.mrrDelta ?? 0) >= 0 ? '+' : ''}${s.mrrDelta ?? 0}% vs last month`,
+      up: (s.mrrDelta ?? 0) >= 0,
+      icon: DollarSign,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+    }] : []),
     { label: 'Active Tenants',            value: s.activeTenants.toString(),       delta: `+${s.newTenantsThisMonth} this month`,                       up: true,                icon: Building2,  color: 'text-blue-600',   bg: 'bg-blue-50'    },
     { label: 'Trial Accounts',            value: s.trialTenants.toString(),        delta: `${trialExpiring.length} expiring this week`,                 up: false,               icon: Clock,      color: 'text-amber-600',  bg: 'bg-amber-50'   },
     { label: 'Total Platform Users',      value: s.totalUsers.toLocaleString(),    delta: 'across all tenants',                                         up: true,                icon: Users,      color: 'text-brand-600', bg: 'bg-brand-50'  },
     { label: 'New Tenants (Month)',       value: s.newTenantsThisMonth.toString(), delta: 'joined this month',                                          up: s.newTenantsThisMonth > 0, icon: TrendingUp,  color: 'text-cyan-600',   bg: 'bg-cyan-50'    },
-    { label: 'Churn Rate',               value: `${s.churnRate}%`,                delta: 'monthly churn',                                              up: s.churnRate < 3,     icon: TrendingDown,color: 'text-red-600',    bg: 'bg-red-50'     },
+    ...(canFinance && s.churnRate != null ? [{
+      label: 'Churn Rate',
+      value: `${s.churnRate}%`,
+      delta: 'monthly churn',
+      up: s.churnRate < 3,
+      icon: TrendingDown,
+      color: 'text-red-600',
+      bg: 'bg-red-50',
+    }] : []),
   ] : []
 
   if (error) return (
@@ -151,6 +172,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Charts row 1: MRR trend + Plan donut ────────────────────────────── */}
+      {canFinance && (
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="card p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
@@ -207,6 +229,7 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* ── Charts row 2: New Tenants + GMV Monthly ──────────────────────────── */}
       <div className="grid lg:grid-cols-2 gap-4">

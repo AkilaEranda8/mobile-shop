@@ -6,6 +6,8 @@ export interface JwtPayload {
   tenantId: string
   role: string
   email: string
+  /** PLATFORM_ADMIN only: SUPER_ADMIN | SUPPORT_ADMIN | BILLING_ADMIN */
+  platformAdminRole?: string
   /** Support-session / admin impersonation only — not used for normal Keycloak logins */
   impersonation?: boolean
   /**
