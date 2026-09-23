@@ -469,8 +469,13 @@ function buildAndPrintThermalReceipt(
     .item-meta { font-size: ${fs.small}px; color: ${metaColor}; font-weight: ${bodyWeight}; }
     .item-line { margin-top: 2px; }
     @media print {
-      @page { margin: 2mm; size: ${paperWidth} auto; }
-      html, body { width: 100%; max-width: 100%; padding: 0 1mm; }
+      @page { margin: 1.5mm; size: ${paperWidth} auto; }
+      html, body {
+        width: ${paperWidth} !important;
+        max-width: ${paperWidth} !important;
+        margin: 0 !important;
+        padding: 2px 1mm !important;
+      }
     }
   </style>
 </head>

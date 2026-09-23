@@ -6,7 +6,7 @@ import {
   Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, Hash, ShoppingBag,
   Banknote, Smartphone, TrendingUp, Download, Truck, RotateCcw,
-  Pencil, Trash2, Lock, AlertTriangle, Search,
+  Pencil, Trash2, Lock, AlertTriangle, Search, Printer,
 } from 'lucide-react'
 import { TableDensityToggle, type TableDensity } from '@/components/ui/TableDensityToggle'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -21,6 +21,7 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, resolveInvoiceTemplate, type InvoiceSettings } from '@/lib/invoiceSettings'
 import InvoiceA4View from '@/components/invoice/InvoiceA4View'
+import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/printReceipt'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useModuleAccess, EditOnly } from '@/lib/module-access'
 import { useFeatureFlag } from '@/lib/hooks'
@@ -907,6 +908,22 @@ function SaleDetailsModal({
     setTimeout(() => { w.print(); w.close() }, 400)
   }
 
+  const printThermalOrStock = () => {
+    try {
+      const receipt = buildReceiptFromApiSale(liveSale)
+      printReceipt(receipt, invSettings, {
+        shopName: invSettings.shopName,
+        address: invSettings.address,
+        phone: invSettings.phone,
+        email: invSettings.email,
+      })
+    } catch {
+      toast.error('Thermal print failed')
+    }
+  }
+
+  const receiptBtnLabel = receiptPrintLabel(invSettings)
+
   const paymentStatus = liveSale?.dueAmount > 0 ? 'Partial' : 'Paid'
   const paymentStatusClass = liveSale?.dueAmount > 0
     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25'
@@ -1122,12 +1139,20 @@ function SaleDetailsModal({
             )}
             <button
               type="button"
+              onClick={printThermalOrStock}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-brand-500/30 bg-brand-500/15 text-brand-700 dark:text-brand-300 hover:bg-brand-500/25 font-semibold"
+            >
+              <Printer size={14} />
+              {receiptBtnLabel}
+            </button>
+            <button
+              type="button"
               onClick={printInvoice}
               className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border font-semibold transition-colors"
               style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}
             >
               <Eye size={14} />
-              Print Invoice
+              Print A4 Invoice
             </button>
             <button
               type="button"
