@@ -698,7 +698,6 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       .then((r: any) => {
         if (cancelled) return
         const rows = (r.data ?? []) as any[]
-        // Only serialized / IMEI-tracked inventory products
         setProducts(rows.filter((p: any) => p.trackImei).sort((a: any, b: any) =>
           String(a.name ?? '').localeCompare(String(b.name ?? '')),
         ))
@@ -719,10 +718,10 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     )
   }, [products, productSearch])
 
-  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm(p => ({ ...p, [k]: e.target.value }))
-    if (k === 'imei') setImeiError('')
-  }
+  const selectedProduct = useMemo(
+    () => products.find((p: any) => p.id === form.productId) ?? null,
+    [products, form.productId],
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -732,7 +731,6 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     if (!form.productId) { toast.error('Select a product'); return }
     setLoading(true)
     try {
-      const selectedProduct = products.find((p: any) => p.id === form.productId)
       const branchId = activeBranchId || selectedProduct?.branchId
       if (!branchId) { toast.error('No active branch — switch branch in header'); return }
       await imeiApi.create({ imei: serial, productId: form.productId, branchId })
@@ -752,76 +750,188 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Register Serial / IMEI</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Link serial number or IMEI to a product</p>
+      <div
+        className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] flex flex-col border"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center flex-shrink-0">
+              <Smartphone size={16} className="text-brand-400" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Register Serial / IMEI</h3>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Link a serial to a tracked inventory product</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/5"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <X size={16} />
+          </button>
         </div>
-        <div className="overflow-y-auto p-5">
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <div className="overflow-y-auto px-5 py-4 space-y-4">
             <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Serial Number / IMEI *</label>
+              <label className="block text-[11px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Serial Number / IMEI *
+              </label>
               <input
-                required maxLength={SERIAL_MAX_LEN}
+                required
+                autoFocus
+                maxLength={SERIAL_MAX_LEN}
                 className={`input-field font-mono tracking-wide uppercase ${imeiError ? 'border-red-500/50' : ''}`}
                 placeholder="SN123456789 or 15-digit IMEI"
-                value={form.imei} onChange={f('imei')}
+                value={form.imei}
+                onChange={e => { setForm(p => ({ ...p, imei: e.target.value })); setImeiError('') }}
               />
-              {imeiError && <p className="text-xs text-red-400 mt-1">{imeiError}</p>}
+              {imeiError && <p className="text-xs text-red-400 mt-1.5">{imeiError}</p>}
               {form.imei && isValidUnitSerial(form.imei) && !imeiError && (
-                <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CheckCircle size={11} />Valid format</p>
+                <p className="text-xs text-green-500 mt-1.5 flex items-center gap-1"><CheckCircle size={11} />Valid format</p>
               )}
             </div>
+
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs text-gray-600 dark:text-slate-400">Product * (IMEI / serial tracked)</label>
-                <span className="text-[10px] font-mono text-slate-500">
-                  {productsLoading ? '…' : `${filteredProducts.length}/${products.length}`}
+                <label className="block text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Product *
+                </label>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                  {productsLoading ? 'Loading…' : `${filteredProducts.length} of ${products.length}`}
                 </span>
               </div>
-              <input
-                type="search"
-                className="input-field text-sm mb-2"
-                placeholder="Search product name, SKU, brand…"
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-              />
-              <select
-                required
-                className="input-field"
-                value={form.productId}
-                onChange={f('productId')}
-                disabled={productsLoading}
-                size={Math.min(10, Math.max(4, filteredProducts.length || 4))}
+
+              {selectedProduct && (
+                <div
+                  className="mb-2 flex items-center gap-2.5 rounded-xl border px-3 py-2.5"
+                  style={{ background: 'rgba(37,99,235,0.08)', borderColor: 'rgba(37,99,235,0.28)' }}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-brand-500/20 border border-brand-500/30 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle size={14} className="text-brand-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{selectedProduct.name}</p>
+                    <p className="text-[11px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>
+                      {selectedProduct.sku}
+                      {(selectedProduct.brandName || selectedProduct.brand?.name)
+                        ? ` · ${selectedProduct.brandName || selectedProduct.brand?.name}`
+                        : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm(p => ({ ...p, productId: '' }))}
+                    className="text-[11px] font-medium text-brand-400 hover:text-brand-300 px-2 py-1 rounded-lg hover:bg-brand-500/10"
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+
+              <div
+                className="rounded-xl border overflow-hidden"
+                style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}
               >
-                <option value="">{productsLoading ? 'Loading products…' : 'Select product...'}</option>
-                {filteredProducts.map((p: any) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — {p.sku}{p.brandName || p.brand?.name ? ` · ${p.brandName || p.brand?.name}` : ''}
-                  </option>
-                ))}
-              </select>
-              {!productsLoading && products.length === 0 && (
-                <p className="text-xs text-amber-500 mt-1.5 flex items-center gap-1.5">
-                  <AlertTriangle size={11} />
-                  No serial-tracked products in this branch. Enable Serial Tracking on the product first.
-                </p>
-              )}
-              {!productsLoading && products.length > 0 && filteredProducts.length === 0 && (
-                <p className="text-xs text-slate-500 mt-1.5">No products match “{productSearch}”.</p>
-              )}
+                <div className="relative border-b px-2.5 py-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <Search size={13} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+                  <input
+                    type="search"
+                    className="w-full rounded-lg border-0 bg-transparent pl-8 pr-3 py-1.5 text-sm outline-none"
+                    style={{ color: 'var(--text-primary)' }}
+                    placeholder="Search name, SKU, or brand…"
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
+                  />
+                </div>
+
+                <div className="max-h-56 overflow-y-auto">
+                  {productsLoading ? (
+                    <div className="py-10 flex flex-col items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                      <Loader2 size={18} className="animate-spin" />
+                      <p className="text-xs">Loading products…</p>
+                    </div>
+                  ) : products.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <AlertTriangle size={18} className="mx-auto mb-2 text-amber-500" />
+                      <p className="text-xs text-amber-500">No serial-tracked products in this branch.</p>
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>Enable Serial Tracking on the product first.</p>
+                    </div>
+                  ) : filteredProducts.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+                      No products match “{productSearch}”
+                    </p>
+                  ) : (
+                    <ul className="py-1">
+                      {filteredProducts.map((p: any) => {
+                        const active = form.productId === p.id
+                        const brand = p.brandName || p.brand?.name
+                        return (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              onClick={() => setForm(prev => ({ ...prev, productId: p.id }))}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                                active
+                                  ? 'bg-brand-500/15'
+                                  : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
+                              }`}
+                            >
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${
+                                  active
+                                    ? 'bg-brand-500/25 border-brand-500/40'
+                                    : 'bg-black/[0.03] dark:bg-white/[0.04] border-transparent'
+                                }`}
+                              >
+                                <Smartphone size={13} className={active ? 'text-brand-400' : ''} style={active ? undefined : { color: 'var(--text-muted)' }} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className={`text-sm truncate ${active ? 'font-semibold text-brand-600 dark:text-brand-300' : 'font-medium'}`} style={active ? undefined : { color: 'var(--text-primary)' }}>
+                                  {p.name}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                  <span className="text-[11px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>{p.sku}</span>
+                                  {brand && (
+                                    <>
+                                      <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>·</span>
+                                      <span
+                                        className="text-[10px] font-medium px-1.5 py-0.5 rounded-md truncate max-w-[9rem]"
+                                        style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                                      >
+                                        {brand}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              {active && <CheckCircle size={15} className="text-brand-400 flex-shrink-0" />}
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex gap-3 pt-1">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-              <button type="submit" disabled={loading || productsLoading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Register Serial
-              </button>
-            </div>
-          </form>
-        </div>
+          </div>
+
+          <div className="flex gap-2.5 px-5 py-4 border-t flex-shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
+            <button
+              type="submit"
+              disabled={loading || productsLoading || !form.productId}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Register Serial
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
