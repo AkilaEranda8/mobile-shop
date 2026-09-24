@@ -16,17 +16,7 @@ import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 import { isValidUnitSerial, normalizeSerial, SERIAL_MAX_LEN, serialValidationMessage } from '@/lib/serialNumber'
-import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl } from '@/components/design-system'
-
-/** Local calendar-day bounds as ISO strings (shop timezone). */
-function localDayBounds(offsetDays = 0): { from: string; to: string } {
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  start.setDate(start.getDate() + offsetDays)
-  const end = new Date(start)
-  end.setHours(23, 59, 59, 999)
-  return { from: start.toISOString(), to: end.toISOString() }
-}
+import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   IN_STOCK:             { label: 'In Stock',     color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
@@ -50,11 +40,6 @@ const repairStatusColors: Record<string, string> = {
 
 function formatCurrency(v: any) { return `Rs. ${Number(v ?? 0).toLocaleString('en-LK')}` }
 function formatDate(d: string)  { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) }
-function formatDateTime(d: string) {
-  return new Date(d).toLocaleString('en-IN', {
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
-  })
-}
 
 /** Owner/admin password gate — same pattern as sales void/edit. */
 function DeleteSerialPasswordModal({
@@ -946,7 +931,6 @@ export default function IMEIPage() {
   const [quickSearch,  setQuickSearch]  = useState('')
   const [listSearch,   setListSearch]   = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'IN_STOCK' | 'SOLD' | 'IN_REPAIR' | 'REPAIR_ONLY'>('all')
-  const [dayFilter,    setDayFilter]    = useState<'today' | 'all'>('today')
   const [quickResult,  setQuickResult]  = useState<null | 'loading' | 'found' | 'notfound'>(null)
 
   const openDetail = useCallback((imei: string) => setSelectedImei(imei), [])
@@ -961,20 +945,14 @@ export default function IMEIPage() {
     if (imei) {
       setListSearch(imei)
       setSelectedImei(imei)
-      setDayFilter('all')
     }
   }, [canEdit, searchParams])
   const branchId = useActiveBranchId()
   const imeiParams = useMemo(() => {
     const p: Record<string, string> = { limit: '5000' }
     if (branchId) p.branchId = branchId
-    if (dayFilter === 'today') {
-      const { from, to } = localDayBounds(0)
-      p.from = from
-      p.to = to
-    }
     return p
-  }, [branchId, dayFilter])
+  }, [branchId])
   const { data, loading, refetch } = useImeiRecords(imeiParams)
   const records: any[] = (data?.data ?? []) as any[]
   const total = (data as any)?.meta?.total ?? records.length
@@ -1060,7 +1038,7 @@ export default function IMEIPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Registered" />,
       cell: ({ row }) => (
         <span className="text-xs text-gray-500 dark:text-slate-500">
-          {dayFilter === 'today' ? formatDateTime(row.original.createdAt) : formatDate(row.original.createdAt)}
+          {formatDate(row.original.createdAt)}
         </span>
       ),
     },
@@ -1076,10 +1054,10 @@ export default function IMEIPage() {
         </button>
       ),
     },
-  ], [openDetail, dayFilter])
+  ], [openDetail])
 
   const stats = [
-    { label: dayFilter === 'today' ? 'Today' : 'Total Tracked', value: total, icon: Smartphone, tone: 'brand' as const, filter: 'all' as const },
+    { label: 'Total Tracked',  value: total,               icon: Smartphone,  tone: 'brand' as const, filter: 'all' as const },
     { label: 'In Stock',       value: counts.inStock,       icon: CheckCircle, tone: 'success' as const, filter: 'IN_STOCK' as const },
     { label: 'Sold',           value: counts.sold,          icon: ShoppingBag, tone: 'info' as const, filter: 'SOLD' as const },
     { label: 'Repair Records', value: counts.repairOnly,    icon: History,     tone: 'warning' as const, filter: 'REPAIR_ONLY' as const },
@@ -1092,9 +1070,7 @@ export default function IMEIPage() {
 
       <PageHeader
         title="Serial Tracker"
-        subtitle={dayFilter === 'today'
-          ? `Today's inventory serial / IMEI registrations · ${total} unit${total === 1 ? '' : 's'}`
-          : 'Track every unit by serial or IMEI · Full repair & sale history'}
+        subtitle="Track every unit by serial or IMEI · Full repair & sale history"
         actions={
           <>
             <button
@@ -1176,15 +1152,6 @@ export default function IMEIPage() {
       </StatGrid>
 
       <FilterBar>
-        <SegmentedControl
-          size="sm"
-          value={dayFilter}
-          onChange={setDayFilter}
-          options={[
-            { id: 'today', label: dayFilter === 'today' ? `Today (${total})` : 'Today' },
-            { id: 'all', label: 'All time' },
-          ]}
-        />
         <ToolbarSearch
           value={listSearch}
           onChange={setListSearch}
