@@ -58,11 +58,17 @@ export const productsService = {
     const { skip, limit, page, search } = getPagination(req)
     const branchId = effectiveBranchId(req)
     const categoryId = req.query.categoryId as string | undefined
+    const trackImeiRaw = typeof req.query.trackImei === 'string' ? req.query.trackImei.trim().toLowerCase() : ''
+    const trackImeiFilter =
+      trackImeiRaw === 'true' || trackImeiRaw === '1' ? true
+      : trackImeiRaw === 'false' || trackImeiRaw === '0' ? false
+      : undefined
     const where: any = {
       tenantId,
       isActive: true,
       ...(branchId && { branchId }),
       ...(categoryId && { categoryId }),
+      ...(trackImeiFilter !== undefined && { trackImei: trackImeiFilter }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },

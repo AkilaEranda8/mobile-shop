@@ -684,7 +684,9 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const activeBranchId = useActiveBranchId()
   const [form, setForm] = useState({ imei: '', productId: '' })
   const [loading, setLoading] = useState(false)
+  const [productsLoading, setProductsLoading] = useState(true)
   const [imeiError, setImeiError] = useState('')
+  const [productSearch, setProductSearch] = useState('')
   const [products, setProducts] = useState<any[]>([])
   const todayBounds = useMemo(() => localDayBounds(0), [])
   const todayParams = useMemo(() => {
@@ -700,10 +702,34 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const todayRecords: any[] = (todayData?.data ?? []) as any[]
 
   useEffect(() => {
-    const params: Record<string, string> = {}
+    let cancelled = false
+    setProductsLoading(true)
+    const params: Record<string, string> = { limit: '5000', trackImei: 'true' }
     if (activeBranchId) params.branchId = activeBranchId
-    productsApi.list(params).then((r: any) => setProducts(r.data ?? [])).catch(() => {})
+    productsApi.list(params)
+      .then((r: any) => {
+        if (cancelled) return
+        const rows = (r.data ?? []) as any[]
+        // Only serialized / IMEI-tracked inventory products
+        setProducts(rows.filter((p: any) => p.trackImei).sort((a: any, b: any) =>
+          String(a.name ?? '').localeCompare(String(b.name ?? '')),
+        ))
+      })
+      .catch(() => { if (!cancelled) setProducts([]) })
+      .finally(() => { if (!cancelled) setProductsLoading(false) })
+    return () => { cancelled = true }
   }, [activeBranchId])
+
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase()
+    if (!q) return products
+    return products.filter((p: any) =>
+      p.name?.toLowerCase().includes(q) ||
+      p.sku?.toLowerCase().includes(q) ||
+      p.brandName?.toLowerCase().includes(q) ||
+      p.brand?.name?.toLowerCase().includes(q),
+    )
+  }, [products, productSearch])
 
   const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(p => ({ ...p, [k]: e.target.value }))
@@ -765,17 +791,47 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
               )}
             </div>
             <div>
-              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product *</label>
-              <select required className="input-field" value={form.productId} onChange={f('productId')}>
-                <option value="">Select product...</option>
-                {products.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name} — {p.sku}</option>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs text-gray-600 dark:text-slate-400">Product * (IMEI / serial tracked)</label>
+                <span className="text-[10px] font-mono text-slate-500">
+                  {productsLoading ? '…' : `${filteredProducts.length}/${products.length}`}
+                </span>
+              </div>
+              <input
+                type="search"
+                className="input-field text-sm mb-2"
+                placeholder="Search product name, SKU, brand…"
+                value={productSearch}
+                onChange={e => setProductSearch(e.target.value)}
+              />
+              <select
+                required
+                className="input-field"
+                value={form.productId}
+                onChange={f('productId')}
+                disabled={productsLoading}
+                size={Math.min(10, Math.max(4, filteredProducts.length || 4))}
+              >
+                <option value="">{productsLoading ? 'Loading products…' : 'Select product...'}</option>
+                {filteredProducts.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.sku}{p.brandName || p.brand?.name ? ` · ${p.brandName || p.brand?.name}` : ''}
+                  </option>
                 ))}
               </select>
+              {!productsLoading && products.length === 0 && (
+                <p className="text-xs text-amber-500 mt-1.5 flex items-center gap-1.5">
+                  <AlertTriangle size={11} />
+                  No serial-tracked products in this branch. Enable Serial Tracking on the product first.
+                </p>
+              )}
+              {!productsLoading && products.length > 0 && filteredProducts.length === 0 && (
+                <p className="text-xs text-slate-500 mt-1.5">No products match “{productSearch}”.</p>
+              )}
             </div>
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Done</button>
-              <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              <button type="submit" disabled={loading || productsLoading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
                 {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Register Serial
               </button>
             </div>
