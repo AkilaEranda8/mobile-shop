@@ -688,18 +688,6 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [imeiError, setImeiError] = useState('')
   const [productSearch, setProductSearch] = useState('')
   const [products, setProducts] = useState<any[]>([])
-  const todayBounds = useMemo(() => localDayBounds(0), [])
-  const todayParams = useMemo(() => {
-    const p: Record<string, string> = {
-      limit: '5000',
-      from: todayBounds.from,
-      to: todayBounds.to,
-    }
-    if (activeBranchId) p.branchId = activeBranchId
-    return p
-  }, [activeBranchId, todayBounds.from, todayBounds.to])
-  const { data: todayData, loading: todayLoading, refetch: refetchToday } = useImeiRecords(todayParams)
-  const todayRecords: any[] = (todayData?.data ?? []) as any[]
 
   useEffect(() => {
     let cancelled = false
@@ -749,9 +737,8 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       if (!branchId) { toast.error('No active branch — switch branch in header'); return }
       await imeiApi.create({ imei: serial, productId: form.productId, branchId })
       toast.success('Serial registered successfully')
-      setForm({ imei: '', productId: form.productId })
-      refetchToday()
       onSaved()
+      onClose()
     } catch (err: any) {
       if (err?.message?.toLowerCase().includes('already')) {
         setImeiError('Duplicate serial — this unit is already in the system.')
@@ -765,17 +752,15 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
           <div>
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">Register Serial / IMEI</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
-              Link serial · Today&apos;s inventory registrations ({todayRecords.length})
-            </p>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Link serial number or IMEI to a product</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
-        <div className="overflow-y-auto p-5 space-y-5">
+        <div className="overflow-y-auto p-5">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Serial Number / IMEI *</label>
@@ -830,45 +815,12 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
               )}
             </div>
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Done</button>
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
               <button type="submit" disabled={loading || productsLoading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
                 {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Register Serial
               </button>
             </div>
           </form>
-
-          <div className="rounded-xl border border-white/10 overflow-hidden">
-            <div className="px-3 py-2.5 flex items-center justify-between border-b border-white/5 bg-white/[0.03]">
-              <p className="text-xs font-semibold flex items-center gap-1.5 text-gray-200">
-                <Calendar size={12} className="text-brand-400" />
-                Registered today (inventory)
-              </p>
-              <span className="text-[10px] font-mono text-slate-500">{todayRecords.length} unit{todayRecords.length === 1 ? '' : 's'}</span>
-            </div>
-            {todayLoading ? (
-              <div className="p-6 flex justify-center"><Loader2 size={16} className="animate-spin text-slate-500" /></div>
-            ) : todayRecords.length === 0 ? (
-              <p className="p-4 text-xs text-slate-500 text-center">No serials registered today yet — Add Stock or register above.</p>
-            ) : (
-              <ul className="max-h-64 overflow-y-auto divide-y divide-white/5">
-                {todayRecords.map((r: any) => (
-                  <li key={r.id} className="px-3 py-2 flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
-                      <Smartphone size={12} className="text-brand-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-gray-200 truncate">{r.product?.name ?? '—'}</p>
-                      <p className="text-[11px] font-mono text-slate-500">{r.imei}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[10px] text-slate-500">{formatDateTime(r.createdAt)}</p>
-                      <p className="text-[10px] text-green-400/90">{r.status === 'IN_STOCK' ? 'In Stock' : (statusConfig[r.status]?.label ?? r.status)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </div>
       </div>
     </div>
