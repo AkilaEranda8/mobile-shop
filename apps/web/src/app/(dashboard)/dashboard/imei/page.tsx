@@ -16,7 +16,17 @@ import { imeiApi, productsApi, warrantyApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { useModuleAccess, EditOnly, viewOnlyToast } from '@/lib/module-access'
 import { isValidUnitSerial, normalizeSerial, SERIAL_MAX_LEN, serialValidationMessage } from '@/lib/serialNumber'
-import { PageHeader, StatCard, StatGrid, FilterBar } from '@/components/design-system'
+import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl } from '@/components/design-system'
+
+/** Local calendar-day bounds as ISO strings (shop timezone). */
+function localDayBounds(offsetDays = 0): { from: string; to: string } {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() + offsetDays)
+  const end = new Date(start)
+  end.setHours(23, 59, 59, 999)
+  return { from: start.toISOString(), to: end.toISOString() }
+}
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   IN_STOCK:             { label: 'In Stock',     color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20'  },
@@ -40,6 +50,11 @@ const repairStatusColors: Record<string, string> = {
 
 function formatCurrency(v: any) { return `Rs. ${Number(v ?? 0).toLocaleString('en-LK')}` }
 function formatDate(d: string)  { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) }
+function formatDateTime(d: string) {
+  return new Date(d).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
+  })
+}
 
 /** Owner/admin password gate — same pattern as sales void/edit. */
 function DeleteSerialPasswordModal({
@@ -671,6 +686,18 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [loading, setLoading] = useState(false)
   const [imeiError, setImeiError] = useState('')
   const [products, setProducts] = useState<any[]>([])
+  const todayBounds = useMemo(() => localDayBounds(0), [])
+  const todayParams = useMemo(() => {
+    const p: Record<string, string> = {
+      limit: '5000',
+      from: todayBounds.from,
+      to: todayBounds.to,
+    }
+    if (activeBranchId) p.branchId = activeBranchId
+    return p
+  }, [activeBranchId, todayBounds.from, todayBounds.to])
+  const { data: todayData, loading: todayLoading, refetch: refetchToday } = useImeiRecords(todayParams)
+  const todayRecords: any[] = (todayData?.data ?? []) as any[]
 
   useEffect(() => {
     const params: Record<string, string> = {}
@@ -696,8 +723,9 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       if (!branchId) { toast.error('No active branch — switch branch in header'); return }
       await imeiApi.create({ imei: serial, productId: form.productId, branchId })
       toast.success('Serial registered successfully')
+      setForm({ imei: '', productId: form.productId })
+      refetchToday()
       onSaved()
-      onClose()
     } catch (err: any) {
       if (err?.message?.toLowerCase().includes('already')) {
         setImeiError('Duplicate serial — this unit is already in the system.')
@@ -711,44 +739,81 @@ function AddIMEIModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
+      <div className="bg-[#0f1623] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
           <div>
             <h3 className="text-base font-semibold text-gray-900 dark:text-white">Register Serial / IMEI</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">Link serial number or IMEI to a product</p>
+            <p className="text-xs text-gray-500 dark:text-slate-500 mt-0.5">
+              Link serial · Today&apos;s inventory registrations ({todayRecords.length})
+            </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white hover:bg-white/5"><X size={16} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Serial Number / IMEI *</label>
-            <input
-              required maxLength={SERIAL_MAX_LEN}
-              className={`input-field font-mono tracking-wide uppercase ${imeiError ? 'border-red-500/50' : ''}`}
-              placeholder="SN123456789 or 15-digit IMEI"
-              value={form.imei} onChange={f('imei')}
-            />
-            {imeiError && <p className="text-xs text-red-400 mt-1">{imeiError}</p>}
-            {form.imei && isValidUnitSerial(form.imei) && !imeiError && (
-              <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CheckCircle size={11} />Valid format</p>
+        <div className="overflow-y-auto p-5 space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Serial Number / IMEI *</label>
+              <input
+                required maxLength={SERIAL_MAX_LEN}
+                className={`input-field font-mono tracking-wide uppercase ${imeiError ? 'border-red-500/50' : ''}`}
+                placeholder="SN123456789 or 15-digit IMEI"
+                value={form.imei} onChange={f('imei')}
+              />
+              {imeiError && <p className="text-xs text-red-400 mt-1">{imeiError}</p>}
+              {form.imei && isValidUnitSerial(form.imei) && !imeiError && (
+                <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CheckCircle size={11} />Valid format</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product *</label>
+              <select required className="input-field" value={form.productId} onChange={f('productId')}>
+                <option value="">Select product...</option>
+                {products.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.name} — {p.sku}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Done</button>
+              <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Register Serial
+              </button>
+            </div>
+          </form>
+
+          <div className="rounded-xl border border-white/10 overflow-hidden">
+            <div className="px-3 py-2.5 flex items-center justify-between border-b border-white/5 bg-white/[0.03]">
+              <p className="text-xs font-semibold flex items-center gap-1.5 text-gray-200">
+                <Calendar size={12} className="text-brand-400" />
+                Registered today (inventory)
+              </p>
+              <span className="text-[10px] font-mono text-slate-500">{todayRecords.length} unit{todayRecords.length === 1 ? '' : 's'}</span>
+            </div>
+            {todayLoading ? (
+              <div className="p-6 flex justify-center"><Loader2 size={16} className="animate-spin text-slate-500" /></div>
+            ) : todayRecords.length === 0 ? (
+              <p className="p-4 text-xs text-slate-500 text-center">No serials registered today yet — Add Stock or register above.</p>
+            ) : (
+              <ul className="max-h-64 overflow-y-auto divide-y divide-white/5">
+                {todayRecords.map((r: any) => (
+                  <li key={r.id} className="px-3 py-2 flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                      <Smartphone size={12} className="text-brand-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-gray-200 truncate">{r.product?.name ?? '—'}</p>
+                      <p className="text-[11px] font-mono text-slate-500">{r.imei}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-slate-500">{formatDateTime(r.createdAt)}</p>
+                      <p className="text-[10px] text-green-400/90">{r.status === 'IN_STOCK' ? 'In Stock' : (statusConfig[r.status]?.label ?? r.status)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-          <div>
-            <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1.5">Product *</label>
-            <select required className="input-field" value={form.productId} onChange={f('productId')}>
-              <option value="">Select product...</option>
-              {products.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.name} — {p.sku}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Cancel</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}Register Serial
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   )
@@ -763,6 +828,7 @@ export default function IMEIPage() {
   const [quickSearch,  setQuickSearch]  = useState('')
   const [listSearch,   setListSearch]   = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'IN_STOCK' | 'SOLD' | 'IN_REPAIR' | 'REPAIR_ONLY'>('all')
+  const [dayFilter,    setDayFilter]    = useState<'today' | 'all'>('today')
   const [quickResult,  setQuickResult]  = useState<null | 'loading' | 'found' | 'notfound'>(null)
 
   const openDetail = useCallback((imei: string) => setSelectedImei(imei), [])
@@ -777,11 +843,20 @@ export default function IMEIPage() {
     if (imei) {
       setListSearch(imei)
       setSelectedImei(imei)
+      setDayFilter('all')
     }
   }, [canEdit, searchParams])
   const branchId = useActiveBranchId()
-  const imeiParams: Record<string, string> = { limit: '500' }
-  if (branchId) imeiParams.branchId = branchId
+  const imeiParams = useMemo(() => {
+    const p: Record<string, string> = { limit: '5000' }
+    if (branchId) p.branchId = branchId
+    if (dayFilter === 'today') {
+      const { from, to } = localDayBounds(0)
+      p.from = from
+      p.to = to
+    }
+    return p
+  }, [branchId, dayFilter])
   const { data, loading, refetch } = useImeiRecords(imeiParams)
   const records: any[] = (data?.data ?? []) as any[]
   const total = (data as any)?.meta?.total ?? records.length
@@ -865,7 +940,11 @@ export default function IMEIPage() {
     {
       accessorKey: 'createdAt',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Registered" />,
-      cell: ({ row }) => <span className="text-xs text-gray-500 dark:text-slate-500">{formatDate(row.original.createdAt)}</span>,
+      cell: ({ row }) => (
+        <span className="text-xs text-gray-500 dark:text-slate-500">
+          {dayFilter === 'today' ? formatDateTime(row.original.createdAt) : formatDate(row.original.createdAt)}
+        </span>
+      ),
     },
     {
       id: 'action',
@@ -879,10 +958,10 @@ export default function IMEIPage() {
         </button>
       ),
     },
-  ], [openDetail])
+  ], [openDetail, dayFilter])
 
   const stats = [
-    { label: 'Total Tracked',  value: total,               icon: Smartphone,  tone: 'brand' as const, filter: 'all' as const },
+    { label: dayFilter === 'today' ? 'Today' : 'Total Tracked', value: total, icon: Smartphone, tone: 'brand' as const, filter: 'all' as const },
     { label: 'In Stock',       value: counts.inStock,       icon: CheckCircle, tone: 'success' as const, filter: 'IN_STOCK' as const },
     { label: 'Sold',           value: counts.sold,          icon: ShoppingBag, tone: 'info' as const, filter: 'SOLD' as const },
     { label: 'Repair Records', value: counts.repairOnly,    icon: History,     tone: 'warning' as const, filter: 'REPAIR_ONLY' as const },
@@ -895,7 +974,9 @@ export default function IMEIPage() {
 
       <PageHeader
         title="Serial Tracker"
-        subtitle="Track every unit by serial or IMEI · Full repair & sale history"
+        subtitle={dayFilter === 'today'
+          ? `Today's inventory serial / IMEI registrations · ${total} unit${total === 1 ? '' : 's'}`
+          : 'Track every unit by serial or IMEI · Full repair & sale history'}
         actions={
           <>
             <button
@@ -977,6 +1058,15 @@ export default function IMEIPage() {
       </StatGrid>
 
       <FilterBar>
+        <SegmentedControl
+          size="sm"
+          value={dayFilter}
+          onChange={setDayFilter}
+          options={[
+            { id: 'today', label: dayFilter === 'today' ? `Today (${total})` : 'Today' },
+            { id: 'all', label: 'All time' },
+          ]}
+        />
         <ToolbarSearch
           value={listSearch}
           onChange={setListSearch}
@@ -989,7 +1079,8 @@ export default function IMEIPage() {
         data={filteredRecords}
         columns={columns}
         isLoading={loading}
-        pageCount={Math.ceil((filteredRecords.length || 1) / 20)}
+        pageSize={50}
+        pageCount={Math.ceil((filteredRecords.length || 1) / 50)}
         searchableColumns={[]}
         showFilter={false}
       />

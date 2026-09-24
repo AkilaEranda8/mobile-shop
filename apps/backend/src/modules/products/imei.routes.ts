@@ -22,6 +22,21 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const productId = req.query.productId as string | undefined
     const branchId  = effectiveBranchId(req)
     const purchaseOrderId = req.query.purchaseOrderId as string | undefined
+    // ISO timestamps from client (local day bounds) — inventory registrations for a day
+    const fromRaw = typeof req.query.from === 'string' ? req.query.from.trim() : ''
+    const toRaw   = typeof req.query.to === 'string' ? req.query.to.trim() : ''
+    const fromAt  = fromRaw ? new Date(fromRaw) : null
+    const toAt    = toRaw ? new Date(toRaw) : null
+    const hasDateRange = Boolean(
+      (fromAt && !Number.isNaN(fromAt.getTime())) ||
+      (toAt && !Number.isNaN(toAt.getTime())),
+    )
+    const createdAtFilter: { gte?: Date; lte?: Date } | undefined = hasDateRange
+      ? {
+          ...(fromAt && !Number.isNaN(fromAt.getTime()) ? { gte: fromAt } : {}),
+          ...(toAt && !Number.isNaN(toAt.getTime()) ? { lte: toAt } : {}),
+        }
+      : undefined
 
     // ── 1. Registered ImeiRecords ──────────────────────────────────────────
     const imeiWhere: any = {
@@ -30,6 +45,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       ...(productId && { productId }),
       ...(branchId && { branchId }),
       ...(purchaseOrderId && { purchaseOrderId }),
+      ...(createdAtFilter && { createdAt: createdAtFilter }),
       ...(search && { OR: [{ imei: { contains: search, mode: 'insensitive' } }] }),
     }
     const [registered, registeredTotal] = await Promise.all([
@@ -45,8 +61,9 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     // ── 2. IMEIs from Repair Tickets not yet in ImeiRecord (unregistered) ──
     // Only show unregistered if no status filter (they have no status in ImeiRecord)
+    // Skip when browsing a calendar day of inventory registrations — those are ImeiRecords only
     let unregistered: any[] = []
-    if (!status) {
+    if (!status && !hasDateRange) {
       const registeredImeis = new Set(registered.map((r: any) => r.imei))
       const repairImeis = await prisma.repairTicket.findMany({
         where: {
@@ -74,8 +91,10 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       }
     }
 
-    // ── 3. Merge, paginate, respond ────────────────────────────────────────
-    const all   = [...registered, ...unregistered]
+    // ── 3. Merge (newest first), paginate, respond ─────────────────────────
+    const all = [...registered, ...unregistered].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
     const total = registeredTotal + unregistered.length
     const paged = all.slice(skip, skip + limit)
     sendPaginated(res, paged, total, page, limit)
