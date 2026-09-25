@@ -215,7 +215,8 @@ export const posPinService = {
 
   /**
    * Public probe for login UI — no secrets.
-   * available only when feature + policy enabled + cold login allowed.
+   * available only when feature + policy enabled + cold login allowed
+   * + at least one staff member has a PIN set (new trials → password only).
    */
   async getColdLoginAvailability(tenantSlug: string): Promise<{
     available: boolean
@@ -238,7 +239,15 @@ export const posPinService = {
     }
 
     const settings = await loadPosPinSettings(tenant.id)
-    const available = settings.enabled && settings.allowColdPinLogin
+    const pinUsers = await prisma.user.count({
+      where: {
+        tenantId: tenant.id,
+        pinEnabled: true,
+        isActive: true,
+        pinHash: { not: null },
+      },
+    })
+    const available = settings.enabled && settings.allowColdPinLogin && pinUsers > 0
     return { available, pinLength: settings.pinLength }
   },
 
@@ -576,6 +585,11 @@ export const posPinService = {
     })
     await clearPinFail(opts.tenantId, user.id)
 
+    // First PIN from Settings → turn on shop PIN policy so login can offer PIN
+    if (!settings.enabled) {
+      await setTenantConfig(opts.tenantId, 'posPin', { ...settings, enabled: true })
+    }
+
     await recordAuditEventSafe({
       tenantId: opts.tenantId,
       actor: { userId: user.id, email: user.email },
@@ -634,6 +648,10 @@ export const posPinService = {
     })
     await clearPinFail(opts.tenantId, target.id)
     await revokeUserSessions(target.id)
+
+    if (!settings.enabled) {
+      await setTenantConfig(opts.tenantId, 'posPin', { ...settings, enabled: true })
+    }
 
     await recordAuditEventSafe({
       tenantId: opts.tenantId,

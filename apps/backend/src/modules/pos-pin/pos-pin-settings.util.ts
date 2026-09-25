@@ -16,6 +16,7 @@ export type PosPinSettings = {
 }
 
 export const DEFAULT_POS_PIN_SETTINGS: PosPinSettings = {
+  // Legacy unset JSON still reads as on; new tenants are seeded enabled:false on register.
   enabled: true,
   pinLength: 6,
   maxFailedAttempts: 5,

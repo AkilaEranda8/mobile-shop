@@ -154,7 +154,7 @@ export default function SettingsPage() {
   const hasQuickPin = useFeatureFlag('POS_QUICK_PIN')
   const [showMyPinModal, setShowMyPinModal] = useState(false)
   const [posPinForm, setPosPinForm] = useState({
-    enabled: true,
+    enabled: false,
     pinLength: 6 as 4 | 6,
     maxFailedAttempts: 5,
     lockoutSeconds: 900,
@@ -181,7 +181,7 @@ export default function SettingsPage() {
         const s = res?.data ?? res
         if (!s) return
         setPosPinForm({
-          enabled: s.enabled !== false,
+          enabled: !!s.enabled,
           pinLength: s.pinLength === 4 ? 4 : 6,
           maxFailedAttempts: s.maxFailedAttempts ?? 5,
           lockoutSeconds: s.lockoutSeconds ?? 900,
@@ -219,7 +219,7 @@ export default function SettingsPage() {
       })
       const s = res?.data ?? res
       if (s) setPosPinForm({
-        enabled: s.enabled !== false,
+        enabled: !!s.enabled,
         pinLength: s.pinLength === 4 ? 4 : 6,
         maxFailedAttempts: s.maxFailedAttempts ?? 5,
         lockoutSeconds: s.lockoutSeconds ?? 900,

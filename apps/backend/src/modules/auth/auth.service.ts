@@ -267,6 +267,16 @@ export const authService = {
         trialEndsAt,
         ownerEmail,
         ownerName: data.ownerName,
+        // PIN login is opt-in — password only until Settings → enable + set PIN
+        posPinSettings: {
+          enabled: false,
+          pinLength: 6,
+          maxFailedAttempts: 5,
+          lockoutSeconds: 15 * 60,
+          idleTimeoutSeconds: 0,
+          requirePasswordAfterLock: false,
+          allowColdPinLogin: true,
+        },
         branches: {
           create: {
             name: data.shopName,
