@@ -81,13 +81,15 @@ async function resolveRequestUser(token: string): Promise<JwtPayload> {
   // Support impersonation + POS PIN sessions (HS256 app JWT) even when KC auth is on
   const appPayload = tryVerifyAppToken(token)
   if (appPayload?.impersonation || appPayload?.posPinAuth) return appPayload
+  // Platform Admin console uses long-lived HS256 JWTs (Keycloak access tokens are ~1m)
+  if (appPayload?.role === 'PLATFORM_ADMIN') return appPayload
 
   if (isKcAuthEnabled()) {
     try {
       return await verifyKcToken(token)
     } catch {
       // Fall through: allow legacy/non-impersonation app JWT only when KC auth is off.
-      // When KC is on, reject plain app JWTs so cutover is real.
+      // When KC is on, reject plain shop app JWTs so cutover is real.
       throw new Error('Invalid Keycloak token')
     }
   }

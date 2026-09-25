@@ -203,6 +203,13 @@ export const authService = {
     const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId }, select: { slug: true } })
     const slug = tenant?.slug || 'platform'
 
+    // Platform Admin console must not use short-lived Keycloak access tokens (~1 min).
+    // Issue Hexalyte HS256 JWTs (30d) so the admin hub does not force re-login every minute.
+    if (user.role === 'PLATFORM_ADMIN') {
+      const tokens = await issueLocalTokens(user)
+      return { ...tokens, user: sessionUser }
+    }
+
     if (isKcAuthEnabled()) {
       try {
         const tokens = await issueKcSession({
