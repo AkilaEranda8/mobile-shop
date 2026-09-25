@@ -12,7 +12,7 @@ import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { resolveSaleItemUnitCost } from '../../utils/sale-item-cost.util'
 import { applySaleStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
 import { applySalePricingIfEnabled } from '../pricing-engine/pricing-engine.service'
-import { buildReportFilterContext } from '../report-engine/report-engine.service'
+import { buildReportFilterContext, resolveOptionalBusinessReportRange, businessRangeWhere } from '../report-engine/report-engine.service'
 import { saleWhereExcludeNonRevenue } from '../../constants/business-rules.constants'
 import { isTenantFeatureEnabled, assertFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
 import {
@@ -52,6 +52,7 @@ export const salesService = {
     const status = req.query.status as string | undefined
     const customerId = req.query.customerId as string | undefined
     const includeOpening = req.query.includeOpening === '1' || req.query.includeOpening === 'true'
+    const dateRange = resolveOptionalBusinessReportRange(req)
     const where: any = {
       tenantId,
       ...(branchId && { branchId }),
@@ -60,6 +61,7 @@ export const salesService = {
       ...(search && { OR: [{ invoiceNumber: { contains: search, mode: 'insensitive' } }, { customerName: { contains: search, mode: 'insensitive' } }, { customerPhone: { contains: search } }] }),
       // Prior credit / opening AR invoices are not real shop sales
       ...(!includeOpening && !customerId ? saleWhereExcludeNonRevenue() : {}),
+      ...(dateRange ? businessRangeWhere('createdAt', dateRange) : {}),
     }
     const [data, total] = await Promise.all([
       prisma.sale.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { items: true, payments: true, _count: { select: { returns: true } }, returns: { select: { refundAmount: true } } } }),

@@ -27,6 +27,7 @@ import { useModuleAccess, EditOnly } from '@/lib/module-access'
 import { useFeatureFlag } from '@/lib/hooks'
 import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
 import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl, StatusBadge, statusToneFromLabel } from '@/components/design-system'
+import { businessToday, businessPeriodFrom, businessMonthStart } from '@/lib/business-date'
 
 const statusColors: Record<string, string> = {
   PAID:           'success',
@@ -1224,6 +1225,21 @@ function SaleDetailsModal({
 }
 
 /* ── Main Sales Page ─────────────────────────────────────────────────────── */
+type DatePreset = 'today' | '7d' | '30d' | 'month' | 'all' | 'custom'
+
+function salesDateRange(preset: DatePreset, customFrom: string, customTo: string): { from?: string; to?: string } {
+  const today = businessToday()
+  if (preset === 'all') return {}
+  if (preset === 'today') return { from: today, to: today }
+  if (preset === '7d') return { from: businessPeriodFrom(7, today), to: today }
+  if (preset === '30d') return { from: businessPeriodFrom(30, today), to: today }
+  if (preset === 'month') return { from: businessMonthStart(today), to: today }
+  // custom
+  const from = customFrom || today
+  const to = customTo || today
+  return from <= to ? { from, to } : { from: to, to: from }
+}
+
 export default function SalesPage() {
   const { canEdit } = useModuleAccess()
   const hasCustomerCredit = useFeatureFlag('CUSTOMER_CREDIT')
@@ -1235,6 +1251,9 @@ export default function SalesPage() {
   const [density, setDensity]       = useState<TableDensity>('comfortable')
   const [textSearch, setTextSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'RETURNED' | 'REFUNDED' | 'DUE'>('all')
+  const [datePreset, setDatePreset] = useState<DatePreset>('today')
+  const [customFrom, setCustomFrom] = useState(businessToday)
+  const [customTo, setCustomTo] = useState(businessToday)
 
   const openDetail = useCallback((sale: any) => setDetailSale(sale), [])
   const canManage = ['OWNER', 'MANAGER', 'PLATFORM_ADMIN'].includes(authStorage.getUser()?.role ?? '')
@@ -1252,15 +1271,23 @@ export default function SalesPage() {
     if (found) setDetailSale(found)
   }, [searchParams, sales])
 
+  const dateRange = useMemo(
+    () => salesDateRange(datePreset, customFrom, customTo),
+    [datePreset, customFrom, customTo],
+  )
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res: any = await salesApi.list({ limit: '500' })
+      const params: Record<string, string> = { limit: '5000' }
+      if (dateRange.from) params.from = dateRange.from
+      if (dateRange.to) params.to = dateRange.to
+      const res: any = await salesApi.list(params)
       setSales(res?.data ?? [])
       setMeta(res?.meta ?? null)
     } catch { toast.error('Failed to load sales') }
     finally { setLoading(false) }
-  }, [])
+  }, [dateRange.from, dateRange.to])
 
   useEffect(() => { load() }, [load])
 
@@ -1299,6 +1326,14 @@ export default function SalesPage() {
       (r.customerPhone ?? '').toLowerCase().includes(q)
     )
   }, [sales, statusFilter, textSearch])
+
+  const dateSubtitle = useMemo(() => {
+    if (datePreset === 'all') return 'All time'
+    if (datePreset === 'today') return `Today · ${dateRange.from}`
+    if (dateRange.from && dateRange.to && dateRange.from === dateRange.to) return dateRange.from
+    if (dateRange.from && dateRange.to) return `${dateRange.from} → ${dateRange.to}`
+    return ''
+  }, [datePreset, dateRange.from, dateRange.to])
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -1407,7 +1442,7 @@ export default function SalesPage() {
     <div className="space-y-5">
       <PageHeader
         title="Sales"
-        subtitle="View and manage all sales transactions"
+        subtitle={`View and manage sales · ${dateSubtitle}${meta?.total != null ? ` · ${meta.total} invoice${meta.total === 1 ? '' : 's'}` : ''}`}
         actions={
           <>
             <EditOnly><OpenPosButton label="New Sale" /></EditOnly>
@@ -1463,6 +1498,45 @@ export default function SalesPage() {
       </StatGrid>
 
       <FilterBar>
+        <SegmentedControl
+          size="sm"
+          value={datePreset}
+          onChange={setDatePreset}
+          options={[
+            { id: 'today', label: 'Today' },
+            { id: '7d', label: '7D' },
+            { id: '30d', label: '30D' },
+            { id: 'month', label: 'This month' },
+            { id: 'all', label: 'All' },
+            { id: 'custom', label: 'Custom' },
+          ]}
+        />
+        {datePreset === 'custom' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Calendar size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+              <input
+                type="date"
+                className="input-field text-xs h-9 pl-8 w-[140px]"
+                value={customFrom}
+                max={customTo || businessToday()}
+                onChange={e => setCustomFrom(e.target.value)}
+              />
+            </div>
+            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>to</span>
+            <div className="relative">
+              <Calendar size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+              <input
+                type="date"
+                className="input-field text-xs h-9 pl-8 w-[140px]"
+                value={customTo}
+                min={customFrom}
+                max={businessToday()}
+                onChange={e => setCustomTo(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
         <ToolbarSearch
           value={textSearch}
           onChange={setTextSearch}
