@@ -440,6 +440,18 @@ export const authService = {
           const accessToken = signAccessToken({ ...claims, posPinAuth: true })
           return { accessToken, refreshToken: refreshTokenStr }
         }
+        // Platform Admin HS256 refresh tokens (not Keycloak)
+        if (payload.role === 'PLATFORM_ADMIN') {
+          const stored = await prisma.refreshToken.findUnique({
+            where: { token: refreshTokenStr },
+            include: { user: true },
+          })
+          if (!stored || stored.expiresAt < new Date()) throw new AppError('Invalid refresh token', 401)
+          if (!stored.user.isActive) throw new AppError('Account is inactive', 403)
+          const { iat: _iat, exp: _exp, ...claims } = payload as JwtPayload & { iat?: number; exp?: number }
+          const accessToken = signAccessToken(claims)
+          return { accessToken, refreshToken: refreshTokenStr }
+        }
       } catch (e) {
         if (e instanceof AppError) throw e
         /* Keycloak refresh token */

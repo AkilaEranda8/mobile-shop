@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import AdminHeader from '@/components/layout/AdminHeader'
 import { hubSession } from '@/lib/hub-session'
+import { adminAuth } from '@/lib/api'
 import { getProduct, type HubProduct } from '@/lib/products'
 import { canAccessPlatformFinance, isFinancePath } from '@/lib/platform-admin-role'
 
@@ -77,6 +78,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const pathProduct = inferProductFromPath(path)
     const stored = hubSession.getProduct()
     const product = pathProduct ?? stored
+
+    if (product === 'enterprise') {
+      const session = adminAuth.ensureLongLivedSession()
+      if (!session.ok) {
+        router.replace(`/login?product=enterprise&from=${encodeURIComponent(path || '/')}&reason=${session.reason}`)
+        return
+      }
+    }
 
     if (!hubSession.hasSession(product)) {
       router.replace(`/login?product=${product}&from=${encodeURIComponent(path || '/')}`)

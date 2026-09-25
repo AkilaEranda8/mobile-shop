@@ -9,6 +9,7 @@ const API_BASE   = process.env.NEXT_PUBLIC_API_URL       || 'http://localhost:30
 
 // ─── Token storage ────────────────────────────────────────────────────────────
 const TOKEN_KEY = 'admin_token'
+const REFRESH_KEY = 'admin_refresh_token'
 const USER_KEY = 'admin_user'
 
 export type AdminUserInfo = {
@@ -24,12 +25,79 @@ function touchAdminGateCookie() {
   document.cookie = `admin_token=1; path=/; max-age=${ADMIN_SESSION_MAX_AGE}; SameSite=Strict`
 }
 
+function decodeJwtPart(token: string, index: 0 | 1): Record<string, unknown> | null {
+  try {
+    const part = token.split('.')[index]
+    if (!part) return null
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/')
+    const json = atob(b64.padEnd(b64.length + (4 - (b64.length % 4)) % 4, '='))
+    return JSON.parse(json) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/** Keycloak access tokens are RS256 and usually expire in ~1 minute. */
+export function isShortLivedOrKeycloakToken(token: string | null | undefined): boolean {
+  if (!token) return true
+  const header = decodeJwtPart(token, 0)
+  const payload = decodeJwtPart(token, 1)
+  if (!header || !payload) return true
+  if (String(header.alg || '') === 'RS256') return true
+  const exp = Number(payload.exp)
+  const iat = Number(payload.iat)
+  if (!Number.isFinite(exp)) return true
+  // Hexalyte platform-admin JWTs are ~30d; anything under 2h is treated as short-lived
+  if (Number.isFinite(iat) && exp - iat < 2 * 60 * 60) return true
+  if (exp * 1000 <= Date.now() + 30_000) return true
+  return false
+}
+
+let refreshInFlight: Promise<boolean> | null = null
+
+async function tryRefreshAdminSession(): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = (async () => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY)
+    if (!refreshToken) return false
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      })
+      if (!res.ok) return false
+      const json = await res.json().catch(() => ({})) as {
+        data?: { accessToken?: string; refreshToken?: string }
+        accessToken?: string
+        refreshToken?: string
+      }
+      const accessToken = json.data?.accessToken || json.accessToken
+      const nextRefresh = json.data?.refreshToken || json.refreshToken || refreshToken
+      if (!accessToken || isShortLivedOrKeycloakToken(accessToken)) return false
+      adminAuth.setToken(accessToken)
+      adminAuth.setRefreshToken(nextRefresh)
+      return true
+    } catch {
+      return false
+    } finally {
+      refreshInFlight = null
+    }
+  })()
+  return refreshInFlight
+}
+
 export const adminAuth = {
   getToken: () => (typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null),
+  getRefreshToken: () => (typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null),
   setToken: (t: string) => {
     localStorage.setItem(TOKEN_KEY, t)
     // Gate cookie only — JWT stays in localStorage (avoids 4KB cookie limit)
     touchAdminGateCookie()
+  },
+  setRefreshToken: (t: string) => {
+    localStorage.setItem(REFRESH_KEY, t)
   },
   getUser: (): AdminUserInfo | null => {
     if (typeof window === 'undefined') return null
@@ -41,14 +109,14 @@ export const adminAuth = {
     try {
       const token = localStorage.getItem(TOKEN_KEY)
       if (!token) return null
-      const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as {
+      const payload = decodeJwtPart(token, 1) as {
         email?: string
         name?: string
         userId?: string
         sub?: string
         role?: string
-      }
-      if (!payload.email && !payload.name) return null
+      } | null
+      if (!payload || (!payload.email && !payload.name)) return null
       const email = payload.email || ''
       return {
         id: payload.userId || payload.sub,
@@ -65,9 +133,31 @@ export const adminAuth = {
   },
   clear: () => {
     localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_KEY)
     localStorage.removeItem(USER_KEY)
     document.cookie = 'admin_token=; path=/; max-age=0'
   },
+  /**
+   * Drop Keycloak / expired short tokens so the next page load forces a fresh
+   * Hexalyte 30-day admin JWT login (fixes ~1 minute kickouts).
+   */
+  ensureLongLivedSession(): { ok: true } | { ok: false; reason: string } {
+    const token = adminAuth.getToken()
+    if (!token) return { ok: false, reason: 'missing' }
+    if (isShortLivedOrKeycloakToken(token)) {
+      adminAuth.clear()
+      return { ok: false, reason: 'short_lived' }
+    }
+    touchAdminGateCookie()
+    return { ok: true }
+  },
+}
+
+function forceEnterpriseLogin(reason = 'expired') {
+  adminAuth.clear()
+  if (typeof window !== 'undefined') {
+    window.location.href = `/login?product=enterprise&reason=${encodeURIComponent(reason)}`
+  }
 }
 
 // ─── Base fetch ───────────────────────────────────────────────────────────────
@@ -103,6 +193,7 @@ async function req<T>(
   base: string,
   path: string,
   options: RequestInit = {},
+  allowRetry = true,
 ): Promise<T> {
   const token = adminAuth.getToken()
   // Never hit Enterprise admin APIs without a bearer — avoids noisy 401s from hub races
@@ -118,13 +209,14 @@ async function req<T>(
   const res = await fetch(`${base}${path}`, { ...options, headers })
 
   if (res.status === 401) {
-    // Only wipe Enterprise session / redirect when this call had a bearer token
-    // (avoids Fashion/Salon sidebar races kicking users to login).
-    if (token) {
-      adminAuth.clear()
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login?product=enterprise'
+    // Login itself must not trigger a redirect loop
+    const isAuthCall = path.startsWith('/auth/')
+    if (token && !isAuthCall && allowRetry) {
+      const refreshed = await tryRefreshAdminSession()
+      if (refreshed) {
+        return req<T>(base, path, options, false)
       }
+      forceEnterpriseLogin('expired')
     }
     throw new Error('Session expired. Please log in again.')
   }
@@ -198,6 +290,7 @@ export interface HealthData {
 export async function adminLogin(email: string, password: string) {
   const data = await req<{
     accessToken: string
+    refreshToken?: string
     user: { id?: string; name?: string; email?: string; role: string; platformAdminRole?: string }
   }>(
     API_BASE, '/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) },
@@ -205,7 +298,11 @@ export async function adminLogin(email: string, password: string) {
   if (data.user.role !== 'PLATFORM_ADMIN') {
     throw new Error('This account is not a platform admin. Use your platform admin email, not a shop login.')
   }
+  if (isShortLivedOrKeycloakToken(data.accessToken)) {
+    throw new Error('Admin session token is still short-lived. Please contact support — backend may need redeploy.')
+  }
   adminAuth.setToken(data.accessToken)
+  if (data.refreshToken) adminAuth.setRefreshToken(data.refreshToken)
   adminAuth.setUser({
     id: data.user.id,
     name: data.user.name || data.user.email || 'Admin',

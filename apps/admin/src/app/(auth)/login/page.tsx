@@ -23,6 +23,10 @@ function LoginForm() {
     if (p === 'enterprise' || p === 'fashion' || p === 'salon') {
       setProduct(p)
     }
+    const reason = params?.get('reason')
+    if (reason === 'short_lived' || reason === 'expired') {
+      setError('Your previous admin session expired too quickly. Please sign in again.')
+    }
   }, [params])
 
   const def = getProduct(product)
