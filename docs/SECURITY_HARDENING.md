@@ -1,28 +1,37 @@
 ## Database security (Postgres)
 
 **Already in place**
-- Compose publishes Postgres only on `127.0.0.1:5432` (not the public internet).
-- Backend connects over the internal Docker network (`postgres:5432`).
+- Postgres is **not published on the host** (Docker network only). Admin: `docker compose exec -T postgres psql …`
 - Custom `deploy/postgres/pg_hba.conf`: Docker private ranges + localhost with `scram-sha-256`; reject all other hosts.
 - Connection / DDL logging enabled (`log_connections`, `log_disconnections`, `log_statement=ddl`).
+- Encrypted daily backups: `scripts/install-db-backup.sh` + `scripts/backup-hexalyte-db.sh` (cron 02:15).
+- Restore test: `scripts/restore-test-hexalyte-db.sh` (temp DB only).
 
-**On the server (required)**
+**On the server**
 ```bash
 cd /opt/hexalyte
 git pull
-# recreate postgres with new hba/logging (data volume kept)
-docker compose up -d postgres --force-recreate
-# firewall: SSH + 80/443 only
+bash scripts/install-db-backup.sh
+bash scripts/backup-hexalyte-db.sh
+bash scripts/restore-test-hexalyte-db.sh
 bash scripts/harden-server-firewall.sh
+# SSH key-only (after authorized_keys verified):
+bash scripts/harden-sshd.sh
+bash scripts/install-fail2ban-sshd.sh
+# Optional maintenance window:
+# bash scripts/rotate-db-redis-secrets.sh
 ```
 
 **Admin access to DB**
 - Prefer: `docker compose exec -T postgres psql -U hexalyte -d hexalyte`
-- Or SSH tunnel to `127.0.0.1:5432` (never open 5432 publicly).
+- Temporary localhost publish only if required for SSH tunnel — remove afterwards.
 
 **Optional later**
-- Rotate `POSTGRES_PASSWORD` / `DATABASE_URL` (schedule downtime window; update `.env` then recreate backend + postgres).
+- Rotate `JWT_SECRET` / `KC_CLIENT_SECRET` in a maintenance window.
+- Offsite encrypted backup copy.
 - Move Postgres to a private VPC / managed DB with TLS.
+
+See also: `docs/PRODUCTION_SECURITY_OPERATIONS.md`, `docs/HEXALYTE_SECURITY_HARDENING_IMPLEMENTATION_REPORT.md`.
 
 ## Fixed in codebase
 

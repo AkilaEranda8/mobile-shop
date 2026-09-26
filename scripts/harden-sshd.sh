@@ -20,7 +20,10 @@ fi
 SSHD_CONFIG="/etc/ssh/sshd_config"
 DROPIN_DIR="/etc/ssh/sshd_config.d"
 mkdir -p "${DROPIN_DIR}"
-DROPIN="${DROPIN_DIR}/99-hexalyte-hardening.conf"
+# OpenSSH uses the FIRST obtained value per keyword — use 00- so we win over cloud-init.
+DROPIN="${DROPIN_DIR}/00-hexalyte-hardening.conf"
+# Remove older drop-in if present
+rm -f "${DROPIN_DIR}/99-hexalyte-hardening.conf"
 
 cat > "${DROPIN}" <<'EOF'
 # Managed by Hexalyte harden-sshd.sh — key-only admin access
