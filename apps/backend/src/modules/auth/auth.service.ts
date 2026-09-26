@@ -226,11 +226,14 @@ export const authService = {
         })
         return { ...tokens, user: sessionUser }
       } catch (e) {
-        console.error('[KC] login token issue failed:', (e as Error).message)
-        throw new AppError(
-          'Authentication service unavailable. Please try again or contact support.',
-          503,
+        // Keycloak outage / TLS / network must not hard-block shop login.
+        // Password already verified against Hexalyte DB — fall back to local JWT.
+        console.error(
+          '[KC] login token issue failed; falling back to local JWT:',
+          (e as Error).message,
         )
+        const tokens = await issueLocalTokens(user)
+        return { ...tokens, user: sessionUser }
       }
     }
 

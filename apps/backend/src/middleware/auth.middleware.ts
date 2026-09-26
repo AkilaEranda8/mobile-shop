@@ -87,9 +87,16 @@ async function resolveRequestUser(token: string): Promise<JwtPayload> {
   if (isKcAuthEnabled()) {
     try {
       return await verifyKcToken(token)
-    } catch {
-      // Fall through: allow legacy/non-impersonation app JWT only when KC auth is off.
-      // When KC is on, reject plain shop app JWTs so cutover is real.
+    } catch (kcErr) {
+      // Accept Hexalyte HS256 shop JWTs when Keycloak is unreachable or JWKS fails
+      // (e.g. expired TLS on auth.hexalyte.com) so login fallback sessions keep working.
+      if (appPayload) {
+        console.warn(
+          '[auth] KC token verify failed; accepting local app JWT:',
+          kcErr instanceof Error ? kcErr.message : kcErr,
+        )
+        return appPayload
+      }
       throw new Error('Invalid Keycloak token')
     }
   }
