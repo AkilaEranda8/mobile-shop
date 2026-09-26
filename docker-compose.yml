@@ -5,15 +5,34 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: hexalyte_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hexalyte}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-hexalyte}
+      # Prefer SCRAM for new password hashes (existing users keep current until rotated)
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    # Host loopback only — never 0.0.0.0. Prefer SSH tunnel / docker exec for admin.
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./deploy/postgres/pg_hba.conf:/etc/hexalyte/pg_hba.conf:ro
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/hexalyte/pg_hba.conf
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+      - -c
+      - log_statement=ddl
+      - -c
+      - ssl=off
     networks:
       - hexalyte-network
     healthcheck:
@@ -21,7 +40,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
   redis:
     image: redis:7-alpine
     container_name: hexalyte_redis
