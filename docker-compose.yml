@@ -12,9 +12,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-hexalyte}
       # Prefer SCRAM for new password hashes (existing users keep current until rotated)
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
-    # Host loopback only — never 0.0.0.0. Prefer SSH tunnel / docker exec for admin.
-    ports:
-      - "127.0.0.1:5432:5432"
+    # Host publish intentionally omitted — Postgres is reachable only on the
+    # Docker network. Admin access: `docker compose exec -T postgres psql ...`
+    # Temporary localhost publish for SSH tunnel (if ever needed):
+    #   ports: ["127.0.0.1:5432:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
