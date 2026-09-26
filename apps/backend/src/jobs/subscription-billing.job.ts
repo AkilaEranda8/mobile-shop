@@ -1,9 +1,11 @@
 import { processBillingLifecycle, ensureMonthlyInvoiceForTenant } from '../modules/billing/billing.service'
 import { prisma } from '../config/database'
 import { toColomboDateKey } from '../modules/billing/billing-dates'
+import { registerJob, runTracked } from '../utils/job-registry'
 
 const CHECK_EVERY_MS = 15 * 60 * 1000
 const BILLING_SLUG = 'hexalyte-billing-internal'
+const JOB_ID = 'subscription-billing'
 
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -64,13 +66,23 @@ export async function processSubscriptionBillingJob(): Promise<{
 }
 
 export function startSubscriptionBillingJob(): void {
-  void processSubscriptionBillingJob().catch(err => {
-    console.error('[billing-lifecycle] initial run failed:', err?.message ?? err)
+  registerJob(
+    {
+      id: JOB_ID,
+      name: 'Subscription Billing Lifecycle',
+      schedule: 'Every 15 minutes',
+      description: 'Monthly invoices, overdue marks, grace, and suspend (Asia/Colombo)',
+    },
+    processSubscriptionBillingJob,
+  )
+
+  void runTracked(JOB_ID).then((r) => {
+    if (!r.ok) console.error('[billing-lifecycle] initial run failed:', r.error)
   })
 
   timer = setInterval(() => {
-    void processSubscriptionBillingJob().catch(err => {
-      console.error('[billing-lifecycle] scheduled run failed:', err?.message ?? err)
+    void runTracked(JOB_ID).then((r) => {
+      if (!r.ok) console.error('[billing-lifecycle] scheduled run failed:', r.error)
     })
   }, CHECK_EVERY_MS)
 

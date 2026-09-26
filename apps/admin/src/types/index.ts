@@ -2,7 +2,7 @@ export type TenantStatus = 'ACTIVE' | 'TRIAL' | 'SUSPENDED' | 'CANCELLED'
 export type PlanTier = 'STARTER' | 'PRO' | 'ENTERPRISE'
 export type AdminRole = 'SUPER_ADMIN' | 'SUPPORT_ADMIN' | 'BILLING_ADMIN'
 export type LogSeverity = 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL'
-export type ServiceStatus = 'HEALTHY' | 'DEGRADED' | 'DOWN'
+export type ServiceStatus = 'HEALTHY' | 'DEGRADED' | 'DOWN' | 'DISABLED' | 'UNKNOWN'
 export type AnnouncementStatus = 'DRAFT' | 'SCHEDULED' | 'SENT'
 export type AnnouncementTarget = 'ALL' | 'STARTER' | 'PRO' | 'ENTERPRISE' | 'SPECIFIC'
 

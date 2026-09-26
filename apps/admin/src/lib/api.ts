@@ -280,10 +280,10 @@ export interface AnalyticsData {
 export interface MrrPoint { month: string; mrr: number }
 
 export interface HealthData {
-  api: { status: string; responseTimeMs: number }
-  database: { status: string; responseTimeMs: number }
-  redis: { status: string; responseTimeMs: number }
-  keycloak: { status: string; responseTimeMs: number }
+  api: { status: string; responseTimeMs: number; detail?: string }
+  database: { status: string; responseTimeMs: number; detail?: string }
+  redis: { status: string; responseTimeMs: number; detail?: string }
+  keycloak: { status: string; responseTimeMs: number; detail?: string }
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -752,6 +752,68 @@ export interface ServerStats {
 
 export async function fetchServerStats(): Promise<ServerStats> {
   return req<ServerStats>(ADMIN_BASE, '/server-stats')
+}
+
+export type OpsJobSnapshot = {
+  id: string
+  name: string
+  schedule: string
+  description?: string
+  enabled: boolean
+  running: boolean
+  lastStartedAt: string | null
+  lastFinishedAt: string | null
+  lastDurationMs: number | null
+  lastStatus: 'SUCCESS' | 'ERROR' | 'NEVER' | 'RUNNING'
+  lastError: string | null
+  runCount: number
+  errorCount: number
+}
+
+export type OpsOverview = {
+  checkedAt: string
+  timezone: string
+  maintenance: { enabled: boolean; message: string }
+  services: HealthData
+  jobs: OpsJobSnapshot[]
+  backup: {
+    available: boolean
+    directory: string
+    latestFile: string | null
+    latestBytes: number | null
+    latestCreatedAt: string | null
+    formatVersion: string | null
+    status: 'ok' | 'stale' | 'missing' | 'unavailable'
+    ageHours: number | null
+    detail?: string
+    recentCount48h: number
+  }
+  disk: {
+    root: { path: string; totalBytes: number | null; freeBytes: number | null; usedPercent: number | null; available: boolean; detail?: string }
+    backups: { path: string; totalBytes: number | null; freeBytes: number | null; usedPercent: number | null; available: boolean; detail?: string }
+  }
+  docker: {
+    available: boolean
+    containers: { name: string; image: string; status: string; state: string }[]
+    detail?: string
+  }
+  host: {
+    hostname: string | null
+    nodeVersion: string
+    platform: string
+    uptimeSeconds: number
+    pid: number
+    publicHints: { documentedServerIp: string; appDir: string }
+    memory: { heapUsedMB: number; heapTotalMB: number; rssMB: number; externalMB: number }
+  }
+}
+
+export async function fetchOpsOverview(): Promise<OpsOverview> {
+  return req<OpsOverview>(ADMIN_BASE, '/ops/overview')
+}
+
+export async function triggerOpsJob(jobId: string): Promise<OpsJobSnapshot> {
+  return req<OpsJobSnapshot>(ADMIN_BASE, `/ops/jobs/${encodeURIComponent(jobId)}/run`, { method: 'POST' })
 }
 
 // ─── Security Scan ────────────────────────────────────────────────────────────

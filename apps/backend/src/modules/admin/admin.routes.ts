@@ -59,6 +59,8 @@ import {
   canManagePlatformAdmins,
   normalizePlatformAdminRole,
 } from '../../utils/platform-admin-role'
+import { collectServiceHealth, collectOpsOverview } from './ops-health'
+import { listJobs, triggerJob, getJob } from '../../utils/job-registry'
 
 const router = Router()
 router.use(authenticate)
@@ -1277,15 +1279,52 @@ router.get('/analytics', requirePlatformFinance, async (_req: Request, res: Resp
 // ── System Health ─────────────────────────────────────────────────────────────
 router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const dbStart = Date.now()
-    await prisma.$queryRaw`SELECT 1`
-    const dbMs = Date.now() - dbStart
-    sendSuccess(res, {
-      api:      { status: 'HEALTHY', responseTimeMs: 12 },
-      database: { status: dbMs < 100 ? 'HEALTHY' : 'DEGRADED', responseTimeMs: dbMs },
-      redis:    { status: 'HEALTHY', responseTimeMs: 8 },
-      keycloak: { status: 'HEALTHY', responseTimeMs: 45 },
-    })
+    const services = await collectServiceHealth()
+    sendSuccess(res, services)
+  } catch (e) { next(e) }
+})
+
+// ── Ops overview (jobs, backups, disk, docker if enabled) ─────────────────────
+router.get('/ops/overview', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const overview = await collectOpsOverview()
+    sendSuccess(res, overview)
+  } catch (e) { next(e) }
+})
+
+router.get('/ops/jobs', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, { data: listJobs() })
+  } catch (e) { next(e) }
+})
+
+router.post('/ops/jobs/:id/run', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const role = normalizePlatformAdminRole((req as any).user?.platformAdminRole)
+    if (role !== 'SUPER_ADMIN') {
+      throw new AppError('Only SUPER_ADMIN can manually trigger jobs', 403)
+    }
+    const id = String(req.params.id || '')
+    if (!getJob(id)) throw new AppError('Unknown job', 404)
+
+    const result = await triggerJob(id)
+    await logPlatformActivity({
+      eventType: 'OPS_JOB_TRIGGER',
+      severity: result.ok ? 'INFO' : 'WARN',
+      actorType: 'ADMIN',
+      actor: (req as any).user?.email ?? 'admin',
+      target: id,
+      details: result.ok
+        ? `Manual job run OK · ${result.durationMs}ms`
+        : `Manual job run failed · ${result.error ?? 'unknown'}`,
+      ip: getClientIp(req),
+      userId: (req as any).user?.userId,
+    }).catch(() => {})
+
+    if (!result.ok) {
+      return sendError(res, result.error || 'Job failed', 500)
+    }
+    sendSuccess(res, result.job, `Job ${id} completed`)
   } catch (e) { next(e) }
 })
 

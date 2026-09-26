@@ -5,11 +5,13 @@ import { whatsappService } from '../modules/whatsapp/whatsapp.service'
 import { logPlatformActivity } from '../utils/activity-log'
 import { buildSubscriptionInvoicePdf } from '../utils/subscription-invoice-pdf'
 import { createSubscriptionInvoice } from '../modules/billing/billing.service'
+import { registerJob, runTracked } from '../utils/job-registry'
 
 const BILLING_SLUG = 'hexalyte-billing-internal'
 const TZ = 'Asia/Colombo'
 const JOB_HOUR = 8 // local morning Asia/Colombo
 const CHECK_EVERY_MS = 15 * 60 * 1000
+const JOB_ID = 'subscription-renewal-reminder'
 
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -423,13 +425,23 @@ export async function processSubscriptionRenewalReminders(): Promise<{
 }
 
 export function startSubscriptionRenewalReminderJob(): void {
-  void processSubscriptionRenewalReminders().catch(err => {
-    console.error('[subscription-renewal] initial run failed:', err?.message ?? err)
+  registerJob(
+    {
+      id: JOB_ID,
+      name: 'Subscription Renewal Reminder',
+      schedule: `Every 15 min (runs at ${JOB_HOUR}:00 ${TZ})`,
+      description: 'Day-before WhatsApp (opt-in) and payment-due marking on expiry day',
+    },
+    processSubscriptionRenewalReminders,
+  )
+
+  void runTracked(JOB_ID).then((r) => {
+    if (!r.ok) console.error('[subscription-renewal] initial run failed:', r.error)
   })
 
   timer = setInterval(() => {
-    void processSubscriptionRenewalReminders().catch(err => {
-      console.error('[subscription-renewal] scheduled run failed:', err?.message ?? err)
+    void runTracked(JOB_ID).then((r) => {
+      if (!r.ok) console.error('[subscription-renewal] scheduled run failed:', r.error)
     })
   }, CHECK_EVERY_MS)
 

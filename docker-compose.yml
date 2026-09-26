@@ -113,6 +113,7 @@ services:
     volumes:
       - uploads_data:/app/uploads
       - whatsapp_sessions:/app/data/whatsapp-sessions
+      - /var/backups/hexalyte:/var/backups/hexalyte:ro
 
   admin:
     build:

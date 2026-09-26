@@ -1,9 +1,11 @@
 import { env } from '../config/env'
 import { prisma } from '../config/database'
 import { emiLockerService } from '../modules/emi-locker/emi-locker.service'
+import { registerJob, runTracked } from '../utils/job-registry'
 
 let timer: NodeJS.Timeout | null = null
 const HOUR = 60 * 60 * 1000
+const JOB_ID = 'emi-locker-enforcement'
 
 export async function runEmiLockerEnforcement() {
   if (env.EMI_LOCKER_ENABLED === 'false') {
@@ -35,9 +37,19 @@ export async function runEmiLockerEnforcement() {
 
 export function startEmiLockerEnforcementJob() {
   if (timer) return
-  void runEmiLockerEnforcement()
+  registerJob(
+    {
+      id: JOB_ID,
+      name: 'EMI Locker Enforcement',
+      schedule: 'Every 1 hour',
+      description: 'Scans overdue EMI devices and applies locker policy',
+      enabled: env.EMI_LOCKER_ENABLED !== 'false',
+    },
+    runEmiLockerEnforcement,
+  )
+  void runTracked(JOB_ID)
   timer = setInterval(() => {
-    void runEmiLockerEnforcement()
+    void runTracked(JOB_ID)
   }, HOUR)
 }
 

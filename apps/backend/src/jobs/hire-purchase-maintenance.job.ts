@@ -2,9 +2,11 @@ import { prisma } from '../config/database'
 import { whatsappService } from '../modules/whatsapp/whatsapp.service'
 import { sendMail } from '../utils/mailer'
 import { notifyHpReminderSms } from '../modules/sms/sms-notify.service'
+import { registerJob, runTracked } from '../utils/job-registry'
 
 let timer: NodeJS.Timeout | null = null
 const HOUR = 60 * 60 * 1000
+const JOB_ID = 'hire-purchase-maintenance'
 
 function utcDay(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
@@ -142,9 +144,22 @@ export async function runHirePurchaseMaintenance() {
 
 export function startHirePurchaseMaintenanceJob() {
   if (timer) return
-  void runHirePurchaseMaintenance().catch(error => console.error('[hire-purchase] maintenance failed:', error))
+  registerJob(
+    {
+      id: JOB_ID,
+      name: 'Hire Purchase Maintenance',
+      schedule: 'Every 1 hour',
+      description: 'Late fees, overdue flags, and HP reminder notifications',
+    },
+    runHirePurchaseMaintenance,
+  )
+  void runTracked(JOB_ID).then((r) => {
+    if (!r.ok) console.error('[hire-purchase] maintenance failed:', r.error)
+  })
   timer = setInterval(() => {
-    void runHirePurchaseMaintenance().catch(error => console.error('[hire-purchase] maintenance failed:', error))
+    void runTracked(JOB_ID).then((r) => {
+      if (!r.ok) console.error('[hire-purchase] maintenance failed:', r.error)
+    })
   }, HOUR)
   timer.unref()
 }

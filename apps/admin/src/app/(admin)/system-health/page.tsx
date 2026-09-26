@@ -3,12 +3,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   CheckCircle, AlertTriangle, XCircle, RefreshCw, Database,
-  Clock, Server, Cpu, HardDrive, Activity, Layers, Package,
-  Users, ShoppingCart, Wrench, ChevronRight,
+  Clock, Server, Activity, Layers, Package,
+  Users, ShoppingCart, Wrench, Play, HardDrive, Shield,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { fetchHealth, fetchServerStats, type HealthData, type ServerStats } from '@/lib/api'
+import {
+  fetchHealth,
+  fetchServerStats,
+  fetchOpsOverview,
+  triggerOpsJob,
+  type HealthData,
+  type ServerStats,
+  type OpsOverview,
+  type OpsJobSnapshot,
+} from '@/lib/api'
 import type { ServiceStatus } from '@/types'
+import { hubSession } from '@/lib/hub-session'
+import { canManagePlatformAdmins } from '@/lib/platform-admin-role'
 
 /* ── helpers ─────────────────────────────────────────────────── */
 function fmtUptime(sec: number) {
@@ -20,17 +31,39 @@ function fmtUptime(sec: number) {
   return `${m}m`
 }
 
+function fmtBytes(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return '—'
+  if (n < 1024) return `${n} B`
+  if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`
+  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`
+  return `${(n / 1024 ** 3).toFixed(1)} GB`
+}
+
+function fmtAgo(iso: string | null) {
+  if (!iso) return 'Never'
+  const ms = Date.now() - new Date(iso).getTime()
+  if (ms < 0) return 'just now'
+  const m = Math.floor(ms / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 48) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 const STATUS_CONFIG: Record<string, { badge: string; Icon: LucideIcon; iconClass: string; bg: string; border: string }> = {
   HEALTHY:  { badge: 'badge-green',  Icon: CheckCircle,    iconClass: 'text-emerald-500', bg: 'bg-emerald-50/50', border: 'border-emerald-100' },
   DEGRADED: { badge: 'badge-yellow', Icon: AlertTriangle,  iconClass: 'text-amber-500',   bg: 'bg-amber-50/50',   border: 'border-amber-100'  },
   DOWN:     { badge: 'badge-red',    Icon: XCircle,        iconClass: 'text-red-500',     bg: 'bg-red-50/50',     border: 'border-red-100'    },
+  DISABLED: { badge: 'badge-gray',   Icon: Shield,         iconClass: 'text-gray-400',    bg: 'bg-gray-50/50',    border: 'border-gray-100'   },
+  UNKNOWN:  { badge: 'badge-gray',   Icon: AlertTriangle,  iconClass: 'text-gray-400',    bg: 'bg-gray-50/50',    border: 'border-gray-100'   },
 }
 
 const SERVICE_META: Record<string, { label: string; Icon: LucideIcon; iconClass: string; desc: string }> = {
   api:      { label: 'API Server',    Icon: Server,     iconClass: 'text-blue-600',    desc: 'Express REST API — handles all tenant requests' },
   database: { label: 'PostgreSQL',    Icon: Database,   iconClass: 'text-brand-600',  desc: 'Primary relational database — Prisma ORM' },
   redis:    { label: 'Auth / Cache',  Icon: Activity,   iconClass: 'text-emerald-600', desc: 'JWT refresh token store & session cache' },
-  keycloak: { label: 'Auth Service',  Icon: CheckCircle, iconClass: 'text-sky-600',    desc: 'Token signing & validation service' },
+  keycloak: { label: 'Auth Service',  Icon: CheckCircle, iconClass: 'text-sky-600',    desc: 'Token signing & validation (when enabled)' },
 }
 
 const TABLE_ICON: Record<string, LucideIcon> = {
@@ -42,24 +75,12 @@ const TABLE_ICON: Record<string, LucideIcon> = {
   products:       Package,
 }
 
-const CRON_JOBS = [
-  { name: 'Trial Expiry Checker',  schedule: 'Every 6 hours',   lastRun: '2h ago',  status: 'SUCCESS', duration: '120ms'  },
-  { name: 'Warranty Alerts',       schedule: 'Daily 08:00',      lastRun: '4h ago',  status: 'SUCCESS', duration: '340ms'  },
-  { name: 'Subscription Renewal',  schedule: 'Daily 00:00',      lastRun: '8h ago',  status: 'SUCCESS', duration: '210ms'  },
-  { name: 'Overdue Follow-ups',    schedule: 'Daily 10:00',      lastRun: '2h ago',  status: 'SUCCESS', duration: '88ms'   },
-  { name: 'DB Backup',             schedule: 'Daily 03:00',      lastRun: '5h ago',  status: 'SUCCESS', duration: '18.2s'  },
-  { name: 'Analytics Rollup',      schedule: 'Hourly',           lastRun: '42m ago', status: 'SUCCESS', duration: '560ms'  },
-  { name: 'Inactive Tenant Sweep', schedule: 'Weekly Monday',   lastRun: '3d ago',  status: 'SUCCESS', duration: '1.2s'   },
-  { name: 'Log Cleanup',           schedule: 'Weekly Sunday',   lastRun: '4d ago',  status: 'SUCCESS', duration: '2.1s'   },
-]
-
-const DOCKER_CONTAINERS = [
-  { name: 'hexalyte_backend',   image: 'hexalyte/api:latest',    status: 'running', uptime: '3d 14h', cpu: '2.1%', mem: '124 MB' },
-  { name: 'hexalyte_admin',     image: 'hexalyte/admin:latest',  status: 'running', uptime: '3d 14h', cpu: '0.3%', mem: '68 MB'  },
-  { name: 'hexalyte_web',       image: 'hexalyte/web:latest',    status: 'running', uptime: '3d 14h', cpu: '0.8%', mem: '92 MB'  },
-  { name: 'hexalyte_postgres',  image: 'postgres:16-alpine',     status: 'running', uptime: '14d 2h', cpu: '1.2%', mem: '210 MB' },
-  { name: 'hexalyte_nginx',     image: 'nginx:alpine',           status: 'running', uptime: '14d 2h', cpu: '0.1%', mem: '8 MB'   },
-]
+const JOB_BADGE: Record<string, string> = {
+  SUCCESS: 'badge-green',
+  ERROR: 'badge-red',
+  RUNNING: 'badge-yellow',
+  NEVER: 'badge-gray',
+}
 
 /* ── Memory bar ──────────────────────────────────────────────── */
 function MemBar({ used, total, label }: { used: number; total: number; label: string }) {
@@ -78,26 +99,74 @@ function MemBar({ used, total, label }: { used: number; total: number; label: st
   )
 }
 
+function DiskBar({ label, usedPercent, freeBytes, totalBytes, available, detail }: {
+  label: string
+  usedPercent: number | null
+  freeBytes: number | null
+  totalBytes: number | null
+  available: boolean
+  detail?: string
+}) {
+  if (!available) {
+    return (
+      <div className="text-xs text-gray-500">
+        <p className="font-medium text-gray-700 mb-1">{label}</p>
+        <p>{detail || 'Not available from API process'}</p>
+      </div>
+    )
+  }
+  const pct = usedPercent ?? 0
+  const color = pct >= 95 ? 'bg-red-500' : pct >= 90 ? 'bg-red-400' : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
+  return (
+    <div>
+      <div className="flex justify-between text-xs text-gray-500 mb-1">
+        <span>{label}</span>
+        <span className="font-medium text-gray-800">
+          {fmtBytes(freeBytes)} free / {fmtBytes(totalBytes)} <span className="text-gray-400">({pct}%)</span>
+        </span>
+      </div>
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(100, pct)}%` }} />
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1">Thresholds: 80% warn · 90% critical · 95% immediate</p>
+    </div>
+  )
+}
+
 /* ── Main Page ───────────────────────────────────────────────── */
 export default function SystemHealthPage() {
-  const [tab, setTab]         = useState<'services' | 'database' | 'cron' | 'infrastructure'>('services')
+  const [tab, setTab] = useState<'services' | 'database' | 'cron' | 'infrastructure'>('services')
   const [refreshing, setRefreshing] = useState(false)
-  const [health, setHealth]   = useState<HealthData | null>(null)
-  const [server, setServer]   = useState<ServerStats | null>(null)
+  const [health, setHealth] = useState<HealthData | null>(null)
+  const [server, setServer] = useState<ServerStats | null>(null)
+  const [ops, setOps] = useState<OpsOverview | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
+  const [runningJobId, setRunningJobId] = useState<string | null>(null)
+  const [jobMsg, setJobMsg] = useState<string | null>(null)
+
+  const isSuperAdmin = canManagePlatformAdmins(hubSession.getUser('enterprise'))
 
   const load = useCallback(async () => {
     setRefreshing(true)
     try {
-      const [h, s] = await Promise.all([fetchHealth(), fetchServerStats()])
-      setHealth(h); setServer(s); setLastChecked(new Date())
-    } catch {}
-    finally { setRefreshing(false) }
+      const [h, s, o] = await Promise.all([
+        fetchHealth(),
+        fetchServerStats(),
+        fetchOpsOverview().catch(() => null),
+      ])
+      setHealth(h)
+      setServer(s)
+      setOps(o)
+      setLastChecked(new Date())
+    } catch {
+      /* keep previous */
+    } finally {
+      setRefreshing(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  /* auto-refresh every 30s */
   useEffect(() => {
     const t = setInterval(load, 30000)
     return () => clearInterval(t)
@@ -108,6 +177,7 @@ export default function SystemHealthPage() {
         key,
         status: val.status as ServiceStatus,
         responseTimeMs: val.responseTimeMs,
+        detail: (val as { detail?: string }).detail,
         ...(SERVICE_META[key] ?? { label: key, Icon: Server, iconClass: 'text-gray-500', desc: '' }),
       }))
     : []
@@ -117,10 +187,32 @@ export default function SystemHealthPage() {
   const down     = serviceList.filter(s => s.status === 'DOWN').length
   const overallOk = down === 0 && degraded === 0
 
+  const jobs: OpsJobSnapshot[] = ops?.jobs ?? []
+
+  async function onRunJob(id: string) {
+    if (!isSuperAdmin) return
+    setRunningJobId(id)
+    setJobMsg(null)
+    try {
+      await triggerOpsJob(id)
+      setJobMsg(`Job ${id} completed`)
+      await load()
+    } catch (e) {
+      setJobMsg(e instanceof Error ? e.message : 'Job failed')
+    } finally {
+      setRunningJobId(null)
+    }
+  }
+
+  const backupBadge =
+    ops?.backup.status === 'ok' ? 'badge-green'
+      : ops?.backup.status === 'stale' ? 'badge-yellow'
+        : ops?.backup.status === 'missing' ? 'badge-red'
+          : 'badge-gray'
+
   return (
     <div className="space-y-5">
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div>
           <h1 className="page-title">System Health</h1>
@@ -138,7 +230,16 @@ export default function SystemHealthPage() {
         </div>
       </div>
 
-      {/* Overall status banner */}
+      {ops?.maintenance.enabled && (
+        <div className="rounded-xl p-4 border border-amber-200 bg-amber-50 flex items-start gap-3">
+          <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Maintenance mode is ON</p>
+            <p className="text-xs text-amber-800 mt-0.5">{ops.maintenance.message}</p>
+          </div>
+        </div>
+      )}
+
       <div className={`rounded-xl p-4 border flex items-center gap-3 ${overallOk ? 'bg-emerald-50 border-emerald-200' : down > 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
         {overallOk
           ? <CheckCircle size={20} className="text-emerald-600 flex-shrink-0" />
@@ -148,23 +249,23 @@ export default function SystemHealthPage() {
         <div>
           <p className={`text-sm font-semibold ${overallOk ? 'text-emerald-800' : down > 0 ? 'text-red-800' : 'text-amber-800'}`}>
             {health === null ? 'Connecting to backend…'
-              : overallOk ? 'All systems operational'
+              : overallOk ? 'All probed services operational'
               : down > 0 ? `${down} service${down > 1 ? 's' : ''} down — action required`
               : `${degraded} service${degraded > 1 ? 's' : ''} degraded`}
           </p>
           <p className={`text-xs mt-0.5 ${overallOk ? 'text-emerald-600' : down > 0 ? 'text-red-600' : 'text-amber-600'}`}>
-            {serviceList.length} services monitored · {server ? `Uptime ${fmtUptime(server.process.uptimeSeconds)}` : '—'}
+            {serviceList.length} services monitored · {server ? `API uptime ${fmtUptime(server.process.uptimeSeconds)}` : '—'}
+            {ops?.backup ? ` · Backup ${ops.backup.status}` : ''}
           </p>
         </div>
       </div>
 
-      {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Healthy',         value: healthy,                             icon: CheckCircle,  color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-          { label: 'Degraded',        value: degraded,                            icon: AlertTriangle,color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-100'  },
-          { label: 'Down',            value: down,                                icon: XCircle,      color: 'text-red-600',     bg: 'bg-red-50',     border: 'border-red-100'    },
-          { label: 'Process Uptime',  value: server ? fmtUptime(server.process.uptimeSeconds) : '—', icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+          { label: 'Healthy', value: healthy, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+          { label: 'Degraded', value: degraded, icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+          { label: 'Down', value: down, icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100' },
+          { label: 'Process Uptime', value: server ? fmtUptime(server.process.uptimeSeconds) : '—', icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
         ].map(m => (
           <div key={m.label} className={`card p-4 flex items-center gap-3 border ${m.border}`}>
             <div className={`w-10 h-10 rounded-xl ${m.bg} flex items-center justify-center flex-shrink-0`}>
@@ -178,12 +279,11 @@ export default function SystemHealthPage() {
         ))}
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-0 border-b border-gray-200">
         {([
-          { key: 'services',       label: 'Services' },
-          { key: 'database',       label: 'Database' },
-          { key: 'cron',           label: 'Scheduled Jobs' },
+          { key: 'services', label: 'Services' },
+          { key: 'database', label: 'Database' },
+          { key: 'cron', label: 'Scheduled Jobs' },
           { key: 'infrastructure', label: 'Infrastructure' },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -195,7 +295,6 @@ export default function SystemHealthPage() {
         ))}
       </div>
 
-      {/* ── SERVICES ─────────────────────────────────────────── */}
       {tab === 'services' && (
         <div className="space-y-3">
           {serviceList.length === 0 && (
@@ -204,7 +303,7 @@ export default function SystemHealthPage() {
             </div>
           )}
           {serviceList.map(s => {
-            const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.HEALTHY
+            const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.UNKNOWN
             const msColor = s.responseTimeMs > 300 ? 'text-red-600' : s.responseTimeMs > 150 ? 'text-amber-600' : 'text-emerald-600'
             const SIcon = s.Icon
             return (
@@ -218,87 +317,43 @@ export default function SystemHealthPage() {
                     <span className={cfg.badge}>{s.status}</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">{s.desc}</p>
+                  {s.detail && <p className="text-[11px] text-gray-400 mt-0.5 font-mono">{s.detail}</p>}
                 </div>
-                <div className="hidden sm:grid grid-cols-3 gap-8 text-xs text-center flex-shrink-0">
-                  <div>
-                    <p className="text-gray-400 mb-0.5">Response</p>
-                    <p className={`font-bold text-sm ${msColor}`}>
-                      {s.responseTimeMs === 0 ? '—' : `${s.responseTimeMs}ms`}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 mb-0.5">Uptime</p>
-                    <p className="font-bold text-sm text-emerald-600">99.9%</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 mb-0.5">Incidents</p>
-                    <p className="font-bold text-sm text-gray-800">0</p>
-                  </div>
+                <div className="hidden sm:block text-xs text-center flex-shrink-0 min-w-[72px]">
+                  <p className="text-gray-400 mb-0.5">Response</p>
+                  <p className={`font-bold text-sm ${msColor}`}>
+                    {s.responseTimeMs === 0 && s.status === 'DISABLED' ? '—' : `${s.responseTimeMs}ms`}
+                  </p>
                 </div>
               </div>
             )
           })}
-          {serviceList.length > 0 && (
-            <div className="card p-4 grid sm:grid-cols-3 gap-4">
-              <div className="text-center">
-                <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Avg Response</p>
-                <p className="text-xl font-bold text-gray-900">
-                  {serviceList.length > 0 ? Math.round(serviceList.reduce((s, v) => s + v.responseTimeMs, 0) / serviceList.length) : 0}ms
-                </p>
-              </div>
-              <div className="text-center border-x border-gray-100">
-                <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Platform Uptime</p>
-                <p className="text-xl font-bold text-emerald-600">99.95%</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Process Uptime</p>
-                <p className="text-xl font-bold text-gray-900">{server ? fmtUptime(server.process.uptimeSeconds) : '—'}</p>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {/* ── DATABASE ─────────────────────────────────────────── */}
       {tab === 'database' && (
         <div className="grid xl:grid-cols-3 gap-5">
-          {/* Memory usage */}
           <div className="xl:col-span-2 card p-5">
             <h3 className="section-title">Process Memory</h3>
             {server ? (
               <div className="space-y-4">
-                <MemBar used={server.process.heapUsedMB}  total={server.process.heapTotalMB} label="Heap Used" />
-                <MemBar used={server.process.heapTotalMB} total={server.process.rssMB}       label="Heap Total vs RSS" />
-                <MemBar used={server.process.externalMB}  total={64}                          label="External (C++ bindings)" />
-                <div className="grid grid-cols-4 gap-3 mt-4">
-                  {[
-                    { label: 'Heap Used',  value: `${server.process.heapUsedMB} MB` },
-                    { label: 'Heap Total', value: `${server.process.heapTotalMB} MB` },
-                    { label: 'RSS',        value: `${server.process.rssMB} MB` },
-                    { label: 'External',   value: `${server.process.externalMB} MB` },
-                  ].map(s => (
-                    <div key={s.label} className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-sm font-bold text-gray-900">{s.value}</p>
-                      <p className="text-[10px] text-gray-500 mt-0.5">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
+                <MemBar used={server.process.heapUsedMB} total={server.process.heapTotalMB} label="Heap Used" />
+                <MemBar used={server.process.heapTotalMB} total={Math.max(server.process.rssMB, 1)} label="Heap Total vs RSS" />
+                <MemBar used={server.process.externalMB} total={Math.max(server.process.externalMB, 64)} label="External (C++ bindings)" />
               </div>
             ) : <p className="text-sm text-gray-400 text-center py-6">Loading…</p>}
           </div>
 
-          {/* Process info */}
           <div className="card p-5">
             <h3 className="section-title">Process Info</h3>
             <div className="space-y-0 divide-y divide-gray-50">
               {server ? [
                 ['Node.js Version', server.process.nodeVersion],
-                ['Platform',        server.process.platform],
-                ['Process Uptime',  fmtUptime(server.process.uptimeSeconds)],
-                ['Heap Used',       `${server.process.heapUsedMB} MB`],
-                ['RSS',             `${server.process.rssMB} MB`],
-                ['ORM',             'Prisma v5'],
-                ['Database',        'PostgreSQL 16'],
+                ['Platform', server.process.platform],
+                ['Process Uptime', fmtUptime(server.process.uptimeSeconds)],
+                ['Heap Used', `${server.process.heapUsedMB} MB`],
+                ['RSS', `${server.process.rssMB} MB`],
+                ['PID', ops?.host.pid != null ? String(ops.host.pid) : '—'],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between py-2.5 text-sm">
                   <span className="text-gray-500">{k}</span>
@@ -308,7 +363,6 @@ export default function SystemHealthPage() {
             </div>
           </div>
 
-          {/* Table row counts */}
           <div className="xl:col-span-3 card overflow-hidden">
             <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50">
               <h3 className="section-title !mb-0">Database Tables — Row Counts</h3>
@@ -354,117 +408,202 @@ export default function SystemHealthPage() {
         </div>
       )}
 
-      {/* ── CRON JOBS ────────────────────────────────────────── */}
       {tab === 'cron' && (
         <div className="card overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-3 flex-wrap">
             <h3 className="section-title !mb-0">Scheduled Jobs</h3>
-            <span className="badge-green">All running normally</span>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="th">Job Name</th>
-                <th className="th">Schedule</th>
-                <th className="th">Last Run</th>
-                <th className="th">Duration</th>
-                <th className="th">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {CRON_JOBS.map(j => (
-                <tr key={j.name} className="hover:bg-gray-50/70 transition-colors">
-                  <td className="td">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full flex-shrink-0" />
-                      <span className="text-xs font-medium text-gray-900">{j.name}</span>
-                    </div>
-                  </td>
-                  <td className="td text-xs font-mono text-gray-500">{j.schedule}</td>
-                  <td className="td text-xs text-gray-500">{j.lastRun}</td>
-                  <td className="td text-xs font-mono text-gray-600">{j.duration}</td>
-                  <td className="td"><span className="badge-green">{j.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── INFRASTRUCTURE ───────────────────────────────────── */}
-      {tab === 'infrastructure' && (
-        <div className="space-y-5">
-          {/* Docker containers */}
-          <div className="card overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50">
-              <h3 className="section-title !mb-0">Docker Containers</h3>
+            <div className="flex items-center gap-2">
+              {jobMsg && <span className="text-xs text-gray-500">{jobMsg}</span>}
+              {jobs.some(j => j.lastStatus === 'ERROR')
+                ? <span className="badge-red">Errors detected</span>
+                : <span className="badge-green">Live registry</span>}
             </div>
+          </div>
+          {jobs.length === 0 ? (
+            <div className="p-8 text-center text-sm text-gray-400">
+              No job registry data yet — restart backend after deploy to register timers.
+            </div>
+          ) : (
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="th">Container</th>
-                  <th className="th">Image</th>
+                  <th className="th">Job Name</th>
+                  <th className="th">Schedule</th>
+                  <th className="th">Last Run</th>
+                  <th className="th">Duration</th>
                   <th className="th">Status</th>
-                  <th className="th">Uptime</th>
-                  <th className="th text-center">CPU</th>
-                  <th className="th text-center">Memory</th>
+                  <th className="th text-right">Control</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {DOCKER_CONTAINERS.map(c => (
-                  <tr key={c.name} className="hover:bg-gray-50/70">
-                    <td className="td text-xs font-mono font-semibold text-gray-900">{c.name}</td>
-                    <td className="td text-xs font-mono text-gray-400">{c.image}</td>
-                    <td className="td"><span className="badge-green">{c.status}</span></td>
-                    <td className="td text-xs text-gray-500">{c.uptime}</td>
-                    <td className="td text-xs font-medium text-center text-emerald-600">{c.cpu}</td>
-                    <td className="td text-xs font-medium text-center text-blue-600">{c.mem}</td>
+                {jobs.map(j => (
+                  <tr key={j.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="td">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          j.lastStatus === 'ERROR' ? 'bg-red-400' : j.lastStatus === 'RUNNING' ? 'bg-amber-400' : 'bg-emerald-400'
+                        }`} />
+                        <div>
+                          <span className="text-xs font-medium text-gray-900">{j.name}</span>
+                          {j.lastError && <p className="text-[10px] text-red-500 font-mono mt-0.5 max-w-xs truncate">{j.lastError}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="td text-xs font-mono text-gray-500">{j.schedule}</td>
+                    <td className="td text-xs text-gray-500">{fmtAgo(j.lastFinishedAt || j.lastStartedAt)}</td>
+                    <td className="td text-xs font-mono text-gray-600">
+                      {j.lastDurationMs != null ? `${j.lastDurationMs}ms` : '—'}
+                    </td>
+                    <td className="td"><span className={JOB_BADGE[j.lastStatus] ?? 'badge-gray'}>{j.lastStatus}</span></td>
+                    <td className="td text-right">
+                      {isSuperAdmin ? (
+                        <button
+                          type="button"
+                          disabled={j.running || runningJobId === j.id}
+                          onClick={() => onRunJob(j.id)}
+                          className="btn-secondary text-xs inline-flex items-center gap-1 disabled:opacity-50"
+                          title="Run now (SUPER_ADMIN)"
+                        >
+                          <Play size={11} />
+                          {j.running || runningJobId === j.id ? 'Running…' : 'Run'}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-gray-400">SUPER_ADMIN</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          )}
+        </div>
+      )}
 
-          {/* Server info + recent deploys */}
+      {tab === 'infrastructure' && (
+        <div className="space-y-5">
           <div className="grid sm:grid-cols-2 gap-5">
             <div className="card p-5">
-              <h3 className="section-title">Host Server</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="section-title !mb-0">Encrypted DB Backups</h3>
+                {ops && <span className={backupBadge}>{ops.backup.status.toUpperCase()}</span>}
+              </div>
+              {ops ? (
+                <div className="space-y-0 divide-y divide-gray-50 text-sm">
+                  {[
+                    ['Directory', ops.backup.directory],
+                    ['Latest file', ops.backup.latestFile ?? '—'],
+                    ['Size', fmtBytes(ops.backup.latestBytes)],
+                    ['Created', ops.backup.latestCreatedAt ?? '—'],
+                    ['Age', ops.backup.ageHours != null ? `${ops.backup.ageHours}h` : '—'],
+                    ['Format', ops.backup.formatVersion ? `v${ops.backup.formatVersion}` : '—'],
+                    ['Last 48h count', String(ops.backup.recentCount48h)],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between py-2.5 gap-3">
+                      <span className="text-gray-500 flex-shrink-0">{k}</span>
+                      <span className="font-medium text-gray-800 text-xs font-mono text-right break-all">{v}</span>
+                    </div>
+                  ))}
+                  {ops.backup.detail && (
+                    <p className="text-xs text-amber-700 py-2">{ops.backup.detail}</p>
+                  )}
+                </div>
+              ) : <p className="text-sm text-gray-400">Loading…</p>}
+            </div>
+
+            <div className="card p-5 space-y-5">
+              <h3 className="section-title">Disk Space</h3>
+              {ops ? (
+                <>
+                  <DiskBar
+                    label={`Root (${ops.disk.root.path})`}
+                    usedPercent={ops.disk.root.usedPercent}
+                    freeBytes={ops.disk.root.freeBytes}
+                    totalBytes={ops.disk.root.totalBytes}
+                    available={ops.disk.root.available}
+                    detail={ops.disk.root.detail}
+                  />
+                  <DiskBar
+                    label={`Backups (${ops.disk.backups.path})`}
+                    usedPercent={ops.disk.backups.usedPercent}
+                    freeBytes={ops.disk.backups.freeBytes}
+                    totalBytes={ops.disk.backups.totalBytes}
+                    available={ops.disk.backups.available}
+                    detail={ops.disk.backups.detail}
+                  />
+                </>
+              ) : <p className="text-sm text-gray-400">Loading…</p>}
+            </div>
+          </div>
+
+          <div className="card overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+              <h3 className="section-title !mb-0">Docker Containers</h3>
+              {ops && (
+                <span className={ops.docker.available ? 'badge-green' : 'badge-gray'}>
+                  {ops.docker.available ? 'Live' : 'Unavailable'}
+                </span>
+              )}
+            </div>
+            {ops?.docker.available && ops.docker.containers.length > 0 ? (
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="th">Container</th>
+                    <th className="th">Image</th>
+                    <th className="th">Status</th>
+                    <th className="th">State</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {ops.docker.containers.map(c => (
+                    <tr key={c.name} className="hover:bg-gray-50/70">
+                      <td className="td text-xs font-mono font-semibold text-gray-900">{c.name}</td>
+                      <td className="td text-xs font-mono text-gray-400">{c.image}</td>
+                      <td className="td text-xs text-gray-600">{c.status}</td>
+                      <td className="td"><span className={c.state === 'running' ? 'badge-green' : 'badge-yellow'}>{c.state}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="p-6 text-sm text-gray-500 flex items-start gap-2">
+                <HardDrive size={16} className="mt-0.5 flex-shrink-0 text-gray-400" />
+                <p>
+                  {ops?.docker.detail
+                    || 'Docker status is not exposed to the API by default (safer). Host ops use `docker compose ps` on the server.'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div className="card p-5">
+              <h3 className="section-title">Host / Deploy Hints</h3>
               <div className="space-y-0 divide-y divide-gray-50">
                 {[
-                  ['Provider',    'Hetzner Cloud'],
-                  ['Location',    'Falkenstein, DE'],
-                  ['Instance',    'CX21 (2 vCPU, 4 GB RAM)'],
-                  ['OS',          'Ubuntu 22.04 LTS'],
-                  ['IP',          '49.12.207.238'],
-                  ['Reverse Proxy','nginx 1.24'],
-                  ['SSL',         "Let's Encrypt (auto-renew)"],
+                  ['Documented IP', ops?.host.publicHints.documentedServerIp ?? '157.180.113.249'],
+                  ['App directory', ops?.host.publicHints.appDir ?? '/opt/hexalyte'],
+                  ['Hostname', ops?.host.hostname ?? '—'],
+                  ['Timezone', ops?.timezone ?? 'Asia/Colombo'],
+                  ['Node', ops?.host.nodeVersion ?? server?.process.nodeVersion ?? '—'],
                 ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between py-2.5 text-sm">
+                  <div key={k} className="flex justify-between py-2.5 text-sm gap-3">
                     <span className="text-gray-500">{k}</span>
-                    <span className="font-medium text-gray-800 text-xs font-mono">{v}</span>
+                    <span className="font-medium text-gray-800 text-xs font-mono text-right">{v}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="card p-5">
-              <h3 className="section-title">Recent Deployments</h3>
-              <div className="space-y-3">
-                {[
-                  { version: 'v2.5.0', component: 'Admin — Auth/IAM',        time: '10 May 2026, 14:00', status: 'Success' },
-                  { version: 'v2.4.9', component: 'Admin — Subscriptions',    time: '10 May 2026, 09:30', status: 'Success' },
-                  { version: 'v2.4.8', component: 'Web — Reports Page',        time: '8 May 2026, 11:15',  status: 'Success' },
-                  { version: 'v2.4.7', component: 'Backend — Analytics API',  time: '7 May 2026, 16:00',  status: 'Success' },
-                  { version: 'v2.4.5', component: 'Web — Inventory Modal',     time: '5 May 2026, 10:00',  status: 'Success' },
-                ].map((d, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800">{d.component} <span className="font-mono text-blue-600">{d.version}</span></p>
-                      <p className="text-[10px] text-gray-400">{d.time}</p>
-                    </div>
-                    <span className="badge-green">{d.status}</span>
-                  </div>
-                ))}
-              </div>
+              <h3 className="section-title">Control surfaces</h3>
+              <ul className="text-sm text-gray-600 space-y-2 list-disc pl-4">
+                <li>Maintenance mode — Settings</li>
+                <li>Security posture — Security Scan</li>
+                <li>Tenant / billing control — Tenants, Subscriptions, Payments</li>
+                <li>IAM sessions — Auth / IAM → revoke</li>
+                <li>Support impersonation — Support Tools</li>
+                <li>Job run-now — this page (SUPER_ADMIN)</li>
+              </ul>
             </div>
           </div>
         </div>

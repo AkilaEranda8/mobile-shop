@@ -1,8 +1,10 @@
 import { prisma } from '../config/database'
 import { customerCreditControlService } from '../modules/customers/customer-credit-control.service'
+import { registerJob, runTracked } from '../utils/job-registry'
 
 let timer: NodeJS.Timeout | null = null
 const HOUR = 60 * 60 * 1000
+const JOB_ID = 'customer-credit-reminder'
 
 export async function runCustomerCreditReminderJob() {
   const [featureRows, trialTenants] = await Promise.all([
@@ -39,13 +41,22 @@ export async function runCustomerCreditReminderJob() {
 
 export function startCustomerCreditReminderJob() {
   if (timer) return
-  void runCustomerCreditReminderJob().catch(error =>
-    console.error('[customer-credit] job failed:', error),
+  registerJob(
+    {
+      id: JOB_ID,
+      name: 'Customer Credit Reminders',
+      schedule: 'Every 1 hour',
+      description: 'Automated credit control messages for enabled tenants',
+    },
+    runCustomerCreditReminderJob,
   )
+  void runTracked(JOB_ID).then((r) => {
+    if (!r.ok) console.error('[customer-credit] job failed:', r.error)
+  })
   timer = setInterval(() => {
-    void runCustomerCreditReminderJob().catch(error =>
-      console.error('[customer-credit] job failed:', error),
-    )
+    void runTracked(JOB_ID).then((r) => {
+      if (!r.ok) console.error('[customer-credit] job failed:', r.error)
+    })
   }, HOUR)
   timer.unref()
 }

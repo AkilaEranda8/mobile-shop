@@ -33,7 +33,7 @@ services:
     networks:
       - hexalyte-network
     healthcheck:
-      test: [CMD-SHELL, pg_isready -U ${POSTGRES_USER:-hexalyte}]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hexalyte}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -101,6 +101,8 @@ services:
     volumes:
       - uploads_data:/app/uploads
       - whatsapp_sessions:/app/data/whatsapp-sessions
+      # Read-only backup status for admin System Health (host cron writes here)
+      - /var/backups/hexalyte:/var/backups/hexalyte:ro
 
   admin:
     build:
