@@ -41,8 +41,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: hexalyte_redis
-    ports:
-      - 127.0.0.1:6380:6379
+    # No host ports — Redis only on Docker network.
     volumes:
       - redis_data:/data
     networks:
