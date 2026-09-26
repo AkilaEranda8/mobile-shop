@@ -135,7 +135,7 @@ function DiskBar({ label, usedPercent, freeBytes, totalBytes, available, detail 
 
 /* ── Main Page ───────────────────────────────────────────────── */
 export default function SystemHealthPage() {
-  const [tab, setTab] = useState<'services' | 'database' | 'cron' | 'infrastructure'>('services')
+  const [tab, setTab] = useState<'services' | 'database' | 'cron' | 'backups' | 'infrastructure'>('services')
   const [refreshing, setRefreshing] = useState(false)
   const [health, setHealth] = useState<HealthData | null>(null)
   const [server, setServer] = useState<ServerStats | null>(null)
@@ -279,15 +279,16 @@ export default function SystemHealthPage() {
         ))}
       </div>
 
-      <div className="flex gap-0 border-b border-gray-200">
+      <div className="flex gap-0 border-b border-gray-200 overflow-x-auto">
         {([
           { key: 'services', label: 'Services' },
           { key: 'database', label: 'Database' },
           { key: 'cron', label: 'Scheduled Jobs' },
+          { key: 'backups', label: 'Daily Backups' },
           { key: 'infrastructure', label: 'Infrastructure' },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               tab === t.key ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}>
             {t.label}
@@ -476,6 +477,101 @@ export default function SystemHealthPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {tab === 'backups' && (
+        <div className="space-y-5">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Status', value: ops?.backup.status?.toUpperCase() ?? '—', badge: true },
+              { label: 'Schedule', value: ops?.backup.schedule ?? 'Daily 02:15' },
+              { label: 'Retention', value: ops ? `${ops.backup.retentionDays} days` : '14 days' },
+              { label: 'Last 48h', value: ops ? String(ops.backup.recentCount48h) : '—' },
+            ].map((m) => (
+              <div key={m.label} className="card p-4">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">{m.label}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  {m.badge && ops ? (
+                    <span className={backupBadge}>{m.value}</span>
+                  ) : (
+                    <p className="text-lg font-bold text-gray-900">{m.value}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card p-5">
+            <h3 className="section-title">Latest backup</h3>
+            {ops ? (
+              <div className="space-y-0 divide-y divide-gray-50 text-sm">
+                {[
+                  ['Timezone', ops.backup.timezone || 'Asia/Colombo'],
+                  ['Directory', ops.backup.directory],
+                  ['File', ops.backup.latestFile ?? '—'],
+                  ['Size', fmtBytes(ops.backup.latestBytes)],
+                  ['Created', ops.backup.latestCreatedAt ?? '—'],
+                  ['Age', ops.backup.ageHours != null ? `${ops.backup.ageHours}h` : '—'],
+                  ['Format', ops.backup.formatVersion ? `v${ops.backup.formatVersion} (AES-256-CBC)` : '—'],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex justify-between py-2.5 gap-3">
+                    <span className="text-gray-500 flex-shrink-0">{k}</span>
+                    <span className="font-medium text-gray-800 text-xs font-mono text-right break-all">{v}</span>
+                  </div>
+                ))}
+                {ops.backup.detail && (
+                  <p className="text-xs text-amber-700 py-2">{ops.backup.detail}</p>
+                )}
+                <p className="text-[11px] text-gray-400 pt-3">
+                  Host cron runs encrypted `pg_dump` daily. Admin shows status only — restore stays on the server restore-test script.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">Loading…</p>
+            )}
+          </div>
+
+          <div className="card overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+              <h3 className="section-title !mb-0">Recent daily backups</h3>
+              <span className="text-xs text-gray-500">Encrypted · no secrets shown</span>
+            </div>
+            {!ops?.backup.recent?.length ? (
+              <div className="p-8 text-center text-sm text-gray-400">
+                {ops?.backup.detail || 'No backup files found yet'}
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="th">Created</th>
+                    <th className="th">File</th>
+                    <th className="th text-right">Size</th>
+                    <th className="th">Format</th>
+                    <th className="th">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {ops.backup.recent.map((b) => (
+                    <tr key={b.file} className="hover:bg-gray-50/70">
+                      <td className="td text-xs text-gray-600 whitespace-nowrap">{b.createdAt}</td>
+                      <td className="td text-xs font-mono text-gray-800 break-all">{b.file}</td>
+                      <td className="td text-xs text-right font-medium">{fmtBytes(b.bytes)}</td>
+                      <td className="td text-xs font-mono text-gray-500">
+                        {b.formatVersion ? `v${b.formatVersion}` : '—'}
+                      </td>
+                      <td className="td">
+                        <span className={b.status === 'ok' ? 'badge-green' : 'badge-red'}>
+                          {b.status.toUpperCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
 

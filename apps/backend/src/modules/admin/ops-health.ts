@@ -142,6 +142,14 @@ async function statfsSafe(target: string): Promise<DiskMount> {
   }
 }
 
+export type BackupFileRow = {
+  file: string
+  bytes: number
+  createdAt: string
+  formatVersion: string | null
+  status: 'ok' | 'empty'
+}
+
 export type BackupStatus = {
   available: boolean
   directory: string
@@ -153,42 +161,81 @@ export type BackupStatus = {
   ageHours: number | null
   detail?: string
   recentCount48h: number
+  schedule: string
+  retentionDays: number
+  timezone: string
+  recent: BackupFileRow[]
+}
+
+async function readBackupMeta(metaPath: string): Promise<{
+  createdAt: string | null
+  formatVersion: string | null
+}> {
+  let formatVersion: string | null = null
+  let createdAt: string | null = null
+  try {
+    if (!fs.existsSync(metaPath)) return { createdAt, formatVersion }
+    const metaText = await fs.promises.readFile(metaPath, 'utf8')
+    for (const line of metaText.split(/\r?\n/)) {
+      if (line.startsWith('format_version=')) formatVersion = line.slice('format_version='.length).trim()
+      if (line.startsWith('created_at=')) createdAt = line.slice('created_at='.length).trim()
+    }
+  } catch {
+    /* ignore meta parse errors */
+  }
+  return { createdAt, formatVersion }
+}
+
+function emptyBackupStatus(
+  directory: string,
+  partial: Partial<BackupStatus> & Pick<BackupStatus, 'status' | 'available'>,
+): BackupStatus {
+  return {
+    available: partial.available,
+    directory,
+    latestFile: null,
+    latestBytes: null,
+    latestCreatedAt: null,
+    formatVersion: null,
+    status: partial.status,
+    ageHours: null,
+    detail: partial.detail,
+    recentCount48h: 0,
+    schedule: 'Daily 02:15',
+    retentionDays: Number(process.env.HEXALYTE_BACKUP_RETENTION_DAYS || 14),
+    timezone: 'Asia/Colombo',
+    recent: [],
+  }
 }
 
 export async function collectBackupStatus(): Promise<BackupStatus> {
   const directory = process.env.HEXALYTE_BACKUP_DIR || '/var/backups/hexalyte/db'
   const staleHours = Number(process.env.HEXALYTE_BACKUP_STALE_HOURS || 36)
+  const retentionDays = Number(process.env.HEXALYTE_BACKUP_RETENTION_DAYS || 14)
+  const schedule = process.env.HEXALYTE_BACKUP_SCHEDULE || 'Daily 02:15'
+  const timezone = 'Asia/Colombo'
 
   try {
     if (!fs.existsSync(directory)) {
-      return {
+      return emptyBackupStatus(directory, {
         available: false,
-        directory,
-        latestFile: null,
-        latestBytes: null,
-        latestCreatedAt: null,
-        formatVersion: null,
         status: 'unavailable',
-        ageHours: null,
-        recentCount48h: 0,
-        detail: 'Backup directory not mounted in API container — check host cron + optional volume mount',
-      }
+        detail: 'Backup directory not mounted in API container — check host cron + volume mount',
+      })
     }
 
     const names = await fs.promises.readdir(directory)
     const encFiles = names.filter((n) => n.endsWith('.dump.enc'))
     if (!encFiles.length) {
       return {
-        available: true,
-        directory,
-        latestFile: null,
-        latestBytes: null,
-        latestCreatedAt: null,
-        formatVersion: null,
-        status: 'missing',
-        ageHours: null,
-        recentCount48h: 0,
-        detail: 'No encrypted dumps found',
+        ...emptyBackupStatus(directory, {
+          available: true,
+          status: 'missing',
+          detail: 'No encrypted dumps found',
+        }),
+        schedule,
+        retentionDays,
+        timezone,
       }
     }
 
@@ -196,7 +243,15 @@ export async function collectBackupStatus(): Promise<BackupStatus> {
       encFiles.map(async (name) => {
         const full = path.join(directory, name)
         const st = await fs.promises.stat(full)
-        return { name, full, mtime: st.mtime, size: st.size }
+        const meta = await readBackupMeta(full.replace(/\.dump\.enc$/, '.meta'))
+        return {
+          name,
+          full,
+          mtime: st.mtime,
+          size: st.size,
+          metaCreated: meta.createdAt,
+          formatVersion: meta.formatVersion,
+        }
       }),
     )
     withStat.sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
@@ -204,44 +259,38 @@ export async function collectBackupStatus(): Promise<BackupStatus> {
     const ageHours = (Date.now() - latest.mtime.getTime()) / 3_600_000
     const recentCount48h = withStat.filter((f) => Date.now() - f.mtime.getTime() < 48 * 3_600_000).length
 
-    let formatVersion: string | null = null
-    let metaCreated: string | null = null
-    const metaPath = latest.full.replace(/\.dump\.enc$/, '.meta')
-    if (fs.existsSync(metaPath)) {
-      const metaText = await fs.promises.readFile(metaPath, 'utf8')
-      for (const line of metaText.split(/\r?\n/)) {
-        if (line.startsWith('format_version=')) formatVersion = line.slice('format_version='.length).trim()
-        if (line.startsWith('created_at=')) metaCreated = line.slice('created_at='.length).trim()
-      }
-    }
-
     const status: BackupStatus['status'] =
       latest.size < 1024 ? 'missing' : ageHours > staleHours ? 'stale' : 'ok'
+
+    const recent: BackupFileRow[] = withStat.slice(0, retentionDays).map((f) => ({
+      file: f.name,
+      bytes: f.size,
+      createdAt: f.metaCreated || f.mtime.toISOString(),
+      formatVersion: f.formatVersion,
+      status: f.size < 1024 ? 'empty' : 'ok',
+    }))
 
     return {
       available: true,
       directory,
       latestFile: latest.name,
       latestBytes: latest.size,
-      latestCreatedAt: metaCreated || latest.mtime.toISOString(),
-      formatVersion,
+      latestCreatedAt: latest.metaCreated || latest.mtime.toISOString(),
+      formatVersion: latest.formatVersion,
       status,
       ageHours: Math.round(ageHours * 10) / 10,
       recentCount48h,
+      schedule,
+      retentionDays,
+      timezone,
+      recent,
     }
   } catch (err) {
-    return {
+    return emptyBackupStatus(directory, {
       available: false,
-      directory,
-      latestFile: null,
-      latestBytes: null,
-      latestCreatedAt: null,
-      formatVersion: null,
       status: 'unavailable',
-      ageHours: null,
-      recentCount48h: 0,
       detail: err instanceof Error ? err.message : 'backup status failed',
-    }
+    })
   }
 }
 

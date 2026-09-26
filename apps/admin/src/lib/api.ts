@@ -787,6 +787,16 @@ export type OpsOverview = {
     ageHours: number | null
     detail?: string
     recentCount48h: number
+    schedule: string
+    retentionDays: number
+    timezone: string
+    recent: {
+      file: string
+      bytes: number
+      createdAt: string
+      formatVersion: string | null
+      status: 'ok' | 'empty'
+    }[]
   }
   disk: {
     root: { path: string; totalBytes: number | null; freeBytes: number | null; usedPercent: number | null; available: boolean; detail?: string }
