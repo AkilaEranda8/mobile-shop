@@ -5,14 +5,31 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: hexalyte_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hexalyte}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-hexalyte}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     ports:
       - 127.0.0.1:5434:5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/pg_hba.conf:/etc/hexalyte/pg_hba.conf:ro
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/hexalyte/pg_hba.conf
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+      - -c
+      - log_statement=ddl
+      - -c
+      - ssl=off
     networks:
       - hexalyte-network
     healthcheck:
