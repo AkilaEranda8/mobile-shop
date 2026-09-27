@@ -502,6 +502,16 @@ export const salesApi = {
   processReturn: (saleId: string, body: unknown) => api.post(`/sales/${saleId}/returns`, body),
   listReturns: (params?: Record<string, string>) =>
     api.get(`/sales/returns${params ? '?' + new URLSearchParams(params) : ''}`),
+  paymentClearanceOptions: () => api.get('/sales/payment-clearance/options'),
+  pendingClearances: () => api.get('/sales/payment-clearance/pending'),
+  clearances: (saleId: string) => api.get(`/sales/${saleId}/clearances`),
+  clearPayment: (
+    saleId: string,
+    paymentId: string,
+    body: { providerDeduction: number; destinationType: 'CASH' | 'BANK'; destinationId?: string; clearedAt: string; reference?: string },
+  ) => api.post(`/sales/${saleId}/payments/${paymentId}/clear`, body),
+  reverseClearance: (saleId: string, paymentId: string, body: { adminPassword: string }) =>
+    api.post(`/sales/${saleId}/payments/${paymentId}/clear/reverse`, body),
 }
 
 export const repairsApi = {

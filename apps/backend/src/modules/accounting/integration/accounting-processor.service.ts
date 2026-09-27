@@ -26,6 +26,7 @@ import {
   postArPaymentFromTransaction,
   postHirePurchasePaymentFromTransaction,
 } from '../subledgers/ar-ap-payment.service'
+import { postPaymentFeeJournal } from './payment-fee-journals'
 
 async function markFailed(id: string, err: unknown) {
   const msg = err instanceof Error ? err.message : 'Unknown error'
@@ -72,6 +73,7 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
 
   const eventPriority: Record<string, number> = {
     SALE_CREATED: 10,
+    PAYMENT_FEE_COLLECTED: 12,
     REPAIR_DELIVERED: 10,
     PURCHASE_RECEIVED: 10,
     EXPENSE_CREATED: 10,
@@ -120,6 +122,8 @@ export async function processAccountingOutbox(tenantId: string, limit = 50, acto
 
       if (item.eventType === 'SALE_CREATED' && item.sourceType === 'Sale') {
         await postSaleJournal(tenantId, item.sourceId, actorEmail)
+      } else if (item.eventType === 'PAYMENT_FEE_COLLECTED' && item.sourceType === 'Sale') {
+        await postPaymentFeeJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'SALE_COGS' && item.sourceType === 'Sale') {
         await postSaleCogsJournal(tenantId, item.sourceId, actorEmail)
       } else if (item.eventType === 'EXPENSE_CREATED' && item.sourceType === 'Transaction') {

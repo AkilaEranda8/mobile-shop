@@ -92,7 +92,7 @@ export const tenantsController = {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getPaymentMethodSettings(req.params.id)) } catch (e) { next(e) }
   },
   async updatePaymentMethodSettings(req: Request, res: Response, next: NextFunction) {
-    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updatePaymentMethodSettings(req.params.id, req.body)) } catch (e) { next(e) }
+    try { assertTenantAccess(req); sendSuccess(res, await tenantsService.updatePaymentMethodSettings(req.params.id, req.body, req.user?.email)) } catch (e) { next(e) }
   },
   async getProductVariantSettings(req: Request, res: Response, next: NextFunction) {
     try { assertTenantAccess(req); sendSuccess(res, await tenantsService.getProductVariantSettings(req.params.id)) } catch (e) { next(e) }

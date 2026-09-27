@@ -16,7 +16,7 @@ import { hirePurchaseApi, uploadApi } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useActiveBranchId } from '@/lib/hooks'
 import { useModuleAccess, viewOnlyToast } from '@/lib/module-access'
-import { usePaymentMethods } from '@/lib/payment-methods'
+import { useCheckoutPaymentMethods } from '@/lib/payment-methods'
 
 type Agreement = {
   id: string
@@ -178,7 +178,7 @@ function AgreementDetailModal({ id, onClose }: { id: string; onClose: () => void
     name: '', nic: '', phone: '', address: '', relationship: '',
   })
   const printableRef = useRef<HTMLDivElement>(null)
-  const payMethods = usePaymentMethods()
+  const payMethods = useCheckoutPaymentMethods()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -1068,7 +1068,7 @@ export function HpAgreementsPage({ fixedStatus }: { fixedStatus?: string } = {})
 /* ── Payment Collection ──────────────────────────────────────────────── */
 export function HpPaymentsPage() {
   const { rows, loading: listLoading, reload } = useAgreements()
-  const payMethods = usePaymentMethods()
+  const payMethods = useCheckoutPaymentMethods()
   const { canEdit } = useModuleAccess()
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<'open' | 'ACTIVE' | 'DEFAULTED'>('open')

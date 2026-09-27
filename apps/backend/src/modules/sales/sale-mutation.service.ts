@@ -552,6 +552,21 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
     })
   }
 
+  // Fee / clearance payments carry snapshots and clearing-account journals — keep them as-is.
+  const trackedPayments = sale.payments.filter(p =>
+    p.clearanceStatus !== 'NOT_REQUIRED' || Number(p.customerFeeAmount ?? 0) > 0,
+  )
+  for (const tp of trackedPayments) {
+    const next = payments.find(p => p.id === tp.id)
+    if (!next || next.method !== tp.method || Math.abs(next.amount - round2(Number(tp.amount))) > 0.001) {
+      throw new AppError(
+        `The ${tp.methodLabel ?? tp.method} payment has a payment fee or clearance status and cannot be changed. Other details can still be edited.`,
+        400,
+      )
+    }
+  }
+  const snapshotById = new Map(trackedPayments.map(p => [p.id, p]))
+
   const creditPaid = round2(payments.filter(p => p.method === 'CREDIT').reduce((s, p) => s + p.amount, 0))
   const storeCreditPaid = round2(payments.filter(p => p.method === 'STORE_CREDIT').reduce((s, p) => s + p.amount, 0))
   const moneyPaid = round2(
@@ -719,16 +734,24 @@ export async function updateSaleInvoice(input: UpdateSaleInput) {
       })
     }
 
-    await tx.salePayment.deleteMany({ where: { saleId: sale.id } })
-    if (payments.length) {
+    const trackedIds = [...snapshotById.keys()]
+    await tx.salePayment.deleteMany({ where: { saleId: sale.id, ...(trackedIds.length ? { id: { notIn: trackedIds } } : {}) } })
+    const untracked = payments.filter(p => !p.id || !snapshotById.has(p.id))
+    if (untracked.length) {
       await tx.salePayment.createMany({
-        data: payments.map(p => ({
+        data: untracked.map(p => ({
           saleId: sale.id,
           method: p.method as PaymentMethod,
           amount: p.amount,
           reference: p.reference || undefined,
         })),
       })
+    }
+    for (const p of payments) {
+      const snap = p.id ? snapshotById.get(p.id) : undefined
+      if (snap && (p.reference ?? null) !== (snap.reference ?? null)) {
+        await tx.salePayment.update({ where: { id: snap.id }, data: { reference: p.reference || null } })
+      }
     }
 
     const dueDelta = round2(effectiveDue - prevDue)

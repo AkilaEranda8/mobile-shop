@@ -137,6 +137,8 @@ export function buildReceiptFromApiSale(
     discountAmount: tradeIn ? 0 : Number(sale.discount ?? sale.discountAmount ?? 0),
     total: Number(sale.total ?? 0),
     paymentMethod: sale.paymentMethod ?? payments[0]?.method ?? 'CASH',
+    ...(sale.payments?.[0]?.methodLabel ? { paymentMethodLabel: String(sale.payments[0].methodLabel) } : {}),
+    ...(Number(sale.customerFeeTotal ?? 0) > 0 ? { paymentFee: Number(sale.customerFeeTotal) } : {}),
     payments: payments.length ? payments : undefined,
     cashReceived: sale.cashReceived != null ? Number(sale.cashReceived) : undefined,
     changeAmount: sale.changeAmount != null ? Number(sale.changeAmount) : undefined,

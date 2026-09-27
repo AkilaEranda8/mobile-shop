@@ -45,7 +45,7 @@ import { formatCurrency } from '@/lib/utils'
 import { businessToday } from '@/lib/business-date'
 import toast from 'react-hot-toast'
 import { getInvoiceSettings, fetchInvoiceSettings, shopContextFromTenant, resolveInvoiceTemplate, HEXALYTE_SOFTWARE_FOOTER, type InvoiceSettings, type ShopContext } from '@/lib/invoiceSettings'
-import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { computeCustomerFee, describeFee, useCheckoutPaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { HirePurchaseWizard } from '@/components/hire-purchase/HirePurchaseWizard'
 import {
@@ -1385,7 +1385,7 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const [paymentMethodId, setPaymentMethodId]   = useState('CASH')
   const [chequeNumber, setChequeNumber]         = useState('')
   const [chequeDate, setChequeDate]             = useState(todayChequeDate)
-  const payMethods = usePaymentMethods()
+  const payMethods = useCheckoutPaymentMethods()
   const paymentMethod: PaymentMethodKey = payMethods.find(m => m.id === paymentMethodId)?.key
     ?? payMethods.find(m => m.key === paymentMethodId)?.key
     ?? 'CASH'
@@ -2672,6 +2672,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
   const changeAmount = paymentMethod === 'CASH' && !selectedCustomer
     ? Math.max(0, cashReceivedAmount - collectAtCheckout)
     : 0
+  // Customer fee is charged on top of the sale portion only (never on old-balance settlement).
+  const selectedPayMethod = payMethods.find(m => m.id === paymentMethodId) ?? payMethods.find(m => m.key === paymentMethodId)
+  const paymentFee = computeCustomerFee(selectedPayMethod, payNowForSale)
+  const customerPaysNow = collectAtCheckout + paymentFee
 
   const currentUser = authStorage.getUser()
   void sessionTick
@@ -2969,7 +2973,14 @@ function POSContent({ onClose }: { onClose: () => void }) {
         return
       }
 
-      const payments: { method: string; amount: number; reference?: string }[] = []
+      const payments: {
+        method: string
+        amount: number
+        reference?: string
+        methodConfigId?: string
+        customerFeeAmount?: number
+        feeVersion?: number
+      }[] = []
       if (storeCreditApplied > 0) {
         payments.push({ method: 'STORE_CREDIT', amount: storeCreditApplied })
       }
@@ -2978,6 +2989,10 @@ function POSContent({ onClose }: { onClose: () => void }) {
           method: paymentMethod,
           amount: payNowForSale,
           ...(chequeRef ? { reference: chequeRef } : {}),
+          ...(selectedPayMethod ? { methodConfigId: selectedPayMethod.id } : {}),
+          ...(paymentFee > 0
+            ? { customerFeeAmount: paymentFee, ...(selectedPayMethod?.fee?.version ? { feeVersion: selectedPayMethod.fee.version } : {}) }
+            : {}),
         })
       }
       if (saleDueAmount > 0) payments.push({ method: 'CREDIT', amount: saleDueAmount })
@@ -3034,6 +3049,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
           total: saleTotal,
           payments,
           paymentMethod,
+          paymentMethodLabel: selectedPayMethod?.label,
+          ...(paymentFee > 0 ? { paymentFee } : {}),
           cashReceived: cashReceivedAmount,
           changeAmount,
           dueAmount: saleDueAmount,
@@ -3136,6 +3153,8 @@ function POSContent({ onClose }: { onClose: () => void }) {
         total: res.data?.total ?? saleTotal,
         payments,
         paymentMethod,
+        paymentMethodLabel: selectedPayMethod?.label,
+        ...(Number(res.data?.customerFeeTotal ?? paymentFee) > 0 ? { paymentFee: Number(res.data?.customerFeeTotal ?? paymentFee) } : {}),
         cashReceived: cashReceivedAmount,
         changeAmount,
         warrantyNumbers: createdWarrantyCodes,
@@ -4844,6 +4863,18 @@ function POSContent({ onClose }: { onClose: () => void }) {
                       <p className="text-[10px] text-emerald-300/80 mt-0.5">No cash or card payment needed</p>
                     </div>
                   ) : null}
+                  {paymentFee > 0 && collectAtCheckout > 0.001 && (
+                    <div className="rounded-xl border px-3 py-2 space-y-1" style={{ borderColor: POS_THEME.border, background: POS_THEME.card }} data-payment-fee>
+                      <div className="flex justify-between text-xs">
+                        <span style={{ color: POS_THEME.muted }}>{selectedPayMethod?.label} fee ({describeFee(selectedPayMethod?.fee)})</span>
+                        <span className="font-bold tabular-nums" style={{ color: POS_THEME.text }}>+{formatCurrency(paymentFee)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="font-semibold" style={{ color: POS_THEME.text }}>Customer pays</span>
+                        <span className="font-extrabold tabular-nums" style={{ color: POS_THEME.text }}>{formatCurrency(customerPaysNow)}</span>
+                      </div>
+                    </div>
+                  )}
                   {hasHirePurchase && (
                     <button
                       type="button"

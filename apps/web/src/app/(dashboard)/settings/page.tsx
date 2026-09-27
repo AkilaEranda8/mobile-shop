@@ -51,6 +51,7 @@ import UserManualPanel from '@/components/settings/UserManualPanel'
 import SmsSettingsPanel from '@/components/settings/SmsSettingsPanel'
 import BillingSubscriptionPanel from '@/components/settings/BillingSubscriptionPanel'
 import ReloadSettingsPanel from '@/components/settings/ReloadSettingsPanel'
+import { PaymentMethodOptions, useClearingAccountOptions } from '@/components/settings/PaymentMethodOptions'
 import {
   DEFAULT_PAYMENT_METHODS,
   makePaymentMethodId,
@@ -257,6 +258,7 @@ export default function SettingsPage() {
   }, [tenantId])
 
   const canAddPayMethod = canEdit
+  const clearingOptions = useClearingAccountOptions()
 
   const savePayMethods = async (methods: TenantPaymentMethod[]) => {
     if (!canEdit) { viewOnlyToast('Settings'); return }
@@ -1475,9 +1477,10 @@ export default function SettingsPage() {
                 {payMethods.map(m => (
                   <div
                     key={m.id}
-                    className="flex items-center gap-3 rounded-xl border px-4 py-3"
-                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)' }}
+                    className="rounded-xl border px-4 py-3 space-y-2"
+                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-subtle)', opacity: m.enabled === false ? 0.7 : 1 }}
                   >
+                  <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{ background: 'var(--brand-glow)' }}>
                       <Wallet size={14} className="text-brand-500" />
@@ -1504,6 +1507,14 @@ export default function SettingsPage() {
                     >
                       <Trash2 size={14} />
                     </button>}
+                  </div>
+                  <PaymentMethodOptions
+                    method={m}
+                    canEdit={canEdit}
+                    accountingActive={clearingOptions.accountingActive}
+                    clearingAccounts={clearingOptions.clearingAccounts}
+                    onChange={next => setPayMethods(prev => prev.map(x => x.id === m.id ? next : x))}
+                  />
                   </div>
                 ))}
               </div>

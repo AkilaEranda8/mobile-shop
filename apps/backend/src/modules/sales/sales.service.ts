@@ -8,6 +8,7 @@ import { assertBranchRecordAccess, resolveMutationBranchId } from '../../utils/a
 import { createDailyReloadsFromSaleItems } from '../daily-reload/pos-reload.util'
 import { createWarrantiesFromSaleItems } from '../warranty/warranty.service'
 import { emitSaleAccounting } from '../accounting/integration/accounting-events.service'
+import { buildSalePaymentRows } from './sale-payment-snapshot.util'
 import { hasVariants, sumVariantStock } from '../../utils/product-variants'
 import { resolveSaleItemUnitCost } from '../../utils/sale-item-cost.util'
 import { applySaleStockEffectsIfEnabled } from '../inventory-engine/inventory-engine.service'
@@ -105,6 +106,7 @@ export const salesService = {
     }
     const { saleAt } = await resolveSaleInstant(tenantId, body.businessDate)
     await assertBusinessDayOpenIfEnabled(tenantId, branchId, saleAt)
+    const { rows: paymentRows, customerFeeTotal } = await buildSalePaymentRows(tenantId, body.payments, saleAt)
     const invoiceNumber = await generateInvoiceNumber(tenantId)
     let items: any[] = Array.isArray(body.items) ? body.items : []
 
@@ -209,13 +211,14 @@ export const salesService = {
           total: body.total,
           paidAmount: body.paidAmount,
           dueAmount: body.dueAmount ?? 0,
+          customerFeeTotal,
           status: body.status ?? 'PAID',
           cashierId,
           cashierName,
           notes: body.notes,
           createdAt: saleAt,
           items: { create: itemCreates },
-          payments: { create: body.payments },
+          payments: { create: paymentRows },
         },
         include: { items: true, payments: true },
       })
@@ -387,7 +390,7 @@ export const salesService = {
         })
       }
     } catch (e) { console.error('Finance transaction creation failed:', e) }
-    void emitSaleAccounting(tenantId, sale.id, branchId)
+    void emitSaleAccounting(tenantId, sale.id, branchId, undefined, { hasCustomerFee: customerFeeTotal > 0 })
     return { ...sale, warranties }
   },
 }

@@ -9,6 +9,13 @@ import { prisma } from '../../config/database'
 import { getPagination } from '../../utils/pagination'
 import { effectiveBranchId } from '../../utils/active-branch'
 import { redactSaleCost, redactSaleCostList } from '../../utils/product-cost-redact'
+import {
+  getPaymentClearanceOptions,
+  listPendingClearances,
+  listSaleClearances,
+  markPaymentCleared,
+  reversePaymentClearance,
+} from './payment-clearance.service'
 
 const router = Router()
 router.use(authenticate)
@@ -39,6 +46,54 @@ router.get('/returns', async (req: Request, res: Response, next: NextFunction) =
       prisma.saleReturn.count({ where }),
     ])
     sendPaginated(res, data, total, page, limit)
+  } catch (e) { next(e) }
+})
+
+router.get('/payment-clearance/options', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await getPaymentClearanceOptions(req.tenantId!, effectiveBranchId(req) ?? null))
+  } catch (e) { next(e) }
+})
+
+router.get('/payment-clearance/pending', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await listPendingClearances(req.tenantId!, effectiveBranchId(req) ?? null))
+  } catch (e) { next(e) }
+})
+
+router.get('/:id/clearances', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await listSaleClearances(req.tenantId!, req.params.id, req))
+  } catch (e) { next(e) }
+})
+
+router.post('/:id/payments/:paymentId/clear', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await markPaymentCleared({
+      tenantId: req.tenantId!,
+      saleId: req.params.id,
+      paymentId: req.params.paymentId,
+      providerDeduction: req.body?.providerDeduction,
+      destinationType: req.body?.destinationType,
+      destinationId: req.body?.destinationId,
+      clearedAt: req.body?.clearedAt,
+      reference: req.body?.reference,
+      actorEmail: req.user?.email || req.user?.userId || 'system',
+      req,
+    }), 'Payment marked as cleared')
+  } catch (e) { next(e) }
+})
+
+router.post('/:id/payments/:paymentId/clear/reverse', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await reversePaymentClearance({
+      tenantId: req.tenantId!,
+      saleId: req.params.id,
+      paymentId: req.params.paymentId,
+      adminPassword: req.body?.adminPassword,
+      actorEmail: req.user?.email || req.user?.userId || 'system',
+      req,
+    }), 'Clearance reversed')
   } catch (e) { next(e) }
 })
 

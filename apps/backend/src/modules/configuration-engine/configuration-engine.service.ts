@@ -1,7 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../middleware/error.middleware'
 import { normalizeReloadSettings } from '../daily-reload/reload-settings.util'
-import { normalizePaymentMethodSettings } from '../tenants/payment-method-settings.util'
+import { applyFeeVersioning, normalizePaymentMethodSettings } from '../tenants/payment-method-settings.util'
 import { normalizeProductVariantSettings } from '../products/product-variant-settings.util'
 import {
   applyProductCodeSettings,
@@ -124,6 +124,7 @@ export async function setTenantConfig(
   tenantId: string,
   domain: ConfigDomain,
   patch: Record<string, unknown>,
+  opts?: { actor?: string },
 ): Promise<unknown> {
   assertDomain(domain)
 
@@ -162,7 +163,11 @@ export async function setTenantConfig(
       break
     case 'paymentMethod':
       column = 'paymentMethodSettings'
-      normalized = normalizePaymentMethodSettings(patch)
+      normalized = applyFeeVersioning(
+        normalizePaymentMethodSettings(existing.paymentMethodSettings),
+        normalizePaymentMethodSettings(patch),
+        opts?.actor,
+      )
       break
     case 'productVariant':
       column = 'productVariantSettings'

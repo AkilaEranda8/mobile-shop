@@ -9,7 +9,7 @@ import {
 import { formatCurrency, formatDate, getRepairStatusColor } from '@/lib/utils'
 import { useProducts, useFeatureFlag, useCanSeeProductCost } from '@/lib/hooks'
 import { repairsApi, uploadApi } from '@/lib/api'
-import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { useCheckoutPaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { whatsappApi, formatWhatsAppPhone } from '@/lib/whatsapp-api'
 import { smsApi } from '@/lib/sms-api'
@@ -570,7 +570,7 @@ export default function RepairDetailsView({ repair, onBack, onEdit, onDelete, on
   const [payMethodId, setPayMethodId] = useState('CASH')
   const [chequeNumber, setChequeNumber] = useState('')
   const [chequeDate, setChequeDate] = useState(todayChequeDate)
-  const payMethodOptions = usePaymentMethods()
+  const payMethodOptions = useCheckoutPaymentMethods()
   const payMethod: PaymentMethodKey = payMethodOptions.find(m => m.id === payMethodId)?.key
     ?? payMethodOptions.find(m => m.key === payMethodId)?.key
     ?? 'CASH'

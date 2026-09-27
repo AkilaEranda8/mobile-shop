@@ -41,6 +41,11 @@ export interface ThermalSale {
   discountAmount: number
   total: number
   paymentMethod?: string
+  /** Display label of the payment method (falls back to paymentMethod key). */
+  paymentMethodLabel?: string
+  /** Customer payment fee charged on top of `total`. */
+  paymentFee?: number
+  dueAmount?: number
   cashReceived?: number
   changeAmount?: number
   warrantyNumbers?: string[]
@@ -264,8 +269,14 @@ const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         </div>
         <div style={{ borderTop: '1px solid #000', margin: '4px 0' }} />
 
+        {sale.paymentFee != null && sale.paymentFee > 0 && (
+          <>
+            <div style={rowStyle}><span>Payment fee:</span><span style={{ whiteSpace: 'nowrap' }}>{f(sale.paymentFee)}</span></div>
+            <div style={{ ...rowStyle, fontWeight: 'bold' }}><span>Customer paid:</span><span style={{ whiteSpace: 'nowrap' }}>{f(sale.total - (sale.dueAmount ?? 0) + sale.paymentFee)}</span></div>
+          </>
+        )}
         {show.payment && sale.paymentMethod && (
-          <div style={rowStyle}><span>Payment:</span><span>{sale.paymentMethod.toUpperCase()}</span></div>
+          <div style={rowStyle}><span>Payment:</span><span>{(sale.paymentMethodLabel || sale.paymentMethod).toUpperCase()}</span></div>
         )}
         {show.payment && sale.cashReceived != null && sale.cashReceived > 0 && (
           <div style={rowStyle}><span>Cash:</span><span style={{ whiteSpace: 'nowrap' }}>{f(sale.cashReceived)}</span></div>
@@ -507,7 +518,8 @@ function buildAndPrintThermalReceipt(
   <div class="row bold total"><span>TOTAL:</span><span class="nowrap">${f(sale.total)}</span></div>
   <div class="solid"></div>
 
-  ${show.payment && sale.paymentMethod ? `<div class="row"><span>Payment:</span><span>${esc(sale.paymentMethod.toUpperCase())}</span></div>` : ''}
+  ${sale.paymentFee != null && sale.paymentFee > 0 ? `<div class="row"><span>Payment fee:</span><span class="nowrap">${f(sale.paymentFee)}</span></div><div class="row bold"><span>Customer paid:</span><span class="nowrap">${f(sale.total - (sale.dueAmount ?? 0) + sale.paymentFee)}</span></div>` : ''}
+  ${show.payment && sale.paymentMethod ? `<div class="row"><span>Payment:</span><span>${esc((sale.paymentMethodLabel || sale.paymentMethod).toUpperCase())}</span></div>` : ''}
   ${show.payment && (sale.cashReceived != null && sale.cashReceived > 0) ? `<div class="row"><span>Cash:</span><span class="nowrap">${f(sale.cashReceived)}</span></div>` : ''}
   ${show.payment && (sale.changeAmount != null && sale.changeAmount > 0) ? `<div class="row bold"><span>Change:</span><span class="nowrap">${f(sale.changeAmount)}</span></div>` : ''}
 

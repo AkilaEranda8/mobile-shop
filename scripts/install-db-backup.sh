@@ -25,18 +25,23 @@ else
   echo "Backup key already exists (left unchanged)."
 fi
 
-chmod +x "${APP_DIR}/scripts/backup-hexalyte-db.sh" "${APP_DIR}/scripts/restore-test-hexalyte-db.sh" 2>/dev/null || true
+chmod +x "${APP_DIR}/scripts/backup-hexalyte-db.sh" \
+  "${APP_DIR}/scripts/restore-test-hexalyte-db.sh" \
+  "${APP_DIR}/scripts/offsite-backup-hexalyte-db.sh" 2>/dev/null || true
 
-# Daily 02:15 local server time
+# Daily 02:15 local server time — local encrypted backup always.
+# Offsite runs only when AWS_* credentials are configured (script exits 2 otherwise).
 cat > "${CRON_FILE}" <<EOF
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 15 2 * * * root HEXALYTE_APP_DIR=${APP_DIR} ${APP_DIR}/scripts/backup-hexalyte-db.sh >> /var/log/hexalyte-db-backup.log 2>&1
+30 2 * * * root HEXALYTE_APP_DIR=${APP_DIR} ${APP_DIR}/scripts/offsite-backup-hexalyte-db.sh >> /var/log/hexalyte-offsite-backup.log 2>&1 || true
 EOF
 chmod 644 "${CRON_FILE}"
 
-touch /var/log/hexalyte-db-backup.log
-chmod 600 /var/log/hexalyte-db-backup.log
+touch /var/log/hexalyte-db-backup.log /var/log/hexalyte-offsite-backup.log
+chmod 600 /var/log/hexalyte-db-backup.log /var/log/hexalyte-offsite-backup.log
 
 echo "Installed cron: ${CRON_FILE}"
+echo "Offsite backup requires AWS_REGION + AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY + AWS_S3_BUCKET"
 echo "Run first backup: bash ${APP_DIR}/scripts/backup-hexalyte-db.sh"

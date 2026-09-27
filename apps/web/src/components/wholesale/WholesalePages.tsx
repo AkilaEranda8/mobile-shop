@@ -266,10 +266,10 @@ export function WholesaleDealersPage() {
     const q = textSearch.trim().toLowerCase()
     if (q) {
       list = list.filter(
-        (d) =>
-          d.legalName.toLowerCase().includes(q) ||
-          (d.tradingName ?? '').toLowerCase().includes(q) ||
-          d.dealerCode.toLowerCase().includes(q) ||
+      (d) =>
+        d.legalName.toLowerCase().includes(q) ||
+        (d.tradingName ?? '').toLowerCase().includes(q) ||
+        d.dealerCode.toLowerCase().includes(q) ||
           d.phone.includes(q) ||
           (d.email ?? '').toLowerCase().includes(q) ||
           (d.tier?.name ?? '').toLowerCase().includes(q),
@@ -351,7 +351,7 @@ export function WholesaleDealersPage() {
                   <Hash size={9} />
                   {d.dealerCode}
                 </p>
-              </div>
+          </div>
             </div>
           )
         },
@@ -546,8 +546,8 @@ export function WholesaleDealersPage() {
                 {DEALER_SEGMENTS.map((s) => (
                   <button
                     key={s.key}
-                    type="button"
-                    onClick={() => {
+              type="button"
+              onClick={() => {
                       setSegment(s.key)
                       setShowSegment(false)
                     }}
@@ -560,7 +560,7 @@ export function WholesaleDealersPage() {
                       <span className="text-xs text-slate-600">{rows.filter(s.filter).length}</span>
                       {segment === s.key && <ChevronRight size={12} className="text-sky-400" />}
                     </div>
-                  </button>
+            </button>
                 ))}
               </div>
             )}
@@ -761,7 +761,7 @@ function DealerFormModal({
         toast.success('Dealer updated')
       } else {
         await wholesaleApi.createDealer({ ...body, status: 'ACTIVE' })
-        toast.success('Dealer created')
+      toast.success('Dealer created')
       }
       onSaved()
     } catch (err) {
@@ -824,117 +824,117 @@ function DealerFormModal({
               </label>
               <div className="relative">
                 <Building2 size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
+            <input
                   required
                   className="input-field pl-10 h-11"
                   placeholder="Registered business name"
-                  value={form.legalName}
-                  onChange={(e) => setForm((f) => ({ ...f, legalName: e.target.value }))}
-                  autoFocus
-                />
+              value={form.legalName}
+              onChange={(e) => setForm((f) => ({ ...f, legalName: e.target.value }))}
+              autoFocus
+            />
               </div>
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 Trading name
-              </label>
-              <input
+          </label>
+            <input
                 className="input-field h-11"
                 placeholder="Display / shop name"
-                value={form.tradingName}
-                onChange={(e) => setForm((f) => ({ ...f, tradingName: e.target.value }))}
-              />
+              value={form.tradingName}
+              onChange={(e) => setForm((f) => ({ ...f, tradingName: e.target.value }))}
+            />
             </div>
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 Phone <span className="text-red-500">*</span>
-              </label>
+          </label>
               <div className="relative">
                 <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
+            <input
                   required
                   className="input-field pl-10 h-11"
                   placeholder="07X XXX XXXX"
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                />
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            />
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 Email
-              </label>
+          </label>
               <div className="relative">
                 <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
+            <input
+              type="email"
                   className="input-field pl-10 h-11"
                   placeholder="dealer@email.com"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            />
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 Credit limit
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
+          </label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
                 className="input-field h-11"
-                value={form.creditLimit}
-                onChange={(e) => setForm((f) => ({ ...f, creditLimit: e.target.value }))}
+              value={form.creditLimit}
+              onChange={(e) => setForm((f) => ({ ...f, creditLimit: e.target.value }))}
                 disabled={form.cashOnly}
-              />
+            />
             </div>
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 Payment terms (days)
-              </label>
-              <input
-                type="number"
-                min={0}
+          </label>
+            <input
+              type="number"
+              min={0}
                 className="input-field h-11"
-                value={form.paymentTermsDays}
-                onChange={(e) => setForm((f) => ({ ...f, paymentTermsDays: e.target.value }))}
-              />
-            </div>
+              value={form.paymentTermsDays}
+              onChange={(e) => setForm((f) => ({ ...f, paymentTermsDays: e.target.value }))}
+            />
+        </div>
           </div>
 
           <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.cashOnly}
-              onChange={(e) => setForm((f) => ({ ...f, cashOnly: e.target.checked }))}
+          <input
+            type="checkbox"
+            checked={form.cashOnly}
+            onChange={(e) => setForm((f) => ({ ...f, cashOnly: e.target.checked }))}
               className="rounded"
-            />
+          />
             <span style={{ color: 'var(--text-muted)' }}>Cash only (no credit sales)</span>
-          </label>
+        </label>
 
           <div>
             <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
               Notes
             </label>
-            <textarea
+          <textarea
               className="input-field min-h-[72px] py-2.5"
               placeholder="Optional notes"
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            />
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+          />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary text-sm">
-              Cancel
-            </button>
+            Cancel
+          </button>
             <button type="submit" disabled={saving} className="btn-primary text-sm inline-flex items-center gap-2">
-              {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving && <Loader2 size={14} className="animate-spin" />}
               {isEditing ? 'Save changes' : 'Create dealer'}
-            </button>
-          </div>
-        </form>
+          </button>
+        </div>
+      </form>
       </div>
     </div>
   )
@@ -1330,35 +1330,35 @@ export function WholesalePricingPage() {
               <Building2 size={14} />
               Dealers
             </Link>
-            <button
-              type="button"
+              <button
+                type="button"
               onClick={() => setShowSegment((v) => !v)}
               className={`btn-secondary text-sm flex items-center gap-2 ${showSegment ? 'border-sky-500/40 text-sky-300' : ''}`}
             >
               <SlidersHorizontal size={14} />
               Segment
               {segment !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />}
-            </button>
+              </button>
             {showSegment && (
               <div className="absolute top-full right-0 mt-2 w-52 bg-[#0f1623] border border-white/10 rounded-xl shadow-2xl z-30 overflow-hidden">
                 <p className="text-[10px] text-slate-500 uppercase tracking-wide px-3 pt-3 pb-1.5">
                   Filter by segment
                 </p>
                 {PRICING_SEGMENTS.map((s) => (
-                  <button
+              <button
                     key={s.key}
-                    type="button"
-                    onClick={() => {
+                type="button"
+                onClick={() => {
                       setSegment(s.key)
                       setShowSegment(false)
-                    }}
+                }}
                     className={`w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/5 transition-colors ${
                       segment === s.key ? 'text-sky-300' : 'text-slate-400'
                     }`}
-                  >
+              >
                     <span>{s.label}</span>
                     {segment === s.key && <ChevronRight size={12} className="text-sky-400" />}
-                  </button>
+              </button>
                 ))}
               </div>
             )}
@@ -1383,7 +1383,7 @@ export function WholesalePricingPage() {
               </>
             )}
           </div>
-        </div>
+            </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1399,13 +1399,13 @@ export function WholesalePricingPage() {
               >
                 <Icon size={15} className={`text-${color}-400`} />
               </div>
-              <div>
+                      <div>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
                 <p className="text-[11px] text-gray-500 dark:text-slate-500">{label}</p>
-              </div>
+                      </div>
             </div>
-          ))}
-        </div>
+                  ))}
+            </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
@@ -1417,9 +1417,9 @@ export function WholesalePricingPage() {
           />
           <div className="flex gap-1 p-1 rounded-xl flex-wrap" style={{ background: 'var(--bg-subtle)' }}>
             {PRICING_SEGMENTS.map((s) => (
-              <button
+                <button
                 key={s.key}
-                type="button"
+                  type="button"
                 onClick={() => setSegment(s.key)}
                 className="px-3 py-1.5 text-xs rounded-lg font-medium whitespace-nowrap transition-colors"
                 style={
@@ -1429,9 +1429,9 @@ export function WholesalePricingPage() {
                 }
               >
                 {s.label}
-              </button>
+                </button>
             ))}
-          </div>
+              </div>
           <FilterDropdown
             value={sortBy}
             onChange={setSortBy}
@@ -1453,18 +1453,18 @@ export function WholesalePricingPage() {
               >
                 {unified.length} of {tiers.length + lists.length}
               </span>
-              <button
-                type="button"
+                <button
+                  type="button"
                 onClick={clearFilters}
                 className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] rounded-lg font-medium transition-colors hover:text-red-400"
                 style={{ color: 'var(--text-muted)' }}
               >
                 <RotateCcw size={11} />
                 Clear
-              </button>
+                </button>
             </>
-          )}
-        </div>
+        )}
+      </div>
 
         {loading ? (
           <div className="flex justify-center py-16">

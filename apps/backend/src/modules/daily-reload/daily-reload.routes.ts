@@ -18,10 +18,12 @@ import { buildProviderBreakdown, computeProviderPriorBalances, summarizeProvider
 import { findBranchReloads } from './reload-branch.util'
 import { effectiveBranchId, resolveMutationBranchId, assertBranchRecordAccess } from '../../utils/active-branch'
 import { isFeatureEnabledForBranch } from '../../utils/tenant-feature.util'
+import { assertSafeSpreadsheetUpload, assertSafeSpreadsheetMeta, parseSpreadsheetMatrix } from '../../utils/spreadsheet-upload.util'
 
 const router = Router()
 router.use(authenticate)
 router.use(enforceModuleAccess('DAILY_RELOAD'))
+const canMutateReload = authorize('OWNER', 'MANAGER', 'CASHIER')
 
 async function requireDailyReloadFeature(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -32,7 +34,18 @@ async function requireDailyReloadFeature(req: Request, _res: Response, next: Nex
 }
 router.use(requireDailyReloadFeature)
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    try {
+      assertSafeSpreadsheetMeta(file.originalname, file.mimetype)
+      cb(null, true)
+    } catch (e) {
+      cb(e as Error)
+    }
+  },
+})
 
 function parseAmt(raw: unknown): number {
   return parseFloat(String(raw ?? '0').replace(/[^0-9.]/g, '')) || 0
@@ -169,12 +182,12 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 })
 
 // ── Bulk import (frontend sends parsed rows) ──────────────────────────────────
-router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/bulk', canMutateReload, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const user = req.user!
     const { rows, branchId: bodyBranchId } = req.body
     if (!Array.isArray(rows) || rows.length === 0) throw new AppError('rows array is required', 400)
+    if (rows.length > 20_000) throw new AppError('Too many rows (max 20000)', 400)
 
     const branchId = await resolveBranchId(req, bodyBranchId)
     const data = rows
@@ -204,20 +217,15 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
 })
 
 // ── Server-side Excel upload & parse ─────────────────────────────────────────
-router.post('/upload', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/upload', canMutateReload, upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.tenantId!
-    const user = req.user!
     if (!req.file) throw new AppError('No file uploaded', 400)
+    assertSafeSpreadsheetUpload(req.file)
 
     const branchId = await resolveBranchId(req, req.body?.branchId)
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const XLSX = require('xlsx') as typeof import('xlsx')
-    const wb     = XLSX.read(req.file.buffer, { type: 'buffer' })
-    const ws     = wb.Sheets[wb.SheetNames[0]]
-    const matrix: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
-
+    const matrix = parseSpreadsheetMatrix(req.file.buffer)
     if (!matrix || matrix.length < 2) throw new AppError('File is empty or has no data rows', 400)
 
     // Skip row 0 (header). Columns: A=connNo B=txId C=agent D=date E=time F=status G=amount

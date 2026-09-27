@@ -620,11 +620,11 @@ export function WholesalePosPage() {
   )
 
   const openImeiPicker = async (product: PosProduct, required = 1) => {
-    if (!dealer) {
-      toast.error('Select a dealer first')
+      if (!dealer) {
+        toast.error('Select a dealer first')
       setDealerPickerOpen(true)
-      return
-    }
+        return
+      }
     setImeiModal({
       product,
       required,
@@ -686,23 +686,23 @@ export function WholesalePosPage() {
             continue
           }
           newLines.push({
-            key,
-            productId: product.id,
-            productName: product.name,
-            sku: opts?.sku ?? product.sku,
+          key,
+          productId: product.id,
+          productName: product.name,
+          sku: opts?.sku ?? product.sku,
             brandName: product.brandName,
             categoryName: product.categoryName,
-            trackImei: true,
-            sellUnit: 'PIECE',
-            quantity: 1,
+          trackImei: true,
+          sellUnit: 'PIECE',
+          quantity: 1,
             unitPrice: displayWholesalePrice(product) ?? 0,
-            priceSource: null,
-            atp: null,
+          priceSource: null,
+          atp: null,
             imei: normalizeScanCode(imei),
-            imeiReserved: false,
-            unitsPerBox: product.unitsPerBox ?? null,
-            unitsPerCarton: product.unitsPerCarton ?? null,
-            resolving: true,
+          imeiReserved: false,
+          unitsPerBox: product.unitsPerBox ?? null,
+          unitsPerCarton: product.unitsPerCarton ?? null,
+          resolving: true,
             lineDiscount: 0,
           })
         }
@@ -718,7 +718,7 @@ export function WholesalePosPage() {
           } catch {
             /* reserve best-effort; checkout will enforce */
           }
-          await refreshLinePricing(line, dealer.id)
+        await refreshLinePricing(line, dealer.id)
         }
         setProductQuery('')
         productInputRef.current?.focus()
@@ -801,9 +801,9 @@ export function WholesalePosPage() {
     if (hit) {
       if (hit.product.trackImei) {
         await addProductLines(hit.product, {
-          sku: hit.variation?.sku ?? hit.product.sku,
+        sku: hit.variation?.sku ?? hit.product.sku,
           imeis: isImeiCode(raw) ? [normalizeScanCode(raw)] : undefined,
-        })
+      })
       } else {
         await addProductLines(hit.product, {
           sku: hit.variation?.sku ?? hit.product.sku,
@@ -1302,14 +1302,14 @@ export function WholesalePosPage() {
             </div>
             <div className="text-[0.65rem] text-[var(--wpos-muted)]">Wholesale POS</div>
           </div>
-        </div>
+                </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
           <button type="button" className="wpos-mode-btn is-active">
             Counter Sales
           </button>
-          <button
-            type="button"
+                <button
+                  type="button"
             className="wpos-mode-btn"
             onClick={() => router.push('/rep')}
           >
@@ -1321,8 +1321,8 @@ export function WholesalePosPage() {
             onClick={() => router.push('/dashboard/wholesale/orders')}
           >
             Delivery Orders
-          </button>
-        </div>
+                </button>
+              </div>
 
         <div className="ml-auto flex items-center gap-2 flex-wrap">
           <label className="wpos-util gap-1.5">
@@ -1403,17 +1403,17 @@ export function WholesalePosPage() {
                 autoFocus
               />
             </div>
-            <button
-              type="button"
+                      <button
+                        type="button"
               className="wpos-btn wpos-btn-primary"
-              onClick={() => {
-                productInputRef.current?.focus()
+                        onClick={() => {
+                          productInputRef.current?.focus()
                 void handleProductEnter()
               }}
             >
               <ScanLine size={15} />
               Scan
-            </button>
+                      </button>
             <select
               className="wpos-filter"
               value={category === 'All' ? 'All' : category}
@@ -1455,8 +1455,8 @@ export function WholesalePosPage() {
             {productsLoading && (
               <div className="col-span-full flex items-center justify-center py-16 text-[var(--wpos-muted)] gap-2">
                 <Loader2 className="animate-spin" size={18} /> Loading products…
-              </div>
-            )}
+                  </div>
+                )}
             {!productsLoading && gridProducts.length === 0 && (
               <div className="col-span-full text-center py-16 text-[var(--wpos-muted)] text-sm">
                 No products match this search
@@ -1482,10 +1482,10 @@ export function WholesalePosPage() {
                   <div className="min-w-0">
                     <div className="text-[0.8rem] font-semibold leading-snug line-clamp-2">
                       {p.name}
-                    </div>
+          </div>
                     <div className="text-[0.62rem] text-[var(--wpos-faint)] mt-0.5">
                       SKU: {p.sku || '—'}
-                    </div>
+        </div>
                     {p.brandName ? (
                       <div className="text-[0.62rem] text-[var(--wpos-muted)]">{p.brandName}</div>
                     ) : null}
@@ -1567,7 +1567,7 @@ export function WholesalePosPage() {
               <div className="relative">
                 <div className="wpos-search !h-9">
                   <Search size={14} className="text-[var(--wpos-faint)]" />
-                  <input
+                <input
                     ref={dealerInputRef}
                     value={dealerQuery}
                     onChange={(e) => {
@@ -1576,14 +1576,14 @@ export function WholesalePosPage() {
                     }}
                     onFocus={() => setDealerPickerOpen(true)}
                     placeholder="Search dealer by name, code, phone…"
-                  />
-                </div>
+                />
+              </div>
                 {dealerPickerOpen && (
                   <div className="absolute z-20 left-0 right-0 mt-1 rounded-xl border border-[var(--wpos-border)] bg-[var(--wpos-elevated)] shadow-xl max-h-56 overflow-auto">
                     {dealerMatches.map((d) => (
-                      <button
+                    <button
                         key={d.id}
-                        type="button"
+                      type="button"
                         className="w-full text-left px-3 py-2 hover:bg-[var(--wpos-accent-soft)] border-b border-[var(--wpos-border)] last:border-0"
                         onClick={() => {
                           setDealer(d)
@@ -1598,20 +1598,20 @@ export function WholesalePosPage() {
                       >
                         <div className="text-[0.78rem] font-semibold">
                           {d.tradingName || d.legalName}
-                        </div>
+                      </div>
                         <div className="text-[0.62rem] text-[var(--wpos-faint)]">
                           {d.dealerCode} · {d.phone}
                         </div>
-                      </button>
-                    ))}
+                    </button>
+                  ))}
                     {!dealerMatches.length && (
                       <div className="px-3 py-3 text-[0.75rem] text-[var(--wpos-muted)]">
                         No dealers found
-                      </div>
-                    )}
+                </div>
+              )}
                   </div>
-                )}
-              </div>
+              )}
+            </div>
 
               {dealer ? (
                 <div className="wpos-dealer-card mt-3">
@@ -1652,12 +1652,12 @@ export function WholesalePosPage() {
                     </div>
                   </div>
                   <div className="wpos-dealer-meta">
-                    <div>
+                  <div>
                       <span>Price Tier</span>
                       <div className="font-semibold text-[var(--wpos-gold)]">
                         {dealer.tier?.name || 'Standard'}
-                      </div>
-                    </div>
+                  </div>
+                </div>
                     <div>
                       <span>Payment Terms</span>
                       <div className="font-semibold">{dealer.paymentTermsDays} Days</div>
@@ -1682,8 +1682,8 @@ export function WholesalePosPage() {
                     >
                       Outstanding
                     </button>
-                    <button
-                      type="button"
+                              <button
+                                type="button"
                       className="wpos-btn wpos-btn-ghost"
                       onClick={() => setRecentOpen(true)}
                     >
@@ -1698,14 +1698,14 @@ export function WholesalePosPage() {
                       }}
                     >
                       Change
-                    </button>
+                              </button>
                   </div>
                 </div>
               ) : (
                 <div className="wpos-empty-hint mt-3">
                   Select a dealer to unlock wholesale pricing and checkout.
-                </div>
-              )}
+                            </div>
+                          )}
             </div>
 
             {/* Cart */}
@@ -1794,19 +1794,19 @@ export function WholesalePosPage() {
                     </div>
                     <div className="text-right flex flex-col items-end gap-1">
                       <div className="text-[0.68rem] text-[var(--wpos-muted)] tabular-nums">
-                        {formatCurrency(line.unitPrice)}
+                          {formatCurrency(line.unitPrice)}
                       </div>
                       <div className="text-[0.9rem] font-bold tabular-nums">
-                        {formatCurrency(lineTotal(line))}
+                          {formatCurrency(lineTotal(line))}
                       </div>
-                      <button
-                        type="button"
+                          <button
+                            type="button"
                         className="mt-auto text-[var(--wpos-rose)] opacity-80 hover:opacity-100"
                         onClick={() => removeLine(line.key)}
                         title="Remove"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                          >
+                            <Trash2 size={14} />
+                          </button>
                     </div>
                   </div>
                 ))}
@@ -1915,9 +1915,9 @@ export function WholesalePosPage() {
                 Close cart
               </button>
             </div>
-          )}
-        </div>
-      </div>
+              )}
+            </div>
+          </div>
 
       {/* Footer */}
       <footer className="wpos-footer">
@@ -1972,7 +1972,7 @@ export function WholesalePosPage() {
         >
           <span>
             {itemCount} Items · {formatCurrency(grandTotal)}
-          </span>
+                </span>
           <span>View Cart</span>
         </button>
       </div>
@@ -2042,11 +2042,11 @@ export function WholesalePosPage() {
                   <div className="wpos-totals-grand">
                     <span className="font-bold text-[0.68rem] uppercase tracking-[0.08em] text-[#64748b]">
                       Total
-                    </span>
+                </span>
                     <strong className="tabular-nums">{formatCurrency(grandTotal)}</strong>
-                  </div>
-                </div>
               </div>
+              </div>
+            </div>
 
               <div className="wpos-checkout-pay">
                 <div className="wpos-section-title">
@@ -2125,13 +2125,13 @@ export function WholesalePosPage() {
                 </div>
 
                 <div className="wpos-pay-fields">
-                  {PAY_KEYS.map((p) => (
+              {PAY_KEYS.map((p) => (
                     <div key={p.key} className="wpos-pay-field">
                       <span>{p.label}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={pay[p.key]}
+                  <input
+                    type="number"
+                    min={0}
+                    value={pay[p.key]}
                         onChange={(e) =>
                           setPay((prev) => ({ ...prev, [p.key]: e.target.value }))
                         }
@@ -2151,13 +2151,13 @@ export function WholesalePosPage() {
                 </div>
 
                 <div className="wpos-checkout-footer">
-                  <button
-                    type="button"
+              <button
+                type="button"
                     className="wpos-btn wpos-btn-ghost !h-11"
                     onClick={() => setCheckoutOpen(false)}
                   >
                     Back to Cart
-                  </button>
+              </button>
                   <button
                     type="button"
                     className="wpos-btn wpos-btn-primary !h-11 !text-[0.85rem]"
@@ -2313,13 +2313,13 @@ export function WholesalePosPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
+              <button
+                type="button"
                       className="wpos-btn wpos-btn-primary !h-9 !text-[0.72rem]"
                       onClick={() => resumeHold(h)}
-                    >
+              >
                       Resume
-                    </button>
+              </button>
                     <button
                       type="button"
                       className="wpos-btn wpos-btn-danger !h-9 !text-[0.72rem]"
@@ -2395,21 +2395,21 @@ export function WholesalePosPage() {
               <div className="flex justify-between">
                 <span className="text-[var(--wpos-muted)]">Dealer</span>
                 <span className="font-semibold">{success.dealerName}</span>
-              </div>
+            </div>
               <div className="flex justify-between">
                 <span className="text-[var(--wpos-muted)]">Total</span>
                 <span className="font-bold text-[var(--wpos-green)]">
                   {formatCurrency(success.total)}
                 </span>
-              </div>
+          </div>
               <div className="flex justify-between">
                 <span className="text-[var(--wpos-muted)]">Payment</span>
                 <span>{success.payment}</span>
-              </div>
+        </div>
               <div className="flex justify-between">
                 <span className="text-[var(--wpos-muted)]">Stock</span>
                 <span className="text-[var(--wpos-green)]">Updated</span>
-              </div>
+      </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" className="wpos-btn wpos-btn-secondary !h-10" onClick={printSuccess}>

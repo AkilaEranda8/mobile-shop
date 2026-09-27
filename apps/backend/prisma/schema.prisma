@@ -973,6 +973,8 @@ model Sale {
   total           Float
   paidAmount      Float
   dueAmount       Float      @default(0)
+  /// Sum of SalePayment.customerFeeAmount — paid by the customer on top of `total`.
+  customerFeeTotal Float     @default(0)
   status          SaleStatus @default(PAID)
   cashierId       String?
   cashierName     String
@@ -1022,8 +1024,56 @@ model SalePayment {
   reference String?
   /// When the money actually changed hands. Null for legacy rows — fall back to the sale date.
   paidAt    DateTime?
+  /// Snapshot of the tenant payment-method config at sale time (null for legacy rows).
+  methodConfigId       String?
+  methodLabel          String?
+  /// Extra charged to the customer on top of `amount` (sale value). Never part of Sale.total.
+  customerFeeAmount    Float                  @default(0)
+  feeType              String?
+  feeRate              Float?
+  feeVersion           Int?
+  clearanceStatus      PaymentClearanceStatus @default(NOT_REQUIRED)
+  clearanceGlAccountId String?
 
   sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+enum PaymentClearanceStatus {
+  NOT_REQUIRED
+  PENDING
+  CLEARED
+}
+
+/// Settlement of a single SalePayment held in a clearing account.
+model PaymentClearance {
+  id                String    @id @default(cuid())
+  tenantId          String
+  branchId          String?
+  saleId            String
+  salePaymentId     String
+  invoiceNumber     String
+  methodConfigId    String?
+  methodLabel       String?
+  grossAmount       Float
+  providerDeduction Float     @default(0)
+  netAmount         Float
+  /// 'CASH' | 'BANK'
+  destinationType   String
+  destinationId     String
+  clearedAt         DateTime
+  reference         String?
+  journalEntryId    String?
+  /// 'ACTIVE' | 'REVERSED'
+  status            String    @default("ACTIVE")
+  reversedAt        DateTime?
+  reversedBy        String?
+  reversalJournalId String?
+  createdBy         String
+  createdAt         DateTime  @default(now())
+
+  @@index([tenantId, saleId])
+  @@index([tenantId, salePaymentId])
+  @@index([tenantId, clearedAt])
 }
 
 model SaleReturn {

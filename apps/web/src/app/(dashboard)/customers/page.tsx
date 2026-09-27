@@ -19,7 +19,7 @@ import toast from 'react-hot-toast'
 import type { Customer } from '@/types'
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { usePos } from '@/lib/use-pos'
-import { usePaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
+import { useCheckoutPaymentMethods, type PaymentMethodKey } from '@/lib/payment-methods'
 import { ChequeDetailsFields, ChequePaymentMeta, formatChequeReference, todayChequeDate } from '@/components/payments/ChequeDetailsFields'
 import { datetimeLocalMaxNow, clampDatetimeLocalToNow } from '@/lib/business-date'
 import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl } from '@/components/design-system'
@@ -66,7 +66,7 @@ function CreditPaymentModal({ customerId, customerName, customerPhone, outstandi
   const [chequeNumber, setChequeNumber] = useState('')
   const [chequeDate, setChequeDate] = useState(todayChequeDate)
   const [paymentAt, setPaymentAt] = useState('')
-  const payMethods = usePaymentMethods()
+  const payMethods = useCheckoutPaymentMethods()
   const paymentMethod: PaymentMethodKey = payMethods.find(m => m.id === paymentMethodId)?.key
     ?? payMethods.find(m => m.key === paymentMethodId)?.key
     ?? 'CASH'

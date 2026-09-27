@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import type { CartItem } from '@/components/pos/types'
 import { hirePurchaseApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
-import { usePaymentMethods } from '@/lib/payment-methods'
+import { useCheckoutPaymentMethods } from '@/lib/payment-methods'
 
 type Props = {
   cart: CartItem[]
@@ -42,7 +42,7 @@ const inputStyle: CSSProperties = {
 
 export function HirePurchaseWizard({ cart, branchId, selectedCustomer, onClose, onComplete }: Props) {
   const device = cart[0]
-  const methods = usePaymentMethods()
+  const methods = useCheckoutPaymentMethods()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [calculation, setCalculation] = useState<any>(null)

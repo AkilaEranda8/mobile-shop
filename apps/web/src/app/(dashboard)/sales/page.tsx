@@ -25,7 +25,7 @@ import { buildReceiptFromApiSale, printReceipt, receiptPrintLabel } from '@/lib/
 import { OpenPosButton } from '@/components/pos/OpenPosButton'
 import { useModuleAccess, EditOnly } from '@/lib/module-access'
 import { useFeatureFlag } from '@/lib/hooks'
-import { ChequePaymentMeta } from '@/components/payments/ChequeDetailsFields'
+import { SalePaymentsSection } from '@/components/payments/SalePaymentsSection'
 import { PageHeader, StatCard, StatGrid, FilterBar, SegmentedControl, StatusBadge, statusToneFromLabel } from '@/components/design-system'
 import { businessToday, businessPeriodFrom, businessMonthStart } from '@/lib/business-date'
 
@@ -800,6 +800,7 @@ function SaleDetailsModal({
   const [showEdit, setShowEdit] = useState(false)
   const [editAdminPassword, setEditAdminPassword] = useState('')
   const [showDelete, setShowDelete] = useState(false)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
   const [liveSale, setLiveSale] = useState(sale)
   const shopName = authStorage.getUser()?.name?.split(' ')[0] + ' Shop' || 'Our Shop'
   const [invSettings, setInvSettings] = useState<InvoiceSettings>(() => getInvoiceSettings())
@@ -825,11 +826,11 @@ function SaleDetailsModal({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !paymentModalOpen) onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [onClose, paymentModalOpen])
 
   const downloadInvoice = async () => {
     if (!invoiceRef.current) return
@@ -931,7 +932,7 @@ function SaleDetailsModal({
     <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
-      onClick={showEdit || showEditAuth || showDelete ? undefined : onClose}
+      onClick={showEdit || showEditAuth || showDelete || paymentModalOpen ? undefined : onClose}
     >
       <div
         className="rounded-xl w-full max-w-6xl shadow-2xl max-h-[92vh] overflow-y-auto border"
@@ -1049,6 +1050,12 @@ function SaleDetailsModal({
                     <span style={{ color: 'var(--text-muted)' }}>Total paid:</span>
                     <span className="font-medium">{formatCurrency(liveSale.paidAmount ?? (liveSale.total ?? 0) - (liveSale.dueAmount ?? 0))}</span>
                   </div>
+                  {Number(liveSale.customerFeeTotal ?? 0) > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Customer payment fees:</span>
+                      <span className="font-medium">{formatCurrency(Number(liveSale.customerFeeTotal))}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span style={{ color: 'var(--text-muted)' }}>Total remaining:</span>
                     <span className="font-medium">{formatCurrency(liveSale.dueAmount ?? 0)}</span>
@@ -1059,23 +1066,15 @@ function SaleDetailsModal({
 
           {/* Payments */}
           {Array.isArray(liveSale.payments) && liveSale.payments.length > 0 && (
-            <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide border-b" style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                Payments
-              </div>
-              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                {liveSale.payments.map((p: any) => (
-                  <div key={p.id ?? `${p.method}-${p.amount}`} className="px-3 py-2.5">
-                    <ChequePaymentMeta
-                      method={p.method}
-                      reference={p.reference}
-                      amount={p.amount}
-                      formatAmount={formatCurrency}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SalePaymentsSection
+              sale={liveSale}
+              canManage={canEdit && canManage}
+              onModalChange={setPaymentModalOpen}
+              onUpdated={(updated) => {
+                setLiveSale((prev: any) => ({ ...prev, ...updated }))
+                onChanged()
+              }}
+            />
           )}
 
           {/* Items preview */}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { tenantApi } from '@/lib/api'
 import { authStorage } from '@/lib/auth'
 
@@ -11,11 +11,32 @@ export type PaymentMethodKey = (typeof PAYMENT_METHOD_KEYS)[number]
  * Multiple methods may share the same `key` (accounting type) with different labels
  * e.g. Wallet → "eZ Cash", Wallet → "Genie".
  */
+export type PaymentFeeType = 'PERCENT' | 'FIXED'
+
+export interface PaymentMethodFeeRule {
+  enabled: boolean
+  type: PaymentFeeType
+  rate: number
+  effectiveFrom?: string
+  /** Server-assigned; sent back with sales so the server recomputes with the same rule. */
+  version?: number
+}
+
+export interface PaymentMethodClearance {
+  required: boolean
+  glAccountId?: string
+  expectedDeductionRate?: number
+}
+
 export interface TenantPaymentMethod {
   /** Unique row id (defaults to key for built-ins). */
   id: string
   key: PaymentMethodKey
   label: string
+  /** Hidden from checkout when false (history keeps working). */
+  enabled?: boolean
+  fee?: PaymentMethodFeeRule
+  clearance?: PaymentMethodClearance
 }
 
 export interface PaymentMethodSettings {
@@ -78,6 +99,54 @@ function resolveKey(rawKey: string, label: string): PaymentMethodKey | null {
   return k
 }
 
+function sanitizeFee(raw: unknown): PaymentMethodFeeRule | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const f = raw as Record<string, unknown>
+  const type: PaymentFeeType = f.type === 'FIXED' ? 'FIXED' : 'PERCENT'
+  const rateNum = Number(f.rate)
+  const rate = Number.isFinite(rateNum) ? Math.max(0, type === 'PERCENT' ? Math.min(100, rateNum) : rateNum) : 0
+  const out: PaymentMethodFeeRule = { enabled: f.enabled === true && rate > 0, type, rate }
+  if (typeof f.effectiveFrom === 'string' && f.effectiveFrom) out.effectiveFrom = f.effectiveFrom
+  const v = Number(f.version)
+  if (Number.isInteger(v) && v > 0) out.version = v
+  return out
+}
+
+function sanitizeClearance(raw: unknown, key: PaymentMethodKey): PaymentMethodClearance | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const c = raw as Record<string, unknown>
+  const out: PaymentMethodClearance = { required: c.required === true && key !== 'CASH' }
+  if (typeof c.glAccountId === 'string' && c.glAccountId) out.glAccountId = c.glAccountId
+  const hint = Number(c.expectedDeductionRate)
+  if (Number.isFinite(hint) && hint > 0) out.expectedDeductionRate = Math.min(100, hint)
+  return out
+}
+
+/** True when the fee rule is active now (future effective dates are not yet applied). */
+export function isFeeActive(fee: PaymentMethodFeeRule | undefined, now = Date.now()): fee is PaymentMethodFeeRule {
+  if (!fee?.enabled || !(fee.rate > 0)) return false
+  if (fee.effectiveFrom && new Date(fee.effectiveFrom).getTime() > now) return false
+  return true
+}
+
+/** Amount charged to the customer on top of `amount`. Must match backend rounding (2dp). */
+export function computeCustomerFee(method: TenantPaymentMethod | undefined, amount: number): number {
+  const fee = method?.fee
+  if (!isFeeActive(fee) || !(amount > 0)) return 0
+  const raw = fee.type === 'FIXED' ? fee.rate : (amount * fee.rate) / 100
+  return Math.round(raw * 100) / 100
+}
+
+export function describeFee(fee: PaymentMethodFeeRule | undefined): string {
+  if (!isFeeActive(fee)) return ''
+  return fee.type === 'FIXED' ? `+${fee.rate}` : `${fee.rate}%`
+}
+
+/** Display label for a stored SalePayment (label snapshot, else the key). */
+export function salePaymentLabel(p: { method: string; methodLabel?: string | null }): string {
+  return p.methodLabel || p.method.replace(/_/g, ' ')
+}
+
 export function sanitize(methods: unknown): TenantPaymentMethod[] {
   if (!Array.isArray(methods)) return DEFAULT_PAYMENT_METHODS
   const seenIds = new Set<string>()
@@ -100,7 +169,13 @@ export function sanitize(methods: unknown): TenantPaymentMethod[] {
       id = makePaymentMethodId(k, label, out)
     }
     seenIds.add(id)
-    out.push({ id, key: k, label })
+    const row: TenantPaymentMethod = { id, key: k, label }
+    if (m.enabled === false && k !== 'CASH') row.enabled = false
+    const fee = k === 'CASH' ? undefined : sanitizeFee(m.fee)
+    if (fee) row.fee = fee
+    const clearance = sanitizeClearance(m.clearance, k)
+    if (clearance) row.clearance = clearance
+    out.push(row)
   }
   if (!out.some(m => m.key === 'CASH')) {
     out.unshift({ id: 'CASH', key: 'CASH', label: 'Cash' })
@@ -145,4 +220,13 @@ export function usePaymentMethods(): TenantPaymentMethod[] {
     }
   }, [])
   return methods
+}
+
+/** Methods shown at checkout: disabled methods are hidden (Cash is always kept). */
+export function useCheckoutPaymentMethods(): TenantPaymentMethod[] {
+  const all = usePaymentMethods()
+  return useMemo(() => {
+    const enabled = all.filter(m => m.enabled !== false || m.key === 'CASH')
+    return enabled.length ? enabled : all
+  }, [all])
 }

@@ -42,6 +42,8 @@ export interface StockFormSale {
   discountAmount: number
   total: number
   paymentMethod?: string
+  paymentMethodLabel?: string
+  paymentFee?: number
   payments?: { method: string; amount: number }[]
   cashReceived?: number
   changeAmount?: number
@@ -225,6 +227,10 @@ export function printStockFormInvoice(
       : ''
 
   let paymentRows = ''
+  if (sale.paymentFee && sale.paymentFee > 0) {
+    paymentRows += `<tr><td colspan="2"></td><td class="money total-label">Payment fee${sale.paymentMethodLabel ? ` (${esc(sale.paymentMethodLabel)})` : ''}</td><td class="money">${f(sale.paymentFee)}</td></tr>`
+    paymentRows += `<tr><td colspan="2"></td><td class="money total-label">Customer paid</td><td class="money"><strong>${f(sale.total - (sale.dueAmount ?? 0) + sale.paymentFee)}</strong></td></tr>`
+  }
   if (payMethod) {
     paymentRows += `<tr><td colspan="2"></td><td class="money total-label">Paid</td><td class="money">${payMethod}</td></tr>`
   }

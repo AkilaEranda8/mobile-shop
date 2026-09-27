@@ -11,6 +11,8 @@ import {
 import { getSmsSettingsForClient } from '../sms/sms.service'
 import { normalizeRolePermissions } from './role-permissions.util'
 import { ensureBranchCashAccounts } from '../accounting/accounting-init.service'
+import { assertClearingAccountAllowed } from '../accounting/integration/payment-fee-journals'
+import { normalizePaymentMethodSettings } from './payment-method-settings.util'
 import { invalidateRolePermissionCache } from '../../middleware/module-access.middleware'
 import { normalizeDisabledFeatures, planBranchLimit } from '../../constants/plan-limits'
 
@@ -160,8 +162,11 @@ export const tenantsService = {
     return getTenantConfig(tenantId, 'paymentMethod')
   },
 
-  async updatePaymentMethodSettings(tenantId: string, settings: Record<string, unknown>) {
-    return setTenantConfig(tenantId, 'paymentMethod', settings)
+  async updatePaymentMethodSettings(tenantId: string, settings: Record<string, unknown>, actor?: string) {
+    const normalized = normalizePaymentMethodSettings(settings)
+    const chosen = [...new Set(normalized.methods.map(m => m.clearance?.glAccountId).filter((id): id is string => !!id))]
+    for (const glAccountId of chosen) await assertClearingAccountAllowed(tenantId, glAccountId)
+    return setTenantConfig(tenantId, 'paymentMethod', settings, { actor })
   },
 
   async getProductVariantSettings(tenantId: string) {

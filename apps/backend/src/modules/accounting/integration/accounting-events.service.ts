@@ -70,9 +70,18 @@ export async function emitAccountingEvents(
   }
 }
 
-export function emitSaleAccounting(tenantId: string, saleId: string, branchId: string | null, actorEmail?: string) {
+export function emitSaleAccounting(
+  tenantId: string,
+  saleId: string,
+  branchId: string | null,
+  actorEmail?: string,
+  opts?: { hasCustomerFee?: boolean },
+) {
   return emitAccountingEvents([
     { tenantId, branchId, sourceType: 'Sale', sourceId: saleId, eventType: 'SALE_CREATED' },
+    ...(opts?.hasCustomerFee
+      ? [{ tenantId, branchId, sourceType: 'Sale', sourceId: saleId, eventType: 'PAYMENT_FEE_COLLECTED' }]
+      : []),
     { tenantId, branchId, sourceType: 'Sale', sourceId: saleId, eventType: 'SALE_COGS' },
   ], actorEmail)
 }

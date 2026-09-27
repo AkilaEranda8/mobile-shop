@@ -21,6 +21,7 @@ import {
 import { requireAccountingInitialized } from '../accounting-init.service'
 import { evaluatePoIsOpeningSupplierBalance } from '../../business-rules-engine/business-rules-engine.service'
 import { resolvePaymentGlAccountId } from '../subledgers/ar-ap-payment.service'
+import { resolveSalePaymentDebitAccount } from './payment-fee-journals'
 
 async function getSettingsOrThrow(tenantId: string) {
   return requireAccountingInitialized(tenantId)
@@ -80,15 +81,15 @@ export async function postSaleJournal(tenantId: string, saleId: string, actorEma
     if (p.method === 'STORE_CREDIT') {
       accountId = await resolveAccountIdByKey(tenantId, 'customerCredits')
     } else {
-      accountId = await resolvePaymentGlAccountId(tenantId, sale.branchId, p.method)
+      accountId = await resolveSalePaymentDebitAccount(tenantId, sale.branchId, p)
     }
     lines.push({
       accountId,
       debit: amt,
       credit: 0,
-      description: p.method === 'STORE_CREDIT' ? 'Store credit redeemed' : `Receipt ${p.method}`,
+      description: p.method === 'STORE_CREDIT' ? 'Store credit redeemed' : `Receipt ${p.methodLabel ?? p.method}`,
       customerId: p.method === 'STORE_CREDIT' ? (sale.customerId ?? undefined) : undefined,
-      metadata: { paymentMethod: p.method, saleId: sale.id, invoiceNumber: sale.invoiceNumber, reference: p.reference ?? null },
+      metadata: { paymentMethod: p.method, saleId: sale.id, salePaymentId: p.id, invoiceNumber: sale.invoiceNumber, reference: p.reference ?? null },
     })
   }
   const creditArAmount = round2(
