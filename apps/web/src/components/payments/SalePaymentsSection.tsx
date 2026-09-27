@@ -66,7 +66,7 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   )
 }
 
-function MarkClearModal({
+export function MarkClearModal({
   saleId,
   payment,
   deductionHint,

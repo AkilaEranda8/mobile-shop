@@ -57,7 +57,8 @@ router.get('/payment-clearance/options', authorize('OWNER', 'MANAGER'), async (r
 
 router.get('/payment-clearance/pending', authorize('OWNER', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    sendSuccess(res, await listPendingClearances(req.tenantId!, effectiveBranchId(req) ?? null))
+    const glAccountId = typeof req.query.glAccountId === 'string' ? req.query.glAccountId : null
+    sendSuccess(res, await listPendingClearances(req.tenantId!, effectiveBranchId(req) ?? null, glAccountId))
   } catch (e) { next(e) }
 })
 

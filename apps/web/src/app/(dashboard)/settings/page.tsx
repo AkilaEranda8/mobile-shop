@@ -268,6 +268,7 @@ export default function SettingsPage() {
       const res: any = await tenantApi.updatePaymentMethodSettings(tenantId, { methods })
       const saved = (res?.data ?? res)?.methods
       if (Array.isArray(saved) && saved.length) setPayMethods(sanitizePaymentMethods(saved))
+      clearingOptions.reload()
       notifyPaymentMethodsChanged()
       toast.success('Payment methods saved')
     } catch (e: any) {

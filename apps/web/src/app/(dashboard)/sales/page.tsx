@@ -6,7 +6,7 @@ import {
   Receipt, Eye, X, Calendar, User, Package,
   CreditCard, Loader2, Hash, ShoppingBag,
   Banknote, Smartphone, TrendingUp, Download, Truck, RotateCcw,
-  Pencil, Trash2, Lock, AlertTriangle, Search, Printer,
+  Pencil, Trash2, Lock, AlertTriangle, Search, Printer, Clock,
 } from 'lucide-react'
 import { TableDensityToggle, type TableDensity } from '@/components/ui/TableDensityToggle'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -36,6 +36,15 @@ const statusColors: Record<string, string> = {
   REFUNDED:       'neutral',
   RETURNED:       'danger',
   DUE:            'warning',
+}
+
+/** Payments taken by a provider (Koko, card, cheque…) that have not reached the bank yet. */
+function pendingClearance(sale: any): { count: number; amount: number; labels: string } | null {
+  const rows = (sale?.payments ?? []).filter((p: any) => p.clearanceStatus === 'PENDING')
+  if (!rows.length) return null
+  const labels = [...new Set(rows.map((p: any) => p.methodLabel || p.method))].join(', ')
+  const amount = rows.reduce((s: number, p: any) => s + Number(p.amount ?? 0) + Number(p.customerFeeAmount ?? 0), 0)
+  return { count: rows.length, amount, labels }
 }
 
 
@@ -1249,7 +1258,7 @@ export default function SalesPage() {
   const [detailSale,  setDetailSale]  = useState<any>(null)
   const [density, setDensity]       = useState<TableDensity>('comfortable')
   const [textSearch, setTextSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'RETURNED' | 'REFUNDED' | 'DUE'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'RETURNED' | 'REFUNDED' | 'DUE' | 'CLEARING'>('all')
   const [datePreset, setDatePreset] = useState<DatePreset>('today')
   const [customFrom, setCustomFrom] = useState(businessToday)
   const [customTo, setCustomTo] = useState(businessToday)
@@ -1297,7 +1306,9 @@ export default function SalesPage() {
   }, [load])
 
   const totalRevenue  = sales.reduce((s, r) => s + (r.total ?? 0), 0)
-  const paidCount     = sales.filter(r => r.status === 'PAID').length
+  const paidCount     = sales.filter(r => r.status === 'PAID' && !pendingClearance(r)).length
+  const clearingSales = sales.filter(r => pendingClearance(r))
+  const clearingTotal = clearingSales.reduce((s, r) => s + (pendingClearance(r)?.amount ?? 0), 0)
   const returnedCount = sales.filter(r => r.status === 'RETURNED' || (r._count?.returns ?? 0) > 0).length
   const customerDueTotal = sales.reduce((s, r) => {
     if (r.status === 'RETURNED' || r.status === 'REFUNDED') return s
@@ -1314,6 +1325,10 @@ export default function SalesPage() {
       rows = rows.filter(r =>
         r.status !== 'RETURNED' && r.status !== 'REFUNDED' && Number(r.dueAmount ?? 0) > 0
       )
+    } else if (statusFilter === 'CLEARING') {
+      rows = rows.filter(r => pendingClearance(r))
+    } else if (statusFilter === 'PAID') {
+      rows = rows.filter(r => r.status === 'PAID' && !pendingClearance(r))
     } else if (statusFilter !== 'all') {
       rows = rows.filter(r => r.status === statusFilter)
     }
@@ -1411,11 +1426,22 @@ export default function SalesPage() {
     {
       accessorKey: 'status',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      cell: ({ row }) => (
-        <StatusBadge tone={(statusColors[row.original.status] as any) || statusToneFromLabel(row.original.status)}>
-          {row.original.status}
-        </StatusBadge>
-      ),
+      cell: ({ row }) => {
+        const pending = pendingClearance(row.original)
+        if (pending && row.original.status === 'PAID') {
+          return (
+            <button type="button" onClick={() => openDetail(row.original)} className="text-left" title="Open to Mark as Clear when the money reaches your bank">
+              <StatusBadge tone="warning">Awaiting clearance</StatusBadge>
+              <p className="text-[10px] mt-0.5 text-amber-500 whitespace-nowrap">{pending.labels} · {formatCurrency(pending.amount)}</p>
+            </button>
+          )
+        }
+        return (
+          <StatusBadge tone={(statusColors[row.original.status] as any) || statusToneFromLabel(row.original.status)}>
+            {row.original.status}
+          </StatusBadge>
+        )
+      },
     },
     {
       id: 'actions',
@@ -1483,6 +1509,17 @@ export default function SalesPage() {
           active={statusFilter === 'RETURNED'}
           onClick={() => setStatusFilter('RETURNED')}
         />
+        {clearingSales.length > 0 && (
+          <StatCard
+            label="Awaiting Clearance"
+            value={formatCurrency(clearingTotal)}
+            icon={Clock}
+            tone="warning"
+            sub={`${clearingSales.length} invoice${clearingSales.length === 1 ? '' : 's'}`}
+            active={statusFilter === 'CLEARING'}
+            onClick={() => setStatusFilter('CLEARING')}
+          />
+        )}
         {hasCustomerCredit && (
           <StatCard
             label="Customer Due"
@@ -1543,11 +1580,12 @@ export default function SalesPage() {
           className="w-full sm:w-auto sm:min-w-[220px]"
         />
         <SegmentedControl
-          value={statusFilter as 'all' | 'PAID' | 'DUE' | 'RETURNED'}
+          value={statusFilter as 'all' | 'PAID' | 'DUE' | 'RETURNED' | 'CLEARING'}
           onChange={(id) => setStatusFilter(id)}
           options={[
             { id: 'all', label: 'All' },
             { id: 'PAID', label: 'Paid' },
+            ...(clearingSales.length > 0 ? [{ id: 'CLEARING' as const, label: 'Awaiting clearance' }] : []),
             ...(hasCustomerCredit ? [{ id: 'DUE' as const, label: 'Customer Due' }] : []),
             { id: 'RETURNED', label: 'Returned' },
           ]}

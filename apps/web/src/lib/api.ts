@@ -503,7 +503,8 @@ export const salesApi = {
   listReturns: (params?: Record<string, string>) =>
     api.get(`/sales/returns${params ? '?' + new URLSearchParams(params) : ''}`),
   paymentClearanceOptions: () => api.get('/sales/payment-clearance/options'),
-  pendingClearances: () => api.get('/sales/payment-clearance/pending'),
+  pendingClearances: (glAccountId?: string) =>
+    api.get(`/sales/payment-clearance/pending${glAccountId ? `?glAccountId=${encodeURIComponent(glAccountId)}` : ''}`),
   clearances: (saleId: string) => api.get(`/sales/${saleId}/clearances`),
   clearPayment: (
     saleId: string,

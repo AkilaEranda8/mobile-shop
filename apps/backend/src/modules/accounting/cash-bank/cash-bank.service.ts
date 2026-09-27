@@ -7,6 +7,9 @@ import type { JournalDraftLine } from '../journals/journal-validator.util'
 import { normalBalance, round2 } from '../reports/gl-balances.util'
 import { resolvePaymentGlAccountId } from '../subledgers/ar-ap-payment.service'
 import { ensureAccountingRegisters, requireAccountingInitialized } from '../accounting-init.service'
+import { getTenantConfig, setTenantConfig } from '../../configuration-engine/configuration-engine.service'
+import { normalizePaymentMethodSettings } from '../../tenants/payment-method-settings.util'
+import { withMethodClearingAccounts } from '../integration/payment-fee-journals'
 
 async function assertInitialized(tenantId: string) {
   const s = await requireAccountingInitialized(tenantId)
@@ -69,7 +72,10 @@ export async function listCashBankRegisters(tenantId: string, branchId?: string)
     code: string
     glName: string
     balance: number
-    clearingType?: 'CARD' | 'UPI'
+    clearingType?: 'CARD' | 'UPI' | 'METHOD'
+    methodLabels?: string[]
+    pendingCount?: number
+    pendingAmount?: number
     accountNo?: string | null
     bankName?: string | null
     accountType?: 'CURRENT' | 'SAVINGS'
@@ -129,12 +135,78 @@ export async function listCashBankRegisters(tenantId: string, branchId?: string)
     })
   }
 
+  registers.push(...await listMethodClearingRegisters(tenantId, branchId, map))
+
   const kindOrder = { CASH: 0, BANK: 1, CLEARING: 2 }
   return registers.sort((a, b) => {
     const ko = kindOrder[a.kind] - kindOrder[b.kind]
     if (ko !== 0) return ko
     return a.name.localeCompare(b.name)
   })
+}
+
+/**
+ * Clearing registers for payment methods with "clearance required" (settled per payment via
+ * Sales → Mark as Clear, never by bulk transfer). Also backfills a missing per-method account.
+ */
+async function listMethodClearingRegisters(tenantId: string, branchId: string | undefined, defaultAccounts: Record<string, string>) {
+  const current = normalizePaymentMethodSettings(await getTenantConfig(tenantId, 'paymentMethod'))
+  const { settings, changed } = await withMethodClearingAccounts(tenantId, current)
+  if (changed) await setTenantConfig(tenantId, 'paymentMethod', settings as unknown as Record<string, unknown>)
+
+  const legacy = new Set([defaultAccounts.cardClearing, defaultAccounts.upiClearing].filter(Boolean))
+  const labelsByGl = new Map<string, string[]>()
+  for (const m of settings.methods) {
+    const gl = m.clearance?.required ? m.clearance.glAccountId : undefined
+    if (!gl || legacy.has(gl)) continue
+    labelsByGl.set(gl, [...(labelsByGl.get(gl) ?? []), m.label])
+  }
+
+  const defaultPendingGl = defaultAccounts.paymentClearing
+  const pendingGroups = await prisma.salePayment.groupBy({
+    by: ['clearanceGlAccountId'],
+    where: { clearanceStatus: 'PENDING', sale: { tenantId, ...(branchId ? { branchId } : {}) } },
+    _count: { _all: true },
+    _sum: { amount: true, customerFeeAmount: true },
+  })
+  const pendingByGl = new Map<string, { count: number; amount: number }>()
+  for (const g of pendingGroups) {
+    const gl = g.clearanceGlAccountId ?? defaultPendingGl
+    if (!gl) continue
+    const prev = pendingByGl.get(gl) ?? { count: 0, amount: 0 }
+    pendingByGl.set(gl, {
+      count: prev.count + g._count._all,
+      amount: round2(prev.amount + Number(g._sum.amount ?? 0) + Number(g._sum.customerFeeAmount ?? 0)),
+    })
+  }
+
+  const glIds = new Set([...labelsByGl.keys()])
+  if (defaultPendingGl && !legacy.has(defaultPendingGl)) glIds.add(defaultPendingGl)
+  const out = []
+  for (const glId of glIds) {
+    const gl = await prisma.glAccount.findFirst({ where: { id: glId, tenantId }, select: { id: true, code: true, name: true } })
+    if (!gl) continue
+    const balance = await glBalanceForAccount(tenantId, gl.id, branchId)
+    const pending = pendingByGl.get(gl.id)
+    // The shared default account is only interesting while it still holds money.
+    if (glId === defaultPendingGl && !labelsByGl.has(glId) && !pending && Math.abs(balance) < 0.005) continue
+    out.push({
+      kind: 'CLEARING' as const,
+      id: gl.id,
+      name: gl.name,
+      branchId: branchId ?? null,
+      branchName: null,
+      glAccountId: gl.id,
+      code: gl.code,
+      glName: gl.name,
+      clearingType: 'METHOD' as const,
+      methodLabels: labelsByGl.get(gl.id) ?? [],
+      pendingCount: pending?.count ?? 0,
+      pendingAmount: pending?.amount ?? 0,
+      balance,
+    })
+  }
+  return out
 }
 
 function formatBankAccountName(bankName: string, accountType: 'CURRENT' | 'SAVINGS') {

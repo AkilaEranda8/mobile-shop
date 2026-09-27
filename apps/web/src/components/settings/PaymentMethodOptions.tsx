@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Switch } from '@/components/ui/Switch'
 import { salesApi } from '@/lib/api'
@@ -14,6 +14,7 @@ export function useClearingAccountOptions() {
     accountingActive: false,
     clearingAccounts: [],
   })
+  const [version, setVersion] = useState(0)
   useEffect(() => {
     let alive = true
     salesApi.paymentClearanceOptions()
@@ -23,8 +24,9 @@ export function useClearingAccountOptions() {
       })
       .catch(() => {})
     return () => { alive = false }
-  }, [])
-  return state
+  }, [version])
+  const reload = useCallback(() => setVersion(v => v + 1), [])
+  return { ...state, reload }
 }
 
 function summary(m: TenantPaymentMethod): string {
@@ -130,7 +132,7 @@ export function PaymentMethodOptions({
                     disabled={!canEdit}
                     onChange={e => setClearance({ glAccountId: e.target.value || undefined })}
                   >
-                    <option value="">Pending Payment Clearance (default)</option>
+                    <option value="">Auto — new “{method.label || 'Payment'} Clearing” account</option>
                     {clearingAccounts.map(a => (
                       <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
                     ))}

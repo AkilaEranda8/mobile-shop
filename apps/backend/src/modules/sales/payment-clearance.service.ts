@@ -229,14 +229,23 @@ export async function reversePaymentClearance(input: {
   return { ok: true }
 }
 
-export async function listPendingClearances(tenantId: string, branchId: string | null) {
+export async function listPendingClearances(tenantId: string, branchId: string | null, glAccountId?: string | null) {
+  let glFilter = {}
+  if (glAccountId) {
+    const settings = await prisma.accountingSettings.findUnique({ where: { tenantId }, select: { defaultAccounts: true } })
+    const defaultGl = ((settings?.defaultAccounts ?? {}) as Record<string, unknown>).paymentClearing
+    glFilter = glAccountId === defaultGl
+      ? { OR: [{ clearanceGlAccountId: glAccountId }, { clearanceGlAccountId: null }] }
+      : { clearanceGlAccountId: glAccountId }
+  }
   return prisma.salePayment.findMany({
     where: {
       clearanceStatus: 'PENDING',
       sale: { tenantId, ...(branchId ? { branchId } : {}) },
+      ...glFilter,
     },
     select: {
-      id: true, method: true, methodLabel: true, amount: true, customerFeeAmount: true, reference: true,
+      id: true, method: true, methodLabel: true, methodConfigId: true, amount: true, customerFeeAmount: true, reference: true,
       sale: { select: { id: true, invoiceNumber: true, customerName: true, createdAt: true, branchId: true } },
     },
     orderBy: { sale: { createdAt: 'asc' } },

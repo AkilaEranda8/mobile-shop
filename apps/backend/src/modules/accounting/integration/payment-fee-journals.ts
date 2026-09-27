@@ -66,6 +66,55 @@ export async function ensurePaymentGlAccount(tenantId: string, key: PaymentGlKey
   return accountId
 }
 
+/** GL account "<Label> Clearing" for one payment method (created on first use, reused by name). */
+export async function ensureMethodClearingAccount(tenantId: string, label: string): Promise<string> {
+  const legacy = [...await legacyBulkClearingIds(tenantId)]
+  let name = `${label.trim().slice(0, 40) || 'Payment'} Clearing`
+  const clash = await prisma.glAccount.findFirst({ where: { tenantId, name, id: { in: legacy } }, select: { id: true } })
+  if (clash) name = `${label.trim().slice(0, 40)} Payment Clearing`
+  const existing = await prisma.glAccount.findFirst({
+    where: { tenantId, name, type: 'ASSET', id: { notIn: legacy } },
+    select: { id: true, isActive: true },
+  })
+  if (existing) {
+    if (!existing.isActive) await prisma.glAccount.update({ where: { id: existing.id }, data: { isActive: true } })
+    return existing.id
+  }
+  for (let n = 1131; n < 1200; n++) {
+    const code = String(n)
+    const taken = await prisma.glAccount.findUnique({ where: { tenantId_code: { tenantId, code } }, select: { id: true } })
+    if (taken) continue
+    const created = await prisma.glAccount.create({
+      data: { tenantId, code, name, type: 'ASSET', subtype: 'BANK', isSystem: false, description: 'Payment method clearing (pending settlement)' },
+    })
+    return created.id
+  }
+  throw new AppError('No free GL code for the clearing account (1131–1199)', 500)
+}
+
+/**
+ * Give every clearance-enabled method its own clearing account. Returns the settings with
+ * `clearance.glAccountId` filled in. No-op (unchanged settings) when accounting is not initialized.
+ */
+export async function withMethodClearingAccounts<T extends { methods: Array<{ key: string; label: string; clearance?: { required: boolean; glAccountId?: string } }> }>(
+  tenantId: string,
+  settings: T,
+): Promise<{ settings: T; changed: boolean }> {
+  const acc = await prisma.accountingSettings.findUnique({ where: { tenantId }, select: { initializedAt: true } })
+  if (!acc?.initializedAt) return { settings, changed: false }
+  let changed = false
+  const methods = []
+  for (const m of settings.methods) {
+    if (m.key !== 'CASH' && m.clearance?.required && !m.clearance.glAccountId) {
+      methods.push({ ...m, clearance: { ...m.clearance, glAccountId: await ensureMethodClearingAccount(tenantId, m.label) } })
+      changed = true
+    } else {
+      methods.push(m)
+    }
+  }
+  return { settings: { ...settings, methods }, changed }
+}
+
 /** Default clearing account when the method config does not pick one (dedicated, never 1110/1120). */
 export async function defaultClearingGlAccountId(tenantId: string): Promise<string> {
   return ensurePaymentGlAccount(tenantId, 'paymentClearing')

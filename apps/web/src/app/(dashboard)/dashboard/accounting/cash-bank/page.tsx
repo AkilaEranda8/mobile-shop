@@ -19,6 +19,7 @@ import {
   CashBankSection,
 } from '@/components/accounting/accounting-ui'
 import { useModuleAccess } from '@/lib/module-access'
+import { PendingClearancesModal } from '@/components/payments/PendingClearancesModal'
 
 type Register = {
   kind: 'CASH' | 'BANK' | 'CLEARING'
@@ -32,7 +33,10 @@ type Register = {
   bankName?: string | null
   accountNo?: string | null
   accountType?: 'CURRENT' | 'SAVINGS'
-  clearingType?: 'CARD' | 'UPI'
+  clearingType?: 'CARD' | 'UPI' | 'METHOD'
+  methodLabels?: string[]
+  pendingCount?: number
+  pendingAmount?: number
 }
 
 type ModalAction = { type: 'fill' | 'settle'; register: Register }
@@ -67,6 +71,10 @@ function registerSubtitle(r: Register) {
     return parts.length ? parts.join(' · ') : 'Bank account'
   }
   if (r.kind === 'CLEARING') {
+    if (r.clearingType === 'METHOD') {
+      const who = r.methodLabels?.length ? r.methodLabels.join(', ') : 'Payment'
+      return `${who} clearing · ${r.pendingCount ?? 0} pending`
+    }
     return r.clearingType === 'UPI' ? 'Wallet / UPI clearing' : 'Card clearing'
   }
   return r.branchName ?? undefined
@@ -108,6 +116,7 @@ export default function CashBankPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [modal, setModal] = useState<ModalAction | null>(null)
+  const [pendingRegister, setPendingRegister] = useState<Register | null>(null)
   const [amount, setAmount] = useState('')
   const [entryDate, setEntryDate] = useState(businessToday())
   const [counterpartyId, setCounterpartyId] = useState('')
@@ -153,6 +162,7 @@ export default function CashBankPage() {
   }), [cashRegisters, bankRegisters, clearingRegisters])
 
   function openModal(type: 'fill' | 'settle', register: Register) {
+    if (register.clearingType === 'METHOD') { setPendingRegister(register); return }
     setModal({ type, register })
     setAmount('')
     setDescription('')
@@ -187,7 +197,7 @@ export default function CashBankPage() {
         await accountingApi.settleClearing({
           branchId: effectiveBranch,
           entryDate,
-          clearingType: register.clearingType ?? 'CARD',
+          clearingType: register.clearingType === 'UPI' ? 'UPI' : 'CARD',
           amount: amt,
           bankAccountId: settleBankId,
           memo: description || undefined,
@@ -367,6 +377,16 @@ export default function CashBankPage() {
             )}
           </div>
         </div>
+      )}
+
+      {pendingRegister && (
+        <PendingClearancesModal
+          glAccountId={pendingRegister.id}
+          title={pendingRegister.name}
+          canClear={canEdit}
+          onClose={() => setPendingRegister(null)}
+          onChanged={load}
+        />
       )}
 
       {modal && (
