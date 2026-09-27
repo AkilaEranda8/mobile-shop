@@ -62,7 +62,15 @@ function responseErrorMessage(
   return fallback
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+let refreshInFlight: Promise<string | null> | null = null
+
+/** One refresh at a time — parallel 401s share it (rotation would otherwise invalidate the others). */
+function refreshAccessToken(): Promise<string | null> {
+  refreshInFlight ??= doRefreshAccessToken().finally(() => { refreshInFlight = null })
+  return refreshInFlight
+}
+
+async function doRefreshAccessToken(): Promise<string | null> {
   const refreshToken = authStorage.getRefreshToken()
   if (!refreshToken) return null
   try {

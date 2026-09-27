@@ -350,7 +350,13 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
       setSelectedCustomer(created)
       setCustomerMode('search')
       setSearchQuery(created.name)
-    } catch (err: any) { setError(err.message || 'Failed to register customer') }
+    } catch (err: any) {
+      const msg = err?.status === 403
+        ? 'You do not have permission to register customers. Ask the owner to allow it in Staff & Roles.'
+        : (err.message || 'Failed to register customer')
+      setError(msg)
+      toast.error(msg)
+    }
     finally { setRegisteringCust(false) }
   }
 

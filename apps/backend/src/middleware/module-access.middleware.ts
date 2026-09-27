@@ -114,6 +114,31 @@ export function requireModuleAccess(
   }
 }
 
+/** Edit on ANY of the modules (e.g. create a customer from POS or a repair ticket). */
+export function requireAnyModuleEdit(modules: RolePermissionModuleKey[]) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new AppError('Unauthorized', 401)
+      if (req.user.role === 'PLATFORM_ADMIN' || req.user.role === 'OWNER') { next(); return }
+      if (!req.rolePermissionMatrix && req.tenantId) {
+        req.rolePermissionMatrix = await loadRolePermissionMatrix(req.tenantId)
+      }
+      const matrix = req.rolePermissionMatrix
+      if (!matrix) throw new AppError('Role permissions not loaded', 500)
+      if (!modules.some(m => canEditModule(matrix, req.user!.role, m))) {
+        throw new AppError(`Forbidden: ${modules[0]} requires Edit permission`, 403)
+      }
+      next()
+    } catch (e) {
+      if (e instanceof AppError) {
+        sendError(res, e.message, e.statusCode)
+        return
+      }
+      next(e)
+    }
+  }
+}
+
 /**
  * Mount-level gate: GET/HEAD/OPTIONS → view; mutating methods → edit.
  * Skip OPTIONS preflight.
