@@ -1835,6 +1835,11 @@ function POSContent({ onClose }: { onClose: () => void }) {
         if (!branchId) { toast.error('No branch on your account'); return }
         const targetDate = openingCashDate
         const isToday = targetDate === businessDateStr
+        if (modalDayStatus?.isClosed) {
+          if (!canCloseDay) { toast.error('This day is closed. Ask a manager to reopen it.'); return }
+          if (!confirm('This day is already closed. Reopen it and start again? Profit allocation and the daily summary will be recalculated when you close again.')) return
+          await dailyClosingApi.reopen({ branchId, date: targetDate })
+        }
         if (isToday) {
           await dailyClosingApi.startDay({
             branchId,
@@ -5239,6 +5244,13 @@ function POSContent({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
               )}
+              {hasDailyClosing && modalDayStatus?.isClosed && (
+                <p className="text-[11px] font-medium" style={{ color: POS_THEME.amber }}>
+                  {canCloseDay
+                    ? 'This day is closed. Starting again will reopen it.'
+                    : 'This day is closed. Ask a manager to reopen it.'}
+                </p>
+              )}
               {hasDailyClosing && openingCashDate !== businessDateStr && (
                 <p className="text-[11px] font-medium" style={{ color: POS_THEME.amber }}>
                   Setting opening cash for a past business day
@@ -5283,10 +5295,12 @@ function POSContent({ onClose }: { onClose: () => void }) {
               </p>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setShowOpeningCash(false)} className="flex-1 h-11 rounded-xl text-sm font-semibold border text-white" style={{ borderColor: POS_THEME.border }}>Cancel</button>
-                <button type="button" onClick={submitOpeningCash} disabled={openingCashLoading || (hasDailyClosing && modalDayStatus?.isClosed)}
+                <button type="button" onClick={submitOpeningCash} disabled={openingCashLoading || (hasDailyClosing && modalDayStatus?.isClosed && !canCloseDay)}
                   className="flex-1 h-11 rounded-xl text-sm font-bold text-white disabled:opacity-60 flex items-center justify-center gap-2"
                   style={{ background: `linear-gradient(135deg, ${POS_THEME.green}, ${POS_THEME.greenDark})` }}>
-                  {openingCashLoading ? <Loader2 size={14} className="animate-spin" /> : <><PlayCircle size={15} /> {hasDailyClosing ? (openingCashDate === businessDateStr ? 'Start Shift' : 'Save Opening Cash') : 'Save & Open Drawer'}</>}
+                  {openingCashLoading ? <Loader2 size={14} className="animate-spin" /> : <><PlayCircle size={15} /> {hasDailyClosing
+                    ? `${modalDayStatus?.isClosed ? 'Reopen & ' : ''}${openingCashDate === businessDateStr ? 'Start Shift' : 'Save Opening Cash'}`
+                    : 'Save & Open Drawer'}</>}
                 </button>
               </div>
             </div>
