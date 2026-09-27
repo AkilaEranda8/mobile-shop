@@ -63,14 +63,20 @@ async function isDailyReloadEnabled(tenantId: string, branchId: string): Promise
   return isFeatureEnabledForBranch(tenantId, branchId, 'DAILY_RELOAD')
 }
 
+/** Carry forward from the latest CLOSED day before `dateStr` (skips holidays / unclosed days). */
 async function getOpeningCash(tenantId: string, branchId: string, dateStr: string): Promise<number> {
-  const prevStr = previousBusinessDate(dateStr)
-  const prevClosing = await prisma.dailyClosing.findUnique({
-    where: { tenantId_branchId_date: { tenantId, branchId, date: businessDateDb(prevStr) } },
-    select: { closingBalance: true, actualCash: true, status: true },
+  const prevClosing = await prisma.dailyClosing.findFirst({
+    where: {
+      tenantId,
+      branchId,
+      status: 'CLOSED',
+      date: { lt: businessDateDb(normalizeBusinessDate(dateStr)) },
+    },
+    orderBy: { date: 'desc' },
+    select: { closingBalance: true, actualCash: true },
   })
-  if (prevClosing?.status === 'CLOSED') return prevClosing.closingBalance || prevClosing.actualCash || 0
-  return 0
+  if (!prevClosing) return 0
+  return prevClosing.closingBalance || prevClosing.actualCash || 0
 }
 
 export async function buildDailyClosingPreview(tenantId: string, branchId: string, dateStr: string) {
