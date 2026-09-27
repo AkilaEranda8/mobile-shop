@@ -114,13 +114,23 @@ export async function markPaymentCleared(input: {
 
   const reference = typeof input.reference === 'string' && input.reference.trim() ? input.reference.trim().slice(0, 120) : null
   const branchId = payment.sale.branchId
-  const postJournal = !!branchId
-    && await paymentAccountingActive(input.tenantId, branchId)
-    && await saleJournalPosted(input.tenantId, payment.saleId)
+  const accountingOn = !!branchId && await paymentAccountingActive(input.tenantId, branchId)
+  const postJournal = accountingOn && await saleJournalPosted(input.tenantId, payment.saleId)
+  if (accountingOn && !postJournal) {
+    // Clearing without the sale journal would leave the money stuck in the clearing account.
+    throw new AppError('This sale is still being posted to accounting. Try again in a minute.', 409)
+  }
 
   if (postJournal && Number(payment.customerFeeAmount ?? 0) > 0
     && !(await saleJournalPosted(input.tenantId, payment.saleId, 'PAYMENT_FEE_COLLECTED'))) {
     throw new AppError('The payment fee is still being posted to accounting. Try again in a minute.', 409)
+  }
+
+  if (destinationType === 'CASH' && destinationId && branchId) {
+    const cash = await prisma.cashAccount.findFirst({ where: { id: destinationId, tenantId: input.tenantId }, select: { branchId: true } })
+    if (cash?.branchId && cash.branchId !== branchId) {
+      throw new AppError('Choose a cash account of the branch that made this sale', 400)
+    }
   }
 
   let destinationGl: string | null = null
@@ -214,10 +224,21 @@ export async function reversePaymentClearance(input: {
   })
   if (!clearance) throw new AppError('Clearance record not found', 404)
 
+  const claimed = await prisma.paymentClearance.updateMany({
+    where: { id: clearance.id, status: 'ACTIVE' },
+    data: { status: 'REVERSING' },
+  })
+  if (claimed.count === 0) throw new AppError('This clearance is already being reversed', 409)
+
   let reversalJournalId: string | null = null
-  if (clearance.journalEntryId) {
-    const rev = await reversePaymentClearanceJournal(input.tenantId, clearance.journalEntryId, clearance.id, input.actorEmail)
-    reversalJournalId = rev?.id ?? null
+  try {
+    if (clearance.journalEntryId) {
+      const rev = await reversePaymentClearanceJournal(input.tenantId, clearance.journalEntryId, clearance.id, input.actorEmail)
+      reversalJournalId = rev?.id ?? null
+    }
+  } catch (err) {
+    await prisma.paymentClearance.update({ where: { id: clearance.id }, data: { status: 'ACTIVE' } }).catch(() => undefined)
+    throw err
   }
   await prisma.$transaction([
     prisma.paymentClearance.update({

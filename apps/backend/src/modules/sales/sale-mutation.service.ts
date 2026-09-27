@@ -136,6 +136,19 @@ export async function processSaleReturn(input: ProcessSaleReturnInput) {
   if (!['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'WALLET', 'CHEQUE', 'CREDIT'].includes(method)) {
     throw new AppError('Invalid refund method', 400)
   }
+  if (method !== 'CASH' && method !== 'CREDIT') {
+    // The provider has not paid this money yet — a refund "through" it would hit the legacy clearing account.
+    const pendingSameMethod = await prisma.salePayment.findFirst({
+      where: { saleId: sale.id, method: method as PaymentMethod, clearanceStatus: 'PENDING' },
+      select: { methodLabel: true },
+    })
+    if (pendingSameMethod) {
+      throw new AppError(
+        `${pendingSameMethod.methodLabel ?? method} payment is still pending clearance. Refund as cash or store credit, or Mark as Clear first.`,
+        400,
+      )
+    }
+  }
   const isCustomerCredit = method === 'CREDIT'
   if (isCustomerCredit) {
     await assertFeatureEnabledForBranch(
