@@ -164,6 +164,17 @@ export async function resolveSalePaymentDebitAccount(
  * (so later Settings changes can't redirect the credit). Null if the journal has no line for it.
  */
 export async function postedClearingAccountForPayment(tenantId: string, saleId: string, salePaymentId: string): Promise<string | null> {
+  const moved = await prisma.integrationLink.findUnique({
+    where: { tenantId_sourceType_sourceId_eventType: { tenantId, sourceType: 'SalePayment', sourceId: salePaymentId, eventType: 'CLEARING_RECLASSED' } },
+    select: { journalEntryId: true },
+  })
+  if (moved) {
+    const line = await prisma.journalLine.findFirst({
+      where: { entryId: moved.journalEntryId, tenantId, debit: { gt: 0 } },
+      select: { accountId: true },
+    })
+    if (line) return line.accountId
+  }
   const link = await prisma.integrationLink.findUnique({
     where: { tenantId_sourceType_sourceId_eventType: { tenantId, sourceType: 'Sale', sourceId: saleId, eventType: 'SALE_CREATED' } },
     select: { journalEntryId: true },
@@ -175,6 +186,95 @@ export async function postedClearingAccountForPayment(tenantId: string, saleId: 
   })
   const hit = lines.find(l => (l.metadata as Record<string, unknown> | null)?.salePaymentId === salePaymentId)
   return hit?.accountId ?? null
+}
+
+/**
+ * Pending payments that were posted to the shared "Pending Payment Clearance" account (because the
+ * method had no own account yet) are moved once to the method's clearing account:
+ * Dr method clearing / Cr pending clearance (sale amount + customer fee). Idempotent per payment.
+ */
+export async function moveDefaultPendingToMethodAccounts(
+  tenantId: string,
+  methods: Array<{ id: string; clearance?: { required: boolean; glAccountId?: string } }>,
+  actorEmail?: string,
+): Promise<number> {
+  const settings = await prisma.accountingSettings.findUnique({ where: { tenantId }, select: { defaultAccounts: true, initializedAt: true } })
+  const defaultGl = ((settings?.defaultAccounts ?? {}) as Record<string, unknown>).paymentClearing
+  if (!settings?.initializedAt || typeof defaultGl !== 'string') return 0
+
+  const targetByConfig = new Map<string, string>()
+  for (const m of methods) {
+    const gl = m.clearance?.required ? m.clearance.glAccountId : undefined
+    if (gl && gl !== defaultGl) targetByConfig.set(m.id, gl)
+  }
+  if (!targetByConfig.size) return 0
+
+  const pending = await prisma.salePayment.findMany({
+    where: { clearanceStatus: 'PENDING', methodConfigId: { in: [...targetByConfig.keys()] }, sale: { tenantId } },
+    select: {
+      id: true, amount: true, customerFeeAmount: true, methodConfigId: true, methodLabel: true, method: true,
+      sale: { select: { id: true, branchId: true, invoiceNumber: true } },
+    },
+  })
+
+  let moved = 0
+  for (const p of pending) {
+    const target = targetByConfig.get(p.methodConfigId!)!
+    const already = await prisma.integrationLink.findUnique({
+      where: { tenantId_sourceType_sourceId_eventType: { tenantId, sourceType: 'SalePayment', sourceId: p.id, eventType: 'CLEARING_RECLASSED' } },
+      select: { id: true },
+    })
+    if (already) continue
+    const posted = await postedClearingAccountForPayment(tenantId, p.sale.id, p.id)
+    if (posted !== defaultGl) continue
+    const fee = round2(Number(p.customerFeeAmount ?? 0))
+    if (fee > 0) {
+      const feeLink = await prisma.integrationLink.findUnique({
+        where: { tenantId_sourceType_sourceId_eventType: { tenantId, sourceType: 'Sale', sourceId: p.sale.id, eventType: 'PAYMENT_FEE_COLLECTED' } },
+        select: { id: true },
+      })
+      if (!feeLink) continue
+    }
+    const gross = round2(Number(p.amount) + fee)
+    if (gross <= 0) continue
+    const label = p.methodLabel ?? p.method
+    const meta = { saleId: p.sale.id, salePaymentId: p.id, invoiceNumber: p.sale.invoiceNumber }
+    const previous = await prisma.salePayment.findUnique({ where: { id: p.id }, select: { clearanceGlAccountId: true } })
+    const claim = await prisma.salePayment.updateMany({
+      where: {
+        id: p.id,
+        clearanceStatus: 'PENDING',
+        OR: [{ clearanceGlAccountId: null }, { clearanceGlAccountId: { not: target } }],
+      },
+      data: { clearanceGlAccountId: target },
+    })
+    if (claim.count === 0) continue
+    try {
+      const je = await createPostedJournalEntry({
+        tenantId,
+        branchId: p.sale.branchId,
+        entryDate: new Date(),
+        sourceModule: 'CASH_BANK',
+        sourceRefType: 'SalePayment',
+        sourceRefId: p.id,
+        sourceEvent: 'CLEARING_RECLASSED',
+        memo: `Move ${label} ${p.sale.invoiceNumber} to ${label} clearing`,
+        createdByEmail: actorEmail ?? 'system',
+        lines: [
+          { accountId: target, debit: gross, credit: 0, description: `${label} clearing ${p.sale.invoiceNumber}`, metadata: meta },
+          { accountId: defaultGl, debit: 0, credit: gross, description: `Pending clearance ${p.sale.invoiceNumber}`, metadata: meta },
+        ],
+      })
+      await prisma.integrationLink.create({
+        data: { tenantId, sourceType: 'SalePayment', sourceId: p.id, eventType: 'CLEARING_RECLASSED', journalEntryId: je.id },
+      })
+      moved++
+    } catch (e) {
+      await prisma.salePayment.update({ where: { id: p.id }, data: { clearanceGlAccountId: previous?.clearanceGlAccountId ?? null } }).catch(() => {})
+      console.warn(`[payment-clearance] could not move ${p.id} to method clearing:`, e instanceof Error ? e.message : e)
+    }
+  }
+  return moved
 }
 
 /** Validate a clearing account chosen in Settings. */

@@ -11,7 +11,7 @@ import {
 import { getSmsSettingsForClient } from '../sms/sms.service'
 import { normalizeRolePermissions } from './role-permissions.util'
 import { ensureBranchCashAccounts } from '../accounting/accounting-init.service'
-import { assertClearingAccountAllowed, withMethodClearingAccounts } from '../accounting/integration/payment-fee-journals'
+import { assertClearingAccountAllowed, moveDefaultPendingToMethodAccounts, withMethodClearingAccounts } from '../accounting/integration/payment-fee-journals'
 import { normalizePaymentMethodSettings } from './payment-method-settings.util'
 import { invalidateRolePermissionCache } from '../../middleware/module-access.middleware'
 import { normalizeDisabledFeatures, planBranchLimit } from '../../constants/plan-limits'
@@ -167,7 +167,9 @@ export const tenantsService = {
     const chosen = [...new Set(normalized.methods.map(m => m.clearance?.glAccountId).filter((id): id is string => !!id))]
     for (const glAccountId of chosen) await assertClearingAccountAllowed(tenantId, glAccountId)
     const { settings: withAccounts } = await withMethodClearingAccounts(tenantId, normalized)
-    return setTenantConfig(tenantId, 'paymentMethod', withAccounts as unknown as Record<string, unknown>, { actor })
+    const saved = await setTenantConfig(tenantId, 'paymentMethod', withAccounts as unknown as Record<string, unknown>, { actor })
+    await moveDefaultPendingToMethodAccounts(tenantId, withAccounts.methods, actor)
+    return saved
   },
 
   async getProductVariantSettings(tenantId: string) {

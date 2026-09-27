@@ -1,6 +1,7 @@
 import type { PaymentMethod } from '@prisma/client'
 import { AppError } from '../../middleware/error.middleware'
-import { getTenantConfig } from '../configuration-engine/configuration-engine.service'
+import { getTenantConfig, setTenantConfig } from '../configuration-engine/configuration-engine.service'
+import { withMethodClearingAccounts } from '../accounting/integration/payment-fee-journals'
 import {
   computeCustomerFee,
   feeRuleAt,
@@ -102,7 +103,17 @@ export async function buildSalePaymentRows(
 
         if (cfg.clearance?.required && method !== 'CASH') {
           row.clearanceStatus = 'PENDING'
-          if (cfg.clearance.glAccountId) row.clearanceGlAccountId = cfg.clearance.glAccountId
+          let current: PaymentMethodSettings = settings
+          if (!cfg.clearance.glAccountId) {
+            const filled: { settings: PaymentMethodSettings; changed: boolean } = await withMethodClearingAccounts(tenantId, current)
+            if (filled.changed) {
+              await setTenantConfig(tenantId, 'paymentMethod', filled.settings as unknown as Record<string, unknown>)
+              current = filled.settings
+              settings = current
+            }
+          }
+          const glAccountId = current.methods.find(m => m.id === cfg.id)?.clearance?.glAccountId
+          if (glAccountId) row.clearanceGlAccountId = glAccountId
         }
       }
     }

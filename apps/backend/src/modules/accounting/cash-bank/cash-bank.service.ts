@@ -9,7 +9,7 @@ import { resolvePaymentGlAccountId } from '../subledgers/ar-ap-payment.service'
 import { ensureAccountingRegisters, requireAccountingInitialized } from '../accounting-init.service'
 import { getTenantConfig, setTenantConfig } from '../../configuration-engine/configuration-engine.service'
 import { normalizePaymentMethodSettings } from '../../tenants/payment-method-settings.util'
-import { withMethodClearingAccounts } from '../integration/payment-fee-journals'
+import { moveDefaultPendingToMethodAccounts, withMethodClearingAccounts } from '../integration/payment-fee-journals'
 
 async function assertInitialized(tenantId: string) {
   const s = await requireAccountingInitialized(tenantId)
@@ -153,6 +153,7 @@ async function listMethodClearingRegisters(tenantId: string, branchId: string | 
   const current = normalizePaymentMethodSettings(await getTenantConfig(tenantId, 'paymentMethod'))
   const { settings, changed } = await withMethodClearingAccounts(tenantId, current)
   if (changed) await setTenantConfig(tenantId, 'paymentMethod', settings as unknown as Record<string, unknown>)
+  await moveDefaultPendingToMethodAccounts(tenantId, settings.methods)
 
   const legacy = new Set([defaultAccounts.cardClearing, defaultAccounts.upiClearing].filter(Boolean))
   const labelsByGl = new Map<string, string[]>()
