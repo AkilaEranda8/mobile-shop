@@ -70,7 +70,7 @@ function InvLabel({ children }: { children: React.ReactNode }) {
 function InvoiceTemplate({ sale, shopName, settings }: { sale: any; shopName: string; settings: InvoiceSettings }) {
   const fc = (n: number) => formatCurrency(n)
   const dateStr = sale.createdAt ? new Date(sale.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
-  const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || 'â€”'
+  const payMethod = sale.payments?.map((p: any) => p.method).join(' + ') || '—'
   const displayName = settings.shopName || shopName
 
   return (
@@ -287,7 +287,7 @@ function DeleteSaleModal({
         adminPassword,
         reason: reason.trim() || 'Deleted by admin',
       })
-      toast.success(`Invoice ${sale.invoiceNumber} voided â€” stock restored`)
+      toast.success(`Invoice ${sale.invoiceNumber} voided — stock restored`)
       onDeleted()
       onClose()
     } catch (e: any) {
@@ -326,7 +326,7 @@ function DeleteSaleModal({
             className="input-field w-full text-sm"
             value={reason}
             onChange={e => setReason(e.target.value)}
-            placeholder="Wrong entry / cashier mistakeâ€¦"
+            placeholder="Wrong entry / cashier mistake…"
           />
         </div>
         <AdminPasswordField value={adminPassword} onChange={setAdminPassword} autoFocus />
@@ -339,7 +339,7 @@ function DeleteSaleModal({
             className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-semibold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-60"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-            {saving ? 'Deletingâ€¦' : 'Delete invoice'}
+            {saving ? 'Deleting…' : 'Delete invoice'}
           </button>
         </div>
       </div>
@@ -935,7 +935,7 @@ function SaleDetailsModal({
     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25'
     : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
 
-  const safeText = (v: any) => (v === null || v === undefined || v === '' ? 'â€”' : String(v))
+  const safeText = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v))
 
   return (
     <>
@@ -1165,7 +1165,7 @@ function SaleDetailsModal({
               className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[12px] rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 font-semibold disabled:opacity-60"
             >
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              {downloading ? 'Generatingâ€¦' : 'Download PDF'}
+              {downloading ? 'Generating…' : 'Download PDF'}
             </button>
             <button
               type="button"

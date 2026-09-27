@@ -275,7 +275,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
             <div>
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Register Device IMEI</h3>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                PO {po.poNumber} â€” {filledSlots}/{totalSlots} slots filled
+                PO {po.poNumber} — {filledSlots}/{totalSlots} slots filled
               </p>
             </div>
           </div>
@@ -301,7 +301,7 @@ export function IMEIRegisterModal({ po, products, onClose, onSaved }: {
 
           {prefillLoading && (
             <div className="flex items-center justify-center gap-2 py-6 text-xs" style={{ color: 'var(--text-muted)' }}>
-              <Loader2 size={14} className="animate-spin" /> Loading registered IMEIsâ€¦
+              <Loader2 size={14} className="animate-spin" /> Loading registered IMEIs…
             </div>
           )}
 
@@ -1088,7 +1088,7 @@ export function ConfirmReceiveModal({ po, onConfirm, onCancel, loading }: {
               {loading
                 ? <Loader2 size={14} className="animate-spin" />
                 : <CheckCircle size={14} />}
-              {loading ? 'Processingâ€¦' : 'Yes, Receive'}
+              {loading ? 'Processing…' : 'Yes, Receive'}
             </button>
           </div>
         </div>

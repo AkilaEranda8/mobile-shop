@@ -522,10 +522,11 @@ function NewTicketModal({ onClose, onSaved, prefill }: { onClose: () => void; on
                             <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Phone Number <span className="text-red-500">*</span></label>
                             <div className="relative">
                               <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 [color:var(--text-muted)]" />
-                              <div className="absolute left-10 top-1/2 -translate-y-1/2 flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                <span>ðŸ‡±ðŸ‡°</span><span>+94</span>
-                              </div>
-                              <input required className="input-field pl-24 pr-11 h-12" placeholder="Enter phone number" value={newCust.phone}
+                              <span className="absolute left-10 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>
+                                +94
+                              </span>
+                              <input required type="tel" inputMode="tel" className="input-field h-12" style={{ paddingLeft: '4.5rem', paddingRight: '2.75rem' }}
+                                placeholder="77 123 4567" value={newCust.phone}
                                 onChange={e => setNewCust(p => ({ ...p, phone: e.target.value }))} />
                               <MessageSquare size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
                             </div>
