@@ -15,6 +15,7 @@ import { ReleaseNotesPopup } from '@/components/layout/ReleaseNotesPopup'
 import { SessionBranchBootstrap } from '@/components/layout/SessionBranchBootstrap'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { PaymentDueBanner } from '@/components/layout/PaymentDueBanner'
+import { TrialEndingBanner } from '@/components/layout/TrialCountdown'
 import { RoleAccessGuard } from '@/components/layout/RoleAccessGuard'
 import { SuspendedAccountGate } from '@/components/layout/SuspendedAccountGate'
 import { ShopQuestUnlockProvider } from '@/lib/shop-quest-unlock'
@@ -58,6 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <ShopQuestUnlockProvider>
         <div className="flex h-screen overflow-hidden flex-col" style={{ background: 'var(--bg-primary)' }}>
           <OfflineBanner />
+          <TrialEndingBanner />
           <PaymentDueBanner />
           <SessionBranchBootstrap />
           <PinMustChangeGate />
@@ -107,6 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           maintenance={maintenance}
         />
         <OfflineBanner />
+        <TrialEndingBanner />
         <PaymentDueBanner />
         <SessionBranchBootstrap />
         <AnnouncementBanners />

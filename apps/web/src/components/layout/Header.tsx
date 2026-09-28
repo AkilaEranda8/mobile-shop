@@ -18,6 +18,7 @@ import { QuestHeaderChip } from '@/components/shop-quest/QuestHeaderChip'
 import { useShopQuestUnlock } from '@/lib/shop-quest-unlock'
 import { getDesktopDownloadUrl } from '@/lib/desktop-download'
 import { startDesktopDownload } from '@/components/DesktopDownloadOverlay'
+import { TrialHeaderChip } from '@/components/layout/TrialCountdown'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -104,6 +105,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
       </div>
 
       <div className="flex items-center gap-1.5 xl:gap-2 ml-auto shrink-0">
+        <TrialHeaderChip />
         <QuestHeaderChip />
         <div data-tour="header-branch" className={branchLocked ? 'opacity-45 pointer-events-none' : undefined}>
           <BranchControl />
