@@ -251,6 +251,9 @@ export const authService = {
     city?: string
   }) {
     const ownerEmail = normalizeEmail(data.ownerEmail)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(ownerEmail)) {
+      throw new AppError('Enter a valid owner email address (e.g. name@gmail.com)', 400)
+    }
     const existing = await prisma.user.findFirst({ where: { email: emailEquals(ownerEmail) } })
     if (existing) throw new AppError('Email already in use', 409)
 
@@ -335,8 +338,11 @@ export const authService = {
         accessToken = tokens.accessToken
         refreshToken = tokens.refreshToken
       } catch (e) {
-        console.error('[KC] registerTenant token issue failed:', (e as Error).message)
-        throw new AppError('Account created but authentication service failed. Contact support.', 503)
+        // Same as login: the shop is already created — a Keycloak problem must not leave it unusable.
+        console.error('[KC] registerTenant token issue failed; falling back to local JWT:', (e as Error).message)
+        const tokens = await issueLocalTokens({ id: user.id, tenantId: tenant.id, role: 'OWNER', email: user.email })
+        accessToken = tokens.accessToken
+        refreshToken = tokens.refreshToken
       }
     } else {
       const tokens = await issueLocalTokens({
