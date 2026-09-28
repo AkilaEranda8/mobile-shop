@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { sendSuccess } from '../../utils/response'
-import { getMaintenanceStatus } from '../../utils/platform-config'
+import { getMaintenanceStatus, getPlatformGeneral } from '../../utils/platform-config'
 import { authenticate } from '../../middleware/auth.middleware'
 import { AppError } from '../../middleware/error.middleware'
 
@@ -25,8 +25,12 @@ function announcementMatchesTenant(
 
 router.get('/status', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const maintenance = await getMaintenanceStatus()
-    sendSuccess(res, { maintenance, announcements: [] })
+    const [maintenance, general] = await Promise.all([getMaintenanceStatus(), getPlatformGeneral()])
+    sendSuccess(res, {
+      maintenance,
+      announcements: [],
+      platform: { name: general.name, supportEmail: general.supportEmail, trialDays: general.trialDays },
+    })
   } catch (e) { next(e) }
 })
 

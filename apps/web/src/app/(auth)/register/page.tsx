@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react'
-import { authApi } from '@/lib/api'
+import { authApi, fetchPlatformStatus } from '@/lib/api'
 import { tenantShopUrl } from '@/lib/tenant-url'
 
 const plans = [
@@ -30,6 +30,14 @@ function RegisterForm() {
   const [form, setForm] = useState({
     shopName: '', ownerName: '', email: '', phone: '', password: '', city: '',
   })
+
+  const [trialDays, setTrialDays] = useState(14)
+
+  useEffect(() => {
+    fetchPlatformStatus()
+      .then(s => { if (s.platform?.trialDays) setTrialDays(s.platform.trialDays) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const q = searchParams.get('plan')?.toLowerCase()
@@ -92,7 +100,7 @@ function RegisterForm() {
           <h1 className="text-2xl font-bold text-white">
             {step === 1 ? 'Start your free trial' : 'Choose a plan'}
           </h1>
-          <p className="text-slate-400 text-sm mt-1">14 days free, no credit card required</p>
+          <p className="text-slate-400 text-sm mt-1">{trialDays} {trialDays === 1 ? 'day' : 'days'} free, no credit card required</p>
         </div>
 
         <div className="flex items-center gap-2 mb-6 justify-center">
@@ -238,7 +246,7 @@ function RegisterForm() {
 
               <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl p-3">
                 <p className="text-xs text-brand-300 text-center">
-                  14-day free trial on all plans. No credit card needed.
+                  {trialDays}-day free trial on all plans. No credit card needed.
                 </p>
               </div>
 

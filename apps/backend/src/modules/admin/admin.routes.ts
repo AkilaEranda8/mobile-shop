@@ -2269,6 +2269,23 @@ router.get('/settings/config', async (_req: Request, res: Response, next: NextFu
 router.put('/settings/config', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const updates = req.body as Record<string, string>
+    if ('platform.name' in updates) {
+      updates['platform.name'] = String(updates['platform.name'] ?? '').trim().slice(0, 60)
+      if (!updates['platform.name']) throw new AppError('Platform name is required', 400)
+    }
+    if ('platform.supportEmail' in updates) {
+      updates['platform.supportEmail'] = String(updates['platform.supportEmail'] ?? '').trim().toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(updates['platform.supportEmail'])) {
+        throw new AppError('Enter a valid support email address', 400)
+      }
+    }
+    if ('platform.trialDays' in updates) {
+      const days = Number(updates['platform.trialDays'])
+      if (!Number.isInteger(days) || days < 1 || days > 365) {
+        throw new AppError('Trial duration must be a whole number of days between 1 and 365', 400)
+      }
+      updates['platform.trialDays'] = String(days)
+    }
     const prevMaintenance = await getMaintenanceStatus()
     await Promise.all(
       Object.entries(updates).map(([key, value]) =>

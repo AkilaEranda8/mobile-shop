@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Tenant } from '@/types'
-import { billingApi } from '@/lib/api'
+import { billingApi, fetchPlatformStatus } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { calculateHelaposCustomerPayable } from '@/lib/helapos-fees'
 import { notifyBillingPaid } from '@/lib/billing-events'
@@ -237,6 +237,12 @@ function UsageMeter({
 
 export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loading, onUpgraded }: Props) {
   const router = useRouter()
+  const [supportEmail, setSupportEmail] = useState(SUPPORT_EMAIL)
+  useEffect(() => {
+    fetchPlatformStatus()
+      .then(s => { if (s.platform?.supportEmail) setSupportEmail(s.platform.supportEmail) })
+      .catch(() => {})
+  }, [])
   const [view, setView] = useState<'cards' | 'compare'>('cards')
   const [upgradePlan, setUpgradePlan] = useState<BillingPlan | null>(null)
   const [helaposEnabled, setHelaposEnabled] = useState(false)
@@ -972,7 +978,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
             <Phone size={13} /> Call
           </a>
           <a
-            href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Billing · ${tenant.name}`)}`}
+            href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Billing · ${tenant.name}`)}`}
             className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
           >
             <Mail size={13} /> Email
@@ -1172,7 +1178,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                           <MessageCircle size={13} /> WhatsApp
                         </a>
                         <a
-                          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
+                          href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
                           className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
                         >
                           <Mail size={13} /> Email
@@ -1198,7 +1204,7 @@ export default function BillingSubscriptionPanel({ tenant, plans, teamCount, loa
                       <MessageCircle size={15} /> WhatsApp
                     </a>
                     <a
-                      href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
+                      href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Upgrade to ${upgradePlan.label} · ${tenant.name}`)}&body=${encodeURIComponent(`Shop: ${tenant.name}\nPlan: ${upgradePlan.label} (${upgradePlan.price}${upgradePlan.period})\nEmail: ${tenant.ownerEmail ?? ''}`)}`}
                       className="inline-flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
                     >
                       <Mail size={14} /> Email

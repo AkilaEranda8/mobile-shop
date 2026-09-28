@@ -1003,6 +1003,7 @@ export type PlatformAnnouncement = {
 export type PlatformStatus = {
   maintenance: { enabled: boolean; message: string }
   announcements: PlatformAnnouncement[]
+  platform?: { name: string; supportEmail: string; trialDays: number }
 }
 
 export const platformApi = {

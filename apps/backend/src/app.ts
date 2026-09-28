@@ -168,10 +168,14 @@ const PLANS = [
 app.get(`${API}/plans`, async (_req, res) => {
   try {
     const configs = await prisma.platformConfig.findMany({
-      where: { key: { startsWith: 'plan_' } },
+      where: { OR: [{ key: { startsWith: 'plan_' } }, { key: 'platform.trialDays' }] },
     })
     const cfgMap: Record<string, string> = {}
     for (const c of configs) cfgMap[c.key] = c.value
+    const trialDays = Math.floor(Number(cfgMap['platform.trialDays']))
+    const trialPeriod = Number.isInteger(trialDays) && trialDays >= 1 && trialDays <= 365
+      ? `${trialDays} day${trialDays === 1 ? '' : 's'}`
+      : null
 
     const data = PLANS.map(p => {
       const mrrKey  = `plan_mrr_${p.key}`
@@ -179,7 +183,8 @@ app.get(`${API}/plans`, async (_req, res) => {
       const mrr     = cfgMap[mrrKey] ? parseInt(cfgMap[mrrKey]) : null
       const feats   = cfgMap[featKey] ? JSON.parse(cfgMap[featKey]) : p.features
       const price   = mrr != null ? `Rs.${mrr.toLocaleString()}` : p.price
-      return { ...p, price, features: feats, mrr }
+      const period  = p.key === 'TRIAL' && trialPeriod ? trialPeriod : p.period
+      return { ...p, price, period, features: feats, mrr }
     })
     res.json({ success: true, data })
   } catch { res.json({ success: true, data: PLANS }) }

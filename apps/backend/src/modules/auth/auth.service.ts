@@ -14,7 +14,7 @@ import {
   updateKcPassword,
 } from '../../utils/keycloakAdmin'
 import { sendMail } from '../../utils/mailer'
-import { getMaintenanceStatus } from '../../utils/platform-config'
+import { getMaintenanceStatus, getPlatformGeneral } from '../../utils/platform-config'
 import { ensureTenantAccess } from '../../utils/tenant-access'
 import { getTenantBranches, getUserBranchIds, pickDefaultBranchId } from '../../utils/active-branch'
 import { consumeImpersonationCode } from '../../utils/impersonation-codes'
@@ -262,7 +262,8 @@ export const authService = {
     const slug = existing_slug ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug
     const shopHost = tenantShopHost(slug)
     const hashedPassword = await bcrypt.hash(data.password, 12)
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    const { trialDays } = await getPlatformGeneral()
+    const trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000)
 
     const tenant = await prisma.tenant.create({
       data: {

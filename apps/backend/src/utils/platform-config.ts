@@ -14,6 +14,22 @@ export async function getMaintenanceStatus() {
   }
 }
 
+export const DEFAULT_TRIAL_DAYS = 14
+
+/** Admin → Settings → General (platform name, support email, default trial length). */
+export async function getPlatformGeneral() {
+  const rows = await prisma.platformConfig.findMany({
+    where: { key: { in: ['platform.name', 'platform.supportEmail', 'platform.trialDays'] } },
+  })
+  const map = Object.fromEntries(rows.map(r => [r.key, r.value]))
+  const days = Math.floor(Number(map['platform.trialDays']))
+  return {
+    name: map['platform.name']?.trim() || 'Hexalyte',
+    supportEmail: map['platform.supportEmail']?.trim() || 'support@hexalyte.com',
+    trialDays: Number.isFinite(days) && days >= 1 && days <= 365 ? days : DEFAULT_TRIAL_DAYS,
+  }
+}
+
 export async function syncMaintenanceAnnouncement(enabled: boolean, message: string) {
   // Only one live maintenance banner should exist at a time. Archive previous
   // ones both when re-enabling (avoids duplicates) and when disabling
