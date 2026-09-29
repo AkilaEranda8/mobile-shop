@@ -60,6 +60,7 @@ import {
   normalizePlatformAdminRole,
 } from '../../utils/platform-admin-role'
 import { collectServiceHealth, collectOpsOverview } from './ops-health'
+import { getTenantPresence } from '../../utils/presence'
 import { listJobs, triggerJob, getJob } from '../../utils/job-registry'
 
 const router = Router()
@@ -1277,6 +1278,12 @@ router.get('/analytics', requirePlatformFinance, async (_req: Request, res: Resp
 })
 
 // ── System Health ─────────────────────────────────────────────────────────────
+router.get('/monitoring/presence', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await getTenantPresence())
+  } catch (e) { next(e) }
+})
+
 router.get('/health', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const services = await collectServiceHealth()

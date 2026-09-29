@@ -12,6 +12,7 @@ import { isKcAuthEnabled } from '../utils/keycloakAdmin'
 import { prisma } from '../config/database'
 import { roleHasPermission, type PermissionKey } from '../utils/permissions'
 import { canAccessPlatformFinance } from '../utils/platform-admin-role'
+import { recordPresence } from '../utils/presence'
 
 declare global {
   namespace Express {
@@ -151,6 +152,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         throw err
       }
     }
+    recordPresence(req)
     next()
   } catch {
     sendError(res, 'Invalid or expired token', 401)

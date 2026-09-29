@@ -12,6 +12,7 @@ import { canAccessPlatformFinance, isFinancePath } from '@/lib/platform-admin-ro
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/tenants': 'Tenants',
+  '/monitoring': 'Live Tenant Monitor',
   '/subscriptions': 'Subscriptions & Billing',
   '/payments': 'Payments',
   '/whatsapp': 'WhatsApp',

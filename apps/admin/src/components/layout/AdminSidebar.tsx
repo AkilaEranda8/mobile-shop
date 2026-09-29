@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Building2, CreditCard, KeyRound, Activity,
   BarChart3, ScrollText, Bell,   Megaphone, Wrench, Settings,
-  Shield, LogOut, X, Sparkles, MessageCircle, Smartphone, Lightbulb, ShieldCheck, Wallet, LifeBuoy, MessagesSquare,
+  Shield, LogOut, X, Sparkles, MessageCircle, Smartphone, Lightbulb, ShieldCheck, Wallet, LifeBuoy, MessagesSquare, Radio,
 } from 'lucide-react'
 import {
   featureSuggestionsAdminApi,
@@ -14,6 +14,7 @@ import {
   fetchSubscriptions,
   fetchHealth,
   fetchNotifications,
+  fetchTenantPresence,
 } from '@/lib/api'
 import { hubSession, type HubUserInfo } from '@/lib/hub-session'
 import { type HubProduct, getProduct } from '@/lib/products'
@@ -25,6 +26,7 @@ type NavItem = { href: string; label: string; icon: typeof LayoutDashboard }
 const ENTERPRISE_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/tenants', label: 'Tenants', icon: Building2 },
+  { href: '/monitoring', label: 'Live Monitor', icon: Radio },
   { href: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { href: '/payments', label: 'Payments', icon: Wallet },
   { href: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
@@ -138,16 +140,19 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
       const next: Record<string, string | null> = {}
       try {
         const financeOk = canAccessPlatformFinance(hubSession.getUser('enterprise'))
-        const [stats, overdue, health, notifs, suggestions] = await Promise.all([
+        const [stats, overdue, health, notifs, suggestions, presence] = await Promise.all([
           fetchStats().catch(() => null),
           financeOk ? fetchSubscriptions('OVERDUE').catch(() => null) : Promise.resolve(null),
           fetchHealth().catch(() => null),
           fetchNotifications().catch(() => null),
           featureSuggestionsAdminApi.summary().catch(() => null),
+          fetchTenantPresence().catch(() => null),
         ])
         if (cancelled) return
 
         if (stats) next['/tenants'] = fmtBadgeCount(stats.totalTenants)
+        const onlineTenants = presence?.summary.onlineTenants ?? 0
+        next['/monitoring'] = onlineTenants > 0 ? `${onlineTenants} online` : null
 
         const overdueCount = overdue?.data?.length ?? 0
         if (financeOk) {
@@ -236,7 +241,9 @@ export default function AdminSidebar({ onClose, onLogout }: Props) {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
                     alertBadge
                       ? active ? 'bg-white/20 text-white' : 'bg-red-50 text-red-600'
-                      : active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                      : item.href === '/monitoring'
+                        ? active ? 'bg-white/20 text-white' : 'bg-green-50 text-green-700'
+                        : active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
                   }`}>
                     {badge}
                   </span>

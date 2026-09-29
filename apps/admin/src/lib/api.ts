@@ -737,6 +737,56 @@ export async function fetchMrrChart(): Promise<MrrPoint[]> {
   return req<MrrPoint[]>(ADMIN_BASE, '/mrr-chart')
 }
 
+// ─── Live tenant monitor ─────────────────────────────────────────────────────
+export type PresenceState = 'online' | 'idle' | 'offline'
+
+export interface PresenceUser {
+  userId: string
+  name: string
+  email: string
+  role: string
+  branchName: string | null
+  lastSeen: number
+  state: PresenceState
+  area: string
+  ip: string
+  device: string
+}
+
+export interface TenantPresenceRow {
+  tenantId: string
+  name: string
+  slug: string
+  plan: string
+  status: string
+  trialEndsAt: string | null
+  createdAt: string
+  state: PresenceState
+  onlineUsers: number
+  idleUsers: number
+  lastSeen: number | null
+  users: PresenceUser[]
+  recentUsers: PresenceUser[]
+}
+
+export interface TenantPresenceData {
+  generatedAt: number
+  onlineWindowMinutes: number
+  summary: {
+    totalTenants: number
+    onlineTenants: number
+    idleTenants: number
+    onlineUsers: number
+    active24hTenants: number
+    neverSeenTenants: number
+  }
+  tenants: TenantPresenceRow[]
+}
+
+export async function fetchTenantPresence(): Promise<TenantPresenceData> {
+  return req<TenantPresenceData>(ADMIN_BASE, '/monitoring/presence')
+}
+
 // ─── System Health ────────────────────────────────────────────────────────────
 export async function fetchHealth(): Promise<HealthData> {
   return req<HealthData>(ADMIN_BASE, '/health')
