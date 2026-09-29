@@ -2247,6 +2247,7 @@ const CONFIG_DEFAULTS: Record<string, string> = {
   'platform.name':              'Hexalyte',
   'platform.supportEmail':      'support@hexalyte.com',
   'platform.trialDays':         '14',
+  'trial.whatsappReminders':    'true',
   'feature.whatsappReceipts':   'true',
   'feature.advancedAnalytics':  'true',
   'feature.multiCurrency':      'false',

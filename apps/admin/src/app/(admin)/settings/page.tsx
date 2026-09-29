@@ -73,6 +73,24 @@ function PlatformTab({ cfg, onChange, onSave, saving }: {
       </div>
 
       <div className="card p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="section-title !mb-0">Trial WhatsApp Reminders</h3>
+            <p className="text-xs text-gray-400 mt-0.5 max-w-xl">
+              Automatic WhatsApp messages to trial shop owners from the platform WhatsApp: welcome (day 1), setup help (day 3),
+              trial ends in 2 days, trial ends today, and a win-back message 3 days after expiry. Sent 10:00–19:00 (Colombo),
+              each message once per shop.
+            </p>
+          </div>
+          <Switch checked={(cfg['trial.whatsappReminders'] ?? 'true') !== 'false'} onChange={async (next) => {
+            const value = next ? 'true' : 'false'
+            onChange('trial.whatsappReminders', value)
+            await onSave(['trial.whatsappReminders'], { 'trial.whatsappReminders': value })
+          }} />
+        </div>
+      </div>
+
+      <div className="card p-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h3 className="section-title !mb-0">Maintenance Mode</h3>
