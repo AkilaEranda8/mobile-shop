@@ -84,7 +84,6 @@ function buildMessage(stage: Stage, i: MessageInput): string {
         `🔗 ${i.dashboardUrl}`,
         '',
         'Need help setting up? Just reply to this message — we will help you for free.',
-        'Setup කරගන්න උදව් ඕන නම් මේ message එකට reply කරන්න 🙏',
         ...signature(i),
       ].join('\n')
     case 'setup_products':
@@ -95,7 +94,6 @@ function buildMessage(stage: Stage, i: MessageInput): string {
         'Adding products takes only a few minutes — add them one by one or import from the master catalog.',
         '',
         'Want us to help you set up on a quick call? Reply *YES* and our team will call you.',
-        'Products add කරගන්න උදව් ඕන නම් *YES* කියලා reply කරන්න.',
         '',
         `🔗 ${i.dashboardUrl}`,
         ...signature(i),
@@ -108,7 +106,6 @@ function buildMessage(stage: Stage, i: MessageInput): string {
         'Next step: make your first bill from the POS (press *F2*). Receipts can be printed or sent on WhatsApp.',
         '',
         'Any questions? Reply to this message and we will help.',
-        'පළමු bill එක දාන්න උදව් ඕන නම් reply කරන්න.',
         '',
         `🔗 ${i.dashboardUrl}`,
         ...signature(i),
@@ -123,7 +120,6 @@ function buildMessage(stage: Stage, i: MessageInput): string {
         `💳 Upgrade: ${i.billingUrl}`,
         '',
         'Questions about plans? Reply to this message.',
-        'ඔබේ trial එක දින 2කින් ඉවර වෙනවා. Data නැති නොවී දිගටම use කරන්න upgrade කරන්න.',
         ...signature(i),
       ].join('\n')
     case 'ends_today':
@@ -136,7 +132,6 @@ function buildMessage(stage: Stage, i: MessageInput): string {
         `💳 Upgrade now: ${i.billingUrl}`,
         '',
         'Need more time or help choosing a plan? Reply to this message.',
-        'අද ඔබේ trial එක ඉවර වෙනවා. Upgrade කරලා දිගටම use කරන්න.',
         ...signature(i),
       ].join('\n')
     case 'winback':
@@ -147,7 +142,6 @@ function buildMessage(stage: Stage, i: MessageInput): string {
         'Good news — all your products, sales and customer data are still safe.',
         '',
         'Reply to this message and we will reactivate your shop as soon as you choose a plan.',
-        'ඔබේ data සියල්ල ආරක්ෂිතයි. නැවත පටන් ගන්න මේ message එකට reply කරන්න.',
         ...signature(i),
       ].join('\n')
   }
