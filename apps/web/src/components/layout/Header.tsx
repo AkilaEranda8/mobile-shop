@@ -91,23 +91,25 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
   }
 
   return (
-    <header className="h-14 flex items-center px-3 xl:px-4 gap-2 xl:gap-4 sticky top-0 z-40 border-b transition-colors"
+    <header className="h-14 flex items-center px-2 sm:px-3 xl:px-4 gap-1.5 sm:gap-2 xl:gap-4 sticky top-0 z-40 border-b transition-colors"
       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
 
       {/* Mobile menu toggle */}
-      <button onClick={onMenuToggle} className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+      <button onClick={onMenuToggle} className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 transition-colors shrink-0" style={{ color: 'var(--text-muted)' }}>
         {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
       </button>
 
       {/* Search */}
-      <div className="flex-1 max-w-md relative z-[200] overflow-visible min-w-0">
+      <div className="flex-none sm:flex-1 max-w-md relative z-[200] overflow-visible min-w-0">
         <GlobalSearch />
       </div>
 
-      <div className="flex items-center gap-1.5 xl:gap-2 ml-auto shrink-0">
+      <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 ml-auto shrink-0 min-w-0">
         <TrialHeaderChip />
-        <QuestHeaderChip />
-        <div data-tour="header-branch" className={branchLocked ? 'opacity-45 pointer-events-none' : undefined}>
+        <div className="hidden md:block">
+          <QuestHeaderChip />
+        </div>
+        <div data-tour="header-branch" className={`hidden md:block ${branchLocked ? 'opacity-45 pointer-events-none' : ''}`}>
           <BranchControl />
           {branchLocked && (
             <span className="sr-only">Branch locked during Shop Quest</span>
@@ -118,7 +120,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
         <Link
           href="/business-services"
           title="Business Services"
-          className="inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
+          className="hidden md:inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
           style={{
             background: 'var(--sidebar-active-bg)',
             color: 'var(--sidebar-active-text)',
@@ -139,7 +141,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
               label: 'Hexalyte Desktop',
             })
           }
-          className="inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
+          className="hidden lg:inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90"
           style={{
             background: 'var(--bg-subtle)',
             color: 'var(--text-secondary)',
@@ -170,7 +172,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
         )}
 
         {/* Theme toggle — avoid inline var(--brand-primary); light-mode CSS was forcing white text on those buttons */}
-        <div className="flex items-center rounded-xl border p-0.5 gap-0.5"
+        <div className="hidden md:flex items-center rounded-xl border p-0.5 gap-0.5"
           style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
           <button
             type="button"
@@ -208,7 +210,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-xl z-50 border"
+            <div className="fixed left-2 right-2 top-14 mt-1 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 rounded-2xl shadow-xl z-50 border"
               style={{ background: 'var(--bg-card)', borderColor: 'var(--border-default)' }}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                 <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Notifications</span>
@@ -242,7 +244,7 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
               {initials}
             </div>
             <span className="hidden md:block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{user?.name ?? 'User'}</span>
-            <ChevronDown size={13} style={{ color: 'var(--text-muted)' }} />
+            <ChevronDown size={13} className="hidden sm:block" style={{ color: 'var(--text-muted)' }} />
           </button>
 
           {userOpen && (
@@ -252,6 +254,33 @@ export default function Header({ onMenuToggle, sidebarOpen, maintenance }: Heade
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name ?? 'User'}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user?.email ?? ''}</p>
                 <span className="inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full capitalize accent-badge">{roleLabel}</span>
+              </div>
+              <div className="md:hidden p-2 space-y-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                {!branchLocked && <BranchControl />}
+                <div className="flex items-center rounded-xl border p-0.5 gap-0.5"
+                  style={{ borderColor: 'var(--border-default)', background: 'var(--bg-subtle)' }}>
+                  {(['light', 'dark'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => switchTheme(mode)}
+                      className="theme-toggle-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium capitalize"
+                      style={activeTheme === mode
+                        ? { background: 'var(--bg-card)', color: 'var(--sidebar-active-text)', border: '1px solid var(--border-subtle)' }
+                        : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent' }}
+                    >
+                      {mode === 'light' ? <Sun size={13} /> : <Moon size={13} />}{mode}
+                    </button>
+                  ))}
+                </div>
+                <Link
+                  href="/business-services"
+                  onClick={() => setUserOpen(false)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-xl"
+                  style={{ color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}
+                >
+                  <BriefcaseBusiness size={15} />Business Services
+                </Link>
               </div>
               <div className="p-1">
                 {[

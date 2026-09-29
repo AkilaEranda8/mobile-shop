@@ -214,16 +214,22 @@ export default function GlobalSearch() {
   }, {})
 
   return (
-    <div ref={rootRef} className="relative w-full max-w-xs z-[200]">
+    <div
+      ref={rootRef}
+      className={`z-[200] ${open
+        ? 'fixed left-2 right-2 top-2 sm:relative sm:left-auto sm:right-auto sm:top-auto w-auto sm:w-full sm:max-w-xs'
+        : 'relative w-full max-w-xs'}`}
+    >
       {!open ? (
         <button
           type="button"
           onClick={openSearch}
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all w-full border"
+          title="Search"
+          className="flex items-center gap-2 rounded-xl px-2 sm:px-3 py-2 text-sm transition-all w-full border"
           style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
         >
           <Search size={14} />
-          <span>Search...</span>
+          <span className="hidden sm:inline">Search...</span>
           <kbd
             className="ml-auto text-[10px] border rounded px-1.5 py-0.5 hidden sm:inline"
             style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}

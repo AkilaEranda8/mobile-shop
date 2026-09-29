@@ -84,7 +84,7 @@ export function TrialHeaderChip() {
     <Link
       href={BILLING_HREF}
       title={lastDay ? 'Your trial ends today — upgrade now' : `Free trial: ${days} day${days === 1 ? '' : 's'} left — click to upgrade`}
-      className={`inline-flex items-center gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90 whitespace-nowrap ${
+      className={`inline-flex items-center gap-1 sm:gap-1.5 h-8 px-2 xl:px-3 rounded-xl text-xs font-semibold border transition-all hover:opacity-90 whitespace-nowrap ${
         lastDay
           ? 'bg-red-600 border-red-500 text-white animate-pulse'
           : 'bg-red-500/10 border-red-500/40 text-red-600 dark:text-red-400'
