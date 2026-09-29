@@ -1,9 +1,28 @@
 import { Request, Response, NextFunction } from 'express'
 import { posPinService } from './pos-pin.service'
 import { sendSuccess } from '../../utils/response'
-import { getClientIp } from '../../utils/activity-log'
+import { getClientIp, logPlatformActivity } from '../../utils/activity-log'
 import { resolveTenantSlugFromRequest } from '../../utils/tenant-slug'
 import { AppError } from '../../middleware/error.middleware'
+
+async function logPinLogin(
+  req: Request,
+  user: { id?: string; email?: string; name?: string; role?: string; tenantId?: string } | undefined,
+  how: string,
+) {
+  if (!user?.id) return
+  await logPlatformActivity({
+    eventType: 'TENANT_LOGIN',
+    severity: 'INFO',
+    actorType: 'TENANT',
+    actor: user.email ?? '—',
+    target: user.name ?? '—',
+    details: `${how} · role ${user.role ?? '—'}`,
+    ip: getClientIp(req),
+    tenantId: user.tenantId,
+    userId: user.id,
+  }).catch(() => {})
+}
 
 export const posPinController = {
   async coldLoginAvailability(req: Request, res: Response, next: NextFunction) {
@@ -27,6 +46,7 @@ export const posPinController = {
         pin: req.body.pin,
         ip: getClientIp(req),
       })
+      await logPinLogin(req, data.user, 'POS PIN login')
       sendSuccess(res, data, 'PIN login successful')
     } catch (e) { next(e) }
   },
@@ -39,6 +59,7 @@ export const posPinController = {
         pin: req.body.pin,
         ip: getClientIp(req),
       })
+      await logPinLogin(req, data.user, 'POS PIN cashier switch')
       sendSuccess(res, data, 'Cashier switched')
     } catch (e) { next(e) }
   },

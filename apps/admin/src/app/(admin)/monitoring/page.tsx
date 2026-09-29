@@ -5,8 +5,8 @@ import {
   Radio, RefreshCw, Search, ChevronDown, ChevronRight, Users, Building2, Clock, MoonStar, Monitor,
 } from 'lucide-react'
 import {
-  fetchTenantPresence,
-  type PresenceState, type TenantPresenceData, type TenantPresenceRow,
+  fetchTenantPresence, fetchTenantLoginDetail,
+  type PresenceState, type TenantPresenceData, type TenantPresenceRow, type TenantLoginDetail,
 } from '@/lib/api'
 
 const REFRESH_MS = 15_000
@@ -119,7 +119,7 @@ export default function MonitoringPage() {
     { key: null, label: 'Users online', value: s?.onlineUsers ?? '—', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
     { key: 'active', label: 'Idle tenants', value: s?.idleTenants ?? '—', icon: MoonStar, color: 'text-amber-600', bg: 'bg-amber-50' },
     { key: 'all', label: 'Active last 24h', value: s ? `${s.active24hTenants} / ${s.totalTenants}` : '—', icon: Clock, color: 'text-gray-700', bg: 'bg-gray-100' },
-    { key: 'never', label: 'Never seen', value: s?.neverSeenTenants ?? '—', icon: Building2, color: 'text-gray-500', bg: 'bg-gray-100' },
+    { key: 'never', label: 'Never logged in', value: s?.neverSeenTenants ?? '—', icon: Building2, color: 'text-gray-500', bg: 'bg-gray-100' },
   ]
 
   return (
@@ -181,7 +181,7 @@ export default function MonitoringPage() {
             ['active', 'Online + Idle'],
             ['online', 'Online'],
             ['all', 'All tenants'],
-            ['never', 'Never seen'],
+            ['never', 'Never logged in'],
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -196,25 +196,26 @@ export default function MonitoringPage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[760px]">
+        <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
               <th className="th w-4" />
               <th className="th">Tenant</th>
               <th className="th">State</th>
               <th className="th">Users</th>
-              <th className="th">Last seen</th>
+              <th className="th">Last login</th>
+              <th className="th">Last activity</th>
               <th className="th">Current area</th>
               <th className="th">Plan</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {!data && loading && (
-              <tr><td className="td text-center text-gray-400 py-10" colSpan={7}>Loading…</td></tr>
+              <tr><td className="td text-center text-gray-400 py-10" colSpan={8}>Loading…</td></tr>
             )}
             {data && rows.length === 0 && (
               <tr>
-                <td className="td text-center text-gray-400 py-10" colSpan={7}>
+                <td className="td text-center text-gray-400 py-10" colSpan={8}>
                   {filter === 'online' || filter === 'active' ? 'No tenants are online right now.' : 'No tenants match.'}
                 </td>
               </tr>
@@ -227,25 +228,31 @@ export default function MonitoringPage() {
       </div>
 
       <p className="text-xs text-gray-400">
-        Presence is recorded from shop app activity (web &amp; desktop). Admin impersonation sessions are not counted.
+        Last login comes from the login log (password &amp; POS PIN). Live activity is recorded from shop app usage (web &amp; desktop).
+        Admin impersonation sessions are not counted.
       </p>
     </div>
   )
 }
 
+const METHOD_BADGE: Record<string, string> = {
+  Password: 'badge-gray',
+  PIN: 'badge-blue',
+  'PIN switch': 'badge-blue',
+}
+
 function TenantRow({ t, now, open, onToggle }: { t: TenantPresenceRow; now: number; open: boolean; onToggle: () => void }) {
-  const people = t.users.length ? t.users : t.recentUsers.slice(0, 5)
   const top = t.users[0] ?? t.recentUsers[0]
-  const canExpand = people.length > 0
+  const lastActivity = t.recentUsers[0]?.lastSeen ?? null
 
   return (
     <Fragment>
       <tr
-        className={`hover:bg-gray-50/60 ${canExpand ? 'cursor-pointer' : ''} ${t.state === 'online' ? 'bg-green-50/30' : ''}`}
-        onClick={canExpand ? onToggle : undefined}
+        className={`hover:bg-gray-50/60 cursor-pointer ${t.state === 'online' ? 'bg-green-50/30' : ''}`}
+        onClick={onToggle}
       >
         <td className="td pr-0 text-gray-400">
-          {canExpand ? (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </td>
         <td className="td">
           <p className="font-semibold text-gray-900">{t.name}</p>
@@ -263,8 +270,24 @@ function TenantRow({ t, now, open, onToggle }: { t: TenantPresenceRow; now: numb
           {t.onlineUsers === 0 && t.idleUsers === 0 && <span className="text-gray-400">—</span>}
         </td>
         <td className="td whitespace-nowrap">
-          <span className={t.lastSeen == null ? 'text-gray-400' : ''}>{ago(t.lastSeen, now)}</span>
-          {t.lastSeen != null && <p className="text-[11px] text-gray-400">{fmtDateTime(t.lastSeen)}</p>}
+          {t.lastLogin ? (
+            <>
+              <span>{ago(t.lastLogin.at, now)}</span>
+              <p className="text-[11px] text-gray-400">{fmtDateTime(t.lastLogin.at)}</p>
+              <p className="text-[11px] text-gray-500 truncate max-w-[180px]" title={t.lastLogin.email}>
+                {t.lastLogin.name} · {t.lastLogin.method}
+              </p>
+            </>
+          ) : <span className="text-gray-400">Never</span>}
+        </td>
+        <td className="td whitespace-nowrap">
+          {lastActivity != null ? (
+            <>
+              <span>{ago(lastActivity, now)}</span>
+              <p className="text-[11px] text-gray-400">{fmtDateTime(lastActivity)}</p>
+            </>
+          ) : <span className="text-gray-400">—</span>}
+          <p className="text-[11px] text-gray-400">{t.logins30d} login{t.logins30d === 1 ? '' : 's'} / 30d</p>
         </td>
         <td className="td">{t.state === 'offline' ? <span className="text-gray-400">—</span> : areaLabel(top?.area ?? '')}</td>
         <td className="td">
@@ -274,37 +297,135 @@ function TenantRow({ t, now, open, onToggle }: { t: TenantPresenceRow; now: numb
           </div>
         </td>
       </tr>
-      {open && canExpand && (
+      {open && (
         <tr className="bg-gray-50/70">
           <td />
-          <td colSpan={6} className="px-4 pb-4 pt-1">
-            <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">
-              {t.users.length ? 'Active users' : 'Recent users'}
-            </p>
-            <div className="grid gap-2 md:grid-cols-2">
-              {people.map(u => (
-                <div key={u.userId} className="flex items-start gap-3 rounded-lg bg-white border border-gray-100 p-3">
-                  <StateDot state={u.state} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{u.name}</p>
-                      <span className="badge-gray capitalize">{u.role.toLowerCase()}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 truncate">{u.email}</p>
-                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
-                      <span>{ago(u.lastSeen, now)}</span>
-                      {u.branchName && <span className="inline-flex items-center gap-1"><Building2 size={11} />{u.branchName}</span>}
-                      {u.area && <span>{areaLabel(u.area)}</span>}
-                      <span className="inline-flex items-center gap-1"><Monitor size={11} />{u.device}</span>
-                      {u.ip && <span className="font-mono">{u.ip}</span>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <td colSpan={7} className="px-4 pb-4 pt-1">
+            <TenantDetail t={t} now={now} />
           </td>
         </tr>
       )}
     </Fragment>
+  )
+}
+
+function TenantDetail({ t, now }: { t: TenantPresenceRow; now: number }) {
+  const [tab, setTab] = useState<'users' | 'history'>('users')
+  const [detail, setDetail] = useState<TenantLoginDetail | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    fetchTenantLoginDetail(t.tenantId)
+      .then(d => { if (alive) setDetail(d) })
+      .catch(e => { if (alive) setError(e instanceof Error ? e.message : 'Failed to load') })
+    return () => { alive = false }
+  }, [t.tenantId, t.lastLogin?.at])
+
+  const live = new Map(t.recentUsers.map(u => [u.userId, u]))
+
+  return (
+    <div>
+      <div className="flex gap-1 mb-3">
+        {([['users', 'Users & last login'], ['history', 'Login history']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium ${tab === key ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {!detail && !error && <p className="text-sm text-gray-400">Loading…</p>}
+
+      {detail && tab === 'users' && (
+        <div className="grid gap-2 md:grid-cols-2">
+          {detail.users.length === 0 && <p className="text-sm text-gray-400">No users.</p>}
+          {detail.users.map(u => {
+            const p = live.get(u.userId)
+            return (
+              <div key={u.userId} className={`flex items-start gap-3 rounded-lg bg-white border border-gray-100 p-3 ${u.isActive ? '' : 'opacity-60'}`}>
+                <div className="pt-1"><StateDot state={u.state} /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{u.name}</p>
+                    <span className="badge-gray capitalize">{u.role.toLowerCase()}</span>
+                    {!u.isActive && <span className="badge-red">Disabled</span>}
+                  </div>
+                  <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                    <div>
+                      <p className="text-gray-400 uppercase tracking-wide text-[10px]">Last login</p>
+                      {u.lastLogin ? (
+                        <p className="text-gray-700">
+                          {fmtDateTime(u.lastLogin.at)}
+                          <span className="text-gray-400"> · {ago(u.lastLogin.at, now)}</span>
+                        </p>
+                      ) : <p className="text-gray-400">Never</p>}
+                    </div>
+                    <div>
+                      <p className="text-gray-400 uppercase tracking-wide text-[10px]">Last activity</p>
+                      <p className={u.lastActive ? 'text-gray-700' : 'text-gray-400'}>{u.lastActive ? ago(u.lastActive, now) : '—'}</p>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                    <span>{u.logins30d} login{u.logins30d === 1 ? '' : 's'} / 30d</span>
+                    {u.lastLogin && <span className={METHOD_BADGE[u.lastLogin.method] ?? 'badge-gray'}>{u.lastLogin.method}</span>}
+                    {p?.branchName && <span className="inline-flex items-center gap-1"><Building2 size={11} />{p.branchName}</span>}
+                    {p && u.state !== 'offline' && p.area && <span>{areaLabel(p.area)}</span>}
+                    {p && <span className="inline-flex items-center gap-1"><Monitor size={11} />{p.device}</span>}
+                    {(p?.ip || u.lastLogin?.ip) && <span className="font-mono">{p?.ip || u.lastLogin?.ip}</span>}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {detail && tab === 'history' && (
+        <div className="rounded-lg border border-gray-100 bg-white overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="th">Time</th>
+                <th className="th">Event</th>
+                <th className="th">User</th>
+                <th className="th">Method</th>
+                <th className="th">IP</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {detail.history.length === 0 && (
+                <tr><td colSpan={5} className="td text-center text-gray-400 py-6">No login records yet.</td></tr>
+              )}
+              {detail.history.map(h => (
+                <tr key={h.id}>
+                  <td className="td whitespace-nowrap">
+                    {fmtDateTime(h.at)}
+                    <p className="text-[11px] text-gray-400">{ago(h.at, now)}</p>
+                  </td>
+                  <td className="td">
+                    <span className={h.type === 'login' ? 'badge-green' : h.type === 'failed' ? 'badge-red' : 'badge-gray'}>
+                      {h.type === 'login' ? 'Login' : h.type === 'failed' ? 'Failed login' : 'Logout'}
+                    </span>
+                  </td>
+                  <td className="td">
+                    <p className="text-gray-900">{h.name !== '—' ? h.name : h.email}</p>
+                    <p className="text-[11px] text-gray-400">{h.email}</p>
+                  </td>
+                  <td className="td text-xs text-gray-600">{h.method ?? (h.type === 'failed' ? h.details : '—')}</td>
+                  <td className="td font-mono text-xs">{h.ip}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }

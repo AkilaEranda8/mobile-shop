@@ -765,8 +765,39 @@ export interface TenantPresenceRow {
   onlineUsers: number
   idleUsers: number
   lastSeen: number | null
+  lastLogin: { at: number; name: string; email: string; ip: string; method: string } | null
+  logins30d: number
   users: PresenceUser[]
   recentUsers: PresenceUser[]
+}
+
+export interface TenantLoginDetail {
+  users: {
+    userId: string
+    name: string
+    email: string
+    role: string
+    isActive: boolean
+    createdAt: string
+    lastLogin: { at: number; ip: string; method: string } | null
+    logins30d: number
+    lastActive: number | null
+    state: PresenceState
+  }[]
+  history: {
+    id: string
+    at: number
+    type: 'login' | 'logout' | 'failed'
+    email: string
+    name: string
+    ip: string
+    method: string | null
+    details: string
+  }[]
+}
+
+export async function fetchTenantLoginDetail(tenantId: string): Promise<TenantLoginDetail> {
+  return req<TenantLoginDetail>(ADMIN_BASE, `/monitoring/tenants/${encodeURIComponent(tenantId)}/logins`)
 }
 
 export interface TenantPresenceData {

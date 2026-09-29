@@ -78,6 +78,14 @@ function deviceLabel(ua: string, desktop: boolean): string {
   return [browser, os].filter(Boolean).join(' · ') + mobile || 'Unknown'
 }
 
+type LoginRow = { tenantId: string; createdAt: Date; actor: string; target: string; ip: string; details: string }
+
+function loginMethod(details: string): string {
+  if (/cashier switch/i.test(details)) return 'PIN switch'
+  if (/POS PIN/i.test(details)) return 'PIN'
+  return 'Password'
+}
+
 function stateFor(lastSeen: number, now: number): PresenceUser['state'] {
   const age = now - lastSeen
   if (age <= ONLINE_WINDOW_MS) return 'online'
@@ -112,6 +120,22 @@ export async function getTenantPresence() {
     }),
   ])
   const userById = new Map(users.map(u => [u.id, u]))
+
+  const since30d = new Date(now - 30 * 24 * 60 * 60 * 1000)
+  const [lastLogins, loginCounts] = await Promise.all([
+    prisma.$queryRaw<LoginRow[]>`
+      SELECT DISTINCT ON ("tenantId") "tenantId", "createdAt", "actor", "target", "ip", "details"
+      FROM "PlatformActivityLog"
+      WHERE "eventType" = 'TENANT_LOGIN' AND "tenantId" IS NOT NULL
+      ORDER BY "tenantId", "createdAt" DESC`,
+    prisma.platformActivityLog.groupBy({
+      by: ['tenantId'],
+      where: { eventType: 'TENANT_LOGIN', tenantId: { not: null }, createdAt: { gte: since30d } },
+      _count: { _all: true },
+    }),
+  ])
+  const lastLoginByTenant = new Map(lastLogins.map(l => [l.tenantId, l]))
+  const loginCountByTenant = new Map(loginCounts.map(c => [c.tenantId, c._count._all]))
 
   const branchIds = new Set<string>()
   const meta = seen.map((s, i) => {
@@ -149,7 +173,9 @@ export async function getTenantPresence() {
 
   const rows = tenants.map(t => {
     const list = (byTenant.get(t.id) ?? []).sort((a, b) => b.lastSeen - a.lastSeen)
-    const lastSeen = list[0]?.lastSeen ?? null
+    const login = lastLoginByTenant.get(t.id)
+    const lastLoginAt = login ? login.createdAt.getTime() : null
+    const lastSeen = Math.max(list[0]?.lastSeen ?? 0, lastLoginAt ?? 0) || null
     const onlineUsers = list.filter(u => u.state === 'online').length
     const idleUsers = list.filter(u => u.state === 'idle').length
     return {
@@ -164,6 +190,10 @@ export async function getTenantPresence() {
       onlineUsers,
       idleUsers,
       lastSeen,
+      lastLogin: login
+        ? { at: lastLoginAt!, name: login.target, email: login.actor, ip: login.ip, method: loginMethod(login.details) }
+        : null,
+      logins30d: loginCountByTenant.get(t.id) ?? 0,
       users: list.filter(u => u.state !== 'offline'),
       recentUsers: list.slice(0, 10),
     }
@@ -187,5 +217,80 @@ export async function getTenantPresence() {
       neverSeenTenants: rows.filter(r => r.lastSeen == null).length,
     },
     tenants: rows,
+  }
+}
+
+/** Per-tenant drill-down: every user with last login / last activity, plus recent login history. */
+export async function getTenantLoginDetail(tenantId: string) {
+  const now = Date.now()
+  const since30d = new Date(now - 30 * 24 * 60 * 60 * 1000)
+  const users = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  const userIds = users.map(u => u.id)
+  const emails = users.map(u => u.email.toLowerCase())
+
+  const [lastLogins, counts, history, scores] = await Promise.all([
+    userIds.length
+      ? prisma.$queryRaw<{ userId: string; createdAt: Date; ip: string; details: string }[]>`
+          SELECT DISTINCT ON ("userId") "userId", "createdAt", "ip", "details"
+          FROM "PlatformActivityLog"
+          WHERE "eventType" = 'TENANT_LOGIN' AND "tenantId" = ${tenantId} AND "userId" IS NOT NULL
+          ORDER BY "userId", "createdAt" DESC`
+      : Promise.resolve([]),
+    prisma.platformActivityLog.groupBy({
+      by: ['userId'],
+      where: { eventType: 'TENANT_LOGIN', tenantId, createdAt: { gte: since30d } },
+      _count: { _all: true },
+    }),
+    prisma.platformActivityLog.findMany({
+      where: {
+        OR: [
+          { tenantId, eventType: { in: ['TENANT_LOGIN', 'LOGOUT'] } },
+          ...(emails.length ? [{ eventType: 'LOGIN_FAILED', actor: { in: emails } }] : []),
+        ],
+      },
+      select: { id: true, eventType: true, actor: true, target: true, ip: true, details: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    }),
+    userIds.length
+      ? redis.pipeline(userIds.map(id => ['zscore', LAST_SEEN_ZSET, id])).exec().catch(() => null)
+      : Promise.resolve(null),
+  ])
+
+  const loginByUser = new Map(lastLogins.map(l => [l.userId, l]))
+  const countByUser = new Map(counts.map(c => [c.userId, c._count._all]))
+
+  return {
+    users: users.map((u, i) => {
+      const login = loginByUser.get(u.id)
+      const score = scores?.[i]?.[1]
+      const lastActive = score != null ? Number(score) : null
+      return {
+        userId: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        isActive: u.isActive,
+        createdAt: u.createdAt,
+        lastLogin: login ? { at: login.createdAt.getTime(), ip: login.ip, method: loginMethod(login.details) } : null,
+        logins30d: countByUser.get(u.id) ?? 0,
+        lastActive,
+        state: lastActive != null ? stateFor(lastActive, now) : 'offline',
+      }
+    }),
+    history: history.map(h => ({
+      id: h.id,
+      at: h.createdAt.getTime(),
+      type: h.eventType === 'TENANT_LOGIN' ? 'login' : h.eventType === 'LOGOUT' ? 'logout' : 'failed',
+      email: h.actor,
+      name: h.target,
+      ip: h.ip,
+      method: h.eventType === 'TENANT_LOGIN' ? loginMethod(h.details) : null,
+      details: h.details,
+    })),
   }
 }
